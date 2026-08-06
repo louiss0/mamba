@@ -43,6 +43,8 @@ class Command {
 
   final List<Command>? commands;
 
+  final List<String>? aliases;
+
   Command(
     this.name,
     this.shortDescription, {
@@ -52,6 +54,7 @@ class Command {
     this.commands,
     this.flags,
     this.options,
+    this.aliases,
   });
 
   void run(List<String> args) {}
@@ -266,33 +269,26 @@ enum Numbers implements NumberGetter {
   num get value => _number;
 }
 
-sealed class AccessorFlagValue<T> {
-  T get value;
-  const AccessorFlagValue();
+sealed class AccessorFlagValue<T extends Map<String, Object>> {
+  final T value;
 
-  static AccessorFlagValue<String> string(String value) =>
-      StringAccessorFlagValue(value);
+  const AccessorFlagValue(this.value);
 
   static AccessorFlagValue<Map<String, String>> stringMap(
     Map<String, String> value,
-  ) => MapAccessorFlagValue(value);
+  ) => StringMapAccessorFlagValue(value);
+
+  static AccessorFlagValue<Map<String, Map<String, String>>> stringMapLv2(
+    Map<String, Map<String, String>> value,
+  ) => StringMapLv2AccessorFlagValue(value);
 }
 
-final class StringAccessorFlagValue extends AccessorFlagValue<String> {
-  StringAccessorFlagValue(this._value);
-
-  final String _value;
-
-  @override
-  String get value => _value;
-}
-
-final class MapAccessorFlagValue
+final class StringMapAccessorFlagValue
     extends AccessorFlagValue<Map<String, String>> {
-  MapAccessorFlagValue(this._value);
+  const StringMapAccessorFlagValue(super.value);
+}
 
-  final Map<String, String> _value;
-
-  @override
-  Map<String, String> get value => _value;
+final class StringMapLv2AccessorFlagValue
+    extends AccessorFlagValue<Map<String, Map<String, String>>> {
+  const StringMapLv2AccessorFlagValue(super.value);
 }
