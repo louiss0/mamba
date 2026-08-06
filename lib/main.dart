@@ -14,7 +14,7 @@ class MambaParser {
 
   final List<Option<Object>>? options;
 
-  final Map<String, AccessorFlagValue>? accessorflagSchema;
+  final Map<String, AccessorInput>? accessorflagSchema;
 
   MambaParser(
     this.name,
@@ -35,7 +35,7 @@ class Command {
   final String? longDescription;
 
   final PositionalSchema? positionalSchema;
-  final Map<String, AccessorFlagValue>? accessorflagSchema;
+  final Map<String, AccessorInput>? accessorflagSchema;
 
   final List<Flag<Object>>? flags;
 
@@ -264,26 +264,24 @@ enum Numbers implements NumberGetter {
   num get value => _number;
 }
 
-sealed class AccessorFlagValue<T extends Map<String, Object>> {
+sealed class AccessorInput<T extends Object> {
   final T value;
 
-  const AccessorFlagValue(this.value);
+  const AccessorInput(this.value);
 
-  static AccessorFlagValue<Map<String, String>> stringMap(
-    Map<String, String> value,
-  ) => StringMapAccessorFlagValue(value);
+  static AccessorNamedInput namedInput(NamedInput value) {
+    return AccessorNamedInput(value);
+  }
 
-  static AccessorFlagValue<Map<String, Map<String, String>>> stringMapLv2(
-    Map<String, Map<String, String>> value,
-  ) => StringMapLv2AccessorFlagValue(value);
+  static AccessorMapNamedInput namedInputMap(Map<String, NamedInput> value) {
+    return AccessorMapNamedInput(value);
+  }
 }
 
-final class StringMapAccessorFlagValue
-    extends AccessorFlagValue<Map<String, String>> {
-  const StringMapAccessorFlagValue(super.value);
+class AccessorNamedInput extends AccessorInput<NamedInput> {
+  const AccessorNamedInput(super.value);
 }
 
-final class StringMapLv2AccessorFlagValue
-    extends AccessorFlagValue<Map<String, Map<String, String>>> {
-  const StringMapLv2AccessorFlagValue(super.value);
+class AccessorMapNamedInput extends AccessorInput<Map<String, NamedInput>> {
+  const AccessorMapNamedInput(super.value);
 }
