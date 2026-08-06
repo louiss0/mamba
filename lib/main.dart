@@ -126,17 +126,59 @@ final class CountFlag extends Flag<int> {
 
 sealed class Option<T> extends NamedInput {
   final bool required;
-  final bool repeatable;
 
   const Option({
     required super.name,
     required super.description,
     required super.short,
     this.required = false,
-    this.repeatable = false,
   });
 
   T parse(String value);
+
+  StringOption stringOption(
+    String name,
+    RegExp regex, {
+    String? short,
+    String? description,
+    bool required = true,
+  }) {
+    return StringOption(
+      name: name,
+      regex: regex,
+      short: short,
+      description: description,
+      required: required,
+    );
+  }
+
+  IntOption intOption(
+    String name, {
+    String? short,
+    String? description,
+    bool required = true,
+  }) {
+    return IntOption(
+      name: name,
+      short: short,
+      description: description,
+      required: required,
+    );
+  }
+
+  DoubleOption doubleOption(
+    String name, {
+    String? short,
+    String? description,
+    bool required = true,
+  }) {
+    return DoubleOption(
+      name: name,
+      short: short,
+      description: description,
+      required: required,
+    );
+  }
 }
 
 final class StringOption extends Option<String> {
@@ -146,16 +188,20 @@ final class StringOption extends Option<String> {
     required super.short,
     super.description,
     super.required,
-    super.repeatable,
   });
 
   final RegExp regex;
 
   @override
   String parse(String value) {
-    if (!regex.hasMatch(value)) {
-      throw MambaException('Invalid value: $value');
+    final match = regex.matchAsPrefix(value);
+
+    if (match == null || match.end != value.length) {
+      throw MambaException(
+        "Invalid value: '$value' TIP: Anchoring is generally a good idea",
+      );
     }
+
     return value;
   }
 }
@@ -166,7 +212,6 @@ final class IntOption extends Option<int> {
     required super.short,
     super.description,
     super.required,
-    super.repeatable,
   });
 
   @override
@@ -185,7 +230,6 @@ final class DoubleOption extends Option<double> {
     required super.short,
     super.description,
     super.required,
-    super.repeatable,
   });
 
   @override
@@ -198,22 +242,145 @@ final class DoubleOption extends Option<double> {
   }
 }
 
-class MambaException implements Exception {
-  final String message;
+sealed class RepeatableOption<T> extends NamedInput {
+  final bool required;
 
-  MambaException(this.message);
+  const RepeatableOption({
+    required super.name,
+    super.short,
+    super.description,
+    this.required = false,
+  });
+
+  List<T> parseItems(List<String> values);
+
+  static RepeatableIntOption intOption({
+    required String name,
+    String? short,
+    String? description,
+    bool required = false,
+  }) {
+    return RepeatableIntOption(
+      name: name,
+      short: short,
+      description: description,
+      required: required,
+    );
+  }
+
+  static RepeatableDoubleOption doubleOption({
+    required String name,
+    String? short,
+    String? description,
+    bool required = false,
+  }) {
+    return RepeatableDoubleOption(
+      name: name,
+      short: short,
+      description: description,
+      required: required,
+    );
+  }
+
+  static RepeatableStringOption stringOption({
+    required String name,
+    required RegExp regex,
+    String? short,
+    String? description,
+    bool required = false,
+  }) {
+    return RepeatableStringOption(
+      name: name,
+      short: short,
+      description: description,
+      required: required,
+      regex: regex,
+    );
+  }
 }
 
-class MambaInvalidChoiceException<T> implements MambaException {
-  final Iterable<T> choices;
+final class RepeatableStringOption extends RepeatableOption<String> {
+  final RegExp regex;
 
-  MambaInvalidChoiceException(this.choices, this.invalidChoice);
-
-  final T invalidChoice;
+  RepeatableStringOption({
+    required super.name,
+    super.short,
+    super.description,
+    super.required,
+    required this.regex,
+  });
 
   @override
-  get message =>
-      "Invalid choice $invalidChoice it's one of ${choices.join(' , ')}";
+  List<String> parseItems(List<String> values) {
+    return values.map((value) {
+      final match = regex.matchAsPrefix(value);
+
+      if (match == null || match.end != value.length) {
+        throw MambaException(
+          "Invalid value: '$value' TIP: Anchoring is generally a good idea",
+        );
+      }
+
+      return value;
+    }).toList();
+  }
+}
+
+final class RepeatableIntOption extends RepeatableOption<int> {
+  RepeatableIntOption({
+    required super.name,
+    super.short,
+    super.description,
+    super.required,
+  });
+
+  @override
+  List<int> parseItems(List<String> values) {
+    return values.map((v) {
+      final value = int.tryParse(v);
+      if (value == null) {
+        throw MambaException("Invalid value: '$v' isn't an int");
+      }
+      return value;
+    }).toList();
+  }
+}
+
+final class RepeatableDoubleOption extends RepeatableOption<double> {
+  RepeatableDoubleOption({
+    required super.name,
+    super.short,
+    super.description,
+    super.required,
+  });
+
+  @override
+  List<double> parseItems(List<String> values) {
+    return values.map((v) {
+      final value = double.tryParse(v);
+      if (value == null) {
+        throw MambaException("Invalid value: '$v' isn't a double");
+      }
+      return value;
+    }).toList();
+  }
+}
+
+class MambaException implements Exception {
+  const MambaException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+final class MambaInvalidChoiceException<T> extends MambaException {
+  MambaInvalidChoiceException(Iterable<T> choices, T invalidChoice)
+    : super(
+        "Invalid choice '$invalidChoice'. "
+        "Expected one of: ${choices.join(', ')}.",
+      );
 }
 
 final class ChoiceOption<T extends Enum> extends Option<T> {
@@ -259,19 +426,6 @@ typedef StringGetter = ValueGetter<String>;
 
 typedef DoubleGetter = ValueGetter<double>;
 
-enum Numbers implements NumberGetter {
-  one(1),
-  two(2),
-  threePointEight(3.8);
-
-  const Numbers(this._number);
-
-  final num _number;
-
-  @override
-  num get value => _number;
-}
-
 sealed class AccessorInput<T extends Object> {
   final T value;
 
@@ -286,10 +440,12 @@ sealed class AccessorInput<T extends Object> {
   }
 }
 
-class AccessorNamedInput extends AccessorInput<NamedInput> {
+final class AccessorNamedInput extends AccessorInput<NamedInput> {
   const AccessorNamedInput(super.value);
 }
 
-class AccessorMapNamedInput extends AccessorInput<Map<String, NamedInput>> {
-  const AccessorMapNamedInput(super.value);
+final class AccessorMapNamedInput
+    extends AccessorInput<Map<String, NamedInput>> {
+  AccessorMapNamedInput(Map<String, NamedInput> value)
+    : super(Map.unmodifiable(value));
 }
