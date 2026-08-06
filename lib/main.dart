@@ -1,6 +1,4 @@
-void main(List<String> args) {
-  // print(Filter.values.);
-}
+void main(List<String> args) {}
 
 class MambaParser {
   final String name;
@@ -430,26 +428,27 @@ typedef StringGetter = ValueGetter<String>;
 
 typedef DoubleGetter = ValueGetter<double>;
 
-sealed class AccessorInput<T extends Object> {
-  final T value;
+sealed class AccessorInput {
+  const AccessorInput();
 
-  const AccessorInput(this.value);
-
-  static AccessorNamedInput namedInput(NamedInput value) {
-    return AccessorNamedInput(value);
+  factory AccessorInput.group(Map<String, NamedInput> inputs) {
+    return AccessorInputGroup(inputs);
   }
 
-  static AccessorMapNamedInput namedInputMap(Map<String, NamedInput> value) {
-    return AccessorMapNamedInput(value);
+  factory AccessorInput.named(NamedInput input) {
+    return AccessorNamedInput(input);
   }
 }
 
-final class AccessorNamedInput extends AccessorInput<NamedInput> {
-  const AccessorNamedInput(super.value);
+final class AccessorNamedInput extends AccessorInput {
+  const AccessorNamedInput(this.input);
+
+  final NamedInput input;
 }
 
-final class AccessorMapNamedInput
-    extends AccessorInput<Map<String, NamedInput>> {
-  AccessorMapNamedInput(Map<String, NamedInput> value)
-    : super(Map.unmodifiable(value));
+final class AccessorInputGroup extends AccessorInput {
+  AccessorInputGroup(Map<String, NamedInput> inputs)
+    : inputs = Map.unmodifiable(inputs);
+
+  final Map<String, NamedInput> inputs;
 }
