@@ -10,9 +10,9 @@ class MambaParser {
 
   final List<Command> commands;
 
-  final List<Flag>? flags;
+  final List<Flag<Object>>? flags;
 
-  final List<Option>? options;
+  final List<Option<Object>>? options;
 
   final Map<String, AccessorFlagValue>? accessorflagSchema;
 
@@ -37,9 +37,9 @@ class Command {
   final PositionalSchema? positionalSchema;
   final Map<String, AccessorFlagValue>? accessorflagSchema;
 
-  final List<Flag>? flags;
+  final List<Flag<Object>>? flags;
 
-  final List<Option>? options;
+  final List<Option<Object>>? options;
 
   final List<Command>? commands;
 
@@ -82,59 +82,54 @@ class Variadic extends Positional {
 sealed class NamedInput {
   final String name;
   final String? description;
+  final String? short;
 
-  const NamedInput({required this.name, this.description});
-
-  // Must be overridden using the first letter of the name
-  String get short;
+  const NamedInput({required this.name, this.description, this.short});
 }
 
 sealed class Flag<T> extends NamedInput {
   final bool negatable;
 
-  final String? _short;
-
   const Flag({
-    this._short,
+    required super.short,
     required super.name,
     required super.description,
-    this.negatable = false,
+    required this.negatable,
   });
-
-  @override
-  String get short => _short ?? super.name[0];
 }
 
 final class BooleanFlag extends Flag<bool> {
   final bool defaultValue;
 
   BooleanFlag({
+    super.short,
     required super.name,
-
     super.description,
     this.defaultValue = false,
+    super.negatable = false,
   });
 }
 
 final class CountFlag extends Flag<int> {
-  const CountFlag({required super.name, super.short, super.description});
+  const CountFlag({
+    required super.name,
+    super.short,
+    super.description,
+    super.negatable = false,
+  });
 }
 
 sealed class Option<T> extends NamedInput {
-  final String? _short;
   final bool required;
   final bool repeatable;
 
   const Option({
     required super.name,
     required super.description,
-    this._short,
+    super.short,
     this.required = false,
     this.repeatable = false,
   });
-
-  @override
-  String get short => _short ?? super.name[0];
 
   T parse(String value);
 }
