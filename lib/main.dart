@@ -14,17 +14,23 @@ class MambaParser {
 
   final List<Option<Object>>? options;
 
-  final Map<String, AccessorInput>? accessorflagSchema;
+  final Map<String, AccessorInput>? accessorFlagSchema;
 
   MambaParser(
     this.name,
     this.commands, {
     this.shortDescription,
     this.longDescription,
-    this.flags,
-    this.options,
-    this.accessorflagSchema,
-  });
+    List<Flag<Object>>? flags,
+
+    List<Option<Object>>? options,
+
+    Map<String, AccessorInput>? accessorFlagSchema,
+  }) : flags = flags != null ? List.unmodifiable(flags) : null,
+       options = options != null ? List.unmodifiable(options) : null,
+       accessorFlagSchema = accessorFlagSchema != null
+           ? Map.unmodifiable(accessorFlagSchema)
+           : null;
 
   void run(List<String> args) {}
 }
@@ -35,7 +41,7 @@ class Command {
   final String? longDescription;
 
   final PositionalSchema? positionalSchema;
-  final Map<String, AccessorInput>? accessorflagSchema;
+  final Map<String, AccessorInput>? accessorFlagSchema;
 
   final List<Flag<Object>>? flags;
 
@@ -50,12 +56,17 @@ class Command {
     this.shortDescription, {
     this.longDescription,
     this.positionalSchema,
-    this.accessorflagSchema,
     this.commands,
-    this.flags,
-    this.options,
-    this.aliases,
-  });
+    List<Flag<Object>>? flags,
+    Map<String, AccessorInput>? accessorFlagSchema,
+    List<Option<Object>>? options,
+    List<String>? aliases,
+  }) : flags = flags != null ? List.unmodifiable(flags) : null,
+       options = options != null ? List.unmodifiable(options) : null,
+       accessorFlagSchema = accessorFlagSchema != null
+           ? Map.unmodifiable(accessorFlagSchema)
+           : null,
+       aliases = aliases != null ? List.unmodifiable(aliases) : null;
 
   void run(List<String> args) {}
 }
