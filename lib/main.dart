@@ -12,7 +12,7 @@ class MambaParser {
 
   final List<Flag<Object>>? flags;
 
-  final List<Option<Object>>? options;
+  final List<Option<Object, Object>>? options;
 
   final Map<String, AccessorInput>? accessorFlagSchema;
 
@@ -22,7 +22,7 @@ class MambaParser {
     this.shortDescription,
     this.longDescription,
     List<Flag<Object>>? flags,
-    List<Option<Object>>? options,
+    List<Option<Object, Object>>? options,
     Map<String, AccessorInput>? accessorFlagSchema,
   }) : flags = flags != null ? List.unmodifiable(flags) : null,
        commands = List.unmodifiable(commands),
@@ -44,7 +44,7 @@ class Command {
 
   final List<Flag<Object>>? flags;
 
-  final List<Option<Object>>? options;
+  final List<Option<Object, Object>>? options;
 
   final List<Command>? commands;
 
@@ -58,7 +58,7 @@ class Command {
     this.positionalSchema,
     List<Flag<Object>>? flags,
     Map<String, AccessorInput>? accessorFlagSchema,
-    List<Option<Object>>? options,
+    List<Option<Object, Object>>? options,
     List<String>? aliases,
   }) : flags = flags != null ? List.unmodifiable(flags) : null,
        options = options != null ? List.unmodifiable(options) : null,
@@ -124,19 +124,19 @@ final class CountFlag extends Flag<int> {
   const CountFlag({required super.name, super.short, super.description});
 }
 
-sealed class Option<T> extends NamedInput {
+sealed class Option<Output, Input> extends NamedInput {
   final bool required;
 
   const Option({
     required super.name,
     required super.description,
     required super.short,
-    this.required = false,
+    required this.required,
   });
 
-  T parse(String value);
+  Output parse(Input value);
 
-  StringOption stringOption(
+  static StringOption stringOption(
     String name,
     RegExp regex, {
     String? short,
@@ -152,7 +152,7 @@ sealed class Option<T> extends NamedInput {
     );
   }
 
-  IntOption intOption(
+  static IntOption intOption(
     String name, {
     String? short,
     String? description,
@@ -166,7 +166,7 @@ sealed class Option<T> extends NamedInput {
     );
   }
 
-  DoubleOption doubleOption(
+  static DoubleOption doubleOption(
     String name, {
     String? short,
     String? description,
@@ -181,13 +181,13 @@ sealed class Option<T> extends NamedInput {
   }
 }
 
-final class StringOption extends Option<String> {
+final class StringOption extends Option<String, String> {
   StringOption({
     required super.name,
     required this.regex,
     required super.short,
     super.description,
-    super.required,
+    required super.required,
   });
 
   final RegExp regex;
@@ -206,12 +206,12 @@ final class StringOption extends Option<String> {
   }
 }
 
-final class IntOption extends Option<int> {
+final class IntOption extends Option<int, String> {
   IntOption({
     required super.name,
     required super.short,
+    required super.required,
     super.description,
-    super.required,
   });
 
   @override
@@ -224,12 +224,12 @@ final class IntOption extends Option<int> {
   }
 }
 
-final class DoubleOption extends Option<double> {
+final class DoubleOption extends Option<double, String> {
   DoubleOption({
     required super.name,
     required super.short,
+    required super.required,
     super.description,
-    super.required,
   });
 
   @override
@@ -242,17 +242,13 @@ final class DoubleOption extends Option<double> {
   }
 }
 
-sealed class RepeatableOption<T> extends NamedInput {
-  final bool required;
-
+sealed class RepeatableOption<T> extends Option<List<T>, List<String>> {
   const RepeatableOption({
     required super.name,
+    required super.required,
     super.short,
     super.description,
-    this.required = false,
   });
-
-  List<T> parseItems(List<String> values);
 
   static RepeatableIntOption intOption({
     required String name,
@@ -302,22 +298,23 @@ sealed class RepeatableOption<T> extends NamedInput {
 final class RepeatableStringOption extends RepeatableOption<String> {
   final RegExp regex;
 
-  RepeatableStringOption({
+  const RepeatableStringOption({
     required super.name,
+    required super.required,
+    required this.regex,
     super.short,
     super.description,
-    super.required,
-    required this.regex,
   });
 
   @override
-  List<String> parseItems(List<String> values) {
-    return values.map((value) {
+  List<String> parse(List<String> values) {
+    return values.indexed.map((entry) {
+      final (index, value) = entry;
       final match = regex.matchAsPrefix(value);
 
       if (match == null || match.end != value.length) {
         throw MambaException(
-          "Invalid value: '$value' TIP: Anchoring is generally a good idea",
+          "Invalid value: '$value' at index $index TIP: Anchoring is generally a good idea",
         );
       }
 
@@ -327,41 +324,49 @@ final class RepeatableStringOption extends RepeatableOption<String> {
 }
 
 final class RepeatableIntOption extends RepeatableOption<int> {
-  RepeatableIntOption({
+  const RepeatableIntOption({
     required super.name,
+    required super.required,
     super.short,
     super.description,
-    super.required,
   });
 
   @override
-  List<int> parseItems(List<String> values) {
-    return values.map((v) {
-      final value = int.tryParse(v);
-      if (value == null) {
-        throw MambaException("Invalid value: '$v' isn't an int");
+  List<int> parse(List<String> values) {
+    return values.indexed.map((entry) {
+      final (index, value) = entry;
+
+      final parsed = int.tryParse(value);
+      if (parsed == null) {
+        throw MambaException(
+          "Invalid value: '$value' at index $index isn't an int",
+        );
       }
-      return value;
+      return parsed;
     }).toList();
   }
 }
 
 final class RepeatableDoubleOption extends RepeatableOption<double> {
-  RepeatableDoubleOption({
+  const RepeatableDoubleOption({
     required super.name,
+    required super.required,
     super.short,
     super.description,
-    super.required,
   });
 
   @override
-  List<double> parseItems(List<String> values) {
-    return values.map((v) {
-      final value = double.tryParse(v);
-      if (value == null) {
-        throw MambaException("Invalid value: '$v' isn't a double");
+  List<double> parse(List<String> values) {
+    return values.indexed.map((entry) {
+      final (index, value) = entry;
+
+      final parsed = double.tryParse(value);
+      if (parsed == null) {
+        throw MambaException(
+          "Invalid value: '$value' at index $index isn't a double",
+        );
       }
-      return value;
+      return parsed;
     }).toList();
   }
 }
@@ -383,7 +388,7 @@ final class MambaInvalidChoiceException<T> extends MambaException {
       );
 }
 
-final class ChoiceOption<T extends Enum> extends Option<T> {
+final class ChoiceOption<T extends Enum> extends Option<T, String> {
   ChoiceOption({
     required super.name,
     required List<T> choices,
@@ -391,7 +396,8 @@ final class ChoiceOption<T extends Enum> extends Option<T> {
 
     required super.short,
     super.description,
-    super.required,
+    super.required = false,
+
     this.defaultValue,
   }) : choices = List.unmodifiable(choices),
        valueOf = valueOf ?? ((choice) => choice.name);
