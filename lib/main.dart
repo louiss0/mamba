@@ -159,7 +159,7 @@ sealed class Option<Output> extends PureOption<Output> {
     RegExp regex, {
     String? short,
     String? description,
-    bool required = true,
+    bool required = false,
   }) {
     return StringOption(
       name: name,
@@ -174,7 +174,7 @@ sealed class Option<Output> extends PureOption<Output> {
     String name, {
     String? short,
     String? description,
-    bool required = true,
+    bool required = false,
   }) {
     return IntOption(
       name: name,
@@ -188,7 +188,7 @@ sealed class Option<Output> extends PureOption<Output> {
     String name, {
     String? short,
     String? description,
-    bool required = true,
+    bool required = false,
   }) {
     return DoubleOption(
       name: name,
@@ -204,7 +204,7 @@ sealed class Option<Output> extends PureOption<Output> {
     String Function(T choice)? valueOf,
     String? short,
     String? description,
-    bool required = true,
+    bool required = false,
   }) {
     return ChoiceOption(
       name: name,
