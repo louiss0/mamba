@@ -136,7 +136,7 @@ sealed class Option<T> extends NamedInput {
   T parse(String value);
 }
 
-final class StringOption extends Option {
+final class StringOption extends Option<String> {
   StringOption({
     required super.name,
     required this.regex,
@@ -148,15 +148,15 @@ final class StringOption extends Option {
   final RegExp regex;
 
   @override
-  MambaException? parse(String value) {
+  String parse(String value) {
     if (!regex.hasMatch(value)) {
-      return MambaException('Invalid value: $value');
+      throw MambaException('Invalid value: $value');
     }
-    return null;
+    return value;
   }
 }
 
-final class IntOption extends Option {
+final class IntOption extends Option<int> {
   IntOption({
     required super.name,
 
@@ -166,29 +166,30 @@ final class IntOption extends Option {
   });
 
   @override
-  MambaException? parse(String value) {
-    if (int.tryParse(value) == null) {
-      return MambaException("Value $value isn't an integer");
+  int parse(String value) {
+    final parsed = int.tryParse(value);
+    if (parsed == null) {
+      throw MambaException("Value $value isn't an integer");
     }
-    return null;
+    return parsed;
   }
 }
 
-final class DoubleOption extends Option {
+final class DoubleOption extends Option<double> {
   DoubleOption({
     required super.name,
-
     super.description,
     super.required,
     super.repeatable,
   });
 
   @override
-  MambaException? parse(String value) {
-    if (double.tryParse(value) == null) {
-      return MambaException("Value $value isn't a double");
+  double parse(String value) {
+    final parsed = double.tryParse(value);
+    if (parsed == null) {
+      throw MambaException("Value $value isn't a double");
     }
-    return null;
+    return parsed;
   }
 }
 
@@ -272,7 +273,7 @@ sealed class AccessorFlagValue<T> {
   static AccessorFlagValue<String> string(String value) =>
       StringAccessorFlagValue(value);
 
-  static AccessorFlagValue<Map<String, String>> map(
+  static AccessorFlagValue<Map<String, String>> stringMap(
     Map<String, String> value,
   ) => MapAccessorFlagValue(value);
 }
