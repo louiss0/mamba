@@ -14,6 +14,8 @@ class MambaParser {
 
   final List<Option>? options;
 
+  final Map<String, AccessorFlagValue>? accessorflagSchema;
+
   MambaParser(
     this.name,
     this.commands, {
@@ -21,6 +23,7 @@ class MambaParser {
     this.longDescription,
     this.flags,
     this.options,
+    this.accessorflagSchema,
   });
 
   void run(List<String> args) {}
@@ -32,6 +35,7 @@ class Command {
   final String? longDescription;
 
   final PositionalSchema? positionalSchema;
+  final Map<String, AccessorFlagValue>? accessorflagSchema;
 
   final List<Flag>? flags;
 
@@ -44,6 +48,7 @@ class Command {
     this.shortDescription, {
     this.longDescription,
     this.positionalSchema,
+    this.accessorflagSchema,
     this.commands,
     this.flags,
     this.options,
@@ -258,4 +263,35 @@ enum Numbers implements NumberGetter {
 
   @override
   num get value => _number;
+}
+
+sealed class AccessorFlagValue<T> {
+  T get value;
+  const AccessorFlagValue();
+
+  static AccessorFlagValue<String> string(String value) =>
+      StringAccessorFlagValue(value);
+
+  static AccessorFlagValue<Map<String, String>> map(
+    Map<String, String> value,
+  ) => MapAccessorFlagValue(value);
+}
+
+final class StringAccessorFlagValue extends AccessorFlagValue<String> {
+  StringAccessorFlagValue(this._value);
+
+  final String _value;
+
+  @override
+  String get value => _value;
+}
+
+final class MapAccessorFlagValue
+    extends AccessorFlagValue<Map<String, String>> {
+  MapAccessorFlagValue(this._value);
+
+  final Map<String, String> _value;
+
+  @override
+  Map<String, String> get value => _value;
 }
