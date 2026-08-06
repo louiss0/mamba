@@ -418,8 +418,6 @@ final class ChoiceOption<T extends Enum> extends Option<T, String> {
   }
 }
 
-enum Filter { all, complete, incomplete }
-
 abstract interface class ValueGetter<T> {
   T get value;
 }
