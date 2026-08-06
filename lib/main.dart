@@ -197,6 +197,24 @@ sealed class Option<Output> extends PureOption<Output> {
       required: required,
     );
   }
+
+  static ChoiceOption<T> choiceOption<T extends Enum>(
+    String name,
+    List<T> choices, {
+    String Function(T choice)? valueOf,
+    String? short,
+    String? description,
+    bool required = true,
+  }) {
+    return ChoiceOption(
+      name: name,
+      choices: choices,
+      valueOf: valueOf,
+      short: short,
+      description: description,
+      required: required,
+    );
+  }
 }
 
 final class StringOption extends Option<String> {
@@ -210,13 +228,12 @@ final class StringOption extends Option<String> {
 
   final RegExp regex;
 
+  @override
   String parseValue(String value) {
     final match = regex.matchAsPrefix(value);
 
     if (match == null || match.end != value.length) {
-      throw MambaException(
-        "Invalid value: '$value' TIP: Anchoring is generally a good idea",
-      );
+      throw MambaException("Invalid value: '$value' ");
     }
 
     return value;
@@ -259,6 +276,36 @@ final class DoubleOption extends Option<double> {
   }
 }
 
+final class ChoiceOption<T extends Enum> extends Option<T> {
+  ChoiceOption({
+    required super.name,
+    required List<T> choices,
+    String Function(T choice)? valueOf,
+
+    required super.short,
+    super.description,
+    super.required = false,
+
+    this.defaultValue,
+  }) : choices = List.unmodifiable(choices),
+       valueOf = valueOf ?? ((choice) => choice.name);
+
+  final List<T> choices;
+  final T? defaultValue;
+  final String Function(T choice) valueOf;
+
+  @override
+  T parseValue(String raw) {
+    for (final choice in choices) {
+      if (valueOf(choice) == raw) {
+        return choice;
+      }
+    }
+
+    throw MambaInvalidChoiceException(choices.map(valueOf), raw);
+  }
+}
+
 sealed class RepeatableOption<T> extends PureOption<List<T>> {
   const RepeatableOption({
     required super.name,
@@ -267,11 +314,13 @@ sealed class RepeatableOption<T> extends PureOption<List<T>> {
     super.description,
   });
 
-  T parseValue(String value);
+  T parseValue(int index, String value);
 
   @override
   List<T> parseTokens(List<String> values) {
-    return [for (final value in values) parseValue(value)];
+    return [
+      for (final (index, value) in values.indexed) parseValue(index, value),
+    ];
   }
 
   static RepeatableIntOption intOption({
@@ -331,13 +380,11 @@ final class RepeatableStringOption extends RepeatableOption<String> {
   });
 
   @override
-  String parseValue(String value) {
+  String parseValue(int index, String value) {
     final match = regex.matchAsPrefix(value);
 
     if (match == null || match.end != value.length) {
-      throw MambaException(
-        "Invalid value: '$value'TIP: Anchoring is generally a good idea",
-      );
+      throw MambaException("Invalid value: '$value' at index $index");
     }
 
     return value;
@@ -353,10 +400,12 @@ final class RepeatableIntOption extends RepeatableOption<int> {
   });
 
   @override
-  int parseValue(String value) {
+  int parseValue(int index, String value) {
     final parsed = int.tryParse(value);
     if (parsed == null) {
-      throw MambaException("Invalid value: '$value' isn't an int");
+      throw MambaException(
+        "Invalid value: '$value' at place $index isn't an int",
+      );
     }
     return parsed;
   }
@@ -371,10 +420,12 @@ final class RepeatableDoubleOption extends RepeatableOption<double> {
   });
 
   @override
-  double parseValue(String value) {
+  double parseValue(int index, String value) {
     final parsed = double.tryParse(value);
     if (parsed == null) {
-      throw MambaException("Invalid value: '$value' at  isn't a double");
+      throw MambaException(
+        "Invalid value: '$value' at place $index isn't a double",
+      );
     }
     return parsed;
   }
@@ -395,36 +446,6 @@ final class MambaInvalidChoiceException<T> extends MambaException {
         "Invalid choice '$invalidChoice'. "
         "Expected one of: ${choices.join(', ')}.",
       );
-}
-
-final class ChoiceOption<T extends Enum> extends Option<T> {
-  ChoiceOption({
-    required super.name,
-    required List<T> choices,
-    String Function(T choice)? valueOf,
-
-    required super.short,
-    super.description,
-    super.required = false,
-
-    this.defaultValue,
-  }) : choices = List.unmodifiable(choices),
-       valueOf = valueOf ?? ((choice) => choice.name);
-
-  final List<T> choices;
-  final T? defaultValue;
-  final String Function(T choice) valueOf;
-
-  @override
-  T parseValue(String raw) {
-    for (final choice in choices) {
-      if (valueOf(choice) == raw) {
-        return choice;
-      }
-    }
-
-    throw MambaInvalidChoiceException(choices.map(valueOf), raw);
-  }
 }
 
 abstract interface class ValueGetter<T> {
