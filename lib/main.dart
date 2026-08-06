@@ -5,21 +5,33 @@ void main(List<String> args) {
 class MambaParser {
   final String name;
 
+  final String? shortDescription;
+  final String? longDescription;
+
   final List<Command> commands;
 
   final List<Flag>? flags;
 
   final List<Option>? options;
 
-  MambaParser(this.name, this.commands, {this.flags, this.options});
+  MambaParser(
+    this.name,
+    this.commands, {
+    this.shortDescription,
+    this.longDescription,
+    this.flags,
+    this.options,
+  });
 
   void run(List<String> args) {}
 }
 
 class Command {
   final String name;
+  final String shortDescription;
+  final String? longDescription;
 
-  final List<PositionalSchema>? positionalSchemas;
+  final PositionalSchema? positionalSchema;
 
   final List<Flag>? flags;
 
@@ -28,8 +40,10 @@ class Command {
   final List<Command>? commands;
 
   Command(
-    this.name, {
-    this.positionalSchemas,
+    this.name,
+    this.shortDescription, {
+    this.longDescription,
+    this.positionalSchema,
     this.commands,
     this.flags,
     this.options,
@@ -46,7 +60,7 @@ class PositionalSchema {
 }
 
 class Positional {
-  const Positional(this.name, {this.required = false, this.description});
+  const Positional(this.name, {this.required = true, this.description});
 
   final String name;
   final bool required;
@@ -57,55 +71,79 @@ class Variadic extends Positional {
   Variadic(super.name, {super.description}) : super(required: false);
 }
 
-sealed class Flag<T> {
-  const Flag({required this.name, this.short, this.description});
-
+sealed class NamedInput {
   final String name;
-  final String? short;
   final String? description;
+
+  const NamedInput({required this.name, this.description});
+
+  // Must be overridden using the first letter of the name
+  String get short;
 }
 
-final class BooleanFlag extends Flag<bool> {
-  const BooleanFlag({
+sealed class Flag<T> extends NamedInput {
+  final bool negatable;
+
+  final String? _short;
+
+  const Flag({
+    this._short,
     required super.name,
-    super.short,
-    super.description,
-    this.defaultValue = false,
+    required super.description,
     this.negatable = false,
   });
 
+  @override
+  String get short => _short ?? super.name[0];
+}
+
+final class BooleanFlag extends Flag<bool> {
   final bool defaultValue;
-  final bool negatable;
+
+  BooleanFlag({
+    required super.name,
+
+    super.description,
+    this.defaultValue = false,
+  });
 }
 
 final class CountFlag extends Flag<int> {
   const CountFlag({required super.name, super.short, super.description});
 }
 
-sealed class Option {
+sealed class Option<T> extends NamedInput {
+  final String? _short;
+  final bool required;
+  final bool repeatable;
+
   const Option({
-    required this.name,
-    this.short,
-    this.description,
+    required super.name,
+    required super.description,
+    this._short,
     this.required = false,
     this.repeatable = false,
   });
 
-  final String name;
-  final String? short;
-  final String? description;
-  final bool required;
-  final bool repeatable;
-  MambaException? parser(String value);
+  @override
+  String get short => _short ?? super.name[0];
+
+  T parse(String value);
 }
 
 final class StringOption extends Option {
-  StringOption({required super.name, required this.regex});
+  StringOption({
+    required super.name,
+    required this.regex,
+    super.description,
+    super.required,
+    super.repeatable,
+  });
 
   final RegExp regex;
 
   @override
-  MambaException? parser(String value) {
+  MambaException? parse(String value) {
     if (!regex.hasMatch(value)) {
       return MambaException('Invalid value: $value');
     }
@@ -114,10 +152,16 @@ final class StringOption extends Option {
 }
 
 final class IntOption extends Option {
-  IntOption({required super.name});
+  IntOption({
+    required super.name,
+
+    super.description,
+    super.required,
+    super.repeatable,
+  });
 
   @override
-  MambaException? parser(String value) {
+  MambaException? parse(String value) {
     if (int.tryParse(value) == null) {
       return MambaException("Value $value isn't an integer");
     }
@@ -126,10 +170,16 @@ final class IntOption extends Option {
 }
 
 final class DoubleOption extends Option {
-  DoubleOption({required super.name});
+  DoubleOption({
+    required super.name,
+
+    super.description,
+    super.required,
+    super.repeatable,
+  });
 
   @override
-  MambaException? parser(String value) {
+  MambaException? parse(String value) {
     if (double.tryParse(value) == null) {
       return MambaException("Value $value isn't a double");
     }
@@ -155,72 +205,38 @@ class MambaInvalidChoiceException<T> implements MambaException {
       "Invalid choice $invalidChoice it's one of ${choices.join(' , ')}";
 }
 
-class ChoiceOption<T extends Enum> extends Option {
+final class ChoiceOption<T extends Enum> extends Option<T> {
   ChoiceOption({
     required super.name,
-    super.short,
+    required List<T> choices,
+    String Function(T choice)? valueOf,
+
     super.description,
     super.required,
-    super.repeatable,
     this.defaultValue,
-    required this.choices,
-  }) : super();
+  }) : choices = List.unmodifiable(choices),
+       valueOf = valueOf ?? ((choice) => choice.name);
 
-  final T? defaultValue;
   final List<T> choices;
+  final T? defaultValue;
+  final String Function(T choice) valueOf;
 
   @override
-  MambaException? parser(String value) {
-    final choiceValues = choices.whereType<ValueGetter<Object>>();
-
-    switch (choiceValues) {
-      case Iterable<IntGetter>():
-        var choices = choiceValues.map((e) => e.value);
-        var parse = int.parse(value);
-        if (!choices.contains(parse)) {
-          return MambaInvalidChoiceException(choices, parse);
-        }
-        return null;
-
-      case Iterable<DoubleGetter>():
-        var choices = choiceValues.map((e) => e.value);
-        var parsedDouble = double.parse(value);
-        if (!choices.contains(parsedDouble)) {
-          return MambaInvalidChoiceException(choices, parsedDouble);
-        }
-        return null;
-
-      case Iterable<NumberGetter>():
-        var choices = choiceValues.map((e) => e.value);
-        var parsedNum = num.parse(value);
-        if (!choices.contains(parsedNum)) {
-          return MambaInvalidChoiceException(choices, parsedNum);
-        }
-        return null;
-
-      case Iterable<StringGetter>():
-        var choices = choiceValues.map((e) => e.value);
-        if (!choices.contains(value)) {
-          return MambaInvalidChoiceException(choices, value);
-        }
-        return null;
+  T parse(String raw) {
+    for (final choice in choices) {
+      if (valueOf(choice) == raw) {
+        return choice;
+      }
     }
 
-    var choiceNames = choices.map((e) => e.name);
-
-    if (!choiceNames.contains(value)) {
-      return MambaException("Invalid choice: $value");
-    }
-
-    return null;
+    throw MambaInvalidChoiceException(choices.map(valueOf), raw);
   }
 }
 
 enum Filter { all, complete, incomplete }
 
-interface class ValueGetter<T> {
-  final T value;
-  ValueGetter(this.value);
+abstract interface class ValueGetter<T> {
+  T get value;
 }
 
 typedef NumberGetter = ValueGetter<num>;
