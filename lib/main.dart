@@ -18,15 +18,14 @@ class MambaParser {
 
   MambaParser(
     this.name,
-    this.commands, {
+    List<Command> commands, {
     this.shortDescription,
     this.longDescription,
     List<Flag<Object>>? flags,
-
     List<Option<Object>>? options,
-
     Map<String, AccessorInput>? accessorFlagSchema,
   }) : flags = flags != null ? List.unmodifiable(flags) : null,
+       commands = List.unmodifiable(commands),
        options = options != null ? List.unmodifiable(options) : null,
        accessorFlagSchema = accessorFlagSchema != null
            ? Map.unmodifiable(accessorFlagSchema)
@@ -54,15 +53,16 @@ class Command {
   Command(
     this.name,
     this.shortDescription, {
+    List<Command>? commands,
     this.longDescription,
     this.positionalSchema,
-    this.commands,
     List<Flag<Object>>? flags,
     Map<String, AccessorInput>? accessorFlagSchema,
     List<Option<Object>>? options,
     List<String>? aliases,
   }) : flags = flags != null ? List.unmodifiable(flags) : null,
        options = options != null ? List.unmodifiable(options) : null,
+       commands = commands != null ? List.unmodifiable(commands) : null,
        accessorFlagSchema = accessorFlagSchema != null
            ? Map.unmodifiable(accessorFlagSchema)
            : null,
@@ -75,7 +75,8 @@ class PositionalSchema {
   final List<Positional> positionals;
   final Variadic? variadic;
 
-  PositionalSchema(this.positionals, {this.variadic});
+  PositionalSchema(List<Positional> positionals, {this.variadic})
+    : positionals = List.unmodifiable(positionals);
 }
 
 class Positional {
@@ -99,35 +100,28 @@ sealed class NamedInput {
 }
 
 sealed class Flag<T> extends NamedInput {
-  final bool negatable;
-
   const Flag({
     required super.short,
     required super.name,
     required super.description,
-    required this.negatable,
   });
 }
 
 final class BooleanFlag extends Flag<bool> {
   final bool defaultValue;
+  final bool negatable;
 
   BooleanFlag({
     super.short,
     required super.name,
     super.description,
     this.defaultValue = false,
-    super.negatable = false,
+    this.negatable = false,
   });
 }
 
 final class CountFlag extends Flag<int> {
-  const CountFlag({
-    required super.name,
-    super.short,
-    super.description,
-    super.negatable = false,
-  });
+  const CountFlag({required super.name, super.short, super.description});
 }
 
 sealed class Option<T> extends NamedInput {
@@ -137,7 +131,7 @@ sealed class Option<T> extends NamedInput {
   const Option({
     required super.name,
     required super.description,
-    super.short,
+    required super.short,
     this.required = false,
     this.repeatable = false,
   });
@@ -149,6 +143,7 @@ final class StringOption extends Option<String> {
   StringOption({
     required super.name,
     required this.regex,
+    required super.short,
     super.description,
     super.required,
     super.repeatable,
@@ -168,7 +163,7 @@ final class StringOption extends Option<String> {
 final class IntOption extends Option<int> {
   IntOption({
     required super.name,
-
+    required super.short,
     super.description,
     super.required,
     super.repeatable,
@@ -187,6 +182,7 @@ final class IntOption extends Option<int> {
 final class DoubleOption extends Option<double> {
   DoubleOption({
     required super.name,
+    required super.short,
     super.description,
     super.required,
     super.repeatable,
@@ -226,6 +222,7 @@ final class ChoiceOption<T extends Enum> extends Option<T> {
     required List<T> choices,
     String Function(T choice)? valueOf,
 
+    required super.short,
     super.description,
     super.required,
     this.defaultValue,
