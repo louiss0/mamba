@@ -10,7 +10,7 @@ class MambaParser {
 
   final List<Flag<Object>>? flags;
 
-  final List<PureOption<Object>>? options;
+  final List<Option>? options;
 
   final Map<String, AccessorInput>? accessorFlagSchema;
 
@@ -20,7 +20,7 @@ class MambaParser {
     this.shortDescription,
     this.longDescription,
     List<Flag<Object>>? flags,
-    List<PureOption<Object>>? options,
+    List<Option>? options,
     Map<String, AccessorInput>? accessorFlagSchema,
   }) : flags = flags != null ? List.unmodifiable(flags) : null,
        commands = List.unmodifiable(commands),
@@ -42,7 +42,7 @@ class Command {
 
   final List<Flag<Object>>? flags;
 
-  final List<PureOption<Object>>? options;
+  final List<Option>? options;
 
   final List<Command>? commands;
 
@@ -56,7 +56,7 @@ class Command {
     this.positionalSchema,
     List<Flag<Object>>? flags,
     Map<String, AccessorInput>? accessorFlagSchema,
-    List<PureOption<Object>>? options,
+    List<Option>? options,
     List<String>? aliases,
   }) : flags = flags != null ? List.unmodifiable(flags) : null,
        options = options != null ? List.unmodifiable(options) : null,
@@ -89,19 +89,35 @@ class Variadic extends Positional {
   Variadic(super.name, {super.description}) : super(required: false);
 }
 
+enum NamedInputType {
+  string,
+  int,
+  bool,
+  double,
+  count,
+  choice,
+  repeatableString,
+  repeatableInt,
+  repeatableDouble,
+}
+
 sealed class NamedInput {
   final String name;
   final String? description;
-  final String? short;
 
-  const NamedInput({required this.name, this.description, this.short});
+  final NamedInputType type;
+
+  const NamedInput({required this.name, this.description, required this.type});
 }
 
 sealed class Flag<T> extends NamedInput {
+  final String? short;
+
   const Flag({
-    required super.short,
+    required this.short,
     required super.name,
     required super.description,
+    required super.type,
   });
 }
 
@@ -111,6 +127,7 @@ final class BooleanFlag extends Flag<bool> {
 
   BooleanFlag({
     super.short,
+    super.type = NamedInputType.bool,
     required super.name,
     super.description,
     this.defaultValue = false,
@@ -119,41 +136,25 @@ final class BooleanFlag extends Flag<bool> {
 }
 
 final class CountFlag extends Flag<int> {
-  const CountFlag({required super.name, super.short, super.description});
+  const CountFlag({
+    super.short,
+    super.type = NamedInputType.count,
+    required super.name,
+    super.description,
+  });
 }
 
-sealed class PureOption<Output> extends NamedInput {
-  const PureOption({
-    required super.name,
-    required super.description,
-    required super.short,
-    required this.required,
-  });
-
+sealed class Option extends NamedInput {
+  final String? short;
   final bool required;
 
-  Output parseTokens(List<String> values);
-}
-
-sealed class Option<Output> extends PureOption<Output> {
   const Option({
+    required this.short,
+    required super.type,
     required super.name,
     required super.description,
-    required super.short,
-    required super.required,
+    required this.required,
   });
-
-  Output parseValue(String value);
-
-  @override
-  Output parseTokens(List<String> values) {
-    if (values.length != 1) {
-      throw MambaException("Option '$name' expects exactly one value.");
-    }
-
-    return parseValue(values.single);
-  }
-
   static StringOption stringOption(
     String name,
     RegExp regex, {
@@ -198,10 +199,9 @@ sealed class Option<Output> extends PureOption<Output> {
     );
   }
 
-  static ChoiceOption<T> choiceOption<T extends Enum>(
+  static ChoiceOption choiceOption<T extends Enum>(
     String name,
     List<T> choices, {
-    String Function(T choice)? valueOf,
     String? short,
     String? description,
     bool required = false,
@@ -209,7 +209,6 @@ sealed class Option<Output> extends PureOption<Output> {
     return ChoiceOption(
       name: name,
       choices: choices,
-      valueOf: valueOf,
       short: short,
       description: description,
       required: required,
@@ -217,9 +216,10 @@ sealed class Option<Output> extends PureOption<Output> {
   }
 }
 
-final class StringOption extends Option<String> {
+final class StringOption extends Option {
   StringOption({
     required super.name,
+    super.type = NamedInputType.string,
     required this.regex,
     required super.short,
     super.description,
@@ -227,101 +227,52 @@ final class StringOption extends Option<String> {
   });
 
   final RegExp regex;
-
-  @override
-  String parseValue(String value) {
-    final match = regex.matchAsPrefix(value);
-
-    if (match == null || match.end != value.length) {
-      throw MambaException("Invalid value: '$value' ");
-    }
-
-    return value;
-  }
 }
 
-final class IntOption extends Option<int> {
+final class IntOption extends Option {
   IntOption({
     required super.name,
+    super.type = NamedInputType.int,
     required super.short,
     required super.required,
     super.description,
   });
-
-  @override
-  int parseValue(String value) {
-    final parsed = int.tryParse(value);
-    if (parsed == null) {
-      throw MambaException("Value $value isn't an integer");
-    }
-    return parsed;
-  }
 }
 
-final class DoubleOption extends Option<double> {
+final class DoubleOption extends Option {
   DoubleOption({
     required super.name,
+    super.type = NamedInputType.double,
     required super.short,
     required super.required,
     super.description,
   });
-
-  @override
-  double parseValue(String value) {
-    final parsed = double.tryParse(value);
-    if (parsed == null) {
-      throw MambaException("Value $value isn't a double");
-    }
-    return parsed;
-  }
 }
 
-final class ChoiceOption<T extends Enum> extends Option<T> {
+final class ChoiceOption<T extends Enum> extends Option {
   ChoiceOption({
     required super.name,
+    super.type = NamedInputType.choice,
     required List<T> choices,
-    String Function(T choice)? valueOf,
-
     required super.short,
     super.description,
     super.required = false,
 
     this.defaultValue,
-  }) : choices = List.unmodifiable(choices),
-       valueOf = valueOf ?? ((choice) => choice.name);
+  }) : choices = List.unmodifiable(choices);
 
   final List<T> choices;
   final T? defaultValue;
-  final String Function(T choice) valueOf;
-
-  @override
-  T parseValue(String raw) {
-    for (final choice in choices) {
-      if (valueOf(choice) == raw) {
-        return choice;
-      }
-    }
-
-    throw MambaInvalidChoiceException(choices.map(valueOf), raw);
-  }
 }
 
-sealed class RepeatableOption<T> extends PureOption<List<T>> {
+sealed class RepeatableOption<T> extends Option {
   const RepeatableOption({
+    required super.type,
     required super.name,
     required super.required,
     super.short,
     super.description,
   });
-
-  T parseValue(int index, String value);
-
-  @override
-  List<T> parseTokens(List<String> values) {
-    return [
-      for (final (index, value) in values.indexed) parseValue(index, value),
-    ];
-  }
 
   static RepeatableIntOption intOption({
     required String name,
@@ -368,67 +319,37 @@ sealed class RepeatableOption<T> extends PureOption<List<T>> {
   }
 }
 
-final class RepeatableStringOption extends RepeatableOption<String> {
+final class RepeatableStringOption extends RepeatableOption {
   final RegExp regex;
 
   const RepeatableStringOption({
     required super.name,
+    super.type = NamedInputType.repeatableString,
     required super.required,
     required this.regex,
     super.short,
     super.description,
   });
-
-  @override
-  String parseValue(int index, String value) {
-    final match = regex.matchAsPrefix(value);
-
-    if (match == null || match.end != value.length) {
-      throw MambaException("Invalid value: '$value' at index $index");
-    }
-
-    return value;
-  }
 }
 
-final class RepeatableIntOption extends RepeatableOption<int> {
+final class RepeatableIntOption extends RepeatableOption {
   const RepeatableIntOption({
+    super.type = NamedInputType.repeatableInt,
     required super.name,
     required super.required,
     super.short,
     super.description,
   });
-
-  @override
-  int parseValue(int index, String value) {
-    final parsed = int.tryParse(value);
-    if (parsed == null) {
-      throw MambaException(
-        "Invalid value: '$value' at place $index isn't an int",
-      );
-    }
-    return parsed;
-  }
 }
 
-final class RepeatableDoubleOption extends RepeatableOption<double> {
+final class RepeatableDoubleOption extends RepeatableOption {
   const RepeatableDoubleOption({
+    super.type = NamedInputType.repeatableDouble,
     required super.name,
     required super.required,
     super.short,
     super.description,
   });
-
-  @override
-  double parseValue(int index, String value) {
-    final parsed = double.tryParse(value);
-    if (parsed == null) {
-      throw MambaException(
-        "Invalid value: '$value' at place $index isn't a double",
-      );
-    }
-    return parsed;
-  }
 }
 
 class MambaException implements Exception {
