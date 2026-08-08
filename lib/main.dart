@@ -1,35 +1,70 @@
 void main(List<String> args) {}
 
-class MambaParser {
+final class CommandRegistry {
   final String name;
 
-  final String? shortDescription;
+  final String shortDescription;
+
   final String? longDescription;
 
-  final List<Command> commands;
+  final Map<String, BooleanFlag>? boolFlags;
 
-  final List<Flag<Object>>? flags;
+  final Map<String, CountFlag>? countFlags;
 
-  final List<Option>? options;
+  final Map<String, Option>? options;
 
-  final Map<String, AccessorInput>? accessorFlagSchema;
+  final Map<String, Positional>? positionals;
 
-  MambaParser(
-    this.name,
-    List<Command> commands, {
-    this.shortDescription,
+  final Variadic? variadic;
+
+  final Map<String, AccessorInput>? accessors;
+
+  final List<CommandRegistry>? subCommands;
+
+  final List<String>? aliases;
+
+  CommandRegistry({
+    required this.name,
+    required this.shortDescription,
     this.longDescription,
-    List<Flag<Object>>? flags,
+    this.aliases,
+    this.accessors,
+    List<Flag>? flags,
     List<Option>? options,
-    Map<String, AccessorInput>? accessorFlagSchema,
-  }) : flags = flags != null ? List.unmodifiable(flags) : null,
-       commands = List.unmodifiable(commands),
-       options = options != null ? List.unmodifiable(options) : null,
-       accessorFlagSchema = accessorFlagSchema != null
-           ? Map.unmodifiable(accessorFlagSchema)
-           : null;
-
-  void run(List<String> args) {}
+    PositionalSchema? positionalSchema,
+    List<Command>? commands,
+  }) : boolFlags = flags?.fold(
+         {},
+         (map, flag) => flag is BooleanFlag ? {...?map, flag.name: flag} : map,
+       ),
+       countFlags = flags?.fold(
+         {},
+         (map, flag) => flag is CountFlag ? {...?map, flag.name: flag} : map,
+       ),
+       options = options?.fold(
+         {},
+         (map, option) => {...?map, option.name: option},
+       ),
+       positionals = positionalSchema?.positionals.fold(
+         {},
+         (map, positional) => {...?map, positional.name: positional},
+       ),
+       variadic = positionalSchema?.variadic,
+       subCommands = commands
+           ?.map(
+             (command) => CommandRegistry(
+               name: command.name,
+               shortDescription: command.shortDescription,
+               longDescription: command.longDescription,
+               aliases: command.aliases,
+               flags: command.flags,
+               options: command.options,
+               accessors: command.accessorFlagSchema,
+               positionalSchema: command.positionalSchema,
+               commands: command.commands,
+             ),
+           )
+           .toList();
 }
 
 class Command {
