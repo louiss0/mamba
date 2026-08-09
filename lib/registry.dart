@@ -249,7 +249,7 @@ sealed class Option extends NamedInput {
     required super.type,
     required super.name,
     required super.description,
-    required this.required,
+    this.required = false,
   });
   static StringOption stringOption(
     String name,
@@ -317,9 +317,9 @@ final class StringOption extends Option {
     required super.name,
     super.type = NamedInputType.string,
     required this.regex,
-    required super.short,
+    super.short,
     super.description,
-    required super.required,
+    super.required,
   });
 
   final RegExp regex;
@@ -329,8 +329,8 @@ final class IntOption extends Option {
   IntOption({
     required super.name,
     super.type = NamedInputType.int,
-    required super.short,
-    required super.required,
+    super.short,
+    super.required,
     super.description,
   });
 }
@@ -339,8 +339,8 @@ final class DoubleOption extends Option {
   DoubleOption({
     required super.name,
     super.type = NamedInputType.double,
-    required super.short,
-    required super.required,
+    super.short,
+    super.required,
     super.description,
   });
 }
@@ -350,9 +350,9 @@ final class ChoiceOption<T extends Enum> extends Option {
     required super.name,
     super.type = NamedInputType.choice,
     required List<T> choices,
-    required super.short,
+    super.short,
     super.description,
-    super.required = false,
+    super.required,
 
     this.defaultValue,
   }) : choices = List.unmodifiable(choices);
