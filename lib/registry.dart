@@ -126,7 +126,7 @@ abstract class Command {
 
   Command(
     String name,
-    String shortDescription,
+    String shortDescription, {
     String? longDescription,
 
     PositionalSchema? positionalSchema,
@@ -139,28 +139,28 @@ abstract class Command {
     List<Command>? commands,
 
     List<String>? aliases,
-  ) : _registry = CommandRegistry.create(
-        name,
-        shortDescription,
-        longDescription: longDescription,
-        positionalSchema: positionalSchema,
-        accessors: accessorFlagSchema,
-        flags: flags,
-        options: options,
-        commands: commands,
-        aliases: aliases,
-      ),
-      name = name,
-      shortDescription = shortDescription,
-      longDescription = longDescription,
-      aliases = aliases != null ? List.unmodifiable(aliases) : null,
-      positionalSchema = positionalSchema,
-      accessorFlagSchema = accessorFlagSchema != null
-          ? Map.unmodifiable(accessorFlagSchema)
-          : null,
-      flags = flags != null ? List.unmodifiable(flags) : null,
-      options = options != null ? List.unmodifiable(options) : null,
-      commands = commands != null ? List.unmodifiable(commands) : null;
+  }) : _registry = CommandRegistry.create(
+         name,
+         shortDescription,
+         longDescription: longDescription,
+         positionalSchema: positionalSchema,
+         accessors: accessorFlagSchema,
+         flags: flags,
+         options: options,
+         commands: commands,
+         aliases: aliases,
+       ),
+       name = name,
+       shortDescription = shortDescription,
+       longDescription = longDescription,
+       aliases = aliases != null ? List.unmodifiable(aliases) : null,
+       positionalSchema = positionalSchema,
+       accessorFlagSchema = accessorFlagSchema != null
+           ? Map.unmodifiable(accessorFlagSchema)
+           : null,
+       flags = flags != null ? List.unmodifiable(flags) : null,
+       options = options != null ? List.unmodifiable(options) : null,
+       commands = commands != null ? List.unmodifiable(commands) : null;
 
   void run(Inputs input);
 }
