@@ -579,14 +579,23 @@ void main() {
           );
 
           expect(
-            registry.commandRegistries,
+            registry.commandRegistries
+                ?.map(
+                  (commandRegistry) => (
+                    name: commandRegistry.name,
+                    shortDescription: commandRegistry.shortDescription,
+                  ),
+                )
+                .toList(),
             equals(
-              commands.map(
-                (command) => CommandRegistry.create(
-                  command.name,
-                  command.shortDescription,
-                ),
-              ),
+              commands
+                  .map(
+                    (command) => (
+                      name: command.name,
+                      shortDescription: command.shortDescription,
+                    ),
+                  )
+                  .toList(),
             ),
           );
         },
