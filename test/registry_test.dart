@@ -534,7 +534,7 @@ void main() {
           accessors: accessors,
         );
 
-        expect(registry.accessors, equals(accessors));
+        expect(registry.accessorSchema, equals(accessors));
       });
 
       test(

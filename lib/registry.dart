@@ -6,7 +6,7 @@ typedef CountFlagMap = Map<String, CountFlag>;
 
 typedef OptionMap = Map<String, Option>;
 
-typedef AccessorMap = Map<String, AccessorInput>;
+typedef AccessorSchema = Map<String, AccessorInput>;
 
 typedef Aliases = List<String>;
 
@@ -27,7 +27,7 @@ final class CommandRegistry {
 
   final Variadic? variadic;
 
-  final AccessorMap? accessors;
+  final AccessorSchema? accessorSchema;
 
   final List<CommandRegistry>? commandRegistries;
 
@@ -59,7 +59,7 @@ final class CommandRegistry {
       shortDescription: shortDescription,
       longDescription: longDescription,
       aliases: aliases,
-      accessors: accessors,
+      accessorSchema: accessors,
       flags: flags,
       options: options,
       positionalSchema: positionalSchema,
@@ -72,7 +72,7 @@ final class CommandRegistry {
     required this.shortDescription,
     this.longDescription,
     this.aliases,
-    this.accessors,
+    this.accessorSchema,
     List<Flag>? flags,
     List<Option>? options,
     PositionalSchema? positionalSchema,
@@ -103,7 +103,7 @@ final class CommandRegistry {
                aliases: command.aliases,
                flags: command.flags,
                options: command.options,
-               accessors: command.accessorFlagSchema,
+               accessorSchema: command.accessorFlagSchema,
                positionalSchema: command.positionalSchema,
                commands: command.commands,
              ),
@@ -116,7 +116,7 @@ final class CommandRegistry {
   static void _validateDefinition({
     required String name,
     required String shortDescription,
-    required AccessorMap? accessors,
+    required AccessorSchema? accessors,
     required List<Flag>? flags,
     required List<Option>? options,
     required PositionalSchema? positionalSchema,
@@ -183,7 +183,7 @@ final class CommandRegistry {
     }
   }
 
-  static void _validateAccessors(AccessorMap? accessors) {
+  static void _validateAccessors(AccessorSchema? accessors) {
     if (accessors == null) {
       return;
     }
@@ -222,7 +222,7 @@ final class CommandRegistry {
   }
 
   static void _validateDuplicates(
-    AccessorMap? accessors,
+    AccessorSchema? accessors,
     List<Flag>? flags,
     List<Option>? options,
     PositionalSchema? positionalSchema,
@@ -300,11 +300,38 @@ final class CommandRegistry {
   }
 }
 
+sealed class _AccessorValue<T> {
+  const _AccessorValue(this.value);
+
+  final T value;
+}
+
+sealed class _AccessorPrimitive<T> extends _AccessorValue<T> {
+  const _AccessorPrimitive(super.value);
+}
+
+final class AccessorString extends _AccessorPrimitive<String> {
+  const AccessorString(super.value);
+}
+
+final class AccessorInt extends _AccessorPrimitive<int> {
+  const AccessorInt(super.value);
+}
+
+final class AccessorDouble extends _AccessorPrimitive<double> {
+  const AccessorDouble(super.value);
+}
+
+final class AccessorMap
+    extends _AccessorValue<Map<String, _AccessorPrimitive>> {
+  const AccessorMap(super.value);
+}
+
 typedef Inputs = ({
   Map<String, int>? countFlags,
   Map<String, bool>? boolFlags,
   Map<String, String>? options,
-  Map<String, AccessorInput>? accessorMap,
+  Map<String, _AccessorValue>? accessorMap,
   Map<String, String>? positionals,
   List<String>? variadic,
 });
