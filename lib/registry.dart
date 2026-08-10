@@ -649,18 +649,6 @@ final class RepeatableDoubleOption extends RepeatableOption {
   });
 }
 
-abstract interface class ValueGetter<T> {
-  T get value;
-}
-
-typedef NumberGetter = ValueGetter<num>;
-
-typedef IntGetter = ValueGetter<int>;
-
-typedef StringGetter = ValueGetter<String>;
-
-typedef DoubleGetter = ValueGetter<double>;
-
 sealed class AccessorInput {
   const AccessorInput();
 
