@@ -10,7 +10,7 @@ typedef AccessorSchema = Map<String, AccessorInput>;
 
 typedef Aliases = List<String>;
 
-final class CommandRegistry {
+abstract class CommandRegistry {
   final String name;
 
   final String shortDescription;
@@ -300,13 +300,13 @@ final class CommandRegistry {
   }
 }
 
-sealed class _AccessorValue<T> {
-  const _AccessorValue(this.value);
+sealed class AccessorValue<T extends Object> {
+  const AccessorValue(this.value);
 
   final T value;
 }
 
-sealed class _AccessorPrimitive<T> extends _AccessorValue<T> {
+sealed class _AccessorPrimitive<T extends Object> extends AccessorValue<T> {
   const _AccessorPrimitive(super.value);
 }
 
@@ -322,8 +322,7 @@ final class AccessorDouble extends _AccessorPrimitive<double> {
   const AccessorDouble(super.value);
 }
 
-final class AccessorMap
-    extends _AccessorValue<Map<String, _AccessorPrimitive>> {
+final class AccessorMap extends AccessorValue<Map<String, _AccessorPrimitive>> {
   const AccessorMap(super.value);
 }
 
@@ -331,7 +330,7 @@ typedef Inputs = ({
   Map<String, int>? countFlags,
   Map<String, bool>? boolFlags,
   Map<String, String>? options,
-  Map<String, _AccessorValue>? accessorMap,
+  Map<String, AccessorValue>? accessorMap,
   Map<String, String>? positionals,
   List<String>? variadic,
 });
@@ -341,8 +340,7 @@ abstract class Command {
   final String shortDescription;
   final String? longDescription;
 
-  // ignore: unused_field
-  final CommandRegistry _registry;
+  final CommandRegistry registry;
 
   final PositionalSchema? positionalSchema;
   final Map<String, AccessorInput>? accessorFlagSchema;
@@ -367,7 +365,7 @@ abstract class Command {
     List<Command>? commands,
 
     List<String>? aliases,
-  }) : _registry = CommandRegistry.create(
+  }) : registry = CommandRegistry.create(
          name,
          shortDescription,
          longDescription: longDescription,
@@ -434,7 +432,7 @@ sealed class NamedInput {
   const NamedInput({required this.name, this.description, required this.type});
 }
 
-sealed class Flag<T> extends NamedInput {
+sealed class Flag extends NamedInput {
   final String? short;
 
   const Flag({
@@ -445,7 +443,7 @@ sealed class Flag<T> extends NamedInput {
   });
 }
 
-final class BooleanFlag extends Flag<bool> {
+final class BooleanFlag extends Flag {
   final bool defaultValue;
   final bool negatable;
 
@@ -459,7 +457,7 @@ final class BooleanFlag extends Flag<bool> {
   });
 }
 
-final class CountFlag extends Flag<int> {
+final class CountFlag extends Flag {
   const CountFlag({
     super.short,
     super.type = NamedInputType.count,
