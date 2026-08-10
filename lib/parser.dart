@@ -54,7 +54,7 @@ class Parser {
     return [];
   }
 
-  (Map<String, String>? positionals, List<String>? variadic) _parseArguments(
+  (Map<String, String>? positionals, List<String>? variadic)? _parseArguments(
     List<String> args,
   ) {
     final (registeredPositionals, registeredVariadic) = (
