@@ -10,7 +10,7 @@ typedef AccessorSchema = Map<String, AccessorInput>;
 
 typedef Aliases = List<String>;
 
-abstract class CommandRegistry {
+final class CommandRegistry {
   final String name;
 
   final String shortDescription;
@@ -449,21 +449,16 @@ final class BooleanFlag extends Flag {
 
   BooleanFlag({
     super.short,
-    super.type = NamedInputType.bool,
     required super.name,
     super.description,
     this.defaultValue = false,
     this.negatable = false,
-  });
+  }) : super(type: NamedInputType.bool);
 }
 
 final class CountFlag extends Flag {
-  const CountFlag({
-    super.short,
-    super.type = NamedInputType.count,
-    required super.name,
-    super.description,
-  });
+  const CountFlag({super.short, required super.name, super.description})
+    : super(type: NamedInputType.count);
 }
 
 sealed class Option extends NamedInput {
@@ -541,12 +536,11 @@ sealed class Option extends NamedInput {
 final class StringOption extends Option {
   StringOption({
     required super.name,
-    super.type = NamedInputType.string,
     required this.regex,
     super.short,
     super.description,
     super.required,
-  });
+  }) : super(type: NamedInputType.string);
 
   final RegExp regex;
 }
@@ -554,34 +548,30 @@ final class StringOption extends Option {
 final class IntOption extends Option {
   IntOption({
     required super.name,
-    super.type = NamedInputType.int,
     super.short,
     super.required,
     super.description,
-  });
+  }) : super(type: NamedInputType.int);
 }
 
 final class DoubleOption extends Option {
   DoubleOption({
     required super.name,
-    super.type = NamedInputType.double,
     super.short,
     super.required,
     super.description,
-  });
+  }) : super(type: NamedInputType.double);
 }
 
 final class ChoiceOption<T extends Enum> extends Option {
   ChoiceOption({
     required super.name,
-    super.type = NamedInputType.choice,
-    required List<T> choices,
+    required this.choices,
     super.short,
     super.description,
     super.required,
-
     this.defaultValue,
-  }) : choices = List.unmodifiable(choices);
+  }) : super(type: NamedInputType.choice);
 
   final List<T> choices;
   final T? defaultValue;
@@ -646,32 +636,29 @@ final class RepeatableStringOption extends RepeatableOption {
 
   const RepeatableStringOption({
     required super.name,
-    super.type = NamedInputType.repeatableString,
     required super.required,
     required this.regex,
     super.short,
     super.description,
-  });
+  }) : super(type: NamedInputType.repeatableString);
 }
 
 final class RepeatableIntOption extends RepeatableOption {
   const RepeatableIntOption({
-    super.type = NamedInputType.repeatableInt,
     required super.name,
     required super.required,
     super.short,
     super.description,
-  });
+  }) : super(type: NamedInputType.repeatableInt);
 }
 
 final class RepeatableDoubleOption extends RepeatableOption {
   const RepeatableDoubleOption({
-    super.type = NamedInputType.repeatableDouble,
     required super.name,
     required super.required,
     super.short,
     super.description,
-  });
+  }) : super(type: NamedInputType.repeatableDouble);
 }
 
 sealed class AccessorInput {
