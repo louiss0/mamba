@@ -17,7 +17,6 @@ class Parser {
     final consumed = <int>{};
     final singleOptions = <String, String>{};
     final repeatedOptions = <String, List<String>>{};
-    final repeatedOptionTypes = <RepeatableOption>[];
     final boolFlags = <String, bool>{};
     final countFlags = <String, int>{};
     final accessorMap = <String, AccessorValue>{};
@@ -56,12 +55,7 @@ class Parser {
         if (option != null) {
           final value = _takeOptionValue(args, index, consumed, option.name);
           if (option is RepeatableOption) {
-            _addRepeatedOptionValue(
-              option,
-              value,
-              repeatedOptions,
-              repeatedOptionTypes,
-            );
+            _addRepeatedOptionValue(option, value, repeatedOptions);
           } else {
             singleOptions[option.name] = _parseOptionValue(option, value);
           }
@@ -81,7 +75,6 @@ class Parser {
           consumed,
           singleOptions,
           repeatedOptions,
-          repeatedOptionTypes,
           boolFlags,
           countFlags,
         );
@@ -105,9 +98,6 @@ class Parser {
         countFlags: countFlags.isEmpty ? null : countFlags,
         singleOptions: singleOptions.isEmpty ? null : singleOptions,
         repeatedOptions: repeatedOptions.isEmpty ? null : repeatedOptions,
-        repeatedOptionTypes: repeatedOptionTypes.isEmpty
-            ? null
-            : repeatedOptionTypes,
         accessorMap: accessorMap.isEmpty ? null : accessorMap,
       ),
     );
@@ -209,7 +199,6 @@ class Parser {
     Set<int> consumed,
     Map<String, String> singleOptions,
     Map<String, List<String>> repeatedOptions,
-    List<RepeatableOption> repeatedOptionTypes,
     Map<String, bool> boolFlags,
     Map<String, int> countFlags,
   ) {
@@ -217,12 +206,7 @@ class Parser {
     if (option != null) {
       final value = _takeOptionValue(args, index, consumed, option.name);
       if (option is RepeatableOption) {
-        _addRepeatedOptionValue(
-          option,
-          value,
-          repeatedOptions,
-          repeatedOptionTypes,
-        );
+        _addRepeatedOptionValue(option, value, repeatedOptions);
       } else {
         singleOptions[option.name] = _parseOptionValue(option, value);
       }
@@ -310,14 +294,10 @@ class Parser {
     RepeatableOption option,
     String value,
     Map<String, List<String>> options,
-    List<RepeatableOption> optionTypes,
   ) {
     final values = options[option.name] ?? [];
     _validateRepeatedValue(option, value, values.length);
     options[option.name] = [...values, value];
-    if (!optionTypes.any((registered) => registered.name == option.name)) {
-      optionTypes.add(option);
-    }
   }
 
   void _validateRepeatedValue(

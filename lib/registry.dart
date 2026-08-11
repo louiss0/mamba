@@ -363,7 +363,6 @@ typedef Inputs = ({
   Map<String, int>? countFlags,
   Map<String, String>? singleOptions,
   Map<String, List<String>>? repeatedOptions,
-  List<RepeatableOption>? repeatedOptionTypes,
   Map<String, AccessorValue>? accessorMap,
   Map<String, String>? mandatoryPositionals,
   Map<String, String>? discretionaryPositionals,

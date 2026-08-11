@@ -228,7 +228,6 @@ void main() {
             ],
           }),
         );
-        expect(inputs.repeatedOptionTypes, [isA<RepeatableStringOption>()]);
       });
 
       test("parses repeated short option", () {
