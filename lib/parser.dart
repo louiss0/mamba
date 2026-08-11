@@ -90,6 +90,7 @@ class Parser {
       positionals.add(token);
     }
 
+    _addBooleanDefaults(registry, boolFlags);
     _addChoiceDefaults(registry, singleOptions);
     _validateRequiredOptions(registry, singleOptions, repeatedOptions);
     final parsedPositionals = _parsePositionals(registry, positionals);
@@ -373,14 +374,19 @@ class Parser {
     return match != null && match.start == 0 && match.end == value.length;
   }
 
+  void _addBooleanDefaults(CommandRegistry registry, Map<String, bool> values) {
+    for (final flag in registry.boolFlags?.values ?? const <BooleanFlag>[]) {
+      values.putIfAbsent(flag.name, () => flag.defaultValue);
+    }
+  }
+
   void _addChoiceDefaults(
     CommandRegistry registry,
     Map<String, String> values,
   ) {
     for (final option
         in registry.singleOptions?.values ?? const <SingleOption>[]) {
-      if (values.isEmpty &&
-          option is ChoiceOption &&
+      if (option is ChoiceOption &&
           option.defaultValue != null &&
           !values.containsKey(option.name)) {
         values[option.name] = option.defaultValue!.name;

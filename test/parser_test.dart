@@ -178,6 +178,15 @@ void main() {
           equals({'paging': 'auto'}),
         );
       });
+
+      test('adds defaults alongside explicitly parsed options', () {
+        final (_, inputs) = parser.parse(['--decorations', 'always']);
+
+        expect(inputs.singleOptions, {
+          'decorations': 'always',
+          'paging': 'auto',
+        });
+      });
     });
 
     group("Parses repeated options properly", () {
@@ -219,6 +228,7 @@ void main() {
             ],
           }),
         );
+        expect(inputs.repeatedOptionTypes, [isA<RepeatableStringOption>()]);
       });
 
       test("parses repeated short option", () {
@@ -405,6 +415,35 @@ void main() {
       });
     });
 
+    group('Validates required repeated options', () {
+      test('throws when a required repeated option is absent', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'curl',
+            'Do http requests',
+            repeatedOptions: [
+              RepeatableStringOption(
+                name: 'header',
+                required: true,
+                regex: RegExp(r'\S+:.+'),
+              ),
+            ],
+          ),
+        );
+
+        expect(
+          () => parser.parse(['curl']),
+          throwsA(
+            isA<MambaParseException>().having(
+              (error) => error.message,
+              'message',
+              'Option --header is required',
+            ),
+          ),
+        );
+      });
+    });
+
     group("Parses string options properly", () {
       final parser = Parser(
         CommandRegistry.create(
@@ -420,6 +459,19 @@ void main() {
           ],
         ),
       );
+
+      test('throws when an option value is absent', () {
+        expect(
+          () => parser.parse(['--url']),
+          throwsA(
+            isA<MambaParseException>().having(
+              (error) => error.message,
+              'message',
+              'Option --url requires a value',
+            ),
+          ),
+        );
+      });
 
       test("throws when string option doesn't satisfy regex requirement", () {
         expect(
@@ -639,27 +691,58 @@ void main() {
         ),
       );
 
+      test('returns registered boolean defaults when flags are absent', () {
+        final (_, inputs) = parser.parse([]);
+
+        expect(inputs.boolFlags, {
+          'color': false,
+          'diff': false,
+          'number': false,
+          'list-languages': false,
+        });
+      });
+
       test("parses non short or optional boolean flag", () {
         final (_, inputs) = parser.parse(['bat', '--diff']);
 
-        expect(inputs.boolFlags, {'diff': true});
+        expect(inputs.boolFlags, {
+          'color': false,
+          'diff': true,
+          'number': false,
+          'list-languages': false,
+        });
       });
 
       test("parses negatable boolean flag", () {
         final (_, inputs) = parser.parse(['bat', '--no-color']);
 
-        expect(inputs.boolFlags, {'color': false});
+        expect(inputs.boolFlags, {
+          'color': false,
+          'diff': false,
+          'number': false,
+          'list-languages': false,
+        });
       });
       test("parses short boolean flag", () {
         final (_, inputs) = parser.parse(['bat', '-n']);
 
-        expect(inputs.boolFlags, {'number': true});
+        expect(inputs.boolFlags, {
+          'color': false,
+          'diff': false,
+          'number': true,
+          'list-languages': false,
+        });
       });
 
       test("parses short negative boolean flag", () {
         final (_, inputs) = parser.parse(['bat', '-n-L']);
 
-        expect(inputs.boolFlags, {'list-languages': false});
+        expect(inputs.boolFlags, {
+          'color': false,
+          'diff': false,
+          'number': false,
+          'list-languages': false,
+        });
       });
     });
 
@@ -671,6 +754,24 @@ void main() {
           flags: [CountFlag(name: 'verbose', short: 'v')],
         ),
       );
+
+      test('parses mixed short boolean and count flags', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'git',
+            'Sync files using version control',
+            flags: [
+              BooleanFlag(name: 'dry-run', short: 'n'),
+              CountFlag(name: 'verbose', short: 'v'),
+            ],
+          ),
+        );
+
+        final (_, inputs) = parser.parse(['-vnv']);
+
+        expect(inputs.boolFlags, {'dry-run': true});
+        expect(inputs.countFlags, {'verbose': 2});
+      });
 
       test("parses count flag normally", () {
         final (_, inputs) = parser.parse(['git', '--verbose']);
@@ -694,6 +795,78 @@ void main() {
         final (_, inputs) = parser.parse(['git', '-vv']);
 
         expect(inputs.countFlags, {'verbose': 2});
+      });
+    });
+
+    group('Parses accessors', () {
+      test('parses a named accessor', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'serve',
+            'Serve requests',
+            accessors: {
+              'user': AccessorInput.named(
+                StringOption(name: 'name', regex: RegExp(r'\S+')),
+              ),
+            },
+          ),
+        );
+
+        final (_, inputs) = parser.parse(['--user.name', 'ada']);
+
+        expect(inputs.accessorMap!['user'], isA<AccessorString>());
+        expect((inputs.accessorMap!['user'] as AccessorString).value, 'ada');
+      });
+
+      test('validates typed accessor values', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'serve',
+            'Serve requests',
+            accessors: {
+              'server': AccessorInput.group({'port': IntOption(name: 'port')}),
+            },
+          ),
+        );
+
+        expect(
+          () => parser.parse(['--server.port', 'eighty']),
+          throwsA(
+            isA<MambaParseException>().having(
+              (error) => error.message,
+              'message',
+              'Invalid int value: eighty never have spaces in between numbers',
+            ),
+          ),
+        );
+      });
+
+      test('parses and merges typed accessor group values', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'serve',
+            'Serve requests',
+            accessors: {
+              'server': AccessorInput.group({
+                'port': IntOption(name: 'port'),
+                'timeout': DoubleOption(name: 'timeout'),
+              }),
+            },
+          ),
+        );
+
+        final (_, inputs) = parser.parse([
+          '--server.port',
+          '8080',
+          '--server.timeout',
+          '1.5',
+        ]);
+
+        final server = inputs.accessorMap!['server'] as AccessorMap;
+        expect(server.value['port'], isA<AccessorInt>());
+        expect((server.value['port'] as AccessorInt).value, 8080);
+        expect(server.value['timeout'], isA<AccessorDouble>());
+        expect((server.value['timeout'] as AccessorDouble).value, 1.5);
       });
     });
 
@@ -742,6 +915,50 @@ Only two dots can be used
     });
 
     group("registration", () {
+      test("parses options registered on a nested command", () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'tool',
+            'Manage tools',
+            commands: [
+              TestCommand(
+                'run',
+                'Run a tool',
+                singleOptions: [IntOption(name: 'count')],
+              ),
+            ],
+          ),
+        );
+
+        final (command, inputs) = parser.parse(['tool', 'run', '--count', '2']);
+
+        expect(command, ['tool', 'run']);
+        expect(inputs.singleOptions, {'count': '2'});
+      });
+
+      test('parses options after positionals', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'copy',
+            'Copy a file',
+            positionalSchema: PositionalSchema([Positional('source')]),
+            singleOptions: [
+              StringOption(name: 'destination', regex: RegExp(r'\S+')),
+            ],
+          ),
+        );
+
+        final (_, inputs) = parser.parse([
+          'copy',
+          'source.txt',
+          '--destination',
+          'target.txt',
+        ]);
+
+        expect(inputs.mandatoryPositionals, {'source': 'source.txt'});
+        expect(inputs.singleOptions, {'destination': 'target.txt'});
+      });
+
       test("parses options when they are registered", () {
         final parser = Parser(
           CommandRegistry.create(

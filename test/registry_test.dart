@@ -347,6 +347,31 @@ void main() {
             );
           });
 
+          test('throws for matching single and repeated option names', () {
+            expect(
+              () => CommandRegistry.create(
+                'commit',
+                'Makes a git commit',
+                singleOptions: [
+                  StringOption(name: 'message', regex: RegExp(r'\S+')),
+                ],
+                repeatedOptions: [
+                  RepeatableStringOption(
+                    name: 'message',
+                    regex: RegExp(r'\S+'),
+                  ),
+                ],
+              ),
+              throwsA(
+                isA<MambaException>().having(
+                  (error) => error.message,
+                  'message',
+                  'There are duplicate option names at index 0 and 1',
+                ),
+              ),
+            );
+          });
+
           test("throws for duplcate flags", () {
             void createDuplicateFlags() {
               CommandRegistry.create(
