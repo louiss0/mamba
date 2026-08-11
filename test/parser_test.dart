@@ -116,9 +116,8 @@ void main() {
           ),
         );
 
-        final (_, inputs) = parser.parse(['foo.com']);
         expect(
-          () => inputs.discretionaryPositionals,
+          () => parser.parse(['foo.com']),
           throwsA(
             isA<ArgumentError>().having(
               (e) => e.message,
@@ -162,18 +161,23 @@ void main() {
 
       test("parses valid choice", () {
         final (_, inputs) = parser.parse(['--decorations', 'always']);
-        expect(inputs.singleOptions, equals({'decorations': 'always'}));
+        expect(inputs.singleOptions!['decorations']!.value, equals('always'));
       });
 
       test("parses valid short choice", () {
         final (_, inputs) = parser.parse(['-p', 'never']);
-        expect(inputs.singleOptions, equals({'paging': 'never'}));
+        expect(inputs.singleOptions!['paging']!.value, equals('never'));
       });
 
       test("parses option with default value when it's not passed in", () {
         final (_, inputs) = parser.parse([]);
 
-        expect(inputs.singleOptions, equals({'paging': 'auto'}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'paging': 'auto'}),
+        );
       });
     });
 
@@ -188,6 +192,12 @@ void main() {
               short: 'H',
               regex: RegExp(r'\S+:.+'),
             ),
+            RepeatableStringOption(
+              name: 'endpoint',
+              regex: RegExp(r'^https?:\/\/[^^\s/$.?#].[^^\s]*$'),
+            ),
+            RepeatableIntOption(name: 'expect-status'),
+            RepeatableDoubleOption(name: 'latency-threshold'),
           ],
         ),
       );
@@ -200,7 +210,9 @@ void main() {
           'Authorization: Bearer token',
         ]);
         expect(
-          inputs.repeatedOptions,
+          inputs.repeatedOptions?.map(
+            (name, options) => MapEntry(name, options),
+          ),
           equals({
             'header': [
               'Accept: application/json',
@@ -218,7 +230,9 @@ void main() {
           'Authorization: Bearer token',
         ]);
         expect(
-          inputs.repeatedOptions,
+          inputs.repeatedOptions?.map(
+            (name, options) => MapEntry(name, options),
+          ),
           equals({
             'header': [
               'Accept: application/json',
@@ -262,7 +276,9 @@ void main() {
           ]);
 
           expect(
-            inputs.repeatedOptions,
+            inputs.repeatedOptions?.map(
+              (name, options) => MapEntry(name, options),
+            ),
             equals({
               'endpoint': [
                 'https://api.example.com/health',
@@ -291,7 +307,9 @@ void main() {
           ]);
 
           expect(
-            inputs.repeatedOptions,
+            inputs.repeatedOptions?.map(
+              (name, options) => MapEntry(name, options),
+            ),
             equals({
               'endpoint': [
                 'https://api.example.com/health',
@@ -420,13 +438,23 @@ void main() {
       test("parses a string option", () {
         final (_, inputs) = parser.parse(['--url', 'https://example.com']);
         expect(inputs, isA<Inputs>());
-        expect(inputs.singleOptions, equals({'url': 'https://example.com'}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'url': 'https://example.com'}),
+        );
       });
 
       test("parses a short string option", () {
         final (_, inputs) = parser.parse(['-u', 'https://example.com']);
         expect(inputs, isA<Inputs>());
-        expect(inputs.singleOptions, equals({'url': 'https://example.com'}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'url': 'https://example.com'}),
+        );
       });
 
       test("throws when required option isn't passed in", () {
@@ -492,13 +520,23 @@ void main() {
       test("parses correct long option", () {
         final (_, inputs) = parser.parse(['curl', '--max-redirs', '5']);
 
-        expect(inputs.singleOptions, equals({'max-redirs': 5}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'max-redirs': 5}),
+        );
       });
 
       test("parses correct short option", () {
         final (_, inputs) = parser.parse(['curl', '--k', '5']);
 
-        expect(inputs.singleOptions, equals({'keep-alive-count': 5}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'keep-alive-count': 5}),
+        );
       });
 
       test("throws when required int isn't added", () {
@@ -557,13 +595,23 @@ void main() {
       test("parses correct long option", () {
         final (_, inputs) = parser.parse(['curl', '--connect-timeout', '5.0']);
 
-        expect(inputs.singleOptions, equals({'connect-timeout': 5.0}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'connect-timeout': 5.0}),
+        );
       });
 
       test("parses correct short option", () {
         final (_, inputs) = parser.parse(['curl', '-m', '5.0']);
 
-        expect(inputs.singleOptions, equals({'max-time': 5.0}));
+        expect(
+          inputs.singleOptions?.map(
+            (name, option) => MapEntry(name, option.value),
+          ),
+          equals({'max-time': 5.0}),
+        );
       });
 
       test("throws when required double isn't added", () {
@@ -728,12 +776,16 @@ Only two dots can be used
         expect(command, equals(["run"]));
         expect(
           inputs,
-          isA<Inputs>().having((i) => i.singleOptions!['count'], "count", 2),
+          isA<Inputs>().having(
+            (i) => i.singleOptions!['count']!.value,
+            "count",
+            2,
+          ),
         );
         expect(
           inputs,
           isA<Inputs>().having(
-            (i) => i.singleOptions!['name'],
+            (i) => i.singleOptions!['name']!.value,
             "name",
             "Xavier Leroy",
           ),

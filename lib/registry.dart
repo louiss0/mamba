@@ -252,9 +252,12 @@ final class CommandRegistry {
       }
     }
 
-    if (positionalSchema?.mandatory != null) {
+    if (positionalSchema != null) {
       final names = <String>{};
-      final positionals = [...?positionalSchema?.discretionary];
+      final positionals = [
+        ...positionalSchema.mandatory,
+        ...?positionalSchema.discretionary,
+      ];
 
       for (final positional in positionals) {
         if (!names.add(positional.name)) {
@@ -274,7 +277,7 @@ final class CommandRegistry {
         }
       }
 
-      final variadic = positionalSchema?.variadic;
+      final variadic = positionalSchema.variadic;
       if (variadic != null && names.contains(variadic.name)) {
         throw const MambaException(
           "A positional and variadic can't have the same name you can pluralize the variadic",
@@ -327,13 +330,20 @@ final class AccessorDouble extends _AccessorPrimitive<double> {
 
 final class AccessorMap extends AccessorValue<Map<String, _AccessorPrimitive>> {
   const AccessorMap(super.value);
+
+  factory AccessorMap.create(Map<String, AccessorValue> values) {
+    return AccessorMap(
+      values.map((name, value) => MapEntry(name, value as _AccessorPrimitive)),
+    );
+  }
 }
 
 typedef Inputs = ({
   Map<String, bool>? boolFlags,
   Map<String, int>? countFlags,
-  Map<String, String>? singleOptions,
+  Map<String, Option>? singleOptions,
   Map<String, List<String>>? repeatedOptions,
+  List<RepeatableOption>? repeatedOptionTypes,
   Map<String, AccessorValue>? accessorMap,
   Map<String, String>? mandatoryPositionals,
   Map<String, String>? discretionaryPositionals,
@@ -511,6 +521,7 @@ final class CountFlag extends Flag {
 sealed class Option extends NamedInput {
   final String? short;
   final bool required;
+  final Object? value;
 
   const Option({
     required this.short,
@@ -518,6 +529,7 @@ sealed class Option extends NamedInput {
     required super.name,
     required super.description,
     this.required = false,
+    this.value,
   });
   static StringOption stringOption(
     String name,
@@ -587,6 +599,7 @@ final class StringOption extends Option {
     super.short,
     super.description,
     super.required,
+    super.value,
   }) : super(type: NamedInputType.string);
 
   final RegExp regex;
@@ -598,6 +611,7 @@ final class IntOption extends Option {
     super.short,
     super.required,
     super.description,
+    super.value,
   }) : super(type: NamedInputType.int);
 }
 
@@ -607,6 +621,7 @@ final class DoubleOption extends Option {
     super.short,
     super.required,
     super.description,
+    super.value,
   }) : super(type: NamedInputType.double);
 }
 
@@ -618,6 +633,7 @@ final class ChoiceOption<T extends Enum> extends Option {
     super.description,
     super.required,
     this.defaultValue,
+    super.value,
   }) : super(type: NamedInputType.choice);
 
   final List<T> choices;
