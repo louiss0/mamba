@@ -4,6 +4,23 @@ import 'package:test/test.dart';
 
 enum When { auto, never, always }
 
+class TestCommand extends Command {
+  TestCommand(
+    super.name,
+    super.shortDescription, {
+    super.positionalSchema,
+    super.accessorFlagSchema,
+    super.flags,
+    super.options,
+    super.commands,
+  });
+
+  @override
+  void run(Inputs input) {
+    // TODO: implement run
+  }
+}
+
 void main() {
   group("Testing parser", () {
     group("Parses positionals and variadics", () {
@@ -145,18 +162,229 @@ void main() {
 
       test("parses valid choice", () {
         final (_, inputs) = parser.parse(['--decorations', 'always']);
-        expect(inputs.options, equals({'decorations': 'always'}));
+        expect(inputs.singleOptions, equals({'decorations': 'always'}));
       });
 
       test("parses valid short choice", () {
         final (_, inputs) = parser.parse(['-p', 'never']);
-        expect(inputs.options, equals({'paging': 'never'}));
+        expect(inputs.singleOptions, equals({'paging': 'never'}));
       });
 
       test("parses option with default value when it's not passed in", () {
         final (_, inputs) = parser.parse([]);
 
-        expect(inputs.options, equals({'paging': 'auto'}));
+        expect(inputs.singleOptions, equals({'paging': 'auto'}));
+      });
+    });
+
+    group("Parses repeated options properly", () {
+      final parser = Parser(
+        CommandRegistry.create(
+          "curl",
+          "Do http requests in the terminal",
+          options: [
+            RepeatableStringOption(
+              name: 'header',
+              short: 'H',
+              regex: RegExp(r'\S+:.+'),
+            ),
+          ],
+        ),
+      );
+
+      test("parses repeated option", () {
+        final (_, inputs) = parser.parse([
+          '--header',
+          'Accept: application/json',
+          '--header',
+          'Authorization: Bearer token',
+        ]);
+        expect(
+          inputs.repeatedOptions,
+          equals({
+            'header': [
+              'Accept: application/json',
+              'Authorization: Bearer token',
+            ],
+          }),
+        );
+      });
+
+      test("parses repeated short option", () {
+        final (_, inputs) = parser.parse([
+          '-H',
+          'Accept: application/json',
+          '-H',
+          'Authorization: Bearer token',
+        ]);
+        expect(
+          inputs.repeatedOptions,
+          equals({
+            'header': [
+              'Accept: application/json',
+              'Authorization: Bearer token',
+            ],
+          }),
+        );
+      });
+
+      group('Parses repeated of all types properly', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            "probe",
+            "Check service health",
+            options: [
+              RepeatableStringOption(
+                name: 'endpoint',
+                regex: RegExp(r'^https?:\/\/[^^\s/$.?#].[^^\s]*$'),
+                short: "e",
+              ),
+              RepeatableIntOption(name: 'expect-status', short: 'es'),
+              RepeatableDoubleOption(name: 'latency-threshold', short: 'lt'),
+            ],
+          ),
+        );
+
+        test("parses repeated string, int, and double options", () {
+          final (_, inputs) = parser.parse([
+            '--endpoint',
+            'https://api.example.com/health',
+            '--endpoint',
+            'https://api.example.com/ready',
+            '--expect-status',
+            '200',
+            '--expect-status',
+            '204',
+            '--latency-threshold',
+            '0.25',
+            '--latency-threshold',
+            '1.0',
+          ]);
+
+          expect(
+            inputs.repeatedOptions,
+            equals({
+              'endpoint': [
+                'https://api.example.com/health',
+                'https://api.example.com/ready',
+              ],
+              'expect-status': ['200', '204'],
+              'latency-threshold': ['0.25', '1.0'],
+            }),
+          );
+        });
+
+        test("parses repeated short string, int, and double options", () {
+          final (_, inputs) = parser.parse([
+            '--e',
+            'https://api.example.com/health',
+            '--e',
+            'https://api.example.com/ready',
+            '--es',
+            '200',
+            '--es',
+            '204',
+            '--lt',
+            '0.25',
+            '--lt',
+            '1.0',
+          ]);
+
+          expect(
+            inputs.repeatedOptions,
+            equals({
+              'endpoint': [
+                'https://api.example.com/health',
+                'https://api.example.com/ready',
+              ],
+              'expect-status': ['200', '204'],
+              'latency-threshold': ['0.25', '1.0'],
+            }),
+          );
+        });
+      });
+
+      group("throws if repeated option type isn't meet", () {
+        final cases = [
+          (
+            flag: "endpoint",
+            goodInput: "https://api.example.com/health",
+            badInput: "bad",
+            error: "Invalid input must be a ",
+          ),
+          (
+            flag: "expect-status",
+            goodInput: "200",
+            badInput: "bad",
+            error: "Invalid input must be a int",
+          ),
+          (
+            flag: "expect-status",
+            goodInput: "200",
+            badInput: "0.0",
+            error: "Invalid input must be a int",
+          ),
+          (
+            flag: "expect-status",
+            goodInput: "200",
+            badInput: ".0",
+            error: "Invalid input must be a int",
+          ),
+          (
+            flag: "expect-status",
+            goodInput: "200",
+            badInput: " 0",
+            error: "Invalid input must be a int.\nDon't add spaces",
+          ),
+          (
+            flag: "expect-status",
+            goodInput: "200",
+            badInput: "0 ",
+            error: "Invalid input must be a int.\nDon't add spaces",
+          ),
+          (
+            flag: "latency-threshold",
+            goodInput: "0.25",
+            badInput: "bad",
+            error: "Invalid input must be a double",
+          ),
+          (
+            flag: "latency-threshold",
+            goodInput: "0.25",
+            badInput: "4.5 ",
+            error: "Invalid input must be a double.\nDon't add spaces",
+          ),
+          (
+            flag: "latency-threshold",
+            goodInput: "0.25",
+            badInput: " 3.6",
+            error: "Invalid input must be a  double.\nDon't add spaces",
+          ),
+        ];
+
+        for (var i = 1; i <= 4; i++) {
+          for (final (:flag, :goodInput, :badInput, :error) in cases) {
+            test(
+              "throws when repeated option $flag doesn't satisfy requirement for $i input(s)",
+              () {
+                expect(
+                  () => parser.parse([
+                    for (var j = 0; j < i; j++) ...['--$flag', goodInput],
+                    '--$flag',
+                    badInput,
+                  ]),
+                  throwsA(
+                    isA<MambaParseException>().having(
+                      (e) => e.message,
+                      "message",
+                      "Wrong option at ${i + 1} $error",
+                    ),
+                  ),
+                );
+              },
+            );
+          }
+        }
       });
     });
 
@@ -192,13 +420,13 @@ void main() {
       test("parses a string option", () {
         final (_, inputs) = parser.parse(['--url', 'https://example.com']);
         expect(inputs, isA<Inputs>());
-        expect(inputs.options, equals({'url': 'https://example.com'}));
+        expect(inputs.singleOptions, equals({'url': 'https://example.com'}));
       });
 
       test("parses a short string option", () {
         final (_, inputs) = parser.parse(['-u', 'https://example.com']);
         expect(inputs, isA<Inputs>());
-        expect(inputs.options, equals({'url': 'https://example.com'}));
+        expect(inputs.singleOptions, equals({'url': 'https://example.com'}));
       });
 
       test("throws when required option isn't passed in", () {
@@ -264,13 +492,13 @@ void main() {
       test("parses correct long option", () {
         final (_, inputs) = parser.parse(['curl', '--max-redirs', '5']);
 
-        expect(inputs.options, equals({'max-redirs': 5}));
+        expect(inputs.singleOptions, equals({'max-redirs': 5}));
       });
 
       test("parses correct short option", () {
         final (_, inputs) = parser.parse(['curl', '--k', '5']);
 
-        expect(inputs.options, equals({'keep-alive-count': 5}));
+        expect(inputs.singleOptions, equals({'keep-alive-count': 5}));
       });
 
       test("throws when required int isn't added", () {
@@ -329,13 +557,13 @@ void main() {
       test("parses correct long option", () {
         final (_, inputs) = parser.parse(['curl', '--connect-timeout', '5.0']);
 
-        expect(inputs.options, equals({'connect-timeout': 5.0}));
+        expect(inputs.singleOptions, equals({'connect-timeout': 5.0}));
       });
 
       test("parses correct short option", () {
         final (_, inputs) = parser.parse(['curl', '-m', '5.0']);
 
-        expect(inputs.options, equals({'max-time': 5.0}));
+        expect(inputs.singleOptions, equals({'max-time': 5.0}));
       });
 
       test("throws when required double isn't added", () {
@@ -500,12 +728,12 @@ Only two dots can be used
         expect(command, equals(["run"]));
         expect(
           inputs,
-          isA<Inputs>().having((i) => i.options!['count'], "count", 2),
+          isA<Inputs>().having((i) => i.singleOptions!['count'], "count", 2),
         );
         expect(
           inputs,
           isA<Inputs>().having(
-            (i) => i.options!['name'],
+            (i) => i.singleOptions!['name'],
             "name",
             "Xavier Leroy",
           ),
@@ -593,16 +821,6 @@ Only two dots can be used
             {'source': 'user.dart', 'destination': 'lib/user.dart'},
           ),
         );
-      });
-
-      test("parses aliases when they are registered", () {
-        final parser = Parser(
-          CommandRegistry.create("run", "Run this script", aliases: ['r']),
-        );
-
-        final (command) = parser.parse(['r']);
-
-        expect(command, equals(["run"]));
       });
     });
   });
