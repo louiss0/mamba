@@ -11,7 +11,8 @@ class TestCommand extends Command {
     super.positionalSchema,
     super.accessorFlagSchema,
     super.flags,
-    super.options,
+    super.singleOptions,
+    super.repeatedOptions,
     super.commands,
   });
 
@@ -134,7 +135,7 @@ void main() {
         CommandRegistry.create(
           "bat",
           "Open files colorfully",
-          options: [
+          singleOptions: [
             ChoiceOption<When>(
               name: 'paging',
               short: 'p',
@@ -161,21 +162,19 @@ void main() {
 
       test("parses valid choice", () {
         final (_, inputs) = parser.parse(['--decorations', 'always']);
-        expect(inputs.singleOptions!['decorations']!.value, equals('always'));
+        expect(inputs.singleOptions!['decorations'], equals('always'));
       });
 
       test("parses valid short choice", () {
         final (_, inputs) = parser.parse(['-p', 'never']);
-        expect(inputs.singleOptions!['paging']!.value, equals('never'));
+        expect(inputs.singleOptions!['paging'], equals('never'));
       });
 
       test("parses option with default value when it's not passed in", () {
         final (_, inputs) = parser.parse([]);
 
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
           equals({'paging': 'auto'}),
         );
       });
@@ -186,7 +185,7 @@ void main() {
         CommandRegistry.create(
           "curl",
           "Do http requests in the terminal",
-          options: [
+          repeatedOptions: [
             RepeatableStringOption(
               name: 'header',
               short: 'H',
@@ -247,7 +246,7 @@ void main() {
           CommandRegistry.create(
             "probe",
             "Check service health",
-            options: [
+            repeatedOptions: [
               RepeatableStringOption(
                 name: 'endpoint',
                 regex: RegExp(r'^https?:\/\/[^^\s/$.?#].[^^\s]*$'),
@@ -411,7 +410,7 @@ void main() {
         CommandRegistry.create(
           "curl",
           "Do http requests in the terminal",
-          options: [
+          singleOptions: [
             StringOption(
               name: 'url',
               regex: RegExp(r'^https?:\/\/[^\s/$.?#].[^\s]*$'),
@@ -439,9 +438,7 @@ void main() {
         final (_, inputs) = parser.parse(['--url', 'https://example.com']);
         expect(inputs, isA<Inputs>());
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
           equals({'url': 'https://example.com'}),
         );
       });
@@ -450,9 +447,7 @@ void main() {
         final (_, inputs) = parser.parse(['-u', 'https://example.com']);
         expect(inputs, isA<Inputs>());
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
           equals({'url': 'https://example.com'}),
         );
       });
@@ -462,7 +457,7 @@ void main() {
           CommandRegistry.create(
             "curl",
             "Do http requests in the terminal",
-            options: [
+            singleOptions: [
               StringOption(
                 name: 'url',
                 required: true,
@@ -490,7 +485,7 @@ void main() {
         CommandRegistry.create(
           "curl",
           "Do http requests in the terminal",
-          options: [
+          singleOptions: [
             IntOption(name: 'max-redirs'),
             IntOption(name: 'retry'),
             IntOption(name: 'keep-alive-count', short: 'k'),
@@ -521,10 +516,8 @@ void main() {
         final (_, inputs) = parser.parse(['curl', '--max-redirs', '5']);
 
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
-          equals({'max-redirs': 5}),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
+          equals({'max-redirs': '5'}),
         );
       });
 
@@ -532,10 +525,8 @@ void main() {
         final (_, inputs) = parser.parse(['curl', '--k', '5']);
 
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
-          equals({'keep-alive-count': 5}),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
+          equals({'keep-alive-count': '5'}),
         );
       });
 
@@ -544,7 +535,7 @@ void main() {
           CommandRegistry.create(
             "curl",
             "Do http requests in the terminal",
-            options: [IntOption(name: 'retry', required: true)],
+            singleOptions: [IntOption(name: 'retry', required: true)],
           ),
         );
         expect(
@@ -565,7 +556,7 @@ void main() {
         CommandRegistry.create(
           "curl",
           "Do http requests in the terminal",
-          options: [
+          singleOptions: [
             DoubleOption(name: 'connect-timeout'),
             DoubleOption(name: 'max-time', short: 'm'),
             DoubleOption(name: 'retry-max-time'),
@@ -596,10 +587,8 @@ void main() {
         final (_, inputs) = parser.parse(['curl', '--connect-timeout', '5.0']);
 
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
-          equals({'connect-timeout': 5.0}),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
+          equals({'connect-timeout': '5.0'}),
         );
       });
 
@@ -607,10 +596,8 @@ void main() {
         final (_, inputs) = parser.parse(['curl', '-m', '5.0']);
 
         expect(
-          inputs.singleOptions?.map(
-            (name, option) => MapEntry(name, option.value),
-          ),
-          equals({'max-time': 5.0}),
+          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
+          equals({'max-time': '5.0'}),
         );
       });
 
@@ -619,7 +606,9 @@ void main() {
           CommandRegistry.create(
             "curl",
             "Do http requests in the terminal",
-            options: [DoubleOption(name: 'retry-max-time', required: true)],
+            singleOptions: [
+              DoubleOption(name: 'retry-max-time', required: true),
+            ],
           ),
         );
 
@@ -758,7 +747,7 @@ Only two dots can be used
           CommandRegistry.create(
             "run",
             "Run this script",
-            options: [
+            singleOptions: [
               IntOption(name: "count", short: "c"),
               StringOption(name: "name", short: "n", regex: RegExp(r"\S+")),
             ],
@@ -776,16 +765,12 @@ Only two dots can be used
         expect(command, equals(["run"]));
         expect(
           inputs,
-          isA<Inputs>().having(
-            (i) => i.singleOptions!['count']!.value,
-            "count",
-            2,
-          ),
+          isA<Inputs>().having((i) => i.singleOptions!['count'], "count", '2'),
         );
         expect(
           inputs,
           isA<Inputs>().having(
-            (i) => i.singleOptions!['name']!.value,
+            (i) => i.singleOptions!['name'],
             "name",
             "Xavier Leroy",
           ),

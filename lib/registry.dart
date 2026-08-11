@@ -4,7 +4,8 @@ typedef BoolFlagMap = Map<String, BooleanFlag>;
 
 typedef CountFlagMap = Map<String, CountFlag>;
 
-typedef OptionMap = Map<String, Option>;
+typedef SingleOptionMap = Map<String, SingleOption>;
+typedef RepeatedOptionMap = Map<String, RepeatableOption>;
 
 typedef AccessorSchema = Map<String, AccessorInput>;
 
@@ -19,7 +20,9 @@ final class CommandRegistry {
 
   final CountFlagMap? countFlags;
 
-  final OptionMap? options;
+  final SingleOptionMap? singleOptions;
+
+  final RepeatedOptionMap? repeatedOptions;
 
   final Map<String, Positional>? mandatoryPositionals;
 
@@ -38,7 +41,8 @@ final class CommandRegistry {
     List<String>? aliases,
     Map<String, AccessorInput>? accessors,
     List<Flag>? flags,
-    List<Option>? options,
+    List<SingleOption>? singleOptions,
+    List<RepeatableOption>? repeatedOptions,
     PositionalSchema? positionalSchema,
     List<Command>? commands,
   }) {
@@ -47,7 +51,8 @@ final class CommandRegistry {
       shortDescription: shortDescription,
       accessors: accessors,
       flags: flags,
-      options: options,
+      singleOptions: singleOptions,
+      repeatedOptions: repeatedOptions,
       positionalSchema: positionalSchema,
       commands: commands,
     );
@@ -58,7 +63,8 @@ final class CommandRegistry {
       longDescription: longDescription,
       accessorSchema: accessors,
       flags: flags,
-      options: options,
+      singleOptions: singleOptions,
+      repeatedOptions: repeatedOptions,
       positionalSchema: positionalSchema,
       commands: commands,
     );
@@ -70,7 +76,8 @@ final class CommandRegistry {
     this.longDescription,
     this.accessorSchema,
     List<Flag>? flags,
-    List<Option>? options,
+    List<SingleOption>? singleOptions,
+    List<RepeatableOption>? repeatedOptions,
     PositionalSchema? positionalSchema,
     List<Command>? commands,
   }) : boolFlags = flags?.fold(
@@ -81,7 +88,11 @@ final class CommandRegistry {
          {},
          (map, flag) => flag is CountFlag ? {...?map, flag.name: flag} : map,
        ),
-       options = options?.fold(
+       singleOptions = singleOptions?.fold(
+         {},
+         (map, option) => {...?map, option.name: option},
+       ),
+       repeatedOptions = repeatedOptions?.fold(
          {},
          (map, option) => {...?map, option.name: option},
        ),
@@ -101,7 +112,8 @@ final class CommandRegistry {
                shortDescription: command.shortDescription,
                longDescription: command.longDescription,
                flags: command.flags,
-               options: command.options,
+               singleOptions: command.singleOptions,
+               repeatedOptions: command.repeatedOptions,
                accessorSchema: command.accessorFlagSchema,
                positionalSchema: command.positionalSchema,
                commands: command.commands,
@@ -117,17 +129,25 @@ final class CommandRegistry {
     required String shortDescription,
     required AccessorSchema? accessors,
     required List<Flag>? flags,
-    required List<Option>? options,
+    required List<SingleOption>? singleOptions,
+    required List<RepeatableOption>? repeatedOptions,
     required PositionalSchema? positionalSchema,
     required List<Command>? commands,
   }) {
     _validateCommandName(name);
     _validateShortDescription(shortDescription);
-    _validateNamedInputs(options, 'Option');
+    _validateNamedInputs(singleOptions, 'Option');
+    _validateNamedInputs(repeatedOptions, 'Option');
     _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(positionalSchema);
-    _validateDuplicates(accessors, flags, options, positionalSchema, commands);
+    _validateDuplicates(
+      accessors,
+      flags,
+      [...?singleOptions, ...?repeatedOptions],
+      positionalSchema,
+      commands,
+    );
   }
 
   static void _validateCommandName(String name) {
@@ -341,7 +361,7 @@ final class AccessorMap extends AccessorValue<Map<String, _AccessorPrimitive>> {
 typedef Inputs = ({
   Map<String, bool>? boolFlags,
   Map<String, int>? countFlags,
-  Map<String, Option>? singleOptions,
+  Map<String, String>? singleOptions,
   Map<String, List<String>>? repeatedOptions,
   List<RepeatableOption>? repeatedOptionTypes,
   Map<String, AccessorValue>? accessorMap,
@@ -361,7 +381,8 @@ abstract class Command {
   final Map<String, AccessorInput>? accessorFlagSchema;
 
   final List<Flag>? flags;
-  final List<Option>? options;
+  final List<SingleOption>? singleOptions;
+  final List<RepeatableOption>? repeatedOptions;
   final List<Command>? commands;
 
   Command(
@@ -373,9 +394,8 @@ abstract class Command {
     required Map<String, AccessorInput>? accessorFlagSchema,
 
     required List<Flag>? flags,
-
-    required List<Option>? options,
-
+    required List<SingleOption>? singleOptions,
+    required List<RepeatableOption>? repeatedOptions,
     required List<Command>? commands,
   }) : registry = CommandRegistry.create(
          name,
@@ -384,7 +404,8 @@ abstract class Command {
          positionalSchema: positionalSchema,
          accessors: accessorFlagSchema,
          flags: flags,
-         options: options,
+         singleOptions: singleOptions,
+         repeatedOptions: repeatedOptions,
          commands: commands,
        ),
        name = name,
@@ -395,7 +416,12 @@ abstract class Command {
            ? Map.unmodifiable(accessorFlagSchema)
            : null,
        flags = flags != null ? List.unmodifiable(flags) : null,
-       options = options != null ? List.unmodifiable(options) : null,
+       singleOptions = singleOptions != null
+           ? List.unmodifiable(singleOptions)
+           : null,
+       repeatedOptions = repeatedOptions != null
+           ? List.unmodifiable(repeatedOptions)
+           : null,
        commands = commands != null ? List.unmodifiable(commands) : null;
 
   void run(Inputs input);
@@ -412,7 +438,8 @@ abstract class GroupCommand extends Command {
     super.positionalSchema,
     super.accessorFlagSchema,
     super.flags,
-    super.options,
+    super.singleOptions,
+    super.repeatedOptions,
     super.commands,
   });
 
@@ -521,7 +548,6 @@ final class CountFlag extends Flag {
 sealed class Option extends NamedInput {
   final String? short;
   final bool required;
-  final Object? value;
 
   const Option({
     required this.short,
@@ -529,7 +555,6 @@ sealed class Option extends NamedInput {
     required super.name,
     required super.description,
     this.required = false,
-    this.value,
   });
   static StringOption stringOption(
     String name,
@@ -592,40 +617,47 @@ sealed class Option extends NamedInput {
   }
 }
 
-final class StringOption extends Option {
+sealed class SingleOption extends Option {
+  const SingleOption({
+    required super.short,
+    required super.type,
+    required super.name,
+    required super.description,
+    super.required,
+  });
+}
+
+final class StringOption extends SingleOption {
   StringOption({
     required super.name,
     required this.regex,
     super.short,
     super.description,
     super.required,
-    super.value,
   }) : super(type: NamedInputType.string);
 
   final RegExp regex;
 }
 
-final class IntOption extends Option {
+final class IntOption extends SingleOption {
   IntOption({
     required super.name,
     super.short,
     super.required,
     super.description,
-    super.value,
   }) : super(type: NamedInputType.int);
 }
 
-final class DoubleOption extends Option {
+final class DoubleOption extends SingleOption {
   DoubleOption({
     required super.name,
     super.short,
     super.required,
     super.description,
-    super.value,
   }) : super(type: NamedInputType.double);
 }
 
-final class ChoiceOption<T extends Enum> extends Option {
+final class ChoiceOption<T extends Enum> extends SingleOption {
   ChoiceOption({
     required super.name,
     required this.choices,
@@ -633,7 +665,6 @@ final class ChoiceOption<T extends Enum> extends Option {
     super.description,
     super.required,
     this.defaultValue,
-    super.value,
   }) : super(type: NamedInputType.choice);
 
   final List<T> choices;

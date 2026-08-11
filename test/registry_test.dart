@@ -9,7 +9,8 @@ class TestCommand extends Command {
     super.longDescription,
     super.positionalSchema,
     super.flags,
-    super.options,
+    super.singleOptions,
+    super.repeatedOptions,
     super.accessorFlagSchema,
     super.commands,
   });
@@ -133,7 +134,7 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  options: [IntOption(name: symbol)],
+                  singleOptions: [IntOption(name: symbol)],
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -327,7 +328,7 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                options: [
+                singleOptions: [
                   StringOption(name: "commit", regex: RegExp(r"")),
                   StringOption(name: "commit", regex: RegExp(r"")),
                 ],
@@ -401,7 +402,7 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                options: [StringOption(name: "user", regex: RegExp(r""))],
+                singleOptions: [StringOption(name: "user", regex: RegExp(r""))],
                 accessors: {
                   'user': AccessorInput.named(
                     StringOption(name: "enable", regex: RegExp(r"")),
@@ -502,10 +503,10 @@ void main() {
         final registry = CommandRegistry.create(
           "build",
           "Build this!",
-          options: [run, agent],
+          singleOptions: [run, agent],
         );
 
-        expect(registry.options, equals({"run": run, "agent": agent}));
+        expect(registry.singleOptions, equals({"run": run, "agent": agent}));
       });
 
       test("When flags are added they are placed in the right flag places", () {

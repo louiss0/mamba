@@ -15,7 +15,7 @@ class Parser {
     final registry = _registryForCommand(command);
     final commandLength = command.length;
     final consumed = <int>{};
-    final singleOptions = <String, Option>{};
+    final singleOptions = <String, String>{};
     final repeatedOptions = <String, List<String>>{};
     final repeatedOptionTypes = <RepeatableOption>[];
     final boolFlags = <String, bool>{};
@@ -148,8 +148,12 @@ class Parser {
   }
 
   Option? _findOption(CommandRegistry registry, String name) {
-    return registry.options?[name] ??
-        registry.options?.values
+    return registry.singleOptions?[name] ??
+        registry.repeatedOptions?[name] ??
+        registry.singleOptions?.values
+            .where((option) => option.short == name)
+            .firstOrNull ??
+        registry.repeatedOptions?.values
             .where((option) => option.short == name)
             .firstOrNull;
   }
@@ -202,7 +206,7 @@ class Parser {
     List<String> args,
     int index,
     Set<int> consumed,
-    Map<String, Option> singleOptions,
+    Map<String, String> singleOptions,
     Map<String, List<String>> repeatedOptions,
     List<RepeatableOption> repeatedOptionTypes,
     Map<String, bool> boolFlags,
@@ -259,96 +263,46 @@ class Parser {
     }
   }
 
-  Option _parseOptionValue(Option option, String value) {
-    switch (option) {
-      case StringOption(:final regex):
-        if (!regex.hasMatch(value)) {
-          throw MambaParseException(
-            "This value doesn't satify the requirement",
-          );
-        }
-        return _copyOptionWithValue(option, value);
-      case IntOption():
-        return _copyOptionWithValue(option, _parseInt(value));
-      case DoubleOption():
-        return _copyOptionWithValue(option, _parseDouble(value));
-      case ChoiceOption(:final choices):
-        final names = choices.map((choice) => choice.name).toList();
-        if (!names.contains(value)) {
-          throw MambaParseException(
-            '$value is not a valid choice for ${option.name}\nMust be one of: $names',
-          );
-        }
-        return _copyOptionWithValue(option, value);
-      case RepeatableOption():
-        throw StateError('Repeatable options are parsed separately');
-    }
-  }
-
-  Option _copyOptionWithValue(Option option, Object value) {
+  String _parseOptionValue(Option option, String value) {
     return switch (option) {
-      StringOption(
-        :final name,
-        :final regex,
-        :final short,
-        :final description,
-        :final required,
-      ) =>
-        StringOption(
-          name: name,
-          regex: regex,
-          short: short,
-          description: description,
-          required: required,
-          value: value,
-        ),
-      IntOption(
-        :final name,
-        :final short,
-        :final description,
-        :final required,
-      ) =>
-        IntOption(
-          name: name,
-          short: short,
-          description: description,
-          required: required,
-          value: value,
-        ),
-      DoubleOption(
-        :final name,
-        :final short,
-        :final description,
-        :final required,
-      ) =>
-        DoubleOption(
-          name: name,
-          short: short,
-          description: description,
-          required: required,
-          value: value,
-        ),
-      ChoiceOption(
-        :final name,
-        :final choices,
-        :final short,
-        :final description,
-        :final required,
-        :final defaultValue,
-      ) =>
-        ChoiceOption<Enum>(
-          name: name,
-          choices: choices.cast<Enum>(),
-          short: short,
-          description: description,
-          required: required,
-          defaultValue: defaultValue,
-          value: value,
-        ),
+      StringOption(:final regex) => _parseStringOption(regex, value),
+      IntOption() => _parseNumberOption(_parseInt, value),
+      DoubleOption() => _parseNumberOption(_parseDouble, value),
+      ChoiceOption(:final choices) => _parseChoiceOption(
+        option.name,
+        choices.map((choice) => choice.name),
+        value,
+      ),
       RepeatableOption() => throw StateError(
         'Repeatable options are parsed separately',
       ),
     };
+  }
+
+  String _parseNumberOption(Object Function(String) parse, String value) {
+    parse(value);
+    return value;
+  }
+
+  String _parseStringOption(RegExp regex, String value) {
+    if (!regex.hasMatch(value)) {
+      throw MambaParseException("This value doesn't satify the requirement");
+    }
+    return value;
+  }
+
+  String _parseChoiceOption(
+    String name,
+    Iterable<String> choices,
+    String value,
+  ) {
+    final names = choices.toList();
+    if (!names.contains(value)) {
+      throw MambaParseException(
+        '$value is not a valid choice for $name\nMust be one of: $names',
+      );
+    }
+    return value;
   }
 
   void _addRepeatedOptionValue(
@@ -421,27 +375,28 @@ class Parser {
 
   void _addChoiceDefaults(
     CommandRegistry registry,
-    Map<String, Option> values,
+    Map<String, String> values,
   ) {
-    for (final option in registry.options?.values ?? const <Option>[]) {
+    for (final option
+        in registry.singleOptions?.values ?? const <SingleOption>[]) {
       if (values.isEmpty &&
           option is ChoiceOption &&
           option.defaultValue != null &&
           !values.containsKey(option.name)) {
-        values[option.name] = _copyOptionWithValue(
-          option,
-          option.defaultValue!.name,
-        );
+        values[option.name] = option.defaultValue!.name;
       }
     }
   }
 
   void _validateRequiredOptions(
     CommandRegistry registry,
-    Map<String, Option> singleOptions,
+    Map<String, String> singleOptions,
     Map<String, List<String>> repeatedOptions,
   ) {
-    for (final option in registry.options?.values ?? const <Option>[]) {
+    for (final option in [
+      ...?registry.singleOptions?.values,
+      ...?registry.repeatedOptions?.values,
+    ]) {
       if (option.required &&
           !singleOptions.containsKey(option.name) &&
           !repeatedOptions.containsKey(option.name)) {

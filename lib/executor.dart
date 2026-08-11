@@ -12,7 +12,8 @@ class _RootCommand extends GroupCommand {
     super.positionalSchema,
     super.accessorFlagSchema,
     super.flags,
-    super.options,
+    super.singleOptions,
+    super.repeatedOptions,
     super.commands,
   });
 }
@@ -30,7 +31,8 @@ final class Executor {
 
     List<Flag>? flags,
 
-    List<Option>? options,
+    List<SingleOption>? singleOptions,
+    List<RepeatableOption>? repeatedOptions,
 
     List<Command>? commands,
 
@@ -43,7 +45,8 @@ final class Executor {
          positionalSchema: positionalSchema,
          accessorFlagSchema: accessorFlagSchema,
          flags: flags,
-         options: options,
+         singleOptions: singleOptions,
+         repeatedOptions: repeatedOptions,
          commands: commands,
        );
 
