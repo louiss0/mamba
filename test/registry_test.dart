@@ -548,7 +548,10 @@ void main() {
             positionalSchema: PositionalSchema(positionals),
           );
 
-          expect(registry.positionals, equals({'script': positionals[0]}));
+          expect(
+            registry.mandatoryPositionals,
+            equals({'script': positionals[0]}),
+          );
         },
       );
 

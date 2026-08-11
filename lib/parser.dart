@@ -12,12 +12,17 @@ class Parser {
 
   (List<String> command, Inputs inputs) parse(List<String> args) {
     final command = _parseCommand(args);
-    final (positionals, variadic) = _parseArguments(args);
+    final (mandatory, discretionary, variadic) = _parseArguments(args);
 
     if (args.isNotEmpty) {
       final commandContainsArg = args.any((arg) => command.contains(arg));
 
-      if (!commandContainsArg && positionals != null || variadic != null) {
+      var argsIsNotInCommandsAndTHereAreNoPositionals =
+          !commandContainsArg && mandatory != null ||
+          discretionary != null ||
+          variadic != null;
+
+      if (argsIsNotInCommandsAndTHereAreNoPositionals) {
         throw MambaParseException('');
       }
     }
@@ -30,7 +35,8 @@ class Parser {
     return (
       command,
       (
-        positionals: positionals,
+        mandatoryPositionals: mandatory,
+        discretionaryPositionals: discretionary,
         variadic: variadic,
         boolFlags: boolFlags,
         countFlags: countFlags,
@@ -54,13 +60,23 @@ class Parser {
     return [];
   }
 
-  (Map<String, String>? positionals, List<String>? variadic)? _parseArguments(
-    List<String> args,
-  ) {
-    final (registeredPositionals, registeredVariadic) = (
-      _registry.positionals,
+  (
+    Map<String, String>? mandatory,
+    Map<String, String>? discretionary,
+    List<String>? variadic,
+  )
+  _parseArguments(List<String> args) {
+    final (
+      registeredMandatoryPositionals,
+      registeredDiscretionaryPositionals,
+      registeredVariadic,
+    ) = (
+      _registry.mandatoryPositionals,
+      _registry.discretionaryPositionals,
       _registry.variadic,
     );
+
+    return (null, null, null);
   }
 
   Map<String, int>? _parseCountFlags(List<String> args) {

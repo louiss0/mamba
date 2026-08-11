@@ -23,7 +23,9 @@ final class CommandRegistry {
 
   final OptionMap? options;
 
-  final Map<String, Positional>? positionals;
+  final Map<String, Positional>? mandatoryPositionals;
+
+  final Map<String, Positional>? discretionaryPositionals;
 
   final Variadic? variadic;
 
@@ -89,7 +91,11 @@ final class CommandRegistry {
          {},
          (map, option) => {...?map, option.name: option},
        ),
-       positionals = positionalSchema?.positionals.fold(
+       mandatoryPositionals = positionalSchema?.mandatory.fold(
+         {},
+         (map, positional) => {...?map, positional.name: positional},
+       ),
+       discretionaryPositionals = positionalSchema?.discretionary?.fold(
          {},
          (map, positional) => {...?map, positional.name: positional},
        ),
@@ -204,7 +210,10 @@ final class CommandRegistry {
     if (positionalSchema == null) {
       return;
     }
-    for (final positional in positionalSchema.positionals) {
+    for (final positional in [
+      ...positionalSchema.mandatory,
+      ...?positionalSchema.discretionary,
+    ]) {
       _validatePositionalName(positional.name);
     }
     final variadic = positionalSchema.variadic;
@@ -250,7 +259,10 @@ final class CommandRegistry {
       }
     }
 
-    final positionals = positionalSchema?.positionals;
+    final positionals = [
+      ...?positionalSchema?.mandatory,
+      ...?positionalSchema?.discretionary,
+    ];
     if (positionals != null) {
       final names = <String>{};
       for (final positional in positionals) {
@@ -331,7 +343,8 @@ typedef Inputs = ({
   Map<String, bool>? boolFlags,
   Map<String, String>? options,
   Map<String, AccessorValue>? accessorMap,
-  Map<String, String>? positionals,
+  Map<String, String>? mandatoryPositionals,
+  Map<String, String>? discretionaryPositionals,
   List<String>? variadic,
 });
 
@@ -392,23 +405,23 @@ abstract class Command {
 }
 
 class PositionalSchema {
-  final List<Positional> positionals;
-  final Variadic? variadic;
+  List<Positional> mandatory;
+  List<Positional>? discretionary;
+  Variadic? variadic;
 
-  PositionalSchema(List<Positional> positionals, {this.variadic})
-    : positionals = List.unmodifiable(positionals);
+  PositionalSchema(this.mandatory, {this.discretionary, this.variadic});
 }
 
 class Positional {
-  const Positional(this.name, {this.required = true, this.description});
-
   final String name;
-  final bool required;
   final String? description;
+  final RegExp? regex;
+  Positional(this.name, {this.description, RegExp? regex})
+    : regex = regex ?? RegExp(r'\S+');
 }
 
 class Variadic extends Positional {
-  Variadic(super.name, {super.description}) : super(required: false);
+  Variadic(super.name, {super.description, super.regex});
 }
 
 enum NamedInputType {
