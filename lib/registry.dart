@@ -8,8 +8,6 @@ typedef OptionMap = Map<String, Option>;
 
 typedef AccessorSchema = Map<String, AccessorInput>;
 
-typedef Aliases = List<String>;
-
 final class CommandRegistry {
   final String name;
 
@@ -32,8 +30,6 @@ final class CommandRegistry {
   final AccessorSchema? accessorSchema;
 
   final List<CommandRegistry>? commandRegistries;
-
-  final Aliases? aliases;
 
   factory CommandRegistry.create(
     String name,
@@ -60,7 +56,6 @@ final class CommandRegistry {
       name: name,
       shortDescription: shortDescription,
       longDescription: longDescription,
-      aliases: aliases,
       accessorSchema: accessors,
       flags: flags,
       options: options,
@@ -73,7 +68,6 @@ final class CommandRegistry {
     required this.name,
     required this.shortDescription,
     this.longDescription,
-    this.aliases,
     this.accessorSchema,
     List<Flag>? flags,
     List<Option>? options,
@@ -106,7 +100,6 @@ final class CommandRegistry {
                name: command.name,
                shortDescription: command.shortDescription,
                longDescription: command.longDescription,
-               aliases: command.aliases,
                flags: command.flags,
                options: command.options,
                accessorSchema: command.accessorFlagSchema,
@@ -259,12 +252,10 @@ final class CommandRegistry {
       }
     }
 
-    final positionals = [
-      ...?positionalSchema?.mandatory,
-      ...?positionalSchema?.discretionary,
-    ];
-    if (positionals != null) {
+    if (positionalSchema?.mandatory != null) {
       final names = <String>{};
+      final positionals = [...?positionalSchema?.discretionary];
+
       for (final positional in positionals) {
         if (!names.add(positional.name)) {
           throw const MambaException(
@@ -361,7 +352,6 @@ abstract class Command {
   final List<Flag>? flags;
   final List<Option>? options;
   final List<Command>? commands;
-  final List<String>? aliases;
 
   Command(
     String name,
@@ -376,8 +366,6 @@ abstract class Command {
     required List<Option>? options,
 
     required List<Command>? commands,
-
-    required List<String>? aliases,
   }) : registry = CommandRegistry.create(
          name,
          shortDescription,
@@ -387,12 +375,10 @@ abstract class Command {
          flags: flags,
          options: options,
          commands: commands,
-         aliases: aliases,
        ),
        name = name,
        shortDescription = shortDescription,
        longDescription = longDescription,
-       aliases = aliases != null ? List.unmodifiable(aliases) : null,
        positionalSchema = positionalSchema,
        accessorFlagSchema = accessorFlagSchema != null
            ? Map.unmodifiable(accessorFlagSchema)
@@ -417,7 +403,6 @@ abstract class GroupCommand extends Command {
     super.flags,
     super.options,
     super.commands,
-    super.aliases,
   });
 
   @override

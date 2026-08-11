@@ -14,7 +14,6 @@ class _RootCommand extends GroupCommand {
     super.flags,
     super.options,
     super.commands,
-    super.aliases,
   });
 }
 
@@ -46,7 +45,6 @@ final class Executor {
          flags: flags,
          options: options,
          commands: commands,
-         aliases: aliases,
        );
 
   void execute(List<String> args) {

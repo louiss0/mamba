@@ -8,8 +8,10 @@ class TestCommand extends Command {
     super.shortDescription, {
     super.longDescription,
     super.positionalSchema,
+    super.flags,
+    super.options,
+    super.accessorFlagSchema,
     super.commands,
-    super.aliases,
   });
 
   @override
