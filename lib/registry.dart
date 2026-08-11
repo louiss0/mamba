@@ -495,25 +495,11 @@ class Variadic extends Positional {
   Variadic(super.name, {super.description, super.regex});
 }
 
-enum NamedInputType {
-  string,
-  int,
-  bool,
-  double,
-  count,
-  choice,
-  repeatableString,
-  repeatableInt,
-  repeatableDouble,
-}
-
 sealed class NamedInput {
   final String name;
   final String? description;
 
-  final NamedInputType type;
-
-  const NamedInput({required this.name, this.description, required this.type});
+  const NamedInput({required this.name, this.description});
 }
 
 sealed class Flag extends NamedInput {
@@ -523,7 +509,6 @@ sealed class Flag extends NamedInput {
     required this.short,
     required super.name,
     required super.description,
-    required super.type,
   });
 }
 
@@ -537,12 +522,11 @@ final class BooleanFlag extends Flag {
     super.description,
     this.defaultValue = false,
     this.negatable = false,
-  }) : super(type: NamedInputType.bool);
+  });
 }
 
 final class CountFlag extends Flag {
-  const CountFlag({super.short, required super.name, super.description})
-    : super(type: NamedInputType.count);
+  const CountFlag({super.short, required super.name, super.description});
 }
 
 sealed class Option extends NamedInput {
@@ -551,7 +535,6 @@ sealed class Option extends NamedInput {
 
   const Option({
     required this.short,
-    required super.type,
     required super.name,
     required super.description,
     this.required = false,
@@ -620,7 +603,6 @@ sealed class Option extends NamedInput {
 sealed class SingleOption extends Option {
   const SingleOption({
     required super.short,
-    required super.type,
     required super.name,
     required super.description,
     super.required,
@@ -634,7 +616,7 @@ final class StringOption extends SingleOption {
     super.short,
     super.description,
     super.required,
-  }) : super(type: NamedInputType.string);
+  });
 
   final RegExp regex;
 }
@@ -645,7 +627,7 @@ final class IntOption extends SingleOption {
     super.short,
     super.required,
     super.description,
-  }) : super(type: NamedInputType.int);
+  });
 }
 
 final class DoubleOption extends SingleOption {
@@ -654,7 +636,7 @@ final class DoubleOption extends SingleOption {
     super.short,
     super.required,
     super.description,
-  }) : super(type: NamedInputType.double);
+  });
 }
 
 final class ChoiceOption<T extends Enum> extends SingleOption {
@@ -665,7 +647,7 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
     super.description,
     super.required,
     this.defaultValue,
-  }) : super(type: NamedInputType.choice);
+  });
 
   final List<T> choices;
   final T? defaultValue;
@@ -673,7 +655,6 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
 
 sealed class RepeatableOption<T> extends Option {
   const RepeatableOption({
-    required super.type,
     required super.name,
     required super.required,
     super.short,
@@ -734,8 +715,7 @@ final class RepeatableStringOption extends RepeatableOption {
     RegExp? regex,
     super.short,
     super.description,
-  }) : regex = regex ?? RegExp(r'\S+'),
-       super(type: NamedInputType.repeatableString);
+  }) : regex = regex ?? RegExp(r'\S+');
 }
 
 final class RepeatableIntOption extends RepeatableOption {
@@ -744,7 +724,7 @@ final class RepeatableIntOption extends RepeatableOption {
     super.required = false,
     super.short,
     super.description,
-  }) : super(type: NamedInputType.repeatableInt);
+  });
 }
 
 final class RepeatableDoubleOption extends RepeatableOption {
@@ -753,7 +733,7 @@ final class RepeatableDoubleOption extends RepeatableOption {
     super.required = false,
     super.short,
     super.description,
-  }) : super(type: NamedInputType.repeatableDouble);
+  });
 }
 
 sealed class AccessorInput {

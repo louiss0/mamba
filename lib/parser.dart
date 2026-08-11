@@ -503,10 +503,9 @@ class Parser {
 
   AccessorValue _parseAccessorValue(NamedInput input, String value) {
     return switch (input) {
-      NamedInput(type: NamedInputType.int) => AccessorInt(_parseInt(value)),
-      NamedInput(type: NamedInputType.double) => AccessorDouble(
-        _parseDouble(value),
-      ),
+      IntOption() || RepeatableIntOption() => AccessorInt(_parseInt(value)),
+      DoubleOption() ||
+      RepeatableDoubleOption() => AccessorDouble(_parseDouble(value)),
       _ => AccessorString(value),
     };
   }
