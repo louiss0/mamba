@@ -330,9 +330,10 @@ final class AccessorMap extends AccessorValue<Map<String, _AccessorPrimitive>> {
 }
 
 typedef Inputs = ({
-  Map<String, int>? countFlags,
   Map<String, bool>? boolFlags,
-  Map<String, String>? options,
+  Map<String, int>? countFlags,
+  Map<String, String>? singleOptions,
+  Map<String, List<String>>? repeatedOptions,
   Map<String, AccessorValue>? accessorMap,
   Map<String, String>? mandatoryPositionals,
   Map<String, String>? discretionaryPositionals,
@@ -680,19 +681,20 @@ sealed class RepeatableOption<T> extends Option {
 final class RepeatableStringOption extends RepeatableOption {
   final RegExp regex;
 
-  const RepeatableStringOption({
+  RepeatableStringOption({
     required super.name,
-    required super.required,
-    required this.regex,
+    super.required = false,
+    RegExp? regex,
     super.short,
     super.description,
-  }) : super(type: NamedInputType.repeatableString);
+  }) : regex = regex ?? RegExp(r'\S+'),
+       super(type: NamedInputType.repeatableString);
 }
 
 final class RepeatableIntOption extends RepeatableOption {
   const RepeatableIntOption({
     required super.name,
-    required super.required,
+    super.required = false,
     super.short,
     super.description,
   }) : super(type: NamedInputType.repeatableInt);
@@ -701,7 +703,7 @@ final class RepeatableIntOption extends RepeatableOption {
 final class RepeatableDoubleOption extends RepeatableOption {
   const RepeatableDoubleOption({
     required super.name,
-    required super.required,
+    super.required = false,
     super.short,
     super.description,
   }) : super(type: NamedInputType.repeatableDouble);

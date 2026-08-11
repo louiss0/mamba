@@ -27,7 +27,7 @@ class Parser {
       }
     }
 
-    final options = _parseOptions(args);
+    final (singleOptions, repeatedOptions) = _parseOptions(args);
     final countFlags = _parseCountFlags(args);
     final boolFlags = _parseBooleanFlags(args);
     final accessorMap = _parseAccessorMap(args);
@@ -40,7 +40,8 @@ class Parser {
         variadic: variadic,
         boolFlags: boolFlags,
         countFlags: countFlags,
-        options: options,
+        singleOptions: singleOptions,
+        repeatedOptions: repeatedOptions,
         accessorMap: accessorMap,
       ),
     );
@@ -50,8 +51,12 @@ class Parser {
     return null;
   }
 
-  Map<String, String>? _parseOptions(List<String> args) {
+  (Map<String, String>?, Map<String, List<String>>?) _parseOptions(
+    List<String> args,
+  ) {
     final registeredOptions = _registry.options;
+
+    return (null, null);
   }
 
   List<String> _parseCommand(List<String> args) {

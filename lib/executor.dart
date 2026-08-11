@@ -65,13 +65,9 @@ final class Executor {
         }
       }
 
-      if (next == null) {
-        throw StateError(
-          'Parsed command "$name" does not exist in runtime command tree',
-        );
+      if (next != null) {
+        command = next;
       }
-
-      command = next;
     }
 
     command.run(inputs);
