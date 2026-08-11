@@ -1,24 +1,31 @@
 import 'package:arg_parser/parser.dart';
 import 'package:arg_parser/registry.dart';
 
+class _RootCommand extends GroupCommand {
+  final _globalFlags = [BooleanFlag(name: "help"), CountFlag(name: "verbose")];
+
+  _RootCommand(
+    super.name,
+    super.shortDescription, {
+    required super.defaultSubCommand,
+    super.longDescription,
+    super.positionalSchema,
+    super.accessorFlagSchema,
+    super.flags,
+    super.options,
+    super.commands,
+    super.aliases,
+  });
+}
+
 final class Executor {
-  final CommandRegistry _registry;
-
-  final List<String>? _aliases;
-  final List<Command>? _commands;
-
-  static final _globalFlags = [
-    BooleanFlag(name: "help"),
-    CountFlag(name: "verbose"),
-  ];
-
-  final List<Flag>? _flags;
+  final Command _rootCommand;
 
   Executor(
     String name,
     String shortDescription, {
     String? longDescription,
-
+    List<String>? defaultSubCommand,
     PositionalSchema? positionalSchema,
     Map<String, AccessorInput>? accessorFlagSchema,
 
@@ -29,29 +36,27 @@ final class Executor {
     List<Command>? commands,
 
     List<String>? aliases,
-  }) : _registry = CommandRegistry.create(
+  }) : _rootCommand = _RootCommand(
          name,
          shortDescription,
          longDescription: longDescription,
+         defaultSubCommand: defaultSubCommand,
          positionalSchema: positionalSchema,
-         accessors: accessorFlagSchema,
-         flags: [..._globalFlags, ...?flags],
+         accessorFlagSchema: accessorFlagSchema,
+         flags: flags,
          options: options,
          commands: commands,
          aliases: aliases,
-       ),
-       _aliases = aliases,
-       _flags = [..._globalFlags, ...?flags],
-       _commands = commands;
+       );
 
   void execute(List<String> args) {
-    final parser = Parser(_registry);
+    final parser = Parser(_rootCommand.registry);
     final (commandPath, inputs) = parser.parse(args);
 
-    late Command command;
+    var command = _rootCommand;
 
     for (final name in commandPath) {
-      final children = _commands ?? const <Command>[];
+      final children = _rootCommand.commands ?? const <Command>[];
 
       Command? next;
 

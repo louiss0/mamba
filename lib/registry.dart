@@ -368,16 +368,16 @@ abstract class Command {
     String shortDescription, {
     String? longDescription,
 
-    PositionalSchema? positionalSchema,
-    Map<String, AccessorInput>? accessorFlagSchema,
+    required PositionalSchema? positionalSchema,
+    required Map<String, AccessorInput>? accessorFlagSchema,
 
-    List<Flag>? flags,
+    required List<Flag>? flags,
 
-    List<Option>? options,
+    required List<Option>? options,
 
-    List<Command>? commands,
+    required List<Command>? commands,
 
-    List<String>? aliases,
+    required List<String>? aliases,
   }) : registry = CommandRegistry.create(
          name,
          shortDescription,
@@ -402,6 +402,54 @@ abstract class Command {
        commands = commands != null ? List.unmodifiable(commands) : null;
 
   void run(Inputs input);
+}
+
+abstract class GroupCommand extends Command {
+  final List<String>? defaultSubCommand;
+
+  GroupCommand(
+    super.name,
+    super.shortDescription, {
+    required this.defaultSubCommand,
+    super.longDescription,
+    super.positionalSchema,
+    super.accessorFlagSchema,
+    super.flags,
+    super.options,
+    super.commands,
+    super.aliases,
+  });
+
+  @override
+  void run(Inputs inputs) {
+    final subCommand = defaultSubCommand;
+    if (subCommand != null) {
+      late Command command;
+
+      for (final name in subCommand) {
+        final children = commands ?? const <Command>[];
+
+        Command? next;
+
+        for (final child in children) {
+          if (child.name == name) {
+            next = child;
+            break;
+          }
+        }
+
+        if (next == null) {
+          throw StateError(
+            'Parsed command "$name" does not exist in runtime command tree',
+          );
+        }
+
+        command = next;
+      }
+
+      command.run(inputs);
+    }
+  }
 }
 
 class PositionalSchema {
