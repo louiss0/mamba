@@ -2,8 +2,8 @@ import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/parser.dart';
 import 'package:arg_parser/registry.dart';
 
-final class MambaCommandNotFoundException extends MambaException {
-  MambaCommandNotFoundException(
+final class _MambaCommandNotFoundException extends MambaException {
+  _MambaCommandNotFoundException(
     /// The command segment that could not be resolved.
     String name,
 
@@ -19,7 +19,14 @@ final class MambaCommandNotFoundException extends MambaException {
 }
 
 class _RootCommand extends GroupCommand {
-  final _globalFlags = [BooleanFlag(name: "help"), CountFlag(name: "verbose")];
+  static final _globalFlags = [
+    BooleanFlag(
+      name: "help",
+      short: 'h',
+      description: "Display help for commands",
+    ),
+    CountFlag(name: "verbose", short: 'v', description: "Decide log level"),
+  ];
 
   Command resolve(List<String> path) {
     return _resolveFrom(current: this, path: path, index: 0);
@@ -47,7 +54,7 @@ class _RootCommand extends GroupCommand {
     }
 
     if (matchedCommand == null) {
-      throw MambaCommandNotFoundException(segment, [
+      throw _MambaCommandNotFoundException(segment, [
         name,
         ...path.take(index),
       ], children.map((command) => command.name).toList(growable: false));
@@ -59,15 +66,15 @@ class _RootCommand extends GroupCommand {
   _RootCommand(
     super.name,
     super.shortDescription, {
-    required super.defaultSubCommand,
+    required super.defaultSubCommandPath,
     super.longDescription,
     super.positionalSchema,
     super.accessorFlagSchema,
-    super.flags,
+    List<Flag>? flags,
     super.singleOptions,
     super.repeatedOptions,
     super.commands,
-  });
+  }) : super(flags: [..._globalFlags, ...?flags]);
 }
 
 final class Executor {
@@ -91,7 +98,7 @@ final class Executor {
          name,
          shortDescription,
          longDescription: longDescription,
-         defaultSubCommand: defaultSubCommand,
+         defaultSubCommandPath: defaultSubCommand,
          positionalSchema: positionalSchema,
          accessorFlagSchema: accessorFlagSchema,
          flags: flags,
@@ -102,6 +109,7 @@ final class Executor {
 
   void execute(List<String> args) {
     final parser = Parser(_rootCommand.registry);
+
     final (commandPath, inputs) = parser.parse(args);
 
     final command = _rootCommand.resolve(commandPath);

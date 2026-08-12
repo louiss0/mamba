@@ -427,12 +427,12 @@ abstract class Command {
 }
 
 abstract class GroupCommand extends Command {
-  final List<String>? defaultSubCommand;
+  final List<String>? defaultSubCommandPath;
 
   GroupCommand(
     super.name,
     super.shortDescription, {
-    required this.defaultSubCommand,
+    required this.defaultSubCommandPath,
     super.longDescription,
     super.positionalSchema,
     super.accessorFlagSchema,
@@ -444,11 +444,11 @@ abstract class GroupCommand extends Command {
 
   @override
   void run(Inputs inputs) {
-    final subCommand = defaultSubCommand;
-    if (subCommand != null) {
+    final subCommandPath = defaultSubCommandPath;
+    if (subCommandPath != null) {
       late Command command;
 
-      for (final name in subCommand) {
+      for (final name in subCommandPath) {
         final children = commands ?? const <Command>[];
 
         Command? next;
