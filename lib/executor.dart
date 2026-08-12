@@ -1,8 +1,60 @@
+import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/parser.dart';
 import 'package:arg_parser/registry.dart';
 
+final class MambaCommandNotFoundException extends MambaException {
+  MambaCommandNotFoundException(
+    /// The command segment that could not be resolved.
+    String name,
+
+    /// The successfully resolved path before the missing command.
+    List<String> parentPath,
+
+    /// Commands that are actually available beneath the parent.
+    List<String> availableCommands,
+  ) : super(
+        "Command $name was not found under ${parentPath.join(' ')}."
+        "${availableCommands.isEmpty ? 'This command has no subcommands.' : 'Available commands: ${availableCommands.join(', ')}'}",
+      );
+}
+
 class _RootCommand extends GroupCommand {
   final _globalFlags = [BooleanFlag(name: "help"), CountFlag(name: "verbose")];
+
+  Command resolve(List<String> path) {
+    return _resolveFrom(current: this, path: path, index: 0);
+  }
+
+  Command _resolveFrom({
+    required Command current,
+    required List<String> path,
+    required int index,
+  }) {
+    if (index == path.length) {
+      return current;
+    }
+
+    final segment = path[index];
+    final children = current.commands ?? const <Command>[];
+
+    Command? matchedCommand;
+
+    for (final child in children) {
+      if (child.name == segment) {
+        matchedCommand = child;
+        break;
+      }
+    }
+
+    if (matchedCommand == null) {
+      throw MambaCommandNotFoundException(segment, [
+        name,
+        ...path.take(index),
+      ], children.map((command) => command.name).toList(growable: false));
+    }
+
+    return _resolveFrom(current: matchedCommand, path: path, index: index + 1);
+  }
 
   _RootCommand(
     super.name,
@@ -19,7 +71,7 @@ class _RootCommand extends GroupCommand {
 }
 
 final class Executor {
-  final Command _rootCommand;
+  final _RootCommand _rootCommand;
 
   Executor(
     String name,
@@ -35,8 +87,6 @@ final class Executor {
     List<RepeatableOption>? repeatedOptions,
 
     List<Command>? commands,
-
-    List<String>? aliases,
   }) : _rootCommand = _RootCommand(
          name,
          shortDescription,
@@ -54,24 +104,7 @@ final class Executor {
     final parser = Parser(_rootCommand.registry);
     final (commandPath, inputs) = parser.parse(args);
 
-    var command = _rootCommand;
-
-    for (final name in commandPath) {
-      final children = _rootCommand.commands ?? const <Command>[];
-
-      Command? next;
-
-      for (final child in children) {
-        if (child.name == name) {
-          next = child;
-          break;
-        }
-      }
-
-      if (next != null) {
-        command = next;
-      }
-    }
+    final command = _rootCommand.resolve(commandPath);
 
     command.run(inputs);
   }

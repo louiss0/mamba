@@ -12,11 +12,3 @@ class MambaException implements Exception {
   @override
   String toString() => "$runtimeType $message";
 }
-
-final class MambaInvalidChoiceException<T> extends MambaException {
-  MambaInvalidChoiceException(Iterable<T> choices, T invalidChoice)
-    : super(
-        "Invalid choice '$invalidChoice'. "
-        "Expected one of: ${choices.join(', ')}.",
-      );
-}
