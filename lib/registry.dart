@@ -652,7 +652,7 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
   final T? defaultValue;
 }
 
-sealed class RepeatableOption<T> extends Option {
+sealed class RepeatableOption extends Option {
   const RepeatableOption({
     required super.name,
     required super.required,
