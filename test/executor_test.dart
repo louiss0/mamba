@@ -6,6 +6,22 @@ import 'package:test/test.dart';
 
 void main() {
   group('Executor help routing', () {
+    test('writes root help when no subcommand is provided', () {
+      final calls = <String>[];
+      final output = <String>[];
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        writeHelp: output.add,
+        commands: [_RecordingCommand('build', 'Build the workspace.', calls)],
+      );
+
+      executor.execute([]);
+
+      expect(calls, isEmpty);
+      expect(output.single, HelpFormatter().formatHelp(_rootRegistry()));
+    });
+
     test('writes root help instead of running the root command', () {
       final calls = <String>[];
       final output = <String>[];

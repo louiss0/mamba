@@ -1,4 +1,5 @@
 import 'errors.dart';
+import 'help_formatter.dart';
 
 typedef BoolFlagMap = Map<String, BooleanFlag>;
 
@@ -427,11 +428,15 @@ abstract class Command {
 
 abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
+  final HelpFormatter _helpFormatter;
+  final void Function(String) _writeHelp;
 
   GroupCommand(
     super.name,
     super.shortDescription, {
     required this.defaultSubCommandPath,
+    HelpFormatter? helpFormatter,
+    void Function(String)? writeHelp,
     super.longDescription,
     super.positionalSchema,
     super.accessorFlagSchema,
@@ -439,37 +444,41 @@ abstract class GroupCommand extends Command {
     super.singleOptions,
     super.repeatedOptions,
     super.commands,
-  });
+  }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
+       _writeHelp = writeHelp ?? print;
 
   @override
   void run(Inputs inputs) {
     final subCommandPath = defaultSubCommandPath;
-    if (subCommandPath != null) {
-      late Command command;
+    if (subCommandPath == null) {
+      _writeHelp(_helpFormatter.formatHelp(registry));
+      return;
+    }
 
-      for (final name in subCommandPath) {
-        final children = commands ?? const <Command>[];
+    late Command command;
 
-        Command? next;
+    for (final name in subCommandPath) {
+      final children = commands ?? const <Command>[];
 
-        for (final child in children) {
-          if (child.name == name) {
-            next = child;
-            break;
-          }
+      Command? next;
+
+      for (final child in children) {
+        if (child.name == name) {
+          next = child;
+          break;
         }
-
-        if (next == null) {
-          throw StateError(
-            'Parsed command "$name" does not exist in runtime command tree',
-          );
-        }
-
-        command = next;
       }
 
-      command.run(inputs);
+      if (next == null) {
+        throw StateError(
+          'Parsed command "$name" does not exist in runtime command tree',
+        );
+      }
+
+      command = next;
     }
+
+    command.run(inputs);
   }
 }
 
