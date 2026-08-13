@@ -2,8 +2,75 @@ import 'package:chalkdart/chalkstrings.dart';
 
 import 'registry.dart';
 
+abstract class FormattedString {
+  final String string;
+  FormattedString(String string) : string = _parse(string);
+
+  static final _ansiColorRegex = RegExp(r'\x1B\[[0-9;]*m');
+
+  static String _parse(String string) {
+    if (!_ansiColorRegex.hasMatch(string)) {
+      throw FormatException(
+        'Formatted strings must not contain SGR (Select Graphic Rendition)',
+      );
+    }
+    return string;
+  }
+}
+
+class VariadicString extends FormattedString {
+  VariadicString(String string) : super('...${_parse(string)}');
+
+  static String _parse(String string) {
+    final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
+    if (unformatted.contains('...')) {
+      throw FormatException('Variadic strings must not contain ...');
+    }
+    return string;
+  }
+}
+
+class RequiredString extends FormattedString {
+  RequiredString(String string) : super('< ${_parse(string)} >');
+
+  static String _parse(String string) {
+    final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
+    if (unformatted.contains('<') || unformatted.contains('>')) {
+      throw FormatException('Required strings must not contain < or >');
+    }
+    return string;
+  }
+}
+
+class OptionalString extends FormattedString {
+  OptionalString(String string) : super('[ ${_parse(string)} ]');
+
+  static String _parse(String string) {
+    final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
+    if (unformatted.contains('[') || unformatted.contains(']')) {
+      throw FormatException('Optional strings must not contain [ or ]', string);
+    }
+    return string;
+  }
+}
+
 /// Renders a [CommandRegistry] as ANSI-styled command-line help text.
 class HelpFormatter {
+  String requiredFormatter(String string) => '< $string >'.red;
+
+  String optionalFormatter(String string) => '[ $string ]'.dimGray;
+
+  String variadicFormatter(String string) => '...$string';
+
+  String sectionTitleFormater(String string) => string.brightGreen;
+
+  void longDescriptionFormater(StringBuffer buffer, String longDescription) {
+    buffer
+      ..writeln('-' * 10)
+      ..writeln(longDescription)
+      ..writeln('-' * 10);
+  }
+
   String formatHelp(CommandRegistry registry) {
     final buffer = StringBuffer();
     final positionals = [
@@ -18,17 +85,22 @@ class HelpFormatter {
 
     final longDescription = registry.longDescription;
     if (longDescription != null) {
-      buffer
-        ..writeln('-' * 10)
-        ..writeln(longDescription)
-        ..writeln('-' * 10);
+      longDescriptionFormater(buffer, longDescription);
+      buffer.writeln();
     }
 
     _writeSection(buffer, 'Flags', [
       ...?registry.boolFlags?.values.map(_flag),
       ...?registry.countFlags?.values.map(_flag),
     ]);
-    _writeSection(buffer, 'Accessor flags', _accessors(registry));
+    buffer.writeln();
+    _writeSection(
+      buffer,
+      'Accessor flags',
+      _accessors(registry),
+      includeEntrySpacing: false,
+    );
+    buffer.writeln();
     _writeSection(buffer, 'Options', [
       ...?registry.singleOptions?.values.map(_option),
       ...?registry.repeatedOptions?.values.map(_option),
@@ -43,19 +115,20 @@ class HelpFormatter {
               )
               .toList() ??
           const [],
+      includeEntrySpacing: false,
     );
 
     return buffer.toString();
   }
 
   String _requiredPositional(Positional positional) =>
-      '< ${positional.name} >'.red;
+      requiredFormatter(positional.name);
 
   String _optionalPositional(Positional positional) =>
-      '[ ${positional.name} ]'.dimGray;
+      optionalFormatter(positional.name);
 
   String _variadicPositional(Variadic positional) =>
-      '[ ...${positional.name} ]'.dimGray;
+      optionalFormatter(variadicFormatter(positional.name));
 
   String _flag(Flag flag) => _entry(
     name: flag.name,
@@ -110,17 +183,25 @@ class HelpFormatter {
     String? short,
   }) {
     final displayName = short == null ? name : '$name |  $short'.bold;
-    final variadicName = variadic ? '...$displayName' : displayName;
+    final variadicName = variadic
+        ? variadicFormatter(displayName)
+        : displayName;
     final grammar = required
-        ? '< $variadicName >'.red
-        : '[ $variadicName ]'.dimGray;
+        ? requiredFormatter(variadicName)
+        : optionalFormatter(variadicName);
 
     return '$grammar ${description ?? ''}'.brightYellow;
   }
 
-  void _writeSection(StringBuffer buffer, String title, List<String> entries) {
+  void _writeSection(
+    StringBuffer buffer,
+    String title,
+    List<String> entries, {
+    bool includeEntrySpacing = true,
+  }) {
     if (entries.isEmpty) return;
-    buffer.writeln(title.brightGreen);
+    buffer.writeln(sectionTitleFormater(title));
+    if (includeEntrySpacing) buffer.writeln();
     for (final entry in entries) {
       buffer.writeln(entry);
     }
