@@ -76,7 +76,10 @@ class HelpFormatter {
   List<String> _accessors(CommandRegistry registry) {
     final values = <String>[];
 
-    for (final entry in registry.accessorSchema?.entries ?? const []) {
+    final accessorSchema = registry.accessorSchema;
+    if (accessorSchema == null) return values;
+
+    for (final entry in accessorSchema.entries) {
       switch (entry.value) {
         case AccessorNamedInput(:final input):
           values.add(_accessorEntry(entry.key, input));
