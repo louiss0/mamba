@@ -43,6 +43,10 @@ class _RootCommand extends GroupCommand {
     }
 
     final segment = path[index];
+    if (segment == '--help' || segment == '-h') {
+      return _resolveFrom(current: current, path: path, index: index + 1);
+    }
+
     final children = current.commands ?? const <Command>[];
 
     Command? matchedCommand;
@@ -115,33 +119,18 @@ final class Executor {
        );
 
   void execute(List<String> args) {
+    final parser = Parser(_rootCommand.registry);
+
     if (_requestsHelp(args)) {
-      _writeHelp(_helpFormatter.formatHelp(_helpCommand(args).registry));
+      final command = _rootCommand.resolve(args);
+      _writeHelp(_helpFormatter.formatHelp(command.registry));
       return;
     }
 
-    final parser = Parser(_rootCommand.registry);
     final (commandPath, inputs) = parser.parse(args);
-    final command = _rootCommand.resolve(commandPath);
-    command.run(inputs);
+    _rootCommand.resolve(commandPath).run(inputs);
   }
 
   bool _requestsHelp(List<String> args) =>
       args.contains('--help') || args.contains('-h');
-
-  Command _helpCommand(List<String> args) {
-    Command current = _rootCommand;
-    var index = args.isNotEmpty && args.first == _rootCommand.name ? 1 : 0;
-
-    while (index < args.length) {
-      final child = current.commands
-          ?.where((command) => command.name == args[index])
-          .firstOrNull;
-      if (child == null) break;
-      current = child;
-      index++;
-    }
-
-    return current;
-  }
 }

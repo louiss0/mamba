@@ -1,3 +1,4 @@
+import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
 import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/registry.dart';
@@ -64,6 +65,25 @@ void main() {
 
       expect(calls, isEmpty);
       expect(output, [HelpFormatter().formatHelp(deploy.registry)]);
+    });
+
+    test('rejects an unknown command even when help is requested', () {
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        commands: [_RecordingCommand('build', 'Build the workspace.', [])],
+      );
+
+      expect(
+        () => executor.execute(['unknown', '--help']),
+        throwsA(
+          isA<MambaException>().having(
+            (error) => error.message,
+            'message',
+            contains('Command unknown was not found under workspace.'),
+          ),
+        ),
+      );
     });
 
     test('runs the selected command when help is absent', () {
