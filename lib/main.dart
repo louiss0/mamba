@@ -1,7 +1,6 @@
 import 'package:arg_parser/executor.dart';
+import 'package:chalkdart/chalk.dart';
 
 void main(List<String> args) {
-  final executor = Executor('mamba', "This is ");
-
-  executor.execute(args);
+  print(chalk.blue("Hello"));
 }

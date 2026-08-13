@@ -38,7 +38,6 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    List<String>? aliases,
     Map<String, AccessorInput>? accessors,
     List<Flag>? flags,
     List<SingleOption>? singleOptions,
