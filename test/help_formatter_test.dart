@@ -218,65 +218,442 @@ void main() {
       });
     });
 
-    group("Format's many different sections properly", () {
-      final registry = CommandRegistry.create("", "");
-
-      test("Format's positionals and options properly", () {
-        final getRegistry = registry.commandRegistries!.singleWhere(
-          (registry) => registry.name == 'get',
-        );
-
-        final result = formatter.formatHelp(getRegistry);
-
-        final expected = buildHelp(
-          commandName: "get",
-          shortDescription: "Retrieve a resource with an HTTP GET request.",
-          optionalPositionals: [
-            (name: 'url', description: 'The resource URL.'),
-          ],
-          options: [
-            (
-              name: "output",
-              short: "o",
-              description: "Output format (json, yaml, etc.)",
-              required: false,
-              variadic: false,
+    group('Formats every input shape', () {
+      final registry = CommandRegistry.create(
+        'workspace',
+        'Manage a workspace and its artifacts.',
+        commands: [
+          _FixtureCommand(
+            'transfer',
+            'Transfer artifacts between locations.',
+            positionalSchema: PositionalSchema(
+              [
+                Positional('source', description: 'Source artifact.'),
+                Positional('destination', description: 'Destination location.'),
+              ],
+              discretionary: [
+                Positional('format', description: 'Optional output format.'),
+                Positional(
+                  'profile',
+                  description: 'Optional transfer profile.',
+                ),
+              ],
+              variadic: Variadic('labels', description: 'Labels to transfer.'),
             ),
-          ],
-        );
+          ),
+          _FixtureCommand(
+            'configure',
+            'Configure workspace behavior.',
+            flags: [
+              BooleanFlag(
+                name: 'force',
+                short: 'f',
+                description: 'Overwrite existing settings.',
+              ),
+              BooleanFlag(
+                name: 'dry-run',
+                short: 'n',
+                description: 'Preview changes only.',
+              ),
+              CountFlag(
+                name: 'verbose',
+                short: 'v',
+                description: 'Increase diagnostic output.',
+              ),
+              CountFlag(
+                name: 'quiet',
+                short: 'q',
+                description: 'Decrease diagnostic output.',
+              ),
+            ],
+          ),
+          _FixtureCommand(
+            'publish',
+            'Publish workspace artifacts.',
+            singleOptions: [
+              StringOption(
+                name: 'registry',
+                short: 'r',
+                regex: RegExp(r'\S+'),
+                description: 'Primary package registry.',
+                required: true,
+              ),
+              StringOption(
+                name: 'token',
+                short: 't',
+                regex: RegExp(r'\S+'),
+                description: 'Authentication token.',
+                required: true,
+              ),
+              IntOption(
+                name: 'retries',
+                short: 'R',
+                description: 'Primary retry count.',
+              ),
+              IntOption(
+                name: 'parallel',
+                short: 'P',
+                description: 'Parallel publish workers.',
+              ),
+              DoubleOption(
+                name: 'timeout',
+                short: 'T',
+                description: 'Primary request timeout.',
+              ),
+              DoubleOption(
+                name: 'backoff',
+                short: 'B',
+                description: 'Retry backoff multiplier.',
+              ),
+              ChoiceOption(
+                name: 'format',
+                short: 'F',
+                choices: OutputFormat.values,
+                description: 'Primary manifest format.',
+              ),
+              ChoiceOption(
+                name: 'color',
+                short: 'C',
+                choices: ColorMode.values,
+                description: 'Color output mode.',
+              ),
+            ],
+            repeatedOptions: [
+              RepeatableStringOption(
+                name: 'tag',
+                short: 'g',
+                description: 'Primary release tag.',
+              ),
+              RepeatableStringOption(
+                name: 'owner',
+                short: 'O',
+                description: 'Artifact owner.',
+              ),
+              RepeatableIntOption(
+                name: 'port',
+                short: 'p',
+                description: 'Primary target port.',
+              ),
+              RepeatableIntOption(
+                name: 'mirror-port',
+                short: 'm',
+                description: 'Mirror target port.',
+              ),
+              RepeatableDoubleOption(
+                name: 'weight',
+                short: 'w',
+                description: 'Primary publish weight.',
+              ),
+              RepeatableDoubleOption(
+                name: 'mirror-weight',
+                short: 'W',
+                description: 'Mirror publish weight.',
+              ),
+            ],
+          ),
+          _FixtureCommand(
+            'connect',
+            'Connect the workspace to remote services.',
+            accessorFlagSchema: {
+              'api-token': AccessorInput.named(
+                StringOption(
+                  name: 'api-token',
+                  regex: RegExp(r'\S+'),
+                  description: 'Primary API token.',
+                  required: true,
+                ),
+              ),
+              'region': AccessorInput.named(
+                StringOption(
+                  name: 'region',
+                  regex: RegExp(r'\S+'),
+                  description: 'Primary service region.',
+                ),
+              ),
+              'tls': AccessorInput.group({
+                'cert': StringOption(
+                  name: 'cert',
+                  regex: RegExp(r'\S+'),
+                  description: 'TLS certificate path.',
+                ),
+                'key': StringOption(
+                  name: 'key',
+                  regex: RegExp(r'\S+'),
+                  description: 'TLS private key path.',
+                ),
+              }),
+              'proxy': AccessorInput.group({
+                'host': StringOption(
+                  name: 'host',
+                  regex: RegExp(r'\S+'),
+                  description: 'Proxy host.',
+                ),
+                'port': IntOption(name: 'port', description: 'Proxy port.'),
+              }),
+            },
+            commands: [
+              _FixtureCommand('status', 'Show the remote connection status.'),
+              _FixtureCommand('reset', 'Reset the remote connection.'),
+            ],
+          ),
+        ],
+      );
 
-        expect(result, equals(expected));
+      CommandRegistry command(String name) => registry.commandRegistries!
+          .singleWhere((candidate) => candidate.name == name);
+
+      test(
+        'formats mandatory, optional, and variadic positionals in order',
+        () {
+          final result = formatter.formatHelp(command('transfer'));
+
+          expect(
+            result,
+            equals(
+              buildHelp(
+                commandName: 'transfer',
+                shortDescription: 'Transfer artifacts between locations.',
+                mandatoryPositionals: [
+                  (name: 'source', description: 'Source artifact.'),
+                  (name: 'destination', description: 'Destination location.'),
+                ],
+                optionalPositionals: [
+                  (name: 'format', description: 'Optional output format.'),
+                  (name: 'profile', description: 'Optional transfer profile.'),
+                ],
+                variadicPositional: (
+                  name: 'labels',
+                  description: 'Labels to transfer.',
+                ),
+              ),
+            ),
+          );
+        },
+      );
+
+      test('formats Boolean and count flags', () {
+        final result = formatter.formatHelp(command('configure'));
+
+        expect(
+          result,
+          equals(
+            buildHelp(
+              commandName: 'configure',
+              shortDescription: 'Configure workspace behavior.',
+              flags: [
+                (
+                  name: 'force',
+                  short: 'f',
+                  description: 'Overwrite existing settings.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'dry-run',
+                  short: 'n',
+                  description: 'Preview changes only.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'verbose',
+                  short: 'v',
+                  description: 'Increase diagnostic output.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'quiet',
+                  short: 'q',
+                  description: 'Decrease diagnostic output.',
+                  required: false,
+                  variadic: false,
+                ),
+              ],
+            ),
+          ),
+        );
       });
 
-      test("Format's positionals and flags properly", () {
-        final deleteRegistry = registry.commandRegistries!.singleWhere(
-          (registry) => registry.name == 'delete',
-        );
+      test('formats single and repeatable options', () {
+        final result = formatter.formatHelp(command('publish'));
 
-        final result = formatter.formatHelp(deleteRegistry);
-
-        final expected = buildHelp(
-          commandName: "delete",
-          shortDescription: "",
-          optionalPositionals: [
-            (name: 'url', description: 'The resource URL.'),
-          ],
-          flags: [
-            (
-              name: 'include',
-              short: 'i',
-              required: false,
-              variadic: false,
-              description: 'Include response headers in the output.',
+        expect(
+          result,
+          equals(
+            buildHelp(
+              commandName: 'publish',
+              shortDescription: 'Publish workspace artifacts.',
+              options: [
+                (
+                  name: 'registry',
+                  short: 'r',
+                  description: 'Primary package registry.',
+                  required: true,
+                  variadic: false,
+                ),
+                (
+                  name: 'token',
+                  short: 't',
+                  description: 'Authentication token.',
+                  required: true,
+                  variadic: false,
+                ),
+                (
+                  name: 'retries',
+                  short: 'R',
+                  description: 'Primary retry count.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'parallel',
+                  short: 'P',
+                  description: 'Parallel publish workers.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'timeout',
+                  short: 'T',
+                  description: 'Primary request timeout.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'backoff',
+                  short: 'B',
+                  description: 'Retry backoff multiplier.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'format',
+                  short: 'F',
+                  description: 'Primary manifest format.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'color',
+                  short: 'C',
+                  description: 'Color output mode.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'tag',
+                  short: 'g',
+                  description: 'Primary release tag.',
+                  required: false,
+                  variadic: true,
+                ),
+                (
+                  name: 'owner',
+                  short: 'O',
+                  description: 'Artifact owner.',
+                  required: false,
+                  variadic: true,
+                ),
+                (
+                  name: 'port',
+                  short: 'p',
+                  description: 'Primary target port.',
+                  required: false,
+                  variadic: true,
+                ),
+                (
+                  name: 'mirror-port',
+                  short: 'm',
+                  description: 'Mirror target port.',
+                  required: false,
+                  variadic: true,
+                ),
+                (
+                  name: 'weight',
+                  short: 'w',
+                  description: 'Primary publish weight.',
+                  required: false,
+                  variadic: true,
+                ),
+                (
+                  name: 'mirror-weight',
+                  short: 'W',
+                  description: 'Mirror publish weight.',
+                  required: false,
+                  variadic: true,
+                ),
+              ],
             ),
-          ],
+          ),
         );
+      });
 
-        expect(result, equals(expected));
+      test('formats named and grouped accessor flags before commands', () {
+        final result = formatter.formatHelp(command('connect'));
+
+        expect(
+          result,
+          equals(
+            buildHelp(
+              commandName: 'connect',
+              shortDescription: 'Connect the workspace to remote services.',
+              accessorFlags: [
+                (
+                  name: 'api-token',
+                  description: 'Primary API token.',
+                  required: true,
+                  variadic: false,
+                ),
+                (
+                  name: 'region',
+                  description: 'Primary service region.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'tls.cert',
+                  description: 'TLS certificate path.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'tls.key',
+                  description: 'TLS private key path.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'proxy.host',
+                  description: 'Proxy host.',
+                  required: false,
+                  variadic: false,
+                ),
+                (
+                  name: 'proxy.port',
+                  description: 'Proxy port.',
+                  required: false,
+                  variadic: false,
+                ),
+              ],
+              commands: [
+                (
+                  name: 'status',
+                  description: 'Show the remote connection status.',
+                ),
+                (name: 'reset', description: 'Reset the remote connection.'),
+              ],
+            ),
+          ),
+        );
       });
     });
   });
 }
+
+enum OutputFormat { json, yaml }
+
+enum ColorMode { auto, always }
 
 typedef HelpEntry = ({
   String name,
