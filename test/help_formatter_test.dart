@@ -142,13 +142,15 @@ void main() {
             'A curl-inspired HTTP client with commands for common request methods.',
         flags: [
           (
-            name: orString('silent', 's'),
+            name: 'silent',
+            short: 's',
             description: 'Do not show progress or diagnostic output.',
             required: false,
             variadic: false,
           ),
           (
-            name: orString('verbose', 'v'),
+            name: 'verbose',
+            short: 'v',
             description: 'Show request and response details.',
             required: false,
             variadic: false,
@@ -170,19 +172,22 @@ void main() {
         ],
         options: [
           (
-            name: orString('output', 'o'),
+            name: 'output',
+            short: 'o',
             description: 'Write the response body to this file.',
             required: false,
             variadic: false,
           ),
           (
-            name: orString('user-agent', 'A'),
+            name: 'user-agent',
+            short: 'A',
             description: 'Set the HTTP User-Agent header.',
             required: false,
             variadic: false,
           ),
           (
-            name: orString('header', 'H'),
+            name: 'header',
+            short: 'H',
             description: 'Add a request header as "Name: value".',
             required: false,
             variadic: true,
@@ -210,10 +215,42 @@ void main() {
 
       expect(result, equals(expected));
     });
+
+    test("Format's positionals and options properly", () {
+      final getRegistry = registry.commandRegistries!.singleWhere(
+        (registry) => registry.name == 'get',
+      );
+
+      final result = formatter.formatHelp(getRegistry);
+
+      final expected = buildHelp(
+        commandName: "get",
+        shortDescription: "Retrieve a resource with an HTTP GET request.",
+        optionalPositionals: [(name: 'url', description: 'The resource URL.')],
+        options: [
+          (
+            name: "output",
+            short: "o",
+            description: "Output format (json, yaml, etc.)",
+            required: false,
+            variadic: false,
+          ),
+        ],
+      );
+
+      expect(result, equals(expected));
+    });
   });
 }
 
 typedef HelpEntry = ({
+  String name,
+  String? short,
+  String description,
+  bool required,
+  bool variadic,
+});
+typedef AccessorHelpEntry = ({
   String name,
   String description,
   bool required,
@@ -231,17 +268,27 @@ String buildHelp({
   List<HelpEntry> optionalPositionals = const [],
   List<HelpEntry> variadicPositionals = const [],
   List<HelpEntry> flags = const [],
-  List<HelpEntry> accessorFlags = const [],
+  List<AccessorHelpEntry> accessorFlags = const [],
   List<HelpEntry> options = const [],
   List<HelpCommand> commands = const [],
 }) {
   String formatInput(HelpEntry entry) {
-    final name = entry.variadic ? '...${entry.name}' : entry.name;
-    return entry.required ? '< $name >'.red : '[ $name ]'.dimGray;
+    final alias = entry.short;
+    final name = alias == null ? entry.name : orString(entry.name, alias);
+    final variadicName = entry.variadic ? '...$name' : name;
+    return entry.required
+        ? '< $variadicName >'.red
+        : '[ $variadicName ]'.dimGray;
   }
 
   String formatEntry(HelpEntry entry) =>
       '${formatInput(entry)} ${entry.description}'.brightYellow;
+
+  String formatAccessor(AccessorHelpEntry entry) {
+    final name = entry.variadic ? '...${entry.name}' : entry.name;
+    final formatted = entry.required ? '< $name >'.red : '[ $name ]'.dimGray;
+    return '$formatted ${entry.description}'.brightYellow;
+  }
 
   final positionals = [
     ...mandatoryPositionals,
@@ -267,8 +314,16 @@ String buildHelp({
     }
   }
 
+  void writeAccessorSection(List<AccessorHelpEntry> entries) {
+    if (entries.isEmpty) return;
+    buffer.writeln('Accessor flags'.brightGreen);
+    for (final entry in entries) {
+      buffer.writeln(formatAccessor(entry));
+    }
+  }
+
   writeSection('Flags', flags);
-  writeSection('Accessor flags', accessorFlags);
+  writeAccessorSection(accessorFlags);
   writeSection('Options', options);
   if (commands.isNotEmpty) {
     buffer.writeln('Commands'.brightGreen);
