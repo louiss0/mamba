@@ -52,6 +52,22 @@ void main() {
   group('HelpFormatter', () {
     final formatter = HelpFormatter();
 
+    group('Formats grammar strings', () {
+      test('returns the appropriate formatted string type', () {
+        expect(formatter.requiredFormatter('value'), isA<RequiredString>());
+        expect(formatter.optionalFormatter('value'), isA<OptionalString>());
+        expect(formatter.variadicFormatter('value'), isA<VariadicString>());
+        expect(
+          formatter.sectionTitleFormater('Section'),
+          isA<SectionTitleString>(),
+        );
+        expect(
+          formatter.entryDescriptionFormatter('Description'),
+          isA<EntryDescriptionString>(),
+        );
+      });
+    });
+
     group("Parses overall structure correctly", () {
       final registry = CommandRegistry.create(
         'curl',

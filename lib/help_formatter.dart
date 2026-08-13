@@ -5,6 +5,7 @@ import 'registry.dart';
 abstract class FormattedString {
   final String string;
   FormattedString(String string) : string = _parse(string);
+  FormattedString._(this.string);
 
   static final _ansiColorRegex = RegExp(r'\x1B\[[0-9;]*m');
 
@@ -20,6 +21,10 @@ abstract class FormattedString {
 
 class VariadicString extends FormattedString {
   VariadicString(String string) : super('...${_parse(string)}');
+  VariadicString._formatted(String string) : super._('...$string');
+
+  factory VariadicString.format(String string) =>
+      VariadicString._formatted(string);
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -32,6 +37,10 @@ class VariadicString extends FormattedString {
 
 class RequiredString extends FormattedString {
   RequiredString(String string) : super('< ${_parse(string)} >');
+  RequiredString._formatted(String string) : super._('< $string >'.red);
+
+  factory RequiredString.format(String string) =>
+      RequiredString._formatted(string);
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -44,6 +53,10 @@ class RequiredString extends FormattedString {
 
 class OptionalString extends FormattedString {
   OptionalString(String string) : super('[ ${_parse(string)} ]');
+  OptionalString._formatted(String string) : super._('[ $string ]'.dimGray);
+
+  factory OptionalString.format(String string) =>
+      OptionalString._formatted(string);
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -54,17 +67,30 @@ class OptionalString extends FormattedString {
   }
 }
 
+class SectionTitleString extends FormattedString {
+  SectionTitleString(String string) : super(string.brightGreen);
+}
+
+class EntryDescriptionString extends FormattedString {
+  EntryDescriptionString(String string) : super(string.brightYellow);
+}
+
 /// Renders a [CommandRegistry] as ANSI-styled command-line help text.
 class HelpFormatter {
-  String requiredFormatter(String string) => '< $string >'.red;
+  RequiredString requiredFormatter(String string) =>
+      RequiredString.format(string);
 
-  String optionalFormatter(String string) => '[ $string ]'.dimGray;
+  OptionalString optionalFormatter(String string) =>
+      OptionalString.format(string);
 
-  String variadicFormatter(String string) => '...$string';
+  VariadicString variadicFormatter(String string) =>
+      VariadicString.format(string);
 
-  String sectionTitleFormater(String string) => string.brightGreen;
+  SectionTitleString sectionTitleFormater(String string) =>
+      SectionTitleString(string);
 
-  String entryDescriptionFormatter(String string) => string.brightYellow;
+  EntryDescriptionString entryDescriptionFormatter(String string) =>
+      EntryDescriptionString(string);
 
   void longDescriptionFormater(StringBuffer buffer, String longDescription) {
     buffer
@@ -81,7 +107,7 @@ class HelpFormatter {
       if (registry.variadic != null) _variadicPositional(registry.variadic!),
     ];
     final commandLine =
-        '${registry.name}${positionals.isEmpty ? '' : ' ${positionals.join(' ')}'}';
+        '${registry.name}${positionals.isEmpty ? '' : ' ${positionals.map((positional) => positional.string).join(' ')}'}';
 
     buffer.writeln("$commandLine  '${registry.shortDescription}'");
 
@@ -114,7 +140,7 @@ class HelpFormatter {
               ?.map(
                 (command) =>
                     '${command.name} '
-                    '${entryDescriptionFormatter(command.shortDescription)}',
+                    '${entryDescriptionFormatter(command.shortDescription).string}',
               )
               .toList() ??
           const [],
@@ -124,14 +150,14 @@ class HelpFormatter {
     return buffer.toString();
   }
 
-  String _requiredPositional(Positional positional) =>
+  RequiredString _requiredPositional(Positional positional) =>
       requiredFormatter(positional.name);
 
-  String _optionalPositional(Positional positional) =>
+  OptionalString _optionalPositional(Positional positional) =>
       optionalFormatter(positional.name);
 
-  String _variadicPositional(Variadic positional) =>
-      optionalFormatter(variadicFormatter(positional.name));
+  OptionalString _variadicPositional(Variadic positional) =>
+      optionalFormatter(variadicFormatter(positional.name).string);
 
   String _flag(Flag flag) => _entry(
     name: flag.name,
@@ -187,13 +213,13 @@ class HelpFormatter {
   }) {
     final displayName = short == null ? name : '$name |  $short'.bold;
     final variadicName = variadic
-        ? variadicFormatter(displayName)
+        ? variadicFormatter(displayName).string
         : displayName;
     final grammar = required
         ? requiredFormatter(variadicName)
         : optionalFormatter(variadicName);
 
-    return '$grammar ${entryDescriptionFormatter(description ?? '')}';
+    return '${grammar.string} ${entryDescriptionFormatter(description ?? '').string}';
   }
 
   void _writeSection(
@@ -203,7 +229,7 @@ class HelpFormatter {
     bool includeEntrySpacing = true,
   }) {
     if (entries.isEmpty) return;
-    buffer.writeln(sectionTitleFormater(title));
+    buffer.writeln(sectionTitleFormater(title).string);
     if (includeEntrySpacing) buffer.writeln();
     for (final entry in entries) {
       buffer.writeln(entry);
