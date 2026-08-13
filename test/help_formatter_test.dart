@@ -221,179 +221,173 @@ void main() {
     group('Formats every input shape', () {
       final registry = CommandRegistry.create(
         'workspace',
-        'Manage a workspace and its artifacts.',
+        'Manage workspace themes.',
         commands: [
           _FixtureCommand(
-            'transfer',
-            'Transfer artifacts between locations.',
+            'required',
+            'Show required themes.',
+            positionalSchema: PositionalSchema([
+              Positional('day', description: 'Day theme.'),
+              Positional('night', description: 'Night theme.'),
+            ]),
+          ),
+          _FixtureCommand(
+            'optional',
+            'Show optional themes.',
             positionalSchema: PositionalSchema(
-              [
-                Positional('source', description: 'Source artifact.'),
-                Positional('destination', description: 'Destination location.'),
-              ],
+              [],
               discretionary: [
-                Positional('format', description: 'Optional output format.'),
-                Positional(
-                  'profile',
-                  description: 'Optional transfer profile.',
-                ),
+                Positional('dawn', description: 'Dawn theme.'),
+                Positional('dusk', description: 'Dusk theme.'),
               ],
-              variadic: Variadic('labels', description: 'Labels to transfer.'),
             ),
           ),
           _FixtureCommand(
-            'configure',
-            'Configure workspace behavior.',
+            'variadic',
+            'Show theme collection.',
+            positionalSchema: PositionalSchema(
+              [],
+              variadic: Variadic('themes', description: 'Theme names.'),
+            ),
+          ),
+          _FixtureCommand(
+            'flags',
+            'Set theme switches and levels.',
             flags: [
               BooleanFlag(
-                name: 'force',
-                short: 'f',
-                description: 'Overwrite existing settings.',
-              ),
-              BooleanFlag(
-                name: 'dry-run',
-                short: 'n',
-                description: 'Preview changes only.',
+                name: 'bright',
+                short: 'b',
+                description: 'Use bright theme.',
               ),
               CountFlag(
-                name: 'verbose',
-                short: 'v',
-                description: 'Increase diagnostic output.',
-              ),
-              CountFlag(
-                name: 'quiet',
-                short: 'q',
-                description: 'Decrease diagnostic output.',
+                name: 'light',
+                short: 'l',
+                description: 'Increase light.',
               ),
             ],
           ),
           _FixtureCommand(
-            'publish',
-            'Publish workspace artifacts.',
+            'text-number-options',
+            'Set theme labels and numbers.',
             singleOptions: [
               StringOption(
-                name: 'registry',
-                short: 'r',
+                name: 'primary',
+                short: 'p',
                 regex: RegExp(r'\S+'),
-                description: 'Primary package registry.',
-                required: true,
-              ),
-              StringOption(
-                name: 'token',
-                short: 't',
-                regex: RegExp(r'\S+'),
-                description: 'Authentication token.',
-                required: true,
+                description: 'Primary theme.',
               ),
               IntOption(
-                name: 'retries',
-                short: 'R',
-                description: 'Primary retry count.',
-              ),
-              IntOption(
-                name: 'parallel',
-                short: 'P',
-                description: 'Parallel publish workers.',
-              ),
-              DoubleOption(
-                name: 'timeout',
-                short: 'T',
-                description: 'Primary request timeout.',
-              ),
-              DoubleOption(
-                name: 'backoff',
-                short: 'B',
-                description: 'Retry backoff multiplier.',
-              ),
-              ChoiceOption(
-                name: 'format',
-                short: 'F',
-                choices: OutputFormat.values,
-                description: 'Primary manifest format.',
-              ),
-              ChoiceOption(
-                name: 'color',
-                short: 'C',
-                choices: ColorMode.values,
-                description: 'Color output mode.',
+                name: 'warmth',
+                short: 'w',
+                description: 'Warmth number.',
               ),
             ],
+          ),
+          _FixtureCommand(
+            'scale-mode-options',
+            'Set theme scales and modes.',
+            singleOptions: [
+              DoubleOption(
+                name: 'glow',
+                short: 'g',
+                description: 'Glow scale.',
+              ),
+              ChoiceOption(
+                name: 'palette',
+                short: 'p',
+                choices: ThemePalette.values,
+                description: 'Palette mode.',
+              ),
+            ],
+          ),
+          _FixtureCommand(
+            'repeatable-text-number',
+            'Set theme tags and stops.',
             repeatedOptions: [
               RepeatableStringOption(
                 name: 'tag',
-                short: 'g',
-                description: 'Primary release tag.',
-              ),
-              RepeatableStringOption(
-                name: 'owner',
-                short: 'O',
-                description: 'Artifact owner.',
+                short: 't',
+                description: 'Theme tag.',
               ),
               RepeatableIntOption(
-                name: 'port',
-                short: 'p',
-                description: 'Primary target port.',
-              ),
-              RepeatableIntOption(
-                name: 'mirror-port',
-                short: 'm',
-                description: 'Mirror target port.',
-              ),
-              RepeatableDoubleOption(
-                name: 'weight',
-                short: 'w',
-                description: 'Primary publish weight.',
-              ),
-              RepeatableDoubleOption(
-                name: 'mirror-weight',
-                short: 'W',
-                description: 'Mirror publish weight.',
+                name: 'stop',
+                short: 's',
+                description: 'Theme stop.',
               ),
             ],
           ),
           _FixtureCommand(
-            'connect',
-            'Connect the workspace to remote services.',
+            'repeatable-number-scale',
+            'Set theme bands and scales.',
+            repeatedOptions: [
+              RepeatableIntOption(
+                name: 'band',
+                short: 'b',
+                description: 'Theme band.',
+              ),
+              RepeatableDoubleOption(
+                name: 'opacity',
+                short: 'o',
+                description: 'Theme opacity.',
+              ),
+            ],
+          ),
+          _FixtureCommand(
+            'named-accessors',
+            'Set named theme values.',
             accessorFlagSchema: {
-              'api-token': AccessorInput.named(
+              'foreground': AccessorInput.named(
                 StringOption(
-                  name: 'api-token',
+                  name: 'foreground',
                   regex: RegExp(r'\S+'),
-                  description: 'Primary API token.',
-                  required: true,
+                  description: 'Foreground theme.',
                 ),
               ),
-              'region': AccessorInput.named(
+              'background': AccessorInput.named(
                 StringOption(
-                  name: 'region',
+                  name: 'background',
                   regex: RegExp(r'\S+'),
-                  description: 'Primary service region.',
+                  description: 'Background theme.',
                 ),
               ),
-              'tls': AccessorInput.group({
-                'cert': StringOption(
-                  name: 'cert',
+            },
+          ),
+          _FixtureCommand(
+            'group-accessors',
+            'Set grouped theme values.',
+            accessorFlagSchema: {
+              'light': AccessorInput.group({
+                'warm': StringOption(
+                  name: 'warm',
                   regex: RegExp(r'\S+'),
-                  description: 'TLS certificate path.',
+                  description: 'Warm light.',
                 ),
-                'key': StringOption(
-                  name: 'key',
+                'cool': StringOption(
+                  name: 'cool',
                   regex: RegExp(r'\S+'),
-                  description: 'TLS private key path.',
+                  description: 'Cool light.',
                 ),
               }),
-              'proxy': AccessorInput.group({
-                'host': StringOption(
-                  name: 'host',
+              'dark': AccessorInput.group({
+                'soft': StringOption(
+                  name: 'soft',
                   regex: RegExp(r'\S+'),
-                  description: 'Proxy host.',
+                  description: 'Soft dark.',
                 ),
-                'port': IntOption(name: 'port', description: 'Proxy port.'),
+                'deep': StringOption(
+                  name: 'deep',
+                  regex: RegExp(r'\S+'),
+                  description: 'Deep dark.',
+                ),
               }),
             },
+          ),
+          _FixtureCommand(
+            'nested-commands',
+            'Manage theme commands.',
             commands: [
-              _FixtureCommand('status', 'Show the remote connection status.'),
-              _FixtureCommand('reset', 'Reset the remote connection.'),
+              _FixtureCommand('apply', 'Apply a theme.'),
+              _FixtureCommand('reset', 'Reset a theme.'),
             ],
           ),
         ],
@@ -401,257 +395,261 @@ void main() {
 
       CommandRegistry command(String name) => registry.commandRegistries!
           .singleWhere((candidate) => candidate.name == name);
+      void expectHelp(String name, String expected) =>
+          expect(formatter.formatHelp(command(name)), equals(expected));
 
       test(
-        'formats mandatory, optional, and variadic positionals in order',
-        () {
-          final result = formatter.formatHelp(command('transfer'));
-
-          expect(
-            result,
-            equals(
-              buildHelp(
-                commandName: 'transfer',
-                shortDescription: 'Transfer artifacts between locations.',
-                mandatoryPositionals: [
-                  (name: 'source', description: 'Source artifact.'),
-                  (name: 'destination', description: 'Destination location.'),
-                ],
-                optionalPositionals: [
-                  (name: 'format', description: 'Optional output format.'),
-                  (name: 'profile', description: 'Optional transfer profile.'),
-                ],
-                variadicPositional: (
-                  name: 'labels',
-                  description: 'Labels to transfer.',
-                ),
-              ),
-            ),
-          );
-        },
+        'formats mandatory positionals',
+        () => expectHelp(
+          'required',
+          buildHelp(
+            commandName: 'required',
+            shortDescription: 'Show required themes.',
+            mandatoryPositionals: [
+              (name: 'day', description: 'Day theme.'),
+              (name: 'night', description: 'Night theme.'),
+            ],
+          ),
+        ),
       );
-
-      test('formats Boolean and count flags', () {
-        final result = formatter.formatHelp(command('configure'));
-
-        expect(
-          result,
-          equals(
-            buildHelp(
-              commandName: 'configure',
-              shortDescription: 'Configure workspace behavior.',
-              flags: [
-                (
-                  name: 'force',
-                  short: 'f',
-                  description: 'Overwrite existing settings.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'dry-run',
-                  short: 'n',
-                  description: 'Preview changes only.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'verbose',
-                  short: 'v',
-                  description: 'Increase diagnostic output.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'quiet',
-                  short: 'q',
-                  description: 'Decrease diagnostic output.',
-                  required: false,
-                  variadic: false,
-                ),
-              ],
-            ),
+      test(
+        'formats optional positionals',
+        () => expectHelp(
+          'optional',
+          buildHelp(
+            commandName: 'optional',
+            shortDescription: 'Show optional themes.',
+            optionalPositionals: [
+              (name: 'dawn', description: 'Dawn theme.'),
+              (name: 'dusk', description: 'Dusk theme.'),
+            ],
           ),
-        );
-      });
-
-      test('formats single and repeatable options', () {
-        final result = formatter.formatHelp(command('publish'));
-
-        expect(
-          result,
-          equals(
-            buildHelp(
-              commandName: 'publish',
-              shortDescription: 'Publish workspace artifacts.',
-              options: [
-                (
-                  name: 'registry',
-                  short: 'r',
-                  description: 'Primary package registry.',
-                  required: true,
-                  variadic: false,
-                ),
-                (
-                  name: 'token',
-                  short: 't',
-                  description: 'Authentication token.',
-                  required: true,
-                  variadic: false,
-                ),
-                (
-                  name: 'retries',
-                  short: 'R',
-                  description: 'Primary retry count.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'parallel',
-                  short: 'P',
-                  description: 'Parallel publish workers.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'timeout',
-                  short: 'T',
-                  description: 'Primary request timeout.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'backoff',
-                  short: 'B',
-                  description: 'Retry backoff multiplier.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'format',
-                  short: 'F',
-                  description: 'Primary manifest format.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'color',
-                  short: 'C',
-                  description: 'Color output mode.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'tag',
-                  short: 'g',
-                  description: 'Primary release tag.',
-                  required: false,
-                  variadic: true,
-                ),
-                (
-                  name: 'owner',
-                  short: 'O',
-                  description: 'Artifact owner.',
-                  required: false,
-                  variadic: true,
-                ),
-                (
-                  name: 'port',
-                  short: 'p',
-                  description: 'Primary target port.',
-                  required: false,
-                  variadic: true,
-                ),
-                (
-                  name: 'mirror-port',
-                  short: 'm',
-                  description: 'Mirror target port.',
-                  required: false,
-                  variadic: true,
-                ),
-                (
-                  name: 'weight',
-                  short: 'w',
-                  description: 'Primary publish weight.',
-                  required: false,
-                  variadic: true,
-                ),
-                (
-                  name: 'mirror-weight',
-                  short: 'W',
-                  description: 'Mirror publish weight.',
-                  required: false,
-                  variadic: true,
-                ),
-              ],
-            ),
+        ),
+      );
+      test(
+        'formats a variadic positional alone',
+        () => expectHelp(
+          'variadic',
+          buildHelp(
+            commandName: 'variadic',
+            shortDescription: 'Show theme collection.',
+            variadicPositional: (name: 'themes', description: 'Theme names.'),
           ),
-        );
-      });
-
-      test('formats named and grouped accessor flags before commands', () {
-        final result = formatter.formatHelp(command('connect'));
-
-        expect(
-          result,
-          equals(
-            buildHelp(
-              commandName: 'connect',
-              shortDescription: 'Connect the workspace to remote services.',
-              accessorFlags: [
-                (
-                  name: 'api-token',
-                  description: 'Primary API token.',
-                  required: true,
-                  variadic: false,
-                ),
-                (
-                  name: 'region',
-                  description: 'Primary service region.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'tls.cert',
-                  description: 'TLS certificate path.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'tls.key',
-                  description: 'TLS private key path.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'proxy.host',
-                  description: 'Proxy host.',
-                  required: false,
-                  variadic: false,
-                ),
-                (
-                  name: 'proxy.port',
-                  description: 'Proxy port.',
-                  required: false,
-                  variadic: false,
-                ),
-              ],
-              commands: [
-                (
-                  name: 'status',
-                  description: 'Show the remote connection status.',
-                ),
-                (name: 'reset', description: 'Reset the remote connection.'),
-              ],
-            ),
+        ),
+      );
+      test(
+        'formats a BooleanFlag and CountFlag pair',
+        () => expectHelp(
+          'flags',
+          buildHelp(
+            commandName: 'flags',
+            shortDescription: 'Set theme switches and levels.',
+            flags: [
+              (
+                name: 'bright',
+                short: 'b',
+                description: 'Use bright theme.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'light',
+                short: 'l',
+                description: 'Increase light.',
+                required: false,
+                variadic: false,
+              ),
+            ],
           ),
-        );
-      });
+        ),
+      );
+      test(
+        'formats StringOption and IntOption pair',
+        () => expectHelp(
+          'text-number-options',
+          buildHelp(
+            commandName: 'text-number-options',
+            shortDescription: 'Set theme labels and numbers.',
+            options: [
+              (
+                name: 'primary',
+                short: 'p',
+                description: 'Primary theme.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'warmth',
+                short: 'w',
+                description: 'Warmth number.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats DoubleOption and ChoiceOption pair',
+        () => expectHelp(
+          'scale-mode-options',
+          buildHelp(
+            commandName: 'scale-mode-options',
+            shortDescription: 'Set theme scales and modes.',
+            options: [
+              (
+                name: 'glow',
+                short: 'g',
+                description: 'Glow scale.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'palette',
+                short: 'p',
+                description: 'Palette mode.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats RepeatableStringOption and RepeatableIntOption pair',
+        () => expectHelp(
+          'repeatable-text-number',
+          buildHelp(
+            commandName: 'repeatable-text-number',
+            shortDescription: 'Set theme tags and stops.',
+            options: [
+              (
+                name: 'tag',
+                short: 't',
+                description: 'Theme tag.',
+                required: false,
+                variadic: true,
+              ),
+              (
+                name: 'stop',
+                short: 's',
+                description: 'Theme stop.',
+                required: false,
+                variadic: true,
+              ),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats RepeatableIntOption and RepeatableDoubleOption pair',
+        () => expectHelp(
+          'repeatable-number-scale',
+          buildHelp(
+            commandName: 'repeatable-number-scale',
+            shortDescription: 'Set theme bands and scales.',
+            options: [
+              (
+                name: 'band',
+                short: 'b',
+                description: 'Theme band.',
+                required: false,
+                variadic: true,
+              ),
+              (
+                name: 'opacity',
+                short: 'o',
+                description: 'Theme opacity.',
+                required: false,
+                variadic: true,
+              ),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats named accessor pair',
+        () => expectHelp(
+          'named-accessors',
+          buildHelp(
+            commandName: 'named-accessors',
+            shortDescription: 'Set named theme values.',
+            accessorFlags: [
+              (
+                name: 'foreground',
+                description: 'Foreground theme.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'background',
+                description: 'Background theme.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats accessor group pair',
+        () => expectHelp(
+          'group-accessors',
+          buildHelp(
+            commandName: 'group-accessors',
+            shortDescription: 'Set grouped theme values.',
+            accessorFlags: [
+              (
+                name: 'light.warm',
+                description: 'Warm light.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'light.cool',
+                description: 'Cool light.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'dark.soft',
+                description: 'Soft dark.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'dark.deep',
+                description: 'Deep dark.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats nested command pair',
+        () => expectHelp(
+          'nested-commands',
+          buildHelp(
+            commandName: 'nested-commands',
+            shortDescription: 'Manage theme commands.',
+            commands: [
+              (name: 'apply', description: 'Apply a theme.'),
+              (name: 'reset', description: 'Reset a theme.'),
+            ],
+          ),
+        ),
+      );
     });
   });
 }
 
 enum OutputFormat { json, yaml }
+
+enum ThemePalette { warm, cool }
+
+enum ThemeTone { light, dark }
 
 enum ColorMode { auto, always }
 
