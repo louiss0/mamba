@@ -625,12 +625,12 @@ String buildHelp({
   }
 
   String formatEntry(HelpEntry entry) =>
-      '${formatInput(entry)} ${entry.description}'.brightYellow;
+      '${formatInput(entry)} ${entry.description.brightYellow}';
 
   String formatAccessor(AccessorHelpEntry entry) {
     final name = entry.variadic ? '...${entry.name}' : entry.name;
     final formatted = entry.required ? '< $name >'.red : '[ $name ]'.dimGray;
-    return '$formatted ${entry.description}'.brightYellow;
+    return '$formatted ${entry.description.brightYellow}';
   }
 
   String requiredPositional(PositionalHelpEntry entry) =>
@@ -679,7 +679,7 @@ String buildHelp({
   if (commands.isNotEmpty) {
     buffer.writeln('Commands'.brightGreen);
     for (final command in commands) {
-      buffer.writeln('${command.name} ${command.description}'.brightYellow);
+      buffer.writeln('${command.name} ${command.description.brightYellow}');
     }
   }
 

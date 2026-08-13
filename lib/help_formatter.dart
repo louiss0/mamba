@@ -2,9 +2,6 @@ import 'package:chalkdart/chalkstrings.dart';
 
 import 'registry.dart';
 
-const _brightYellowStart = '\x1B[93m';
-const _sgrReset = '\x1B[39m';
-
 abstract class FormattedString {
   final String string;
   FormattedString(String string) : string = _parse(string);
@@ -67,10 +64,7 @@ class HelpFormatter {
 
   String sectionTitleFormater(String string) => string.brightGreen;
 
-  String entryDescriptionFormatter(
-    String string, {
-    bool inheritsEntryStyle = false,
-  }) => inheritsEntryStyle ? '$string$_sgrReset' : string.brightYellow;
+  String entryDescriptionFormatter(String string) => string.brightYellow;
 
   void longDescriptionFormater(StringBuffer buffer, String longDescription) {
     buffer
@@ -119,8 +113,8 @@ class HelpFormatter {
       registry.commandRegistries
               ?.map(
                 (command) =>
-                    '$_brightYellowStart${command.name}'
-                    '${entryDescriptionFormatter(' ${command.shortDescription}', inheritsEntryStyle: true)}',
+                    '${command.name} '
+                    '${entryDescriptionFormatter(command.shortDescription)}',
               )
               .toList() ??
           const [],
@@ -199,8 +193,7 @@ class HelpFormatter {
         ? requiredFormatter(variadicName)
         : optionalFormatter(variadicName);
 
-    return '$_brightYellowStart$grammar'
-        '${entryDescriptionFormatter(' ${description ?? ''}')}';
+    return '$grammar ${entryDescriptionFormatter(description ?? '')}';
   }
 
   void _writeSection(
