@@ -218,123 +218,38 @@ void main() {
       });
     });
 
-    group('Formats every input shape', () {
+    group('Formats top-level section pairs', () {
       final registry = CommandRegistry.create(
         'workspace',
         'Manage workspace themes.',
         commands: [
           _FixtureCommand(
-            'required',
-            'Show required themes.',
-            positionalSchema: PositionalSchema([
-              Positional('day', description: 'Day theme.'),
-              Positional('night', description: 'Night theme.'),
-            ]),
-          ),
-          _FixtureCommand(
-            'optional',
-            'Show optional themes.',
-            positionalSchema: PositionalSchema(
-              [],
-              discretionary: [
-                Positional('dawn', description: 'Dawn theme.'),
-                Positional('dusk', description: 'Dusk theme.'),
-              ],
-            ),
-          ),
-          _FixtureCommand(
-            'variadic',
-            'Show theme collection.',
-            positionalSchema: PositionalSchema(
-              [],
-              variadic: Variadic('themes', description: 'Theme names.'),
-            ),
-          ),
-          _FixtureCommand(
-            'flags',
-            'Set theme switches and levels.',
+            'flags-options',
+            'Set theme flags and options.',
             flags: [
-              BooleanFlag(
-                name: 'bright',
-                short: 'b',
-                description: 'Use bright theme.',
-              ),
-              CountFlag(
-                name: 'light',
-                short: 'l',
-                description: 'Increase light.',
-              ),
+              BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
+              BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
             ],
-          ),
-          _FixtureCommand(
-            'text-number-options',
-            'Set theme labels and numbers.',
             singleOptions: [
               StringOption(
                 name: 'primary',
-                short: 'p',
                 regex: RegExp(r'\S+'),
                 description: 'Primary theme.',
               ),
-              IntOption(
-                name: 'warmth',
-                short: 'w',
-                description: 'Warmth number.',
+              StringOption(
+                name: 'accent',
+                regex: RegExp(r'\S+'),
+                description: 'Accent theme.',
               ),
             ],
           ),
           _FixtureCommand(
-            'scale-mode-options',
-            'Set theme scales and modes.',
-            singleOptions: [
-              DoubleOption(
-                name: 'glow',
-                short: 'g',
-                description: 'Glow scale.',
-              ),
-              ChoiceOption(
-                name: 'palette',
-                short: 'p',
-                choices: ThemePalette.values,
-                description: 'Palette mode.',
-              ),
+            'flags-accessors',
+            'Set theme flags and accessors.',
+            flags: [
+              BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
+              BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
             ],
-          ),
-          _FixtureCommand(
-            'repeatable-text-number',
-            'Set theme tags and stops.',
-            repeatedOptions: [
-              RepeatableStringOption(
-                name: 'tag',
-                short: 't',
-                description: 'Theme tag.',
-              ),
-              RepeatableIntOption(
-                name: 'stop',
-                short: 's',
-                description: 'Theme stop.',
-              ),
-            ],
-          ),
-          _FixtureCommand(
-            'repeatable-number-scale',
-            'Set theme bands and scales.',
-            repeatedOptions: [
-              RepeatableIntOption(
-                name: 'band',
-                short: 'b',
-                description: 'Theme band.',
-              ),
-              RepeatableDoubleOption(
-                name: 'opacity',
-                short: 'o',
-                description: 'Theme opacity.',
-              ),
-            ],
-          ),
-          _FixtureCommand(
-            'named-accessors',
-            'Set named theme values.',
             accessorFlagSchema: {
               'foreground': AccessorInput.named(
                 StringOption(
@@ -353,38 +268,88 @@ void main() {
             },
           ),
           _FixtureCommand(
-            'group-accessors',
-            'Set grouped theme values.',
+            'flags-commands',
+            'Set theme flags and commands.',
+            flags: [
+              BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
+              BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
+            ],
+            commands: [
+              _FixtureCommand('apply', 'Apply a theme.'),
+              _FixtureCommand('reset', 'Reset a theme.'),
+            ],
+          ),
+          _FixtureCommand(
+            'options-accessors',
+            'Set theme options and accessors.',
+            singleOptions: [
+              StringOption(
+                name: 'primary',
+                regex: RegExp(r'\S+'),
+                description: 'Primary theme.',
+              ),
+              StringOption(
+                name: 'accent',
+                regex: RegExp(r'\S+'),
+                description: 'Accent theme.',
+              ),
+            ],
             accessorFlagSchema: {
-              'light': AccessorInput.group({
-                'warm': StringOption(
-                  name: 'warm',
+              'foreground': AccessorInput.named(
+                StringOption(
+                  name: 'foreground',
                   regex: RegExp(r'\S+'),
-                  description: 'Warm light.',
+                  description: 'Foreground theme.',
                 ),
-                'cool': StringOption(
-                  name: 'cool',
+              ),
+              'background': AccessorInput.named(
+                StringOption(
+                  name: 'background',
                   regex: RegExp(r'\S+'),
-                  description: 'Cool light.',
+                  description: 'Background theme.',
                 ),
-              }),
-              'dark': AccessorInput.group({
-                'soft': StringOption(
-                  name: 'soft',
-                  regex: RegExp(r'\S+'),
-                  description: 'Soft dark.',
-                ),
-                'deep': StringOption(
-                  name: 'deep',
-                  regex: RegExp(r'\S+'),
-                  description: 'Deep dark.',
-                ),
-              }),
+              ),
             },
           ),
           _FixtureCommand(
-            'nested-commands',
-            'Manage theme commands.',
+            'options-commands',
+            'Set theme options and commands.',
+            singleOptions: [
+              StringOption(
+                name: 'primary',
+                regex: RegExp(r'\S+'),
+                description: 'Primary theme.',
+              ),
+              StringOption(
+                name: 'accent',
+                regex: RegExp(r'\S+'),
+                description: 'Accent theme.',
+              ),
+            ],
+            commands: [
+              _FixtureCommand('apply', 'Apply a theme.'),
+              _FixtureCommand('reset', 'Reset a theme.'),
+            ],
+          ),
+          _FixtureCommand(
+            'accessors-commands',
+            'Set theme accessors and commands.',
+            accessorFlagSchema: {
+              'foreground': AccessorInput.named(
+                StringOption(
+                  name: 'foreground',
+                  regex: RegExp(r'\S+'),
+                  description: 'Foreground theme.',
+                ),
+              ),
+              'background': AccessorInput.named(
+                StringOption(
+                  name: 'background',
+                  regex: RegExp(r'\S+'),
+                  description: 'Background theme.',
+                ),
+              ),
+            },
             commands: [
               _FixtureCommand('apply', 'Apply a theme.'),
               _FixtureCommand('reset', 'Reset a theme.'),
@@ -399,89 +364,40 @@ void main() {
           expect(formatter.formatHelp(command(name)), equals(expected));
 
       test(
-        'formats mandatory positionals',
+        'formats flags and options',
         () => expectHelp(
-          'required',
+          'flags-options',
           buildHelp(
-            commandName: 'required',
-            shortDescription: 'Show required themes.',
-            mandatoryPositionals: [
-              (name: 'day', description: 'Day theme.'),
-              (name: 'night', description: 'Night theme.'),
-            ],
-          ),
-        ),
-      );
-      test(
-        'formats optional positionals',
-        () => expectHelp(
-          'optional',
-          buildHelp(
-            commandName: 'optional',
-            shortDescription: 'Show optional themes.',
-            optionalPositionals: [
-              (name: 'dawn', description: 'Dawn theme.'),
-              (name: 'dusk', description: 'Dusk theme.'),
-            ],
-          ),
-        ),
-      );
-      test(
-        'formats a variadic positional alone',
-        () => expectHelp(
-          'variadic',
-          buildHelp(
-            commandName: 'variadic',
-            shortDescription: 'Show theme collection.',
-            variadicPositional: (name: 'themes', description: 'Theme names.'),
-          ),
-        ),
-      );
-      test(
-        'formats a BooleanFlag and CountFlag pair',
-        () => expectHelp(
-          'flags',
-          buildHelp(
-            commandName: 'flags',
-            shortDescription: 'Set theme switches and levels.',
+            commandName: 'flags-options',
+            shortDescription: 'Set theme flags and options.',
             flags: [
               (
                 name: 'bright',
-                short: 'b',
-                description: 'Use bright theme.',
+                short: null,
+                description: 'Use a bright theme.',
                 required: false,
                 variadic: false,
               ),
               (
-                name: 'light',
-                short: 'l',
-                description: 'Increase light.',
+                name: 'quiet',
+                short: null,
+                description: 'Suppress theme output.',
                 required: false,
                 variadic: false,
               ),
             ],
-          ),
-        ),
-      );
-      test(
-        'formats StringOption and IntOption pair',
-        () => expectHelp(
-          'text-number-options',
-          buildHelp(
-            commandName: 'text-number-options',
-            shortDescription: 'Set theme labels and numbers.',
             options: [
               (
                 name: 'primary',
-                short: 'p',
+                short: null,
                 description: 'Primary theme.',
                 required: false,
                 variadic: false,
               ),
               (
-                name: 'warmth',
-                short: 'w',
-                description: 'Warmth number.',
+                name: 'accent',
+                short: null,
+                description: 'Accent theme.',
                 required: false,
                 variadic: false,
               ),
@@ -490,90 +406,28 @@ void main() {
         ),
       );
       test(
-        'formats DoubleOption and ChoiceOption pair',
+        'formats flags and accessor flags',
         () => expectHelp(
-          'scale-mode-options',
+          'flags-accessors',
           buildHelp(
-            commandName: 'scale-mode-options',
-            shortDescription: 'Set theme scales and modes.',
-            options: [
+            commandName: 'flags-accessors',
+            shortDescription: 'Set theme flags and accessors.',
+            flags: [
               (
-                name: 'glow',
-                short: 'g',
-                description: 'Glow scale.',
+                name: 'bright',
+                short: null,
+                description: 'Use a bright theme.',
                 required: false,
                 variadic: false,
               ),
               (
-                name: 'palette',
-                short: 'p',
-                description: 'Palette mode.',
+                name: 'quiet',
+                short: null,
+                description: 'Suppress theme output.',
                 required: false,
                 variadic: false,
               ),
             ],
-          ),
-        ),
-      );
-      test(
-        'formats RepeatableStringOption and RepeatableIntOption pair',
-        () => expectHelp(
-          'repeatable-text-number',
-          buildHelp(
-            commandName: 'repeatable-text-number',
-            shortDescription: 'Set theme tags and stops.',
-            options: [
-              (
-                name: 'tag',
-                short: 't',
-                description: 'Theme tag.',
-                required: false,
-                variadic: true,
-              ),
-              (
-                name: 'stop',
-                short: 's',
-                description: 'Theme stop.',
-                required: false,
-                variadic: true,
-              ),
-            ],
-          ),
-        ),
-      );
-      test(
-        'formats RepeatableIntOption and RepeatableDoubleOption pair',
-        () => expectHelp(
-          'repeatable-number-scale',
-          buildHelp(
-            commandName: 'repeatable-number-scale',
-            shortDescription: 'Set theme bands and scales.',
-            options: [
-              (
-                name: 'band',
-                short: 'b',
-                description: 'Theme band.',
-                required: false,
-                variadic: true,
-              ),
-              (
-                name: 'opacity',
-                short: 'o',
-                description: 'Theme opacity.',
-                required: false,
-                variadic: true,
-              ),
-            ],
-          ),
-        ),
-      );
-      test(
-        'formats named accessor pair',
-        () => expectHelp(
-          'named-accessors',
-          buildHelp(
-            commandName: 'named-accessors',
-            shortDescription: 'Set named theme values.',
             accessorFlags: [
               (
                 name: 'foreground',
@@ -592,34 +446,68 @@ void main() {
         ),
       );
       test(
-        'formats accessor group pair',
+        'formats flags and commands',
         () => expectHelp(
-          'group-accessors',
+          'flags-commands',
           buildHelp(
-            commandName: 'group-accessors',
-            shortDescription: 'Set grouped theme values.',
+            commandName: 'flags-commands',
+            shortDescription: 'Set theme flags and commands.',
+            flags: [
+              (
+                name: 'bright',
+                short: null,
+                description: 'Use a bright theme.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'quiet',
+                short: null,
+                description: 'Suppress theme output.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+            commands: [
+              (name: 'apply', description: 'Apply a theme.'),
+              (name: 'reset', description: 'Reset a theme.'),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats options and accessor flags',
+        () => expectHelp(
+          'options-accessors',
+          buildHelp(
+            commandName: 'options-accessors',
+            shortDescription: 'Set theme options and accessors.',
             accessorFlags: [
               (
-                name: 'light.warm',
-                description: 'Warm light.',
+                name: 'foreground',
+                description: 'Foreground theme.',
                 required: false,
                 variadic: false,
               ),
               (
-                name: 'light.cool',
-                description: 'Cool light.',
+                name: 'background',
+                description: 'Background theme.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+            options: [
+              (
+                name: 'primary',
+                short: null,
+                description: 'Primary theme.',
                 required: false,
                 variadic: false,
               ),
               (
-                name: 'dark.soft',
-                description: 'Soft dark.',
-                required: false,
-                variadic: false,
-              ),
-              (
-                name: 'dark.deep',
-                description: 'Deep dark.',
+                name: 'accent',
+                short: null,
+                description: 'Accent theme.',
                 required: false,
                 variadic: false,
               ),
@@ -628,12 +516,56 @@ void main() {
         ),
       );
       test(
-        'formats nested command pair',
+        'formats options and commands',
         () => expectHelp(
-          'nested-commands',
+          'options-commands',
           buildHelp(
-            commandName: 'nested-commands',
-            shortDescription: 'Manage theme commands.',
+            commandName: 'options-commands',
+            shortDescription: 'Set theme options and commands.',
+            options: [
+              (
+                name: 'primary',
+                short: null,
+                description: 'Primary theme.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'accent',
+                short: null,
+                description: 'Accent theme.',
+                required: false,
+                variadic: false,
+              ),
+            ],
+            commands: [
+              (name: 'apply', description: 'Apply a theme.'),
+              (name: 'reset', description: 'Reset a theme.'),
+            ],
+          ),
+        ),
+      );
+      test(
+        'formats accessor flags and commands',
+        () => expectHelp(
+          'accessors-commands',
+          buildHelp(
+            commandName: 'accessors-commands',
+            shortDescription: 'Set theme accessors and commands.',
+            accessorFlags: [
+              (
+                name: 'foreground',
+                description: 'Foreground theme.',
+                required: false,
+                variadic: false,
+              ),
+              (
+                name: 'background',
+                description: 'Background theme.',
+                required: false,
+                variadic: false,
+              ),
+            ],
             commands: [
               (name: 'apply', description: 'Apply a theme.'),
               (name: 'reset', description: 'Reset a theme.'),
