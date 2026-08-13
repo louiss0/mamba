@@ -245,9 +245,7 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  accessors: {
-                    symbol: AccessorInput.named(IntOption(name: symbol)),
-                  },
+                  accessors: [AccessorIntOption(name: symbol)],
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -274,11 +272,12 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  accessors: {
-                    'user': AccessorInput.group({
-                      'age': IntOption(name: symbol),
-                    }),
-                  },
+                  accessors: [
+                    AccessorListOption(
+                      name: 'user',
+                      flags: [AccessorIntOption(name: symbol)],
+                    ),
+                  ],
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -402,11 +401,7 @@ void main() {
                 "commit",
                 "Makes a git commit",
                 flags: [BooleanFlag(name: "user")],
-                accessors: {
-                  'user': AccessorInput.named(
-                    StringOption(name: "enable", regex: RegExp(r"")),
-                  ),
-                },
+                accessors: [AccessorStringOption(name: 'user')],
               );
             }
 
@@ -428,11 +423,7 @@ void main() {
                 "commit",
                 "Makes a git commit",
                 singleOptions: [StringOption(name: "user", regex: RegExp(r""))],
-                accessors: {
-                  'user': AccessorInput.named(
-                    StringOption(name: "enable", regex: RegExp(r"")),
-                  ),
-                },
+                accessors: [AccessorStringOption(name: 'user')],
               );
             }
 
@@ -549,12 +540,15 @@ void main() {
       });
 
       test("When accessors are added they are added to the accesors field", () {
-        final accessors = {
-          'user': AccessorInput.group({
-            'name': StringOption(name: "name", regex: RegExp(r"/S+")),
-            'email': StringOption(name: "email", regex: RegExp(r"/S+")),
-          }),
-        };
+        final accessors = [
+          AccessorListOption(
+            name: 'user',
+            flags: [
+              AccessorStringOption(name: 'name'),
+              AccessorStringOption(name: 'email'),
+            ],
+          ),
+        ];
 
         final registry = CommandRegistry.create(
           "config",

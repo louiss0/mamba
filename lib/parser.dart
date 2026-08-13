@@ -19,7 +19,7 @@ class Parser {
     final repeatedOptions = <String, List<String>>{};
     final boolFlags = <String, bool>{};
     final countFlags = <String, int>{};
-    final accessorMap = <String, AccessorValue>{};
+    final accessorMap = <String, Object>{};
     final positionals = <String>[];
 
     for (var index = 0; index < args.length; index++) {
@@ -36,20 +36,18 @@ class Parser {
       }
       if (token.startsWith('--') && token.length > 2) {
         final name = token.substring(2);
-        if (name.contains('.')) {
+        if (name.split('.').length > 3) {
+          throw MambaParseException(
+            'This accessor can\'t be processed\nOnly two dots can be used\n          ',
+          );
+        }
+        if (_isAccessor(name, registry)) {
           final values = _parseAccessor(name, args, index, consumed, registry);
-          for (final entry in values.entries) {
-            final current = accessorMap[entry.key];
-            if (current is AccessorMap && entry.value is AccessorMap) {
-              accessorMap[entry.key] = AccessorMap.create({
-                ...current.value,
-                ...(entry.value as AccessorMap).value,
-              });
-            } else {
-              accessorMap[entry.key] = entry.value;
-            }
-          }
+          _mergeAccessorValues(accessorMap, values);
           continue;
+        }
+        if (name.contains('.')) {
+          throw MambaParseException("This isn't a registered acessor");
         }
         final option = _findOption(registry, name);
         if (option != null) {
@@ -85,6 +83,7 @@ class Parser {
 
     _addBooleanDefaults(registry, boolFlags);
     _addChoiceDefaults(registry, singleOptions);
+    _addAccessorChoiceDefaults(registry, accessorMap);
     _validateRequiredOptions(registry, singleOptions, repeatedOptions);
     final parsedPositionals = _parsePositionals(registry, positionals);
 
@@ -374,6 +373,36 @@ class Parser {
     }
   }
 
+  void _addAccessorChoiceDefaults(
+    CommandRegistry registry,
+    Map<String, Object> values,
+  ) {
+    for (final accessor
+        in registry.accessorSchema ?? const <AccessorOption>[]) {
+      switch (accessor) {
+        case AccessorChoiceOption(:final defaultValue?)
+            when !values.containsKey(accessor.name):
+          values[accessor.name] = defaultValue.name;
+        case AccessorListOption(options: final flags):
+          final defaults = <String, Object>{};
+          for (final flag in flags) {
+            if (flag case AccessorChoiceOption(:final defaultValue?)) {
+              defaults[flag.name] = defaultValue.name;
+            }
+          }
+          if (defaults.isNotEmpty) {
+            final current = values[accessor.name];
+            values[accessor.name] = {
+              ...defaults,
+              if (current is Map<String, Object>) ...current,
+            };
+          }
+        case AccessorPrimitiveOption():
+          break;
+      }
+    }
+  }
+
   void _validateRequiredOptions(
     CommandRegistry registry,
     Map<String, String> singleOptions,
@@ -451,7 +480,25 @@ class Parser {
     );
   }
 
-  Map<String, AccessorValue> _parseAccessor(
+  bool _isAccessor(String path, CommandRegistry registry) {
+    final parts = path.split('.');
+    if (parts.length > 2) {
+      return false;
+    }
+    final accessor = registry.accessorSchema
+        ?.where((candidate) => candidate.name == parts.first)
+        .firstOrNull;
+    if (accessor == null) {
+      return false;
+    }
+    return switch (accessor) {
+      AccessorPrimitiveOption() => parts.length == 1,
+      AccessorListOption(options: final flags) =>
+        parts.length == 2 && flags.any((flag) => flag.name == parts.last),
+    };
+  }
+
+  Map<String, Object> _parseAccessor(
     String path,
     List<String> args,
     int index,
@@ -459,40 +506,53 @@ class Parser {
     CommandRegistry registry,
   ) {
     final parts = path.split('.');
-    if (parts.length > 3) {
-      throw MambaParseException(
-        'This accessor can\'t be processed\nOnly two dots can be used\n          ',
-      );
-    }
-    if (parts.length != 2) {
-      throw MambaParseException("This isn't a registered acessor");
-    }
-    final accessor = registry.accessorSchema?[parts.first];
-    if (accessor == null) {
-      throw MambaParseException("This isn't a registered acessor");
-    }
+    final accessor = registry.accessorSchema!.firstWhere(
+      (candidate) => candidate.name == parts.first,
+    );
     final input = switch (accessor) {
-      AccessorNamedInput(:final input) when input.name == parts.last => input,
-      AccessorInputGroup(:final inputs) => inputs[parts.last],
-      _ => null,
+      AccessorPrimitiveOption() => accessor,
+      AccessorListOption(options: final flags) => flags.firstWhere(
+        (flag) => flag.name == parts.last,
+      ),
     };
-    if (input == null) {
-      throw MambaParseException("This isn't a registered acessor");
-    }
     final value = _takeOptionValue(args, index, consumed, path);
     final parsed = _parseAccessorValue(input, value);
-    if (accessor is AccessorNamedInput) return {parts.first: parsed};
-    return {
-      parts.first: AccessorMap.create({parts.last: parsed}),
+    return switch (accessor) {
+      AccessorPrimitiveOption() => {accessor.name: parsed},
+      AccessorListOption() => {
+        accessor.name: {input.name: parsed},
+      },
     };
   }
 
-  AccessorValue _parseAccessorValue(NamedInput input, String value) {
-    return switch (input) {
-      IntOption() || RepeatableIntOption() => AccessorInt(_parseInt(value)),
-      DoubleOption() ||
-      RepeatableDoubleOption() => AccessorDouble(_parseDouble(value)),
-      _ => AccessorString(value),
+  void _mergeAccessorValues(
+    Map<String, Object> destination,
+    Map<String, Object> values,
+  ) {
+    for (final entry in values.entries) {
+      final value = entry.value;
+      if (value is Map<String, Object>) {
+        final current = destination[entry.key];
+        destination[entry.key] = {
+          if (current is Map<String, Object>) ...current,
+          ...value,
+        };
+      } else {
+        destination[entry.key] = value;
+      }
+    }
+  }
+
+  String _parseAccessorValue(AccessorPrimitiveOption option, String value) {
+    return switch (option) {
+      AccessorStringOption(:final regex) => _parseStringOption(regex, value),
+      AccessorIntOption() => _parseNumberOption(_parseInt, value),
+      AccessorDoubleOption() => _parseNumberOption(_parseDouble, value),
+      AccessorChoiceOption(:final choices) => _parseChoiceOption(
+        option.name,
+        choices.map((choice) => choice.name),
+        value,
+      ),
     };
   }
 }

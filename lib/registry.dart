@@ -8,7 +8,7 @@ typedef CountFlagMap = Map<String, CountFlag>;
 typedef SingleOptionMap = Map<String, SingleOption>;
 typedef RepeatedOptionMap = Map<String, RepeatableOption>;
 
-typedef AccessorSchema = Map<String, AccessorInput>;
+typedef AccessorSchema = List<AccessorOption>;
 
 final class CommandRegistry {
   final String name;
@@ -39,7 +39,7 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    Map<String, AccessorInput>? accessors,
+    List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<SingleOption>? singleOptions,
     List<RepeatableOption>? repeatedOptions,
@@ -74,13 +74,16 @@ final class CommandRegistry {
     required this.name,
     required this.shortDescription,
     this.longDescription,
-    this.accessorSchema,
+    AccessorSchema? accessorSchema,
     List<Flag>? flags,
     List<SingleOption>? singleOptions,
     List<RepeatableOption>? repeatedOptions,
     PositionalSchema? positionalSchema,
     List<Command>? commands,
-  }) : boolFlags = flags?.fold(
+  }) : accessorSchema = accessorSchema != null
+           ? List.unmodifiable(accessorSchema)
+           : null,
+       boolFlags = flags?.fold(
          {},
          (map, flag) => flag is BooleanFlag ? {...?map, flag.name: flag} : map,
        ),
@@ -206,15 +209,14 @@ final class CommandRegistry {
     if (accessors == null) {
       return;
     }
-    for (final entry in accessors.entries) {
-      _validatePositionalName(entry.key);
-      switch (entry.value) {
-        case AccessorNamedInput(:final input):
-          _validatePositionalName(input.name);
-        case AccessorInputGroup(:final inputs):
-          for (final input in inputs.values) {
-            _validatePositionalName(input.name);
-          }
+    _validateDuplicateNames(accessors, 'accessor');
+    for (final accessor in accessors) {
+      _validatePositionalName(accessor.name);
+      if (accessor case AccessorListOption(options: final flags)) {
+        _validateDuplicateNames(flags, 'accessor option');
+        for (final flag in flags) {
+          _validatePositionalName(flag.name);
+        }
       }
     }
   }
@@ -254,19 +256,19 @@ final class CommandRegistry {
     _validateDuplicateNames(flags, 'flag');
 
     if (accessors != null) {
-      for (final entry in accessors.entries) {
+      for (final accessor in accessors) {
         final flagIndex =
-            flags?.indexWhere((flag) => flag.name == entry.key) ?? -1;
+            flags?.indexWhere((flag) => flag.name == accessor.name) ?? -1;
         if (flagIndex >= 0) {
           throw MambaException(
-            'This accessor ${entry.key} has the same name as a flag at index $flagIndex',
+            'This accessor ${accessor.name} has the same name as a flag at index $flagIndex',
           );
         }
         final optionIndex =
-            options?.indexWhere((option) => option.name == entry.key) ?? -1;
+            options?.indexWhere((option) => option.name == accessor.name) ?? -1;
         if (optionIndex >= 0) {
           throw MambaException(
-            'This accessor ${entry.key} has the same name as an option at index $optionIndex',
+            'This accessor ${accessor.name} has the same name as an option at index $optionIndex',
           );
         }
       }
@@ -326,44 +328,12 @@ final class CommandRegistry {
   }
 }
 
-sealed class AccessorValue<T extends Object> {
-  const AccessorValue(this.value);
-
-  final T value;
-}
-
-sealed class _AccessorPrimitive<T extends Object> extends AccessorValue<T> {
-  const _AccessorPrimitive(super.value);
-}
-
-final class AccessorString extends _AccessorPrimitive<String> {
-  const AccessorString(super.value);
-}
-
-final class AccessorInt extends _AccessorPrimitive<int> {
-  const AccessorInt(super.value);
-}
-
-final class AccessorDouble extends _AccessorPrimitive<double> {
-  const AccessorDouble(super.value);
-}
-
-final class AccessorMap extends AccessorValue<Map<String, _AccessorPrimitive>> {
-  const AccessorMap(super.value);
-
-  factory AccessorMap.create(Map<String, AccessorValue> values) {
-    return AccessorMap(
-      values.map((name, value) => MapEntry(name, value as _AccessorPrimitive)),
-    );
-  }
-}
-
 typedef Inputs = ({
   Map<String, bool>? boolFlags,
   Map<String, int>? countFlags,
   Map<String, String>? singleOptions,
   Map<String, List<String>>? repeatedOptions,
-  Map<String, AccessorValue>? accessorMap,
+  Map<String, Object>? accessorMap,
   Map<String, String>? mandatoryPositionals,
   Map<String, String>? discretionaryPositionals,
   List<String>? variadic,
@@ -377,7 +347,7 @@ abstract class Command {
   final CommandRegistry registry;
 
   final PositionalSchema? positionalSchema;
-  final Map<String, AccessorInput>? accessorFlagSchema;
+  final List<AccessorOption>? accessorFlagSchema;
 
   final List<Flag>? flags;
   final List<SingleOption>? singleOptions;
@@ -390,7 +360,7 @@ abstract class Command {
     String? longDescription,
 
     required PositionalSchema? positionalSchema,
-    required Map<String, AccessorInput>? accessorFlagSchema,
+    required List<AccessorOption>? accessorFlagSchema,
 
     required List<Flag>? flags,
     required List<SingleOption>? singleOptions,
@@ -412,7 +382,7 @@ abstract class Command {
        longDescription = longDescription,
        positionalSchema = positionalSchema,
        accessorFlagSchema = accessorFlagSchema != null
-           ? Map.unmodifiable(accessorFlagSchema)
+           ? List.unmodifiable(accessorFlagSchema)
            : null,
        flags = flags != null ? List.unmodifiable(flags) : null,
        singleOptions = singleOptions != null
@@ -506,7 +476,7 @@ sealed class NamedInput {
   final String name;
   final String? description;
 
-  const NamedInput({required this.name, this.description});
+  const NamedInput({required this.name, required this.description});
 }
 
 sealed class Flag extends NamedInput {
@@ -647,16 +617,17 @@ final class DoubleOption extends SingleOption {
 }
 
 final class ChoiceOption<T extends Enum> extends SingleOption {
+  final List<T> choices;
+
   ChoiceOption({
-    required super.name,
+    this.defaultValue,
     required this.choices,
+    required super.name,
     super.short,
     super.description,
     super.required,
-    this.defaultValue,
   });
 
-  final List<T> choices;
   final T? defaultValue;
 }
 
@@ -743,27 +714,53 @@ final class RepeatableDoubleOption extends RepeatableOption {
   });
 }
 
-sealed class AccessorInput {
-  const AccessorInput();
-
-  factory AccessorInput.group(Map<String, NamedInput> inputs) {
-    return AccessorInputGroup(inputs);
-  }
-
-  factory AccessorInput.named(NamedInput input) {
-    return AccessorNamedInput(input);
-  }
+sealed class AccessorOption extends NamedInput {
+  const AccessorOption({required super.name, super.description});
 }
 
-final class AccessorNamedInput extends AccessorInput {
-  const AccessorNamedInput(this.input);
-
-  final NamedInput input;
+sealed class AccessorPrimitiveOption extends AccessorOption {
+  const AccessorPrimitiveOption({required super.name, super.description});
 }
 
-final class AccessorInputGroup extends AccessorInput {
-  AccessorInputGroup(Map<String, NamedInput> inputs)
-    : inputs = Map.unmodifiable(inputs);
+final class AccessorListOption extends AccessorOption {
+  final List<AccessorPrimitiveOption> options;
 
-  final Map<String, NamedInput> inputs;
+  AccessorListOption({
+    required super.name,
+    super.description,
+    required List<AccessorPrimitiveOption> flags,
+  }) : options = List.unmodifiable(flags);
+}
+
+final class AccessorStringOption extends AccessorPrimitiveOption {
+  final RegExp _regExp;
+  AccessorStringOption({required super.name, super.description, RegExp? regex})
+    : _regExp = regex ?? RegExp(r'\S+');
+
+  RegExp get regex => _regExp;
+}
+
+final class AccessorIntOption extends AccessorPrimitiveOption {
+  AccessorIntOption({required super.name, super.description});
+
+  RegExp get regex => RegExp(r'\d+', multiLine: true);
+}
+
+final class AccessorDoubleOption extends AccessorPrimitiveOption {
+  AccessorDoubleOption({required super.name, super.description});
+
+  RegExp get regex => RegExp(r'\d+\.\d+', multiLine: true);
+}
+
+final class AccessorChoiceOption<T extends Enum>
+    extends AccessorPrimitiveOption {
+  final List<T> choices;
+  final T? defaultValue;
+
+  AccessorChoiceOption({
+    required super.name,
+    super.description,
+    required this.choices,
+    this.defaultValue,
+  });
 }

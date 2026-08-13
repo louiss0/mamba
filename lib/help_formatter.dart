@@ -19,7 +19,7 @@ abstract class FormattedString {
   }
 }
 
-class VariadicString extends FormattedString {
+final class VariadicString extends FormattedString {
   VariadicString(String string) : super('...${_parse(string)}');
   VariadicString._formatted(String string) : super._('...$string');
 
@@ -35,7 +35,7 @@ class VariadicString extends FormattedString {
   }
 }
 
-class RequiredString extends FormattedString {
+final class RequiredString extends FormattedString {
   RequiredString(String string) : super('< ${_parse(string)} >');
   RequiredString._formatted(String string) : super._('< $string >'.red);
 
@@ -51,7 +51,7 @@ class RequiredString extends FormattedString {
   }
 }
 
-class OptionalString extends FormattedString {
+final class OptionalString extends FormattedString {
   OptionalString(String string) : super('[ ${_parse(string)} ]');
   OptionalString._formatted(String string) : super._('[ $string ]'.dimGray);
 
@@ -67,11 +67,11 @@ class OptionalString extends FormattedString {
   }
 }
 
-class SectionTitleString extends FormattedString {
+final class SectionTitleString extends FormattedString {
   SectionTitleString(String string) : super(string.brightGreen);
 }
 
-class EntryDescriptionString extends FormattedString {
+final class EntryDescriptionString extends FormattedString {
   EntryDescriptionString(String string) : super(string.brightYellow);
 }
 
@@ -181,15 +181,13 @@ class HelpFormatter {
     final accessorSchema = registry.accessorSchema;
     if (accessorSchema == null) return values;
 
-    for (final entry in accessorSchema.entries) {
-      switch (entry.value) {
-        case AccessorNamedInput(:final input):
-          values.add(_accessorEntry(entry.key, input));
-        case AccessorInputGroup(:final inputs):
-          for (final input in inputs.entries) {
-            values.add(
-              _accessorEntry('${entry.key}.${input.key}', input.value),
-            );
+    for (final accessor in accessorSchema) {
+      switch (accessor) {
+        case AccessorPrimitiveOption():
+          values.add(_accessorEntry(accessor.name, accessor));
+        case AccessorListOption(options: final flags):
+          for (final flag in flags) {
+            values.add(_accessorEntry('${accessor.name}.${flag.name}', flag));
           }
       }
     }
@@ -197,11 +195,11 @@ class HelpFormatter {
     return values;
   }
 
-  String _accessorEntry(String name, NamedInput input) => _entry(
+  String _accessorEntry(String name, AccessorOption option) => _entry(
     name: name,
-    description: input.description,
-    required: input is Option && input.required,
-    variadic: input is RepeatableOption,
+    description: option.description,
+    required: false,
+    variadic: false,
   );
 
   String _entry({

@@ -803,18 +803,36 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'user': AccessorInput.named(
-                StringOption(name: 'name', regex: RegExp(r'\S+')),
-              ),
-            },
+            accessors: [
+              AccessorStringOption(name: 'user', regex: RegExp(r'\S+')),
+            ],
           ),
         );
 
-        final (_, inputs) = parser.parse(['--user.name', 'ada']);
+        final (_, inputs) = parser.parse(['--user', 'ada']);
 
-        expect(inputs.accessorMap!['user'], isA<AccessorString>());
-        expect((inputs.accessorMap!['user'] as AccessorString).value, 'ada');
+        expect(inputs.accessorMap, {'user': 'ada'});
+      });
+
+      test('adds choice defaults and accepts configured choices', () {
+        final parser = Parser(
+          CommandRegistry.create(
+            'serve',
+            'Serve requests',
+            accessors: [
+              AccessorChoiceOption(
+                name: 'when',
+                choices: When.values,
+                defaultValue: When.auto,
+              ),
+            ],
+          ),
+        );
+
+        expect(parser.parse([]).$2.accessorMap, {'when': 'auto'});
+        expect(parser.parse(['--when', 'always']).$2.accessorMap, {
+          'when': 'always',
+        });
       });
 
       test('validates typed accessor values', () {
@@ -822,9 +840,12 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'server': AccessorInput.group({'port': IntOption(name: 'port')}),
-            },
+            accessors: [
+              AccessorListOption(
+                name: 'server',
+                flags: [AccessorIntOption(name: 'port')],
+              ),
+            ],
           ),
         );
 
@@ -845,12 +866,15 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'server': AccessorInput.group({
-                'port': IntOption(name: 'port'),
-                'timeout': DoubleOption(name: 'timeout'),
-              }),
-            },
+            accessors: [
+              AccessorListOption(
+                name: 'server',
+                flags: [
+                  AccessorIntOption(name: 'port'),
+                  AccessorDoubleOption(name: 'timeout'),
+                ],
+              ),
+            ],
           ),
         );
 
@@ -861,11 +885,9 @@ void main() {
           '1.5',
         ]);
 
-        final server = inputs.accessorMap!['server'] as AccessorMap;
-        expect(server.value['port'], isA<AccessorInt>());
-        expect((server.value['port'] as AccessorInt).value, 8080);
-        expect(server.value['timeout'], isA<AccessorDouble>());
-        expect((server.value['timeout'] as AccessorDouble).value, 1.5);
+        expect(inputs.accessorMap, {
+          'server': {'port': '8080', 'timeout': '1.5'},
+        });
       });
     });
 
