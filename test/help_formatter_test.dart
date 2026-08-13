@@ -3,14 +3,52 @@ import 'package:arg_parser/registry.dart';
 import 'package:test/test.dart';
 import 'package:chalkdart/chalkstrings.dart';
 
-///  When it comes to the grammar DSL these are the rules
-/// [ ] are for optional things
-/// < > Is for required things
-/// ... is for variadic **It must be used in front of the other two**
-/// The | is for **or**
-/// The & is for **and**
-
 void main() {
+  group("Formatted Strings", () {
+    test("throws when ANSI characters aren't used", () {
+      expect(() => TestFormattedString(''), throwsFormatException);
+    });
+
+    test("doesn't throw when a string isn't ANSI", () {
+      expect(() => TestFormattedString(''.red), returnsNormally);
+    });
+
+    group("Required Formatted String", () {
+      test("throws when required and ANSI characters aren't used", () {
+        expect(() => RequiredString(''), throwsFormatException);
+      });
+
+      group("Throws when required delimters are used", () {
+        for (final delimiter in ['<', '>', '<url>']) {
+          test("throws when $delimiter is used", () {
+            expect(() => RequiredString(delimiter), throwsFormatException);
+          });
+        }
+      });
+
+      test("doesn't throw when required and ANSI characters are used", () {
+        expect(() => RequiredString('bar'.red), returnsNormally);
+      });
+    });
+    group("Optional Formatted String", () {
+      test("throws when optional and ANSI characters aren't used", () {
+        expect(() => OptionalString(''), throwsFormatException);
+      });
+
+      group("Throws when optional delimters are used", () {
+        for (final delimiter in ['[', ']', '[ header ]']) {
+          test("throws when $delimiter is used", () {
+            expect(() => OptionalString(delimiter), throwsFormatException);
+          });
+        }
+      });
+
+      test("doesn't throw when optional and ANSI characters are used", () {
+        expect(() => OptionalString('foo'.red), returnsNormally);
+      });
+    });
+  });
+
   group('HelpFormatter', () {
     final formatter = HelpFormatter();
 
@@ -577,6 +615,10 @@ void main() {
   });
 }
 
+class TestFormattedString extends FormattedString {
+  TestFormattedString(super.string);
+}
+
 enum OutputFormat { json, yaml }
 
 enum ThemePalette { warm, cool }
@@ -655,11 +697,13 @@ String buildHelp({
       ..writeln('-' * 10)
       ..writeln(longDescription)
       ..writeln('-' * 10);
+    buffer.writeln();
   }
 
   void writeSection(String title, List<HelpEntry> entries) {
     if (entries.isEmpty) return;
     buffer.writeln(title.brightGreen);
+    buffer.writeln();
     for (final entry in entries) {
       buffer.writeln(formatEntry(entry));
     }
@@ -674,7 +718,9 @@ String buildHelp({
   }
 
   writeSection('Flags', flags);
+  buffer.writeln();
   writeAccessorSection(accessorFlags);
+  buffer.writeln();
   writeSection('Options', options);
   if (commands.isNotEmpty) {
     buffer.writeln('Commands'.brightGreen);
