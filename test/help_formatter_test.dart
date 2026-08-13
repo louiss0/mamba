@@ -264,6 +264,8 @@ void main() {
           _FixtureCommand(
             'flags-options',
             'Set theme flags and options.',
+            longDescription:
+                'Set a theme for workspaces this allows you use commands to set the theme you want!',
             flags: [
               BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
               BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
@@ -408,6 +410,8 @@ void main() {
           buildHelp(
             commandName: 'flags-options',
             shortDescription: 'Set theme flags and options.',
+            longDescription:
+                'Set a theme for workspaces this allows you use commands to set the theme you want!',
             flags: [
               (
                 name: 'bright',
