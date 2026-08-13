@@ -108,10 +108,10 @@ void main() {
             description: 'Add a request header as "Name: value".',
           ),
         ],
-        accessors: [
-          AccessorListOption(
+        accessors: {
+          'tls': AccessorListOption(
             name: 'tls',
-            flags: [
+            options: [
               AccessorStringOption(
                 name: 'cert',
                 regex: RegExp(r'\S+'),
@@ -124,7 +124,7 @@ void main() {
               ),
             ],
           ),
-        ],
+        },
         commands: [
           _FixtureCommand(
             'get',
@@ -309,18 +309,18 @@ void main() {
               BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
               BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
             ],
-            accessorFlagSchema: [
-              AccessorStringOption(
+            accessorFlagSchema: {
+              'foreground': AccessorStringOption(
                 name: 'foreground',
                 regex: RegExp(r'\S+'),
                 description: 'Foreground theme.',
               ),
-              AccessorStringOption(
+              'background': AccessorStringOption(
                 name: 'background',
                 regex: RegExp(r'\S+'),
                 description: 'Background theme.',
               ),
-            ],
+            },
           ),
           _FixtureCommand(
             'flags-commands',
@@ -349,18 +349,18 @@ void main() {
                 description: 'Accent theme.',
               ),
             ],
-            accessorFlagSchema: [
-              AccessorStringOption(
+            accessorFlagSchema: {
+              'foreground': AccessorStringOption(
                 name: 'foreground',
                 regex: RegExp(r'\S+'),
                 description: 'Foreground theme.',
               ),
-              AccessorStringOption(
+              'background': AccessorStringOption(
                 name: 'background',
                 regex: RegExp(r'\S+'),
                 description: 'Background theme.',
               ),
-            ],
+            },
           ),
           _FixtureCommand(
             'options-commands',
@@ -385,18 +385,18 @@ void main() {
           _FixtureCommand(
             'accessors-commands',
             'Set theme accessors and commands.',
-            accessorFlagSchema: [
-              AccessorStringOption(
+            accessorFlagSchema: {
+              'foreground': AccessorStringOption(
                 name: 'foreground',
                 regex: RegExp(r'\S+'),
                 description: 'Foreground theme.',
               ),
-              AccessorStringOption(
+              'background': AccessorStringOption(
                 name: 'background',
                 regex: RegExp(r'\S+'),
                 description: 'Background theme.',
               ),
-            ],
+            },
             commands: [
               _FixtureCommand('apply', 'Apply a theme.'),
               _FixtureCommand('reset', 'Reset a theme.'),

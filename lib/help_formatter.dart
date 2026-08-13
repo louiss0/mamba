@@ -181,13 +181,15 @@ class HelpFormatter {
     final accessorSchema = registry.accessorSchema;
     if (accessorSchema == null) return values;
 
-    for (final accessor in accessorSchema) {
+    for (final entry in accessorSchema.entries) {
+      final name = entry.key;
+      final accessor = entry.value;
       switch (accessor) {
         case AccessorPrimitiveOption():
-          values.add(_accessorEntry(accessor.name, accessor));
-        case AccessorListOption(options: final flags):
-          for (final flag in flags) {
-            values.add(_accessorEntry('${accessor.name}.${flag.name}', flag));
+          values.add(_accessorEntry(name, accessor));
+        case AccessorListOption(options: final options):
+          for (final option in options) {
+            values.add(_accessorEntry('$name.${option.name}', option));
           }
       }
     }

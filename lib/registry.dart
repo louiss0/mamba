@@ -8,7 +8,7 @@ typedef CountFlagMap = Map<String, CountFlag>;
 typedef SingleOptionMap = Map<String, SingleOption>;
 typedef RepeatedOptionMap = Map<String, RepeatableOption>;
 
-typedef AccessorSchema = List<AccessorOption>;
+typedef AccessorSchema = Map<String, AccessorOption>;
 
 final class CommandRegistry {
   final String name;
@@ -39,7 +39,7 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    List<AccessorOption>? accessors,
+    AccessorSchema? accessors,
     List<Flag>? flags,
     List<SingleOption>? singleOptions,
     List<RepeatableOption>? repeatedOptions,
@@ -81,7 +81,7 @@ final class CommandRegistry {
     PositionalSchema? positionalSchema,
     List<Command>? commands,
   }) : accessorSchema = accessorSchema != null
-           ? List.unmodifiable(accessorSchema)
+           ? Map.unmodifiable(accessorSchema)
            : null,
        boolFlags = flags?.fold(
          {},
@@ -209,13 +209,19 @@ final class CommandRegistry {
     if (accessors == null) {
       return;
     }
-    _validateDuplicateNames(accessors, 'accessor');
-    for (final accessor in accessors) {
-      _validatePositionalName(accessor.name);
-      if (accessor case AccessorListOption(options: final flags)) {
-        _validateDuplicateNames(flags, 'accessor option');
-        for (final flag in flags) {
-          _validatePositionalName(flag.name);
+    for (final entry in accessors.entries) {
+      final name = entry.key;
+      final accessor = entry.value;
+      _validatePositionalName(name);
+      if (accessor.name != name) {
+        throw MambaRegistryError(
+          'Accessor schema key $name must match accessor name ${accessor.name}',
+        );
+      }
+      if (accessor case AccessorListOption(options: final options)) {
+        _validateDuplicateNames(options, 'accessor option');
+        for (final option in options) {
+          _validatePositionalName(option.name);
         }
       }
     }
@@ -256,19 +262,18 @@ final class CommandRegistry {
     _validateDuplicateNames(flags, 'flag');
 
     if (accessors != null) {
-      for (final accessor in accessors) {
-        final flagIndex =
-            flags?.indexWhere((flag) => flag.name == accessor.name) ?? -1;
+      for (final name in accessors.keys) {
+        final flagIndex = flags?.indexWhere((flag) => flag.name == name) ?? -1;
         if (flagIndex >= 0) {
           throw MambaException(
-            'This accessor ${accessor.name} has the same name as a flag at index $flagIndex',
+            'This accessor $name has the same name as a flag at index $flagIndex',
           );
         }
         final optionIndex =
-            options?.indexWhere((option) => option.name == accessor.name) ?? -1;
+            options?.indexWhere((option) => option.name == name) ?? -1;
         if (optionIndex >= 0) {
           throw MambaException(
-            'This accessor ${accessor.name} has the same name as an option at index $optionIndex',
+            'This accessor $name has the same name as an option at index $optionIndex',
           );
         }
       }
@@ -347,7 +352,7 @@ abstract class Command {
   final CommandRegistry registry;
 
   final PositionalSchema? positionalSchema;
-  final List<AccessorOption>? accessorFlagSchema;
+  final AccessorSchema? accessorFlagSchema;
 
   final List<Flag>? flags;
   final List<SingleOption>? singleOptions;
@@ -360,7 +365,7 @@ abstract class Command {
     String? longDescription,
 
     required PositionalSchema? positionalSchema,
-    required List<AccessorOption>? accessorFlagSchema,
+    required AccessorSchema? accessorFlagSchema,
 
     required List<Flag>? flags,
     required List<SingleOption>? singleOptions,
@@ -382,7 +387,7 @@ abstract class Command {
        longDescription = longDescription,
        positionalSchema = positionalSchema,
        accessorFlagSchema = accessorFlagSchema != null
-           ? List.unmodifiable(accessorFlagSchema)
+           ? Map.unmodifiable(accessorFlagSchema)
            : null,
        flags = flags != null ? List.unmodifiable(flags) : null,
        singleOptions = singleOptions != null
@@ -728,8 +733,8 @@ final class AccessorListOption extends AccessorOption {
   AccessorListOption({
     required super.name,
     super.description,
-    required List<AccessorPrimitiveOption> flags,
-  }) : options = List.unmodifiable(flags);
+    required List<AccessorPrimitiveOption> options,
+  }) : options = List.unmodifiable(options);
 }
 
 final class AccessorStringOption extends AccessorPrimitiveOption {

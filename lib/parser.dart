@@ -377,22 +377,25 @@ class Parser {
     CommandRegistry registry,
     Map<String, Object> values,
   ) {
-    for (final accessor
-        in registry.accessorSchema ?? const <AccessorOption>[]) {
+    for (final entry
+        in (registry.accessorSchema ?? const <String, AccessorOption>{})
+            .entries) {
+      final name = entry.key;
+      final accessor = entry.value;
       switch (accessor) {
         case AccessorChoiceOption(:final defaultValue?)
-            when !values.containsKey(accessor.name):
-          values[accessor.name] = defaultValue.name;
-        case AccessorListOption(options: final flags):
+            when !values.containsKey(name):
+          values[name] = defaultValue.name;
+        case AccessorListOption(options: final options):
           final defaults = <String, Object>{};
-          for (final flag in flags) {
-            if (flag case AccessorChoiceOption(:final defaultValue?)) {
-              defaults[flag.name] = defaultValue.name;
+          for (final option in options) {
+            if (option case AccessorChoiceOption(:final defaultValue?)) {
+              defaults[option.name] = defaultValue.name;
             }
           }
           if (defaults.isNotEmpty) {
-            final current = values[accessor.name];
-            values[accessor.name] = {
+            final current = values[name];
+            values[name] = {
               ...defaults,
               if (current is Map<String, Object>) ...current,
             };
@@ -485,16 +488,14 @@ class Parser {
     if (parts.length > 2) {
       return false;
     }
-    final accessor = registry.accessorSchema
-        ?.where((candidate) => candidate.name == parts.first)
-        .firstOrNull;
+    final accessor = registry.accessorSchema?[parts.first];
     if (accessor == null) {
       return false;
     }
     return switch (accessor) {
       AccessorPrimitiveOption() => parts.length == 1,
-      AccessorListOption(options: final flags) =>
-        parts.length == 2 && flags.any((flag) => flag.name == parts.last),
+      AccessorListOption(options: final options) =>
+        parts.length == 2 && options.any((option) => option.name == parts.last),
     };
   }
 
@@ -506,21 +507,19 @@ class Parser {
     CommandRegistry registry,
   ) {
     final parts = path.split('.');
-    final accessor = registry.accessorSchema!.firstWhere(
-      (candidate) => candidate.name == parts.first,
-    );
+    final accessor = registry.accessorSchema![parts.first]!;
     final input = switch (accessor) {
       AccessorPrimitiveOption() => accessor,
-      AccessorListOption(options: final flags) => flags.firstWhere(
-        (flag) => flag.name == parts.last,
+      AccessorListOption(options: final options) => options.firstWhere(
+        (option) => option.name == parts.last,
       ),
     };
     final value = _takeOptionValue(args, index, consumed, path);
     final parsed = _parseAccessorValue(input, value);
     return switch (accessor) {
-      AccessorPrimitiveOption() => {accessor.name: parsed},
+      AccessorPrimitiveOption() => {parts.first: parsed},
       AccessorListOption() => {
-        accessor.name: {input.name: parsed},
+        parts.first: {input.name: parsed},
       },
     };
   }

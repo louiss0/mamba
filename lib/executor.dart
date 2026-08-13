@@ -95,7 +95,7 @@ final class Executor {
     String? longDescription,
     List<String>? defaultSubCommand,
     PositionalSchema? positionalSchema,
-    List<AccessorOption>? accessorFlagSchema,
+    AccessorSchema? accessorFlagSchema,
 
     List<Flag>? flags,
 
