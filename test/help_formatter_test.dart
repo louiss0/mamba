@@ -240,6 +240,31 @@ void main() {
 
       expect(result, equals(expected));
     });
+
+    test("Format's positionals and flags properly", () {
+      final deleteRegistry = registry.commandRegistries!.singleWhere(
+        (registry) => registry.name == 'delete',
+      );
+
+      final result = formatter.formatHelp(deleteRegistry);
+
+      final expected = buildHelp(
+        commandName: "delete",
+        shortDescription: "",
+        optionalPositionals: [(name: 'url', description: 'The resource URL.')],
+        flags: [
+          (
+            name: 'include',
+            short: 'i',
+            required: false,
+            variadic: false,
+            description: 'Include response headers in the output.',
+          ),
+        ],
+      );
+
+      expect(result, equals(expected));
+    });
   });
 }
 
@@ -250,6 +275,7 @@ typedef HelpEntry = ({
   bool required,
   bool variadic,
 });
+typedef PositionalHelpEntry = ({String name, String description});
 typedef AccessorHelpEntry = ({
   String name,
   String description,
@@ -264,9 +290,9 @@ String buildHelp({
   required String commandName,
   required String shortDescription,
   String? longDescription,
-  List<HelpEntry> mandatoryPositionals = const [],
-  List<HelpEntry> optionalPositionals = const [],
-  List<HelpEntry> variadicPositionals = const [],
+  List<PositionalHelpEntry> mandatoryPositionals = const [],
+  List<PositionalHelpEntry> optionalPositionals = const [],
+  List<PositionalHelpEntry> variadicPositionals = const [],
   List<HelpEntry> flags = const [],
   List<AccessorHelpEntry> accessorFlags = const [],
   List<HelpEntry> options = const [],
@@ -290,13 +316,20 @@ String buildHelp({
     return '$formatted ${entry.description}'.brightYellow;
   }
 
+  String requiredPositional(PositionalHelpEntry entry) =>
+      '< ${entry.name} >'.red;
+  String optionalPositional(PositionalHelpEntry entry) =>
+      '[ ${entry.name} ]'.dimGray;
+  String variadicPositional(PositionalHelpEntry entry) =>
+      '[ ...${entry.name} ]'.dimGray;
+
   final positionals = [
-    ...mandatoryPositionals,
-    ...optionalPositionals,
-    ...variadicPositionals,
+    ...mandatoryPositionals.map(requiredPositional),
+    ...optionalPositionals.map(optionalPositional),
+    ...variadicPositionals.map(variadicPositional),
   ];
   final commandLine =
-      '$commandName${positionals.isEmpty ? '' : ' ${positionals.map(formatInput).join(' ')}'}';
+      '$commandName${positionals.isEmpty ? '' : ' ${positionals.join(' ')}'}';
   final buffer = StringBuffer()..writeln("$commandLine  '$shortDescription'");
 
   if (longDescription != null) {
