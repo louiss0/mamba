@@ -1,4 +1,5 @@
 import 'package:arg_parser/errors.dart';
+import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/parser.dart';
 import 'package:arg_parser/registry.dart';
 
@@ -79,6 +80,8 @@ class _RootCommand extends GroupCommand {
 
 final class Executor {
   final _RootCommand _rootCommand;
+  final HelpFormatter _helpFormatter;
+  final void Function(String) _writeHelp;
 
   Executor(
     String name,
@@ -94,7 +97,11 @@ final class Executor {
     List<RepeatableOption>? repeatedOptions,
 
     List<Command>? commands,
-  }) : _rootCommand = _RootCommand(
+    HelpFormatter? helpFormatter,
+    void Function(String)? writeHelp,
+  }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
+       _writeHelp = writeHelp ?? print,
+       _rootCommand = _RootCommand(
          name,
          shortDescription,
          longDescription: longDescription,
@@ -108,12 +115,33 @@ final class Executor {
        );
 
   void execute(List<String> args) {
+    if (_requestsHelp(args)) {
+      _writeHelp(_helpFormatter.formatHelp(_helpCommand(args).registry));
+      return;
+    }
+
     final parser = Parser(_rootCommand.registry);
-
     final (commandPath, inputs) = parser.parse(args);
-
     final command = _rootCommand.resolve(commandPath);
-
     command.run(inputs);
+  }
+
+  bool _requestsHelp(List<String> args) =>
+      args.contains('--help') || args.contains('-h');
+
+  Command _helpCommand(List<String> args) {
+    Command current = _rootCommand;
+    var index = args.isNotEmpty && args.first == _rootCommand.name ? 1 : 0;
+
+    while (index < args.length) {
+      final child = current.commands
+          ?.where((command) => command.name == args[index])
+          .firstOrNull;
+      if (child == null) break;
+      current = child;
+      index++;
+    }
+
+    return current;
   }
 }
