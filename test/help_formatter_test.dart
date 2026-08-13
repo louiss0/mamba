@@ -12,258 +12,268 @@ import 'package:chalkdart/chalkstrings.dart';
 
 void main() {
   group('HelpFormatter', () {
-    final registry = CommandRegistry.create(
-      'curl',
-      'Transfer data to or from a server.',
-      longDescription:
-          'A curl-inspired HTTP client with commands for common request methods.',
-      flags: [
-        BooleanFlag(
-          name: 'silent',
-          short: 's',
-          description: 'Do not show progress or diagnostic output.',
-        ),
-        BooleanFlag(
-          name: 'verbose',
-          short: 'v',
-          description: 'Show request and response details.',
-        ),
-      ],
-      singleOptions: [
-        StringOption(
-          name: 'output',
-          short: 'o',
-          regex: RegExp(r'\S+'),
-          description: 'Write the response body to this file.',
-        ),
-        StringOption(
-          name: 'user-agent',
-          short: 'A',
-          regex: RegExp(r'.+'),
-          description: 'Set the HTTP User-Agent header.',
-        ),
-      ],
-      repeatedOptions: [
-        RepeatableStringOption(
-          name: 'header',
-          short: 'H',
-          regex: RegExp(r'.+:.+'),
-          description: 'Add a request header as "Name: value".',
-        ),
-      ],
-      accessors: {
-        'tls': AccessorInput.group({
-          'cert': StringOption(
-            name: 'cert',
-            regex: RegExp(r'\S+'),
-            description: 'Client certificate path.',
-          ),
-          'key': StringOption(
-            name: 'key',
-            regex: RegExp(r'\S+'),
-            description: 'Private key path.',
-          ),
-        }),
-      },
-      commands: [
-        _FixtureCommand(
-          'get',
-          'Retrieve a resource with an HTTP GET request.',
-          positionalSchema: PositionalSchema([
-            Positional('url', description: 'The resource URL.'),
-          ]),
-          singleOptions: [
-            StringOption(
-              name: 'query',
-              short: 'q',
-              regex: RegExp(r'\S+'),
-              description: 'Append this query string to the URL.',
-            ),
-          ],
-        ),
-        _FixtureCommand(
-          'post',
-          'Create a resource with an HTTP POST request.',
-          positionalSchema: PositionalSchema([
-            Positional('url', description: 'The collection URL.'),
-          ]),
-          singleOptions: [
-            StringOption(
-              name: 'data',
-              short: 'd',
-              regex: RegExp(r'.+'),
-              description: 'Request body data.',
-              required: true,
-            ),
-          ],
-        ),
-        _FixtureCommand(
-          'put',
-          'Replace a resource with an HTTP PUT request.',
-          positionalSchema: PositionalSchema([
-            Positional('url', description: 'The resource URL.'),
-          ]),
-          singleOptions: [
-            StringOption(
-              name: 'data',
-              short: 'd',
-              regex: RegExp(r'.+'),
-              description: 'Replacement resource data.',
-              required: true,
-            ),
-          ],
-        ),
-        _FixtureCommand(
-          'delete',
-          'Remove a resource with an HTTP DELETE request.',
-          positionalSchema: PositionalSchema([
-            Positional('url', description: 'The resource URL.'),
-          ]),
-          flags: [
-            BooleanFlag(
-              name: 'include',
-              short: 'i',
-              description: 'Include response headers in the output.',
-            ),
-          ],
-        ),
-      ],
-    );
-
     final formatter = HelpFormatter();
 
-    test("When the root command is passed it's main info is revealed", () {
-      final result = formatter.formatHelp(registry);
-
-      final expected = buildHelp(
-        commandName: 'curl',
-        shortDescription: 'Transfer data to or from a server.',
+    group("Parses overall structure correctly", () {
+      final registry = CommandRegistry.create(
+        'curl',
+        'Transfer data to or from a server.',
         longDescription:
             'A curl-inspired HTTP client with commands for common request methods.',
         flags: [
-          (
+          BooleanFlag(
             name: 'silent',
             short: 's',
             description: 'Do not show progress or diagnostic output.',
-            required: false,
-            variadic: false,
           ),
-          (
+          BooleanFlag(
             name: 'verbose',
             short: 'v',
             description: 'Show request and response details.',
-            required: false,
-            variadic: false,
           ),
         ],
-        accessorFlags: [
-          (
-            name: 'tls.cert',
-            description: 'Client certificate path.',
-            required: false,
-            variadic: false,
-          ),
-          (
-            name: 'tls.key',
-            description: 'Private key path.',
-            required: false,
-            variadic: false,
-          ),
-        ],
-        options: [
-          (
+        singleOptions: [
+          StringOption(
             name: 'output',
             short: 'o',
+            regex: RegExp(r'\S+'),
             description: 'Write the response body to this file.',
-            required: false,
-            variadic: false,
           ),
-          (
+          StringOption(
             name: 'user-agent',
             short: 'A',
+            regex: RegExp(r'.+'),
             description: 'Set the HTTP User-Agent header.',
-            required: false,
-            variadic: false,
           ),
-          (
+        ],
+        repeatedOptions: [
+          RepeatableStringOption(
             name: 'header',
             short: 'H',
+            regex: RegExp(r'.+:.+'),
             description: 'Add a request header as "Name: value".',
-            required: false,
-            variadic: true,
           ),
         ],
+        accessors: {
+          'tls': AccessorInput.group({
+            'cert': StringOption(
+              name: 'cert',
+              regex: RegExp(r'\S+'),
+              description: 'Client certificate path.',
+            ),
+            'key': StringOption(
+              name: 'key',
+              regex: RegExp(r'\S+'),
+              description: 'Private key path.',
+            ),
+          }),
+        },
         commands: [
-          (
-            name: 'get',
-            description: 'Retrieve a resource with an HTTP GET request.',
+          _FixtureCommand(
+            'get',
+            'Retrieve a resource with an HTTP GET request.',
+            positionalSchema: PositionalSchema([
+              Positional('url', description: 'The resource URL.'),
+            ]),
+            singleOptions: [
+              StringOption(
+                name: 'query',
+                short: 'q',
+                regex: RegExp(r'\S+'),
+                description: 'Append this query string to the URL.',
+              ),
+            ],
           ),
-          (
-            name: 'post',
-            description: 'Create a resource with an HTTP POST request.',
+          _FixtureCommand(
+            'post',
+            'Create a resource with an HTTP POST request.',
+            positionalSchema: PositionalSchema([
+              Positional('url', description: 'The collection URL.'),
+            ]),
+            singleOptions: [
+              StringOption(
+                name: 'data',
+                short: 'd',
+                regex: RegExp(r'.+'),
+                description: 'Request body data.',
+                required: true,
+              ),
+            ],
           ),
-          (
-            name: 'put',
-            description: 'Replace a resource with an HTTP PUT request.',
+          _FixtureCommand(
+            'put',
+            'Replace a resource with an HTTP PUT request.',
+            positionalSchema: PositionalSchema([
+              Positional('url', description: 'The resource URL.'),
+            ]),
+            singleOptions: [
+              StringOption(
+                name: 'data',
+                short: 'd',
+                regex: RegExp(r'.+'),
+                description: 'Replacement resource data.',
+                required: true,
+              ),
+            ],
           ),
-          (
-            name: 'delete',
-            description: 'Remove a resource with an HTTP DELETE request.',
+          _FixtureCommand(
+            'delete',
+            'Remove a resource with an HTTP DELETE request.',
+            positionalSchema: PositionalSchema([
+              Positional('url', description: 'The resource URL.'),
+            ]),
+            flags: [
+              BooleanFlag(
+                name: 'include',
+                short: 'i',
+                description: 'Include response headers in the output.',
+              ),
+            ],
           ),
         ],
       );
 
-      expect(result, equals(expected));
+      test("When the root command is passed it's main info is revealed", () {
+        final result = formatter.formatHelp(registry);
+
+        final expected = buildHelp(
+          commandName: 'curl',
+          shortDescription: 'Transfer data to or from a server.',
+          longDescription:
+              'A curl-inspired HTTP client with commands for common request methods.',
+          flags: [
+            (
+              name: 'silent',
+              short: 's',
+              description: 'Do not show progress or diagnostic output.',
+              required: false,
+              variadic: false,
+            ),
+            (
+              name: 'verbose',
+              short: 'v',
+              description: 'Show request and response details.',
+              required: false,
+              variadic: false,
+            ),
+          ],
+          accessorFlags: [
+            (
+              name: 'tls.cert',
+              description: 'Client certificate path.',
+              required: false,
+              variadic: false,
+            ),
+            (
+              name: 'tls.key',
+              description: 'Private key path.',
+              required: false,
+              variadic: false,
+            ),
+          ],
+          options: [
+            (
+              name: 'output',
+              short: 'o',
+              description: 'Write the response body to this file.',
+              required: false,
+              variadic: false,
+            ),
+            (
+              name: 'user-agent',
+              short: 'A',
+              description: 'Set the HTTP User-Agent header.',
+              required: false,
+              variadic: false,
+            ),
+            (
+              name: 'header',
+              short: 'H',
+              description: 'Add a request header as "Name: value".',
+              required: false,
+              variadic: true,
+            ),
+          ],
+          commands: [
+            (
+              name: 'get',
+              description: 'Retrieve a resource with an HTTP GET request.',
+            ),
+            (
+              name: 'post',
+              description: 'Create a resource with an HTTP POST request.',
+            ),
+            (
+              name: 'put',
+              description: 'Replace a resource with an HTTP PUT request.',
+            ),
+            (
+              name: 'delete',
+              description: 'Remove a resource with an HTTP DELETE request.',
+            ),
+          ],
+        );
+
+        expect(result, equals(expected));
+      });
     });
 
-    test("Format's positionals and options properly", () {
-      final getRegistry = registry.commandRegistries!.singleWhere(
-        (registry) => registry.name == 'get',
-      );
+    group("Format's many different sections properly", () {
+      final registry = CommandRegistry.create("", "");
 
-      final result = formatter.formatHelp(getRegistry);
+      test("Format's positionals and options properly", () {
+        final getRegistry = registry.commandRegistries!.singleWhere(
+          (registry) => registry.name == 'get',
+        );
 
-      final expected = buildHelp(
-        commandName: "get",
-        shortDescription: "Retrieve a resource with an HTTP GET request.",
-        optionalPositionals: [(name: 'url', description: 'The resource URL.')],
-        options: [
-          (
-            name: "output",
-            short: "o",
-            description: "Output format (json, yaml, etc.)",
-            required: false,
-            variadic: false,
-          ),
-        ],
-      );
+        final result = formatter.formatHelp(getRegistry);
 
-      expect(result, equals(expected));
-    });
+        final expected = buildHelp(
+          commandName: "get",
+          shortDescription: "Retrieve a resource with an HTTP GET request.",
+          optionalPositionals: [
+            (name: 'url', description: 'The resource URL.'),
+          ],
+          options: [
+            (
+              name: "output",
+              short: "o",
+              description: "Output format (json, yaml, etc.)",
+              required: false,
+              variadic: false,
+            ),
+          ],
+        );
 
-    test("Format's positionals and flags properly", () {
-      final deleteRegistry = registry.commandRegistries!.singleWhere(
-        (registry) => registry.name == 'delete',
-      );
+        expect(result, equals(expected));
+      });
 
-      final result = formatter.formatHelp(deleteRegistry);
+      test("Format's positionals and flags properly", () {
+        final deleteRegistry = registry.commandRegistries!.singleWhere(
+          (registry) => registry.name == 'delete',
+        );
 
-      final expected = buildHelp(
-        commandName: "delete",
-        shortDescription: "",
-        optionalPositionals: [(name: 'url', description: 'The resource URL.')],
-        flags: [
-          (
-            name: 'include',
-            short: 'i',
-            required: false,
-            variadic: false,
-            description: 'Include response headers in the output.',
-          ),
-        ],
-      );
+        final result = formatter.formatHelp(deleteRegistry);
 
-      expect(result, equals(expected));
+        final expected = buildHelp(
+          commandName: "delete",
+          shortDescription: "",
+          optionalPositionals: [
+            (name: 'url', description: 'The resource URL.'),
+          ],
+          flags: [
+            (
+              name: 'include',
+              short: 'i',
+              required: false,
+              variadic: false,
+              description: 'Include response headers in the output.',
+            ),
+          ],
+        );
+
+        expect(result, equals(expected));
+      });
     });
   });
 }
@@ -292,7 +302,7 @@ String buildHelp({
   String? longDescription,
   List<PositionalHelpEntry> mandatoryPositionals = const [],
   List<PositionalHelpEntry> optionalPositionals = const [],
-  List<PositionalHelpEntry> variadicPositionals = const [],
+  PositionalHelpEntry? variadicPositional,
   List<HelpEntry> flags = const [],
   List<AccessorHelpEntry> accessorFlags = const [],
   List<HelpEntry> options = const [],
@@ -320,13 +330,14 @@ String buildHelp({
       '< ${entry.name} >'.red;
   String optionalPositional(PositionalHelpEntry entry) =>
       '[ ${entry.name} ]'.dimGray;
-  String variadicPositional(PositionalHelpEntry entry) =>
+  String formatVariadicPositional(PositionalHelpEntry entry) =>
       '[ ...${entry.name} ]'.dimGray;
 
   final positionals = [
     ...mandatoryPositionals.map(requiredPositional),
     ...optionalPositionals.map(optionalPositional),
-    ...variadicPositionals.map(variadicPositional),
+    if (variadicPositional != null)
+      formatVariadicPositional(variadicPositional),
   ];
   final commandLine =
       '$commandName${positionals.isEmpty ? '' : ' ${positionals.join(' ')}'}';
