@@ -39,7 +39,7 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    AccessorSchema? accessors,
+    List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<SingleOption>? singleOptions,
     List<RepeatableOption>? repeatedOptions,
@@ -61,7 +61,7 @@ final class CommandRegistry {
       name: name,
       shortDescription: shortDescription,
       longDescription: longDescription,
-      accessorSchema: accessors,
+      accessors: accessors,
       flags: flags,
       singleOptions: singleOptions,
       repeatedOptions: repeatedOptions,
@@ -74,14 +74,16 @@ final class CommandRegistry {
     required this.name,
     required this.shortDescription,
     this.longDescription,
-    AccessorSchema? accessorSchema,
+    List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<SingleOption>? singleOptions,
     List<RepeatableOption>? repeatedOptions,
     PositionalSchema? positionalSchema,
     List<Command>? commands,
-  }) : accessorSchema = accessorSchema != null
-           ? Map.unmodifiable(accessorSchema)
+  }) : accessorSchema = accessors != null
+           ? Map.unmodifiable({
+               for (final accessor in accessors) accessor.name: accessor,
+             })
            : null,
        boolFlags = flags?.fold(
          {},
@@ -117,7 +119,7 @@ final class CommandRegistry {
                flags: command.flags,
                singleOptions: command.singleOptions,
                repeatedOptions: command.repeatedOptions,
-               accessorSchema: command.accessorFlagSchema,
+               accessors: command.accessorFlagSchema,
                positionalSchema: command.positionalSchema,
                commands: command.commands,
              ),
@@ -130,7 +132,7 @@ final class CommandRegistry {
   static void _validateDefinition({
     required String name,
     required String shortDescription,
-    required AccessorSchema? accessors,
+    required List<AccessorOption>? accessors,
     required List<Flag>? flags,
     required List<SingleOption>? singleOptions,
     required List<RepeatableOption>? repeatedOptions,
@@ -205,19 +207,13 @@ final class CommandRegistry {
     }
   }
 
-  static void _validateAccessors(AccessorSchema? accessors) {
+  static void _validateAccessors(List<AccessorOption>? accessors) {
     if (accessors == null) {
       return;
     }
-    for (final entry in accessors.entries) {
-      final name = entry.key;
-      final accessor = entry.value;
-      _validatePositionalName(name);
-      if (accessor.name != name) {
-        throw MambaRegistryError(
-          'Accessor schema key $name must match accessor name ${accessor.name}',
-        );
-      }
+    _validateDuplicateNames(accessors, 'accessor');
+    for (final accessor in accessors) {
+      _validatePositionalName(accessor.name);
       if (accessor case AccessorListOption(options: final options)) {
         _validateDuplicateNames(options, 'accessor option');
         for (final option in options) {
@@ -252,7 +248,7 @@ final class CommandRegistry {
   }
 
   static void _validateDuplicates(
-    AccessorSchema? accessors,
+    List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
     PositionalSchema? positionalSchema,
@@ -262,7 +258,8 @@ final class CommandRegistry {
     _validateDuplicateNames(flags, 'flag');
 
     if (accessors != null) {
-      for (final name in accessors.keys) {
+      for (final accessor in accessors) {
+        final name = accessor.name;
         final flagIndex = flags?.indexWhere((flag) => flag.name == name) ?? -1;
         if (flagIndex >= 0) {
           throw MambaException(
@@ -352,7 +349,7 @@ abstract class Command {
   final CommandRegistry registry;
 
   final PositionalSchema? positionalSchema;
-  final AccessorSchema? accessorFlagSchema;
+  final List<AccessorOption>? accessorFlagSchema;
 
   final List<Flag>? flags;
   final List<SingleOption>? singleOptions;
@@ -365,7 +362,7 @@ abstract class Command {
     String? longDescription,
 
     required PositionalSchema? positionalSchema,
-    required AccessorSchema? accessorFlagSchema,
+    required List<AccessorOption>? accessorFlagSchema,
 
     required List<Flag>? flags,
     required List<SingleOption>? singleOptions,
@@ -387,7 +384,7 @@ abstract class Command {
        longDescription = longDescription,
        positionalSchema = positionalSchema,
        accessorFlagSchema = accessorFlagSchema != null
-           ? Map.unmodifiable(accessorFlagSchema)
+           ? List.unmodifiable(accessorFlagSchema)
            : null,
        flags = flags != null ? List.unmodifiable(flags) : null,
        singleOptions = singleOptions != null

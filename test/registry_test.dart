@@ -245,7 +245,7 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  accessors: {symbol: AccessorIntOption(name: symbol)},
+                  accessors: [AccessorIntOption(name: symbol)],
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -272,12 +272,12 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  accessors: {
-                    'user': AccessorListOption(
+                  accessors: [
+                    AccessorListOption(
                       name: 'user',
                       options: [AccessorIntOption(name: symbol)],
                     ),
-                  },
+                  ],
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -401,7 +401,7 @@ void main() {
                 "commit",
                 "Makes a git commit",
                 flags: [BooleanFlag(name: "user")],
-                accessors: {'user': AccessorStringOption(name: 'user')},
+                accessors: [AccessorStringOption(name: 'user')],
               );
             }
 
@@ -423,7 +423,7 @@ void main() {
                 "commit",
                 "Makes a git commit",
                 singleOptions: [StringOption(name: "user", regex: RegExp(r""))],
-                accessors: {'user': AccessorStringOption(name: 'user')},
+                accessors: [AccessorStringOption(name: 'user')],
               );
             }
 
@@ -540,15 +540,15 @@ void main() {
       });
 
       test("When accessors are added they are added to the accesors field", () {
-        final accessors = {
-          'user': AccessorListOption(
+        final accessors = [
+          AccessorListOption(
             name: 'user',
             options: [
               AccessorStringOption(name: 'name'),
               AccessorStringOption(name: 'email'),
             ],
           ),
-        };
+        ];
 
         final registry = CommandRegistry.create(
           "config",
@@ -556,7 +556,7 @@ void main() {
           accessors: accessors,
         );
 
-        expect(registry.accessorSchema, equals(accessors));
+        expect(registry.accessorSchema, equals({'user': accessors.single}));
       });
 
       test(

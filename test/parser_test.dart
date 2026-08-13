@@ -803,9 +803,9 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'user': AccessorStringOption(name: 'user', regex: RegExp(r'\S+')),
-            },
+            accessors: [
+              AccessorStringOption(name: 'user', regex: RegExp(r'\S+')),
+            ],
           ),
         );
 
@@ -819,13 +819,13 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'when': AccessorChoiceOption(
+            accessors: [
+              AccessorChoiceOption(
                 name: 'when',
                 choices: When.values,
                 defaultValue: When.auto,
               ),
-            },
+            ],
           ),
         );
 
@@ -840,12 +840,12 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'server': AccessorListOption(
+            accessors: [
+              AccessorListOption(
                 name: 'server',
                 options: [AccessorIntOption(name: 'port')],
               ),
-            },
+            ],
           ),
         );
 
@@ -866,15 +866,15 @@ void main() {
           CommandRegistry.create(
             'serve',
             'Serve requests',
-            accessors: {
-              'server': AccessorListOption(
+            accessors: [
+              AccessorListOption(
                 name: 'server',
                 options: [
                   AccessorIntOption(name: 'port'),
                   AccessorDoubleOption(name: 'timeout'),
                 ],
               ),
-            },
+            ],
           ),
         );
 
