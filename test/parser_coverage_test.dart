@@ -192,7 +192,7 @@ void main() {
       ]);
     });
 
-    test('parses mandatory, discretionary, and variadic positionals', () {
+    test('rejects variadic values without an option terminator', () {
       final subject = parser(
         positionals: CoveragePositionals(
           mandatory: [Positional('source')],
@@ -201,8 +201,19 @@ void main() {
         ),
       );
 
-      expectSuccess(subject, ['source', 'out', 'item', 'item']);
-      expectSuccess(subject, ['source']);
+      expectParseError(subject, ['source', 'out', 'item', 'item']);
+    });
+
+    test('collects option-like values after the option terminator', () {
+      final subject = parser(
+        positionals: CoveragePositionals(
+          variadic: Variadic('arguments', regex: RegExp(r'^-.+$')),
+        ),
+      );
+
+      final inputs = subject.parse(['--', '--unknown', '-x']).$2;
+
+      expect(inputs.variadic, ['--unknown', '-x']);
     });
   });
 
@@ -267,7 +278,7 @@ void main() {
 
       expectParseError(mandatory, []);
       expect(() => discretionary.parse(['wrong']), throwsArgumentError);
-      expect(() => variadic.parse(['wrong']), throwsArgumentError);
+      expect(() => variadic.parse(['--', 'wrong']), throwsArgumentError);
       expectParseError(parser(), ['extra']);
     });
 

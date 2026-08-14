@@ -21,6 +21,7 @@ class Parser {
     final countFlags = <String, int>{};
     final accessorMap = <String, Object>{};
     final positionals = <String>[];
+    final variadicValues = <String>[];
     for (var index = 0; index < args.length; index++) {
       if (index < commandLength && args[index] == command[index]) {
         continue;
@@ -30,6 +31,14 @@ class Parser {
       }
 
       final token = args[index];
+      if (token == '--') {
+        if (registry.variadic == null) {
+          positionals.addAll(args.skip(index + 1));
+        } else {
+          variadicValues.addAll(args.skip(index + 1));
+        }
+        break;
+      }
       if (token.isEmpty) {
         continue;
       }
@@ -82,7 +91,11 @@ class Parser {
     _addChoiceDefaults(registry, singleOptions);
     _addAccessorChoiceDefaults(registry, accessorMap);
     _validateRequiredOptions(registry, singleOptions, repeatedOptions);
-    final parsedPositionals = _parsePositionals(registry, positionals);
+    final parsedPositionals = _parsePositionals(
+      registry,
+      positionals,
+      variadicValues,
+    );
 
     final flags = <String, dynamic>{...boolFlags, ...countFlags};
     final options = <String, dynamic>{...singleOptions, ...repeatedOptions};
@@ -444,6 +457,7 @@ class Parser {
   (Map<String, String>?, Map<String, String>?, List<String>?) _parsePositionals(
     CommandRegistry registry,
     List<String> values,
+    List<String> variadicValues,
   ) {
     final mandatory =
         registry.mandatoryPositionals?.values.toList() ?? const <Positional>[];
@@ -474,8 +488,12 @@ class Parser {
     }
     final variadic = registry.variadic;
     if (variadic != null) {
-      final rest = values.skip(index).toList();
-      for (final value in rest) {
+      if (index != values.length) {
+        throw MambaParseException(
+          'Variadic values for ${variadic.name} must follow --',
+        );
+      }
+      for (final value in variadicValues) {
         if (!variadic.regex!.hasMatch(value)) {
           throw ArgumentError('Invalid value for variadic ${variadic.name}');
         }
@@ -483,7 +501,7 @@ class Parser {
       return (
         mandatoryValues.isEmpty ? null : mandatoryValues,
         discretionaryValues.isEmpty ? null : discretionaryValues,
-        rest,
+        variadicValues,
       );
     }
     if (index != values.length) {

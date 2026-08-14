@@ -138,6 +138,30 @@ final schema = [
 ];
 ```
 
+### Positionals and variadics
+
+`PositionalSchema` binds mandatory and optional positionals before a final
+`Variadic`. A variadic accepts values **only** after the option terminator
+`--`; this lets a command safely forward option-like tokens without parsing
+them as Mamba inputs.
+
+```dart
+class BuildPositionals extends PositionalSchema<({String script})> {
+  BuildPositionals()
+      : super([Positional('script')], variadic: Variadic('arguments'));
+
+  @override
+  ({String script}) toRecord(Map<String, dynamic> args) =>
+      (script: args['script'] as String);
+}
+
+// `inputs.variadic` receives ['--watch', '-v'].
+final (_, inputs) = parser.parse(['build.dart', '--', '--watch', '-v']);
+```
+
+Values after `--` are validated by the variadic's regex. Extra values before
+`--` are rejected rather than being captured by the variadic.
+
 ### Nested accessor values
 
 `AccessorOptionSchema` registers primitive accessor options or recursive
