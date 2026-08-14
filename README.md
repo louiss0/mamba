@@ -1,263 +1,185 @@
-# arg_parser
+# Mamba
 
-Dart command-line parsing tools: a schema-driven command parser with command
-isolation and native object-shaped options, plus a direct `yargs-parser` port
-for low-level token decoding.
+Mamba is a Dart library for defining command-line interfaces with typed schemas.
+It is for developers who want commands, options, flags, nested accessor values,
+and positionals to be declared once and converted into application-friendly
+records after parsing. Mamba keeps command registration and input conversion in
+the same schema so CLI code can focus on its behavior rather than token maps.
 
-The design is inspired by **Yargs**, rather than Dart's `package:args` builder:
+[![pub package](https://img.shields.io/pub/v/arg_parser.svg)](https://pub.dev/packages/arg_parser)
+[![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
-- option definitions are declarative schema values snapshotted by the parser;
-- selecting a command activates only that command branch;
-- global options remain available throughout the selected branch;
-- dotted CLI flags such as `--user.name` natively produce nested values;
-- named positionals and options are returned in one argument object.
+## Features
 
-Malformed command-line input is returned as an `ArgParseFailure`, not thrown.
+- Register commands through flag, option, positional, and accessor schemas.
+- Convert parsed inputs into typed Dart records with each schema's `toRecord`.
+- Support Boolean and count flags; string, integer, double, choice, and
+  repeatable options; named positionals; variadics; and nested accessor values.
+- Validate command definitions before parsing, including invalid names and
+  duplicate registrations.
+- Render ANSI-styled help and execute registered command handlers.
 
-## `yargs-parser` port
+## Installation
 
-The package also exports `YargsParser` and the convenience `yargsParser()`
-function. This low-level parser accepts a command string or token iterable and
-returns a map containing parsed options and the positional `_` list; it does
-not select commands or enforce a schema.
+Mamba requires Dart SDK `^3.12.2`.
+
+```sh
+dart pub add arg_parser
+```
+
+## Quick start
+
+Import Mamba's public entry point, define an option schema, register it, and
+parse command-line tokens.
 
 ```dart
-final argv = yargsParser(
-  '--output-file=report.txt -v',
-  const YargsParserOptions(
-    alias: {'verbose': ['v']},
-    boolean: ['verbose'],
-    string: ['output-file'],
+import 'package:arg_parser/mamba.dart';
+
+class GreetingOptions extends OptionSchema<({String name})> {
+  @override
+  final schema = [
+    StringOption(name: 'name', required: true, regex: RegExp(r'\S+')),
+  ];
+
+  @override
+  ({String name}) toRecord(Map<String, dynamic> args) =>
+      (name: args['name'] as String);
+}
+
+void main() {
+  final parser = Parser(
+    CommandRegistry.create(
+      'greet',
+      'Print a greeting.',
+      optionSchema: GreetingOptions(),
+    ),
+  );
+
+  final (_, inputs) = parser.parse(['--name', 'Ada']);
+  final options = inputs.options! as ({String name});
+  print('Hello, ${options.name}!');
+}
+```
+
+## Concepts
+
+### Schemas register and shape input
+
+Every schema has two responsibilities:
+
+1. Its `schema` list declares the inputs accepted by a command.
+2. Its `toRecord` method converts the parser's raw values into the record your
+   application uses.
+
+For example, a flag schema can merge a Boolean flag and a count flag into one
+record:
+
+```dart
+class LoggingFlags extends FlagSchema<({bool verbose, int quiet})> {
+  @override
+  final schema = [
+    BooleanFlag(name: 'verbose', short: 'v'),
+    CountFlag(name: 'quiet', short: 'q'),
+  ];
+
+  @override
+  ({bool verbose, int quiet}) toRecord(Map<String, dynamic> args) => (
+    verbose: args['verbose'] as bool? ?? false,
+    quiet: args['quiet'] as int? ?? 0,
+  );
+}
+```
+
+Use `OptionSchema`, `FlagSchema`, `PositionalSchema`, and
+`AccessorOptionSchema` to model each input category. `PositionalSchema` also
+owns mandatory and optional positionals plus an optional `Variadic` input.
+
+### Commands own schemas
+
+Extend `Command` to group schemas with a handler. Nested commands are supplied
+through the `commands` constructor argument. `Executor` registers the root
+command tree, parses its arguments, routes help requests, and runs the selected
+command.
+
+```dart
+final class GreetCommand extends Command {
+  GreetCommand() : super('greet', 'Print a greeting.');
+
+  @override
+  void run(Inputs input, List<String> variadic) {
+    print('Hello!');
+  }
+}
+
+Executor(
+  'mamba',
+  'Example command runner.',
+  commands: [GreetCommand()],
+).execute(['greet']);
+```
+
+## Usage
+
+### Options and flags
+
+Use `StringOption`, `IntOption`, `DoubleOption`, and `ChoiceOption` for one
+value; use the corresponding `Repeatable...Option` classes for repeated
+values. `BooleanFlag` supports a short name, a default value, and optional
+negation. `CountFlag` increments each time it appears.
+
+```dart
+enum OutputFormat { text, json }
+
+final schema = [
+  BooleanFlag(name: 'color', negatable: true),
+  CountFlag(name: 'verbose', short: 'v'),
+  ChoiceOption<OutputFormat>(name: 'format', choices: OutputFormat.values),
+  RepeatableStringOption(name: 'tag'),
+];
+```
+
+### Nested accessor values
+
+`AccessorOptionSchema` registers either a primitive accessor option or an
+`AccessorListOption` containing primitive options. A nested option such as
+`--server.port 8080` is provided to `toRecord` as a nested map.
+
+```dart
+final schema = [
+  AccessorListOption(
+    name: 'server',
+    options: [AccessorIntOption(name: 'port')],
   ),
-);
-
-// {_: [], output-file: report.txt, outputFile: report.txt, v: true, verbose: true}
+];
 ```
 
-`yargsParserDetailed()` provides aliases, generated aliases, defaults, the
-effective configuration, and a captured parser error, matching the upstream
-`.detailed()` API. See [`docs/yargs-parser-port.md`](docs/yargs-parser-port.md)
-for the complete typed API and Dart-specific configuration decisions.
+### Parse errors and help
 
-For command trees without Yargs's command-string DSL or external dependencies,
-use the separate `YargsCommandRuntime`. It layers explicit command,
-positional, option, validation, handler, help, and completion-candidate
-behavior on `YargsParser`; see
-[`docs/yargs-command-runtime.md`](docs/yargs-command-runtime.md). Its
-standalone task-list example is
-[`bin/yargs_command_task_list.dart`](bin/yargs_command_task_list.dart); see
-[`docs/yargs-command-task-list-cli.md`](docs/yargs-command-task-list-cli.md).
-
-## Schema-driven parser
-
-```dart
-final parser = ArgParser(
-  options: {
-    'verbose': const BooleanOption(alias: 'v'),
-  },
-  commands: [
-    ArgCommand(
-      'create',
-      aliases: const {'new'},
-      accessors: {
-        'user': {
-          'name': const StringOption(required: true),
-          'admin': const BooleanOption(),
-        },
-      },
-      positionals: const [
-        ArgPositional('workspace', required: true),
-      ],
-    ),
-  ],
-);
-```
-
-Unlike a mutable builder, the complete command tree is visible in the parser's
-construction and validated before any tokens are parsed.
-
-## Parse arguments
-
-```dart
-final outcome = parser.parse([
-  '--verbose',
-  'create',
-  'example',
-  '--user.name=Ada',
-  '--user.admin',
-]);
-
-switch (outcome) {
-  case ArgParseSuccess(:final arguments):
-    print(arguments.commandPath); // [create]
-    print(arguments.values);
-    // {
-    //   verbose: true,
-    //   user: {name: Ada, admin: true},
-    //   workspace: example,
-    // }
-  case ArgParseFailure(:final error):
-    print(error.message);
-}
-```
-
-## Option schemas
-
-Boolean options support defaults, short aliases, and negation:
-
-```dart
-'color': const BooleanOption(
-  alias: 'c',
-  defaultValue: true,
-  negatable: true,
-)
-```
-
-Accepted forms include `--color`, `--no-color`, `-c`, and Boolean short-option
-clusters such as `-vc`.
-
-String options support aliases, defaults, required values, and choices:
-
-```dart
-'format': const StringOption(
-  alias: 'f',
-  defaultValue: 'text',
-  choices: {'text', 'json'},
-)
-```
-
-Accepted forms include `--format json`, `--format=json`, `-f json`, and
-`-fjson`. Repeated options use the last value.
-
-## Accessor options
-
-Accessor trees are configured separately from ordinary options. A nested map
-mirrors the object returned by the parser and is a container, not an option:
-its leaves are the only passable options.
-
-```dart
-final parser = ArgParser(
-  accessors: {
-    'server': {
-      'host': const StringOption(defaultValue: 'localhost'),
-      'port': const StringOption(),
-    },
-  },
-);
-
-final outcome = parser.parse(['--server.port=8080']);
-final arguments = (outcome as ArgParseSuccess).arguments;
-
-print(arguments.values);
-// {server: {host: localhost, port: 8080}}
-
-print(arguments.value('server.port')); // 8080
-print(arguments.object('server'));
-// {host: localhost, port: 8080}
-```
-
-The CLI spelling remains dotted because it is conventional and unambiguous,
-but the schema never uses dotted keys. `--server` is rejected: only leaves such
-as `--server.host` and `--server.port` are registered.
-
-## Commands
-
-A parser with commands requires one known root command. Subcommand options and
-defaults do not exist until their branch is selected:
-
-```dart
-final parser = ArgParser(
-  commands: [
-    ArgCommand(
-      'remote',
-      commands: [
-        ArgCommand('add'),
-        ArgCommand('remove', aliases: {'rm'}),
-      ],
-    ),
-  ],
-);
-```
-
-Aliases are normalized in `commandPath`, so parsing `remote rm` reports
-`['remote', 'remove']`.
-
-Root and parent-command options are global within the selected branch. Both of
-these are valid:
-
-```text
---verbose build src
-build src --verbose
-```
-
-Sibling command schemas remain inactive and unknown sibling options produce a
-structured error.
-
-## Positional schemas
-
-Positionals are named and included in `values`:
-
-```dart
-positionals: const [
-  ArgPositional('input', required: true),
-  ArgPositional('outputs', multiple: true),
-]
-```
-
-A variadic positional must be last. Tokens not claimed by a positional schema
-remain available through `arguments.rest`. The `--` terminator treats every
-following token as positional input.
-
-## Error handling
-
-```dart
-switch (parser.parse(tokens)) {
-  case ArgParseSuccess(:final arguments):
-    run(arguments);
-  case ArgParseFailure(:final error):
-    print('${error.message} (token ${error.index})');
-}
-```
-
-`ArgParseError` includes a stable `code`, the offending `token` when available,
-and its absolute token `index`. Invalid schemas throw during parser creation
-because duplicate names, aliases, and conflicting accessor paths are
-programming errors.
-
-## Task-list CLI example
-
-The package includes two separate JSON-backed task-list executables. The
-original `task_list` uses the schema-driven `ArgParser` and stores `.tasks.json`:
-
-```text
-dart run bin/task_list.dart add "Write release notes"
-dart run bin/task_list.dart list --status=incomplete
-```
-
-The separate `yargs_task_list` demonstrates the low-level YargsParser port and
-uses `.yargs_tasks.json`, so it cannot modify the original example's data:
-
-```text
-dart run bin/yargs_task_list.dart add "Write release notes"
-dart run bin/yargs_task_list.dart list --status=incomplete
-```
-
-See [`docs/task-list-cli.md`](docs/task-list-cli.md) and
-[`docs/yargs-task-list-cli.md`](docs/yargs-task-list-cli.md) for their command
-references and CLI-design rationale.
-
-## Design rationale
-
-See [`docs/design.md`](docs/design.md) for a detailed walkthrough of the
-architecture, parsing algorithm, alternatives considered, and Dart-specific
-decisions. The cloned Yargs framework and its installed parser engine are
-explained in [`docs/yargs-architecture.md`](docs/yargs-architecture.md) and
-[`docs/yargs-parser-internals.md`](docs/yargs-parser-internals.md).
+`Parser.parse` throws `MambaParseException` for invalid command-line input and
+`CommandRegistry.create` throws `MambaException` or `MambaRegistryError` for
+invalid command definitions. Use `HelpFormatter` to render a
+`CommandRegistry`, or `Executor` to route `--help` and `-h` automatically.
 
 ## Development
 
-```text
+```sh
 dart pub get
-dart test
 dart analyze
+dart test
 ```
+
+Format Dart sources before submitting changes:
+
+```sh
+dart format lib test
+```
+
+## Contributing
+
+Keep changes focused, add or update behavioral tests, and run `dart analyze`
+and `dart test` before opening a pull request. For substantial API changes,
+open an issue first to discuss the schema and compatibility impact.
+
+## License
+
+Mamba is licensed under the [MIT License](LICENSE).

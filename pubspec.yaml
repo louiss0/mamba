@@ -10,10 +10,6 @@ topics:
   - cli
   - schemas
   - yargs
-executables:
-  task_list: task_list
-  yargs_task_list: yargs_task_list
-  yargs_command_task_list: yargs_command_task_list
 environment:
   sdk: ^3.12.2
 
