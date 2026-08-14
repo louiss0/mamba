@@ -21,7 +21,6 @@ class Parser {
     final countFlags = <String, int>{};
     final accessorMap = <String, Object>{};
     final positionals = <String>[];
-
     for (var index = 0; index < args.length; index++) {
       if (index < commandLength && args[index] == command[index]) {
         continue;
@@ -87,17 +86,21 @@ class Parser {
     _validateRequiredOptions(registry, singleOptions, repeatedOptions);
     final parsedPositionals = _parsePositionals(registry, positionals);
 
+    final flags = <String, dynamic>{...boolFlags, ...countFlags};
+    final options = <String, dynamic>{...singleOptions, ...repeatedOptions};
+    final positionalValues = <String, dynamic>{
+      ...?parsedPositionals.$1,
+      ...?parsedPositionals.$2,
+    };
+
     return (
       command,
       (
-        mandatoryPositionals: parsedPositionals.$1,
-        discretionaryPositionals: parsedPositionals.$2,
-        variadic: parsedPositionals.$3,
-        boolFlags: boolFlags.isEmpty ? null : boolFlags,
-        countFlags: countFlags.isEmpty ? null : countFlags,
-        singleOptions: singleOptions.isEmpty ? null : singleOptions,
-        repeatedOptions: repeatedOptions.isEmpty ? null : repeatedOptions,
-        accessorMap: accessorMap.isEmpty ? null : accessorMap,
+        flags: registry.flagSchema?.toRecord(flags),
+        options: registry.optionSchema?.toRecord(options),
+        positionals: registry.positionalSchema?.toRecord(positionalValues),
+        acessors: registry.accessorSchema?.toRecord(accessorMap),
+        variadic: parsedPositionals.$3 ?? const [],
       ),
     );
   }
@@ -378,8 +381,7 @@ class Parser {
     Map<String, Object> values,
   ) {
     for (final entry
-        in (registry.accessorSchema ?? const <String, AccessorOption>{})
-            .entries) {
+        in (registry.accessors ?? const <String, AccessorOption>{}).entries) {
       final name = entry.key;
       final accessor = entry.value;
       switch (accessor) {
@@ -488,7 +490,7 @@ class Parser {
     if (parts.length > 2) {
       return false;
     }
-    final accessor = registry.accessorSchema?[parts.first];
+    final accessor = registry.accessors?[parts.first];
     if (accessor == null) {
       return false;
     }
@@ -507,12 +509,12 @@ class Parser {
     CommandRegistry registry,
   ) {
     final parts = path.split('.');
-    final accessor = registry.accessorSchema![parts.first]!;
+    final accessor = registry.accessors![parts.first]!;
     final input = switch (accessor) {
       AccessorPrimitiveOption() => accessor,
-      AccessorListOption(options: final options) => options.firstWhere(
-        (option) => option.name == parts.last,
-      ),
+      AccessorListOption(options: final options) =>
+        options.firstWhere((option) => option.name == parts.last)
+            as AccessorPrimitiveOption,
     };
     final value = _takeOptionValue(args, index, consumed, path);
     final parsed = _parseAccessorValue(input, value);

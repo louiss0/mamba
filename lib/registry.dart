@@ -1,5 +1,4 @@
 import 'errors.dart';
-import 'help_formatter.dart';
 
 final class CommandRegistry {
   final String name;
@@ -7,6 +6,11 @@ final class CommandRegistry {
   final String shortDescription;
 
   final String? longDescription;
+
+  final PositionalSchema? positionalSchema;
+  final FlagSchema? flagSchema;
+  final OptionSchema? optionSchema;
+  final AccessorOptionSchema? accessorSchema;
 
   final Map<String, CountFlag>? countFlags;
   final Map<String, BooleanFlag>? boolFlags;
@@ -32,13 +36,19 @@ final class CommandRegistry {
     AccessorOptionSchema? accessorSchema,
     List<Command>? commands,
   }) {
+    final flags = flagSchema?.schema;
+    final options = optionSchema?.schema;
+    final accessors = accessorSchema?.schema;
+    final mandatoryPositionals = positionalSchema?.mandatory;
+    final discretionaryPositionals = positionalSchema?.discretionary;
+
     _validateDefinition(
       name,
       shortDescription,
       positionalSchema,
-      flagSchema,
-      optionSchema,
-      accessorSchema,
+      flags,
+      options,
+      accessors,
       commands,
     );
 
@@ -46,11 +56,24 @@ final class CommandRegistry {
       name: name,
       shortDescription: shortDescription,
       longDescription: longDescription,
-      accessors: accessorSchema,
-      boolFlags: boolFlags,
-      singleOptions: singleOptions,
-      repeatedOptions: repeatedOptions,
       positionalSchema: positionalSchema,
+      flagSchema: flagSchema,
+      optionSchema: optionSchema,
+      accessorSchema: accessorSchema,
+      boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
+      countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
+      singleOptions: _indexByName<SingleOption>(
+        options?.whereType<SingleOption>(),
+      ),
+      repeatedOptions: _indexByName<RepeatableOption>(
+        options?.whereType<RepeatableOption>(),
+      ),
+      mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
+      discretionaryPositionals: _indexByName<Positional>(
+        discretionaryPositionals,
+      ),
+      variadic: positionalSchema?.variadic,
+      accessors: _indexByName<AccessorOption>(accessors),
       commands: commands,
     );
   }
@@ -59,6 +82,10 @@ final class CommandRegistry {
     required this.name,
     required this.shortDescription,
     this.longDescription,
+    this.positionalSchema,
+    this.flagSchema,
+    this.optionSchema,
+    this.accessorSchema,
     this.boolFlags,
     this.countFlags,
     this.singleOptions,
@@ -70,10 +97,14 @@ final class CommandRegistry {
     List<Command>? commands,
   }) : commandRegistries = commands
            ?.map(
-             (command) => CommandRegistry(
-               name: command.name,
-               shortDescription: command.shortDescription,
+             (command) => CommandRegistry.create(
+               command.name,
+               command.shortDescription,
                longDescription: command.longDescription,
+               positionalSchema: command.positionalSchema,
+               accessorSchema: command.accessorSchema,
+               flagSchema: command.flagSchema,
+               optionSchema: command.optionSchema,
                commands: command.commands,
              ),
            )
@@ -82,29 +113,29 @@ final class CommandRegistry {
   static final RegExp _keyboardSymbol = RegExp(r'[^A-Za-z0-9_-]');
   static final RegExp _number = RegExp(r'\d');
 
+  static Map<String, T>? _indexByName<T extends NamedInput>(
+    Iterable<T>? inputs,
+  ) {
+    if (inputs == null) return null;
+    return {for (final input in inputs) input.name: input};
+  }
+
   static void _validateDefinition(
     String name,
     String shortDescription,
     PositionalSchema? positionalSchema,
-    FlagSchema? flagSchema,
-    OptionSchema? optionSchema,
-    AccessorOptionSchema? accessorSchema,
+    List<Flag>? flags,
+    List<Option>? options,
+    List<AccessorOption>? accessors,
     List<Command>? commands,
   ) {
     _validateCommandName(name);
     _validateShortDescription(shortDescription);
-    _validateNamedInputs(singleOptions, 'Option');
-    _validateNamedInputs(repeatedOptions, 'Option');
-    _validateNamedInputs(boolFlags, 'Flag');
+    _validateNamedInputs(options, 'Option');
+    _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(positionalSchema);
-    _validateDuplicates(
-      accessors,
-      boolFlags,
-      [...?singleOptions, ...?repeatedOptions],
-      positionalSchema,
-      commands,
-    );
+    _validateDuplicates(accessors, flags, options, positionalSchema, commands);
   }
 
   static void _validateCommandName(String name) {
@@ -306,6 +337,19 @@ abstract class PositionalSchema<T extends Record> implements MapToRecord<T> {
   PositionalSchema(this.mandatory, {this.discretionary, this.variadic});
 }
 
+typedef Inputs<
+  FlagRecord extends Record,
+  OptionRecord extends Record,
+  AccessorRecord extends Record,
+  PositionalRecord extends Record
+> = ({
+  FlagRecord? flags,
+  OptionRecord? options,
+  PositionalRecord? positionals,
+  AccessorRecord? acessors,
+  List<String> variadic,
+});
+
 abstract class Command<
   FlagRecord extends Record,
   OptionRecord extends Record,
@@ -335,13 +379,7 @@ abstract class Command<
   });
 
   void run(
-    ({
-      FlagRecord flags,
-      OptionRecord options,
-      PositionalRecord positionals,
-      AccessorRecord acessors,
-    })
-    input,
+    Inputs<FlagRecord, OptionRecord, AccessorRecord, PositionalRecord> inputs,
     List<String> variadic,
   );
 }
@@ -360,23 +398,17 @@ abstract class GroupCommand<
     super.name,
     super.shortDescription, {
     required this.defaultSubCommandPath,
-    super.longDescription,
-    super.positionalSchema,
-    super.accessorSchema,
-    super.flagSchema,
-    super.optionSchema,
-    super.commands,
+    required super.longDescription,
+    required super.positionalSchema,
+    required super.accessorSchema,
+    required super.flagSchema,
+    required super.optionSchema,
+    required super.commands,
   });
 
   @override
   void run(
-    ({
-      FlagRecord flags,
-      OptionRecord options,
-      PositionalRecord positionals,
-      AccessorRecord acessors,
-    })
-    input,
+    Inputs<FlagRecord, OptionRecord, AccessorRecord, PositionalRecord> input,
     List<String> variadic,
   ) {}
 }

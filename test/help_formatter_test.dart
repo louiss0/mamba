@@ -2,6 +2,7 @@ import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:test/test.dart';
 import 'package:chalkdart/chalkstrings.dart';
+import 'fixtures.dart';
 
 void main() {
   group("Formatted Strings", () {
@@ -74,7 +75,7 @@ void main() {
         'Transfer data to or from a server.',
         longDescription:
             'A curl-inspired HTTP client with commands for common request methods.',
-        flags: [
+        flagSchema: TestFlagSchema.create([
           BooleanFlag(
             name: 'silent',
             short: 's',
@@ -85,8 +86,8 @@ void main() {
             short: 'v',
             description: 'Show request and response details.',
           ),
-        ],
-        singleOptions: [
+        ]),
+        optionSchema: TestOptionSchema.create([
           StringOption(
             name: 'output',
             short: 'o',
@@ -99,16 +100,14 @@ void main() {
             regex: RegExp(r'.+'),
             description: 'Set the HTTP User-Agent header.',
           ),
-        ],
-        repeatedOptions: [
           RepeatableStringOption(
             name: 'header',
             short: 'H',
             regex: RegExp(r'.+:.+'),
             description: 'Add a request header as "Name: value".',
           ),
-        ],
-        accessors: [
+        ]),
+        accessorSchema: TestAccessorOptionSchema.create([
           AccessorListOption(
             name: 'tls',
             options: [
@@ -124,30 +123,30 @@ void main() {
               ),
             ],
           ),
-        ],
+        ]),
         commands: [
           _FixtureCommand(
             'get',
             'Retrieve a resource with an HTTP GET request.',
-            positionalSchema: PositionalSchema([
+            positionalSchema: TestPositionalSchema.create([
               Positional('url', description: 'The resource URL.'),
             ]),
-            singleOptions: [
+            optionSchema: TestOptionSchema.create([
               StringOption(
                 name: 'query',
                 short: 'q',
                 regex: RegExp(r'\S+'),
                 description: 'Append this query string to the URL.',
               ),
-            ],
+            ]),
           ),
           _FixtureCommand(
             'post',
             'Create a resource with an HTTP POST request.',
-            positionalSchema: PositionalSchema([
+            positionalSchema: TestPositionalSchema.create([
               Positional('url', description: 'The collection URL.'),
             ]),
-            singleOptions: [
+            optionSchema: TestOptionSchema.create([
               StringOption(
                 name: 'data',
                 short: 'd',
@@ -155,15 +154,15 @@ void main() {
                 description: 'Request body data.',
                 required: true,
               ),
-            ],
+            ]),
           ),
           _FixtureCommand(
             'put',
             'Replace a resource with an HTTP PUT request.',
-            positionalSchema: PositionalSchema([
+            positionalSchema: TestPositionalSchema.create([
               Positional('url', description: 'The resource URL.'),
             ]),
-            singleOptions: [
+            optionSchema: TestOptionSchema.create([
               StringOption(
                 name: 'data',
                 short: 'd',
@@ -171,21 +170,21 @@ void main() {
                 description: 'Replacement resource data.',
                 required: true,
               ),
-            ],
+            ]),
           ),
           _FixtureCommand(
             'delete',
             'Remove a resource with an HTTP DELETE request.',
-            positionalSchema: PositionalSchema([
+            positionalSchema: TestPositionalSchema.create([
               Positional('url', description: 'The resource URL.'),
             ]),
-            flags: [
+            flagSchema: TestFlagSchema.create([
               BooleanFlag(
                 name: 'include',
                 short: 'i',
                 description: 'Include response headers in the output.',
               ),
-            ],
+            ]),
           ),
         ],
       );
@@ -285,11 +284,11 @@ void main() {
             'Set theme flags and options.',
             longDescription:
                 'Set a theme for workspaces this allows you use commands to set the theme you want!',
-            flags: [
+            flagSchema: TestFlagSchema.create([
               BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
               BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
-            ],
-            singleOptions: [
+            ]),
+            optionSchema: TestOptionSchema.create([
               StringOption(
                 name: 'primary',
                 regex: RegExp(r'\S+'),
@@ -300,16 +299,16 @@ void main() {
                 regex: RegExp(r'\S+'),
                 description: 'Accent theme.',
               ),
-            ],
+            ]),
           ),
           _FixtureCommand(
             'flags-accessors',
             'Set theme flags and accessors.',
-            flags: [
+            flagSchema: TestFlagSchema.create([
               BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
               BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
-            ],
-            accessorFlagSchema: [
+            ]),
+            accessorSchema: TestAccessorOptionSchema.create([
               AccessorStringOption(
                 name: 'foreground',
                 regex: RegExp(r'\S+'),
@@ -320,15 +319,15 @@ void main() {
                 regex: RegExp(r'\S+'),
                 description: 'Background theme.',
               ),
-            ],
+            ]),
           ),
           _FixtureCommand(
             'flags-commands',
             'Set theme flags and commands.',
-            flags: [
+            flagSchema: TestFlagSchema.create([
               BooleanFlag(name: 'bright', description: 'Use a bright theme.'),
               BooleanFlag(name: 'quiet', description: 'Suppress theme output.'),
-            ],
+            ]),
             commands: [
               _FixtureCommand('apply', 'Apply a theme.'),
               _FixtureCommand('reset', 'Reset a theme.'),
@@ -337,7 +336,7 @@ void main() {
           _FixtureCommand(
             'options-accessors',
             'Set theme options and accessors.',
-            singleOptions: [
+            optionSchema: TestOptionSchema.create([
               StringOption(
                 name: 'primary',
                 regex: RegExp(r'\S+'),
@@ -348,8 +347,8 @@ void main() {
                 regex: RegExp(r'\S+'),
                 description: 'Accent theme.',
               ),
-            ],
-            accessorFlagSchema: [
+            ]),
+            accessorSchema: TestAccessorOptionSchema.create([
               AccessorStringOption(
                 name: 'foreground',
                 regex: RegExp(r'\S+'),
@@ -360,12 +359,12 @@ void main() {
                 regex: RegExp(r'\S+'),
                 description: 'Background theme.',
               ),
-            ],
+            ]),
           ),
           _FixtureCommand(
             'options-commands',
             'Set theme options and commands.',
-            singleOptions: [
+            optionSchema: TestOptionSchema.create([
               StringOption(
                 name: 'primary',
                 regex: RegExp(r'\S+'),
@@ -376,7 +375,7 @@ void main() {
                 regex: RegExp(r'\S+'),
                 description: 'Accent theme.',
               ),
-            ],
+            ]),
             commands: [
               _FixtureCommand('apply', 'Apply a theme.'),
               _FixtureCommand('reset', 'Reset a theme.'),
@@ -385,7 +384,7 @@ void main() {
           _FixtureCommand(
             'accessors-commands',
             'Set theme accessors and commands.',
-            accessorFlagSchema: [
+            accessorSchema: TestAccessorOptionSchema.create([
               AccessorStringOption(
                 name: 'foreground',
                 regex: RegExp(r'\S+'),
@@ -396,7 +395,7 @@ void main() {
                 regex: RegExp(r'\S+'),
                 description: 'Background theme.',
               ),
-            ],
+            ]),
             commands: [
               _FixtureCommand('apply', 'Apply a theme.'),
               _FixtureCommand('reset', 'Reset a theme.'),
@@ -749,13 +748,12 @@ final class _FixtureCommand extends Command {
     super.shortDescription, {
     super.longDescription,
     super.positionalSchema,
-    super.accessorFlagSchema,
-    super.flags,
-    super.singleOptions,
-    super.repeatedOptions,
+    super.accessorSchema,
+    super.flagSchema,
+    super.optionSchema,
     super.commands,
   });
 
   @override
-  void run(Inputs input) {}
+  void run(Inputs input, List<String> variadic) {}
 }

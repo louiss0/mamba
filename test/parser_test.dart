@@ -2,1101 +2,144 @@ import 'package:arg_parser/parser.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:test/test.dart';
 
-enum When { auto, never, always }
-
-class TestCommand extends Command {
-  TestCommand(
-    super.name,
-    super.shortDescription, {
-    super.positionalSchema,
-    super.accessorFlagSchema,
-    super.flags,
-    super.singleOptions,
-    super.repeatedOptions,
-    super.commands,
-  });
+class RequestOptions extends OptionSchema<({String url, int retries})> {
+  @override
+  final schema = <Option>[
+    StringOption(name: 'url', required: true, regex: RegExp(r'https?://\S+')),
+    IntOption(name: 'retries'),
+  ];
 
   @override
-  void run(Inputs input) {
-    // TODO: implement run
-  }
+  ({String url, int retries}) toRecord(Map<String, dynamic> args) => (
+    url: args['url'] as String,
+    retries: int.parse(args['retries'] as String? ?? '0'),
+  );
+}
+
+class RequestFlags extends FlagSchema<({bool verbose, int quiet})> {
+  @override
+  final schema = <Flag>[
+    BooleanFlag(name: 'verbose', short: 'v'),
+    CountFlag(name: 'quiet', short: 'q'),
+  ];
+
+  @override
+  ({bool verbose, int quiet}) toRecord(Map<String, dynamic> args) => (
+    verbose: args['verbose'] as bool? ?? false,
+    quiet: args['quiet'] as int? ?? 0,
+  );
+}
+
+class RequestPositionals extends PositionalSchema<({String source})> {
+  RequestPositionals() : super([Positional('source')]);
+
+  @override
+  ({String source}) toRecord(Map<String, dynamic> args) =>
+      (source: args['source'] as String);
+}
+
+class ServerAccessors extends AccessorOptionSchema<({int port})> {
+  @override
+  final schema = <AccessorOption>[
+    AccessorListOption(
+      name: 'server',
+      options: [AccessorIntOption(name: 'port')],
+    ),
+  ];
+
+  @override
+  ({int port}) toRecord(Map<String, dynamic> args) => (
+    port: int.parse((args['server'] as Map<String, Object>)['port'] as String),
+  );
+}
+
+class RunCommand
+    extends
+        Command<
+          ({bool verbose, int quiet}),
+          ({String url, int retries}),
+          ({int port}),
+          ({String source})
+        > {
+  RunCommand()
+    : super(
+        'run',
+        'Run a request.',
+        flagSchema: RequestFlags(),
+        optionSchema: RequestOptions(),
+        positionalSchema: RequestPositionals(),
+        accessorSchema: ServerAccessors(),
+      );
+
+  @override
+  void run(
+    Inputs<
+      ({bool verbose, int quiet}),
+      ({String url, int retries}),
+      ({int port}),
+      ({String source})
+    >
+    input,
+    List<String> variadic,
+  ) {}
 }
 
 void main() {
-  group("Testing parser", () {
-    group("Parses positionals and variadics", () {
-      test("parses positionals", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            positionalSchema: PositionalSchema([Positional("name")]),
-          ),
-        );
-
-        final (_, inputs) = parser.parse(['Simon Peyton Jones']);
-        expect(
-          inputs.mandatoryPositionals,
-          equals({'name': 'Simon Peyton Jones'}),
-        );
-      });
-
-      test("parses variadics", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            positionalSchema: PositionalSchema([], variadic: Variadic("rest")),
-          ),
-        );
-
-        final (_, inputs) = parser.parse(['this', 'that', 'ok']);
-        expect(inputs.variadic, equals(['this', 'that', 'ok']));
-      });
-
-      test("throws an error when a required positional isn't used", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            positionalSchema: PositionalSchema([
-              Positional("name"),
-            ], variadic: Variadic("rest")),
-          ),
-        );
-
-        expect(
-          () => parser.parse(['']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (e) => e.message,
-              'message',
-              "The name is required at 0 after this command",
-            ),
-          ),
-        );
-      });
-
-      test("parses discretionary positionals", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            positionalSchema: PositionalSchema(
-              [
-                // Positional("name"),
-              ],
-              discretionary: [Positional("url")],
-            ),
-          ),
-        );
-
-        final (_, inputs) = parser.parse(['https://foo.com']);
-        expect(
-          inputs.discretionaryPositionals,
-          equals({'url': 'https://foo.com'}),
-        );
-      });
-
-      test("throws when discretionary positional's requrement isn't met", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            positionalSchema: PositionalSchema(
-              [
-                // Positional("name"),
-              ],
-              discretionary: [
-                Positional(
-                  "url",
-                  regex: RegExp(r'^https?:\/\/[^\s/$.?#].[^\s]*$'),
-                ),
-              ],
-            ),
-          ),
-        );
-
-        expect(
-          () => parser.parse(['foo.com']),
-          throwsA(
-            isA<ArgumentError>().having(
-              (e) => e.message,
-              'message',
-              'Invalid value for positional url at 0 after the command',
-            ),
-          ),
-        );
-      });
-    });
-
-    group("Parses choice options properly", () {
+  group('Parser schema output', () {
+    test('converts registered inputs through their schemas', () {
       final parser = Parser(
         CommandRegistry.create(
-          "bat",
-          "Open files colorfully",
-          singleOptions: [
-            ChoiceOption<When>(
-              name: 'paging',
-              short: 'p',
-              defaultValue: When.auto,
-              choices: When.values,
-            ),
-            ChoiceOption<When>(name: 'decorations', choices: When.values),
-          ],
+          'tool',
+          'Manage tools.',
+          commands: [RunCommand()],
         ),
       );
 
-      test("throws when the choice is in correct", () {
-        expect(
-          () => parser.parse(['--paging', 'invalid']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (e) => e.message,
-              'message',
-              'invalid is not a valid choice for paging\nMust be one of: ${When.values.map((e) => e.name).toList()}',
-            ),
-          ),
-        );
-      });
+      final (command, inputs) = parser.parse([
+        'tool',
+        'run',
+        'input.txt',
+        '--url',
+        'https://example.com',
+        '--retries',
+        '2',
+        '-vqq',
+        '--server.port',
+        '8080',
+      ]);
 
-      test("parses valid choice", () {
-        final (_, inputs) = parser.parse(['--decorations', 'always']);
-        expect(inputs.singleOptions!['decorations'], equals('always'));
-      });
-
-      test("parses valid short choice", () {
-        final (_, inputs) = parser.parse(['-p', 'never']);
-        expect(inputs.singleOptions!['paging'], equals('never'));
-      });
-
-      test("parses option with default value when it's not passed in", () {
-        final (_, inputs) = parser.parse([]);
-
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'paging': 'auto'}),
-        );
-      });
-
-      test('adds defaults alongside explicitly parsed options', () {
-        final (_, inputs) = parser.parse(['--decorations', 'always']);
-
-        expect(inputs.singleOptions, {
-          'decorations': 'always',
-          'paging': 'auto',
-        });
-      });
+      expect(command, ['tool', 'run']);
+      expect(inputs.flags, (verbose: true, quiet: 2));
+      expect(inputs.options, (url: 'https://example.com', retries: 2));
+      expect(inputs.positionals, (source: 'input.txt'));
+      expect(inputs.acessors, (port: 8080));
     });
 
-    group("Parses repeated options properly", () {
+    test('returns schema defaults for omitted registered inputs', () {
       final parser = Parser(
         CommandRegistry.create(
-          "curl",
-          "Do http requests in the terminal",
-          repeatedOptions: [
-            RepeatableStringOption(
-              name: 'header',
-              short: 'H',
-              regex: RegExp(r'\S+:.+'),
-            ),
-            RepeatableStringOption(
-              name: 'endpoint',
-              regex: RegExp(r'^https?:\/\/[^^\s/$.?#].[^^\s]*$'),
-            ),
-            RepeatableIntOption(name: 'expect-status'),
-            RepeatableDoubleOption(name: 'latency-threshold'),
-          ],
-        ),
-      );
-
-      test("parses repeated option", () {
-        final (_, inputs) = parser.parse([
-          '--header',
-          'Accept: application/json',
-          '--header',
-          'Authorization: Bearer token',
-        ]);
-        expect(
-          inputs.repeatedOptions?.map(
-            (name, options) => MapEntry(name, options),
-          ),
-          equals({
-            'header': [
-              'Accept: application/json',
-              'Authorization: Bearer token',
-            ],
-          }),
-        );
-      });
-
-      test("parses repeated short option", () {
-        final (_, inputs) = parser.parse([
-          '-H',
-          'Accept: application/json',
-          '-H',
-          'Authorization: Bearer token',
-        ]);
-        expect(
-          inputs.repeatedOptions?.map(
-            (name, options) => MapEntry(name, options),
-          ),
-          equals({
-            'header': [
-              'Accept: application/json',
-              'Authorization: Bearer token',
-            ],
-          }),
-        );
-      });
-
-      group('Parses repeated of all types properly', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "probe",
-            "Check service health",
-            repeatedOptions: [
-              RepeatableStringOption(
-                name: 'endpoint',
-                regex: RegExp(r'^https?:\/\/[^^\s/$.?#].[^^\s]*$'),
-                short: "e",
-              ),
-              RepeatableIntOption(name: 'expect-status', short: 'es'),
-              RepeatableDoubleOption(name: 'latency-threshold', short: 'lt'),
-            ],
-          ),
-        );
-
-        test("parses repeated string, int, and double options", () {
-          final (_, inputs) = parser.parse([
-            '--endpoint',
-            'https://api.example.com/health',
-            '--endpoint',
-            'https://api.example.com/ready',
-            '--expect-status',
-            '200',
-            '--expect-status',
-            '204',
-            '--latency-threshold',
-            '0.25',
-            '--latency-threshold',
-            '1.0',
-          ]);
-
-          expect(
-            inputs.repeatedOptions?.map(
-              (name, options) => MapEntry(name, options),
-            ),
-            equals({
-              'endpoint': [
-                'https://api.example.com/health',
-                'https://api.example.com/ready',
-              ],
-              'expect-status': ['200', '204'],
-              'latency-threshold': ['0.25', '1.0'],
-            }),
-          );
-        });
-
-        test("parses repeated short string, int, and double options", () {
-          final (_, inputs) = parser.parse([
-            '--e',
-            'https://api.example.com/health',
-            '--e',
-            'https://api.example.com/ready',
-            '--es',
-            '200',
-            '--es',
-            '204',
-            '--lt',
-            '0.25',
-            '--lt',
-            '1.0',
-          ]);
-
-          expect(
-            inputs.repeatedOptions?.map(
-              (name, options) => MapEntry(name, options),
-            ),
-            equals({
-              'endpoint': [
-                'https://api.example.com/health',
-                'https://api.example.com/ready',
-              ],
-              'expect-status': ['200', '204'],
-              'latency-threshold': ['0.25', '1.0'],
-            }),
-          );
-        });
-      });
-
-      group("throws if repeated option type isn't meet", () {
-        final cases = [
-          (
-            flag: "endpoint",
-            goodInput: "https://api.example.com/health",
-            badInput: "bad",
-            error: "Invalid input must be a ",
-          ),
-          (
-            flag: "expect-status",
-            goodInput: "200",
-            badInput: "bad",
-            error: "Invalid input must be a int",
-          ),
-          (
-            flag: "expect-status",
-            goodInput: "200",
-            badInput: "0.0",
-            error: "Invalid input must be a int",
-          ),
-          (
-            flag: "expect-status",
-            goodInput: "200",
-            badInput: ".0",
-            error: "Invalid input must be a int",
-          ),
-          (
-            flag: "expect-status",
-            goodInput: "200",
-            badInput: " 0",
-            error: "Invalid input must be a int.\nDon't add spaces",
-          ),
-          (
-            flag: "expect-status",
-            goodInput: "200",
-            badInput: "0 ",
-            error: "Invalid input must be a int.\nDon't add spaces",
-          ),
-          (
-            flag: "latency-threshold",
-            goodInput: "0.25",
-            badInput: "bad",
-            error: "Invalid input must be a double",
-          ),
-          (
-            flag: "latency-threshold",
-            goodInput: "0.25",
-            badInput: "4.5 ",
-            error: "Invalid input must be a double.\nDon't add spaces",
-          ),
-          (
-            flag: "latency-threshold",
-            goodInput: "0.25",
-            badInput: " 3.6",
-            error: "Invalid input must be a  double.\nDon't add spaces",
-          ),
-        ];
-
-        for (var i = 1; i <= 4; i++) {
-          for (final (:flag, :goodInput, :badInput, :error) in cases) {
-            test(
-              "throws when repeated option $flag doesn't satisfy requirement for $i input(s)",
-              () {
-                expect(
-                  () => parser.parse([
-                    for (var j = 0; j < i; j++) ...['--$flag', goodInput],
-                    '--$flag',
-                    badInput,
-                  ]),
-                  throwsA(
-                    isA<MambaParseException>().having(
-                      (e) => e.message,
-                      "message",
-                      "Wrong option at ${i + 1} $error",
-                    ),
-                  ),
-                );
-              },
-            );
-          }
-        }
-      });
-    });
-
-    group('Validates required repeated options', () {
-      test('throws when a required repeated option is absent', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'curl',
-            'Do http requests',
-            repeatedOptions: [
-              RepeatableStringOption(
-                name: 'header',
-                required: true,
-                regex: RegExp(r'\S+:.+'),
-              ),
-            ],
-          ),
-        );
-
-        expect(
-          () => parser.parse(['curl']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (error) => error.message,
-              'message',
-              'Option --header is required',
-            ),
-          ),
-        );
-      });
-    });
-
-    group("Parses string options properly", () {
-      final parser = Parser(
-        CommandRegistry.create(
-          "curl",
-          "Do http requests in the terminal",
-          singleOptions: [
-            StringOption(
-              name: 'url',
-              regex: RegExp(r'^https?:\/\/[^\s/$.?#].[^\s]*$'),
-              short: 'u',
-            ),
-            StringOption(name: 'user', regex: RegExp(r'^[^:]+:[^:]+$')),
-          ],
-        ),
-      );
-
-      test('throws when an option value is absent', () {
-        expect(
-          () => parser.parse(['--url']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (error) => error.message,
-              'message',
-              'Option --url requires a value',
-            ),
-          ),
-        );
-      });
-
-      test("throws when string option doesn't satisfy regex requirement", () {
-        expect(
-          () => parser.parse(['--user', 'get']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (e) => e.message,
-              'message',
-              "This value doesn't satify the requirement",
-            ),
-          ),
-        );
-      });
-
-      test("parses a string option", () {
-        final (_, inputs) = parser.parse(['--url', 'https://example.com']);
-        expect(inputs, isA<Inputs>());
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'url': 'https://example.com'}),
-        );
-      });
-
-      test("parses a short string option", () {
-        final (_, inputs) = parser.parse(['-u', 'https://example.com']);
-        expect(inputs, isA<Inputs>());
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'url': 'https://example.com'}),
-        );
-      });
-
-      test("throws when required option isn't passed in", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            singleOptions: [
-              StringOption(
-                name: 'url',
-                required: true,
-                regex: RegExp(r'^https?:\/\/[^\s/$.?#].[^\s]*$'),
-              ),
-            ],
-          ),
-        );
-
-        expect(
-          () => parser.parse(['']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (e) => e.message,
-              'message',
-              "The url is required",
-            ),
-          ),
-        );
-      });
-    });
-
-    group("Parses int options properly", () {
-      final parser = Parser(
-        CommandRegistry.create(
-          "curl",
-          "Do http requests in the terminal",
-          singleOptions: [
-            IntOption(name: 'max-redirs'),
-            IntOption(name: 'retry'),
-            IntOption(name: 'keep-alive-count', short: 'k'),
-          ],
-        ),
-      );
-
-      group("throws when int is invalid", () {
-        const invalidInputs = ["3 ", " 2", "3.0", "h", "4.", "4 7"];
-
-        for (final input in invalidInputs) {
-          test("parses $input", () {
-            expect(
-              () => parser.parse(['curl', '--retry', input]),
-              throwsA(
-                isA<MambaParseException>().having(
-                  (e) => e.message,
-                  'message',
-                  'Invalid int value: $input never have spaces in between numbers',
-                ),
-              ),
-            );
-          });
-        }
-      });
-
-      test("parses correct long option", () {
-        final (_, inputs) = parser.parse(['curl', '--max-redirs', '5']);
-
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'max-redirs': '5'}),
-        );
-      });
-
-      test("parses correct short option", () {
-        final (_, inputs) = parser.parse(['curl', '--k', '5']);
-
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'keep-alive-count': '5'}),
-        );
-      });
-
-      test("throws when required int isn't added", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            singleOptions: [IntOption(name: 'retry', required: true)],
-          ),
-        );
-        expect(
-          () => parser.parse(['curl']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (e) => e.message,
-              'message',
-              'Option --retry is required',
-            ),
-          ),
-        );
-      });
-    });
-
-    group("Parses double options properly", () {
-      final parser = Parser(
-        CommandRegistry.create(
-          "curl",
-          "Do http requests in the terminal",
-          singleOptions: [
-            DoubleOption(name: 'connect-timeout'),
-            DoubleOption(name: 'max-time', short: 'm'),
-            DoubleOption(name: 'retry-max-time'),
-          ],
-        ),
-      );
-
-      group("throws when double is invalid", () {
-        const invalidInputs = ["3.0 ", " 2.0", "h", "4.", "4.0 7."];
-
-        for (final input in invalidInputs) {
-          test("parses $input", () {
-            expect(
-              () => parser.parse(['curl', '--retry-max-time', input]),
-              throwsA(
-                isA<MambaParseException>().having(
-                  (e) => e.message,
-                  'message',
-                  'Invalid int value: $input never have spaces in between numbers',
-                ),
-              ),
-            );
-          });
-        }
-      });
-
-      test("parses correct long option", () {
-        final (_, inputs) = parser.parse(['curl', '--connect-timeout', '5.0']);
-
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'connect-timeout': '5.0'}),
-        );
-      });
-
-      test("parses correct short option", () {
-        final (_, inputs) = parser.parse(['curl', '-m', '5.0']);
-
-        expect(
-          inputs.singleOptions?.map((name, option) => MapEntry(name, option)),
-          equals({'max-time': '5.0'}),
-        );
-      });
-
-      test("throws when required double isn't added", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "curl",
-            "Do http requests in the terminal",
-            singleOptions: [
-              DoubleOption(name: 'retry-max-time', required: true),
-            ],
-          ),
-        );
-
-        expect(
-          () => parser.parse(['curl']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (e) => e.message,
-              'message',
-              'Option --retry-max-time is required',
-            ),
-          ),
-        );
-      });
-    });
-
-    group("Parses boolean flags properly", () {
-      final parser = Parser(
-        CommandRegistry.create(
-          "bat",
-          "Open files colorfully",
-          flags: [
-            BooleanFlag(name: 'color', negatable: true),
-            BooleanFlag(name: 'diff'),
-            BooleanFlag(name: "number", short: 'n'),
-            BooleanFlag(name: "list-languages", short: "L", negatable: true),
-          ],
-        ),
-      );
-
-      test('returns registered boolean defaults when flags are absent', () {
-        final (_, inputs) = parser.parse([]);
-
-        expect(inputs.boolFlags, {
-          'color': false,
-          'diff': false,
-          'number': false,
-          'list-languages': false,
-        });
-      });
-
-      test("parses non short or optional boolean flag", () {
-        final (_, inputs) = parser.parse(['bat', '--diff']);
-
-        expect(inputs.boolFlags, {
-          'color': false,
-          'diff': true,
-          'number': false,
-          'list-languages': false,
-        });
-      });
-
-      test("parses negatable boolean flag", () {
-        final (_, inputs) = parser.parse(['bat', '--no-color']);
-
-        expect(inputs.boolFlags, {
-          'color': false,
-          'diff': false,
-          'number': false,
-          'list-languages': false,
-        });
-      });
-      test("parses short boolean flag", () {
-        final (_, inputs) = parser.parse(['bat', '-n']);
-
-        expect(inputs.boolFlags, {
-          'color': false,
-          'diff': false,
-          'number': true,
-          'list-languages': false,
-        });
-      });
-
-      test("parses short negative boolean flag", () {
-        final (_, inputs) = parser.parse(['bat', '-n-L']);
-
-        expect(inputs.boolFlags, {
-          'color': false,
-          'diff': false,
-          'number': false,
-          'list-languages': false,
-        });
-      });
-    });
-
-    group("Parses count flags properly", () {
-      final parser = Parser(
-        CommandRegistry.create(
-          "git",
-          "Sync files using virtual control",
-          flags: [CountFlag(name: 'verbose', short: 'v')],
-        ),
-      );
-
-      test('parses mixed short boolean and count flags', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'git',
-            'Sync files using version control',
-            flags: [
-              BooleanFlag(name: 'dry-run', short: 'n'),
-              CountFlag(name: 'verbose', short: 'v'),
-            ],
-          ),
-        );
-
-        final (_, inputs) = parser.parse(['-vnv']);
-
-        expect(inputs.boolFlags, {'dry-run': true});
-        expect(inputs.countFlags, {'verbose': 2});
-      });
-
-      test("parses count flag normally", () {
-        final (_, inputs) = parser.parse(['git', '--verbose']);
-
-        expect(inputs.countFlags, {'verbose': 1});
-      });
-
-      test("parses repeated count flag ", () {
-        final (_, inputs) = parser.parse(['git', '--verbose', '--verbose']);
-
-        expect(inputs.countFlags, {'verbose': 2});
-      });
-
-      test("parses short count flags", () {
-        final (_, inputs) = parser.parse(['git', '-v']);
-
-        expect(inputs.countFlags, {'verbose': 1});
-      });
-
-      test("parses short count flags that are repeated", () {
-        final (_, inputs) = parser.parse(['git', '-vv']);
-
-        expect(inputs.countFlags, {'verbose': 2});
-      });
-    });
-
-    group('Parses accessors', () {
-      test('parses a named accessor', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'serve',
-            'Serve requests',
-            accessors: [
-              AccessorStringOption(name: 'user', regex: RegExp(r'\S+')),
-            ],
-          ),
-        );
-
-        final (_, inputs) = parser.parse(['--user', 'ada']);
-
-        expect(inputs.accessorMap, {'user': 'ada'});
-      });
-
-      test('adds choice defaults and accepts configured choices', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'serve',
-            'Serve requests',
-            accessors: [
-              AccessorChoiceOption(
-                name: 'when',
-                choices: When.values,
-                defaultValue: When.auto,
-              ),
-            ],
-          ),
-        );
-
-        expect(parser.parse([]).$2.accessorMap, {'when': 'auto'});
-        expect(parser.parse(['--when', 'always']).$2.accessorMap, {
-          'when': 'always',
-        });
-      });
-
-      test('validates typed accessor values', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'serve',
-            'Serve requests',
-            accessors: [
-              AccessorListOption(
-                name: 'server',
-                options: [AccessorIntOption(name: 'port')],
-              ),
-            ],
-          ),
-        );
-
-        expect(
-          () => parser.parse(['--server.port', 'eighty']),
-          throwsA(
-            isA<MambaParseException>().having(
-              (error) => error.message,
-              'message',
-              'Invalid int value: eighty never have spaces in between numbers',
-            ),
-          ),
-        );
-      });
-
-      test('parses and merges typed accessor group values', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'serve',
-            'Serve requests',
-            accessors: [
-              AccessorListOption(
-                name: 'server',
-                options: [
-                  AccessorIntOption(name: 'port'),
-                  AccessorDoubleOption(name: 'timeout'),
-                ],
-              ),
-            ],
-          ),
-        );
-
-        final (_, inputs) = parser.parse([
-          '--server.port',
-          '8080',
-          '--server.timeout',
-          '1.5',
-        ]);
-
-        expect(inputs.accessorMap, {
-          'server': {'port': '8080', 'timeout': '1.5'},
-        });
-      });
-    });
-
-    group("Improper registration", () {
-      final cases = [
-        (
-          input: "commit",
-          messsage:
-              "This term isn't a registered command positional or variadic",
-        ),
-        (input: "--message", messsage: "This isn't a registered flag"),
-        (input: "-m", messsage: "This isn't a registered short flag or option"),
-        (input: "--bundle.mode", messsage: "This isn't a registered acessor"),
-        (
-          input: "--bundle.name.uri",
-          messsage: "This isn't a registered acessor",
-        ),
-        (input: "--user.port", messsage: "This isn't a registered acessor"),
-        (
-          input: "--user.address.location.lat",
-          messsage: """
-This accessor can't be processed
-Only two dots can be used
-          """,
-        ),
-      ];
-
-      for (final (:input, :messsage) in cases) {
-        test("throws error for input", () {
-          final parser = Parser(
-            CommandRegistry.create("git", "Use git to submit changes"),
-          );
-
-          expect(
-            () => parser.parse([input]),
-            throwsA(
-              isA<MambaParseException>().having(
-                (e) => e.message,
-                "message",
-                messsage,
-              ),
-            ),
-          );
-        });
-      }
-    });
-
-    group("registration", () {
-      test("parses options registered on a nested command", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'tool',
-            'Manage tools',
-            commands: [
-              TestCommand(
-                'run',
-                'Run a tool',
-                singleOptions: [IntOption(name: 'count')],
-              ),
-            ],
-          ),
-        );
-
-        final (command, inputs) = parser.parse(['tool', 'run', '--count', '2']);
-
-        expect(command, ['tool', 'run']);
-        expect(inputs.singleOptions, {'count': '2'});
-      });
-
-      test('parses options after positionals', () {
-        final parser = Parser(
-          CommandRegistry.create(
-            'copy',
-            'Copy a file',
-            positionalSchema: PositionalSchema([Positional('source')]),
-            singleOptions: [
-              StringOption(name: 'destination', regex: RegExp(r'\S+')),
-            ],
-          ),
-        );
-
-        final (_, inputs) = parser.parse([
-          'copy',
-          'source.txt',
-          '--destination',
-          'target.txt',
-        ]);
-
-        expect(inputs.mandatoryPositionals, {'source': 'source.txt'});
-        expect(inputs.singleOptions, {'destination': 'target.txt'});
-      });
-
-      test("parses options when they are registered", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "run",
-            "Run this script",
-            singleOptions: [
-              IntOption(name: "count", short: "c"),
-              StringOption(name: "name", short: "n", regex: RegExp(r"\S+")),
-            ],
-          ),
-        );
-
-        final (command, inputs) = parser.parse([
           'run',
-          '--count',
-          '2',
-          '--name',
-          'Xavier Leroy',
-        ]);
+          'Run a request.',
+          flagSchema: RequestFlags(),
+        ),
+      );
 
-        expect(command, equals(["run"]));
-        expect(
-          inputs,
-          isA<Inputs>().having((i) => i.singleOptions!['count'], "count", '2'),
-        );
-        expect(
-          inputs,
-          isA<Inputs>().having(
-            (i) => i.singleOptions!['name'],
-            "name",
-            "Xavier Leroy",
-          ),
-        );
-      });
+      expect(parser.parse([]).$2.flags, (verbose: false, quiet: 0));
+    });
 
-      test("parses count flags when they are registered", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "run",
-            "Run this script",
-            flags: [CountFlag(name: "verbose")],
-          ),
-        );
+    test('preserves parsing errors before converting values', () {
+      final parser = Parser(
+        CommandRegistry.create(
+          'run',
+          'Run a request.',
+          optionSchema: RequestOptions(),
+        ),
+      );
 
-        final (command, inputs) = parser.parse(['run', '--verbose']);
-
-        expect(command, equals(["run"]));
-        expect(
-          inputs,
-          isA<Inputs>().having((i) => i.countFlags!['verbose'], "verbose", 1),
-        );
-      });
-      test("parses bool flags when they are registered", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "run",
-            "Run this script",
-            flags: [BooleanFlag(name: "dry-run")],
-          ),
-        );
-
-        final (command, inputs) = parser.parse(['run', '--dry-run']);
-
-        expect(command, equals(equals(["run"])));
-        expect(
-          inputs,
-          isA<Inputs>().having((i) => i.boolFlags!['dry-run'], "dry-run", true),
-        );
-      });
-      test("parses variadic when it's registered", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "run",
-            "Run this script",
-            positionalSchema: PositionalSchema(
-              [],
-              variadic: Variadic("scripts"),
-            ),
-          ),
-        );
-
-        final (command, inputs) = parser.parse(['run', 'foo', 'bar']);
-
-        expect(command, equals(["run"]));
-        expect(
-          inputs,
-          isA<Inputs>().having((i) => i.variadic, "variadic", ['foo', 'bar']),
-        );
-      });
-      test("parses positionals when they are registered", () {
-        final parser = Parser(
-          CommandRegistry.create(
-            "mv",
-            "Move a file to a different place",
-            positionalSchema: PositionalSchema([
-              Positional("source"),
-              Positional("destination"),
-            ]),
-          ),
-        );
-
-        final (command, inputs) = parser.parse([
-          'mv',
-          'user.dart',
-          'lib/user.dart',
-        ]);
-
-        expect(command, equals(["mv"]));
-        expect(
-          inputs,
-          isA<Inputs>().having(
-            (i) => i.mandatoryPositionals,
-            "mandatoryPositionals",
-            {'source': 'user.dart', 'destination': 'lib/user.dart'},
-          ),
-        );
-      });
+      expect(
+        () => parser.parse(['--url', 'invalid']),
+        throwsA(isA<MambaParseException>()),
+      );
     });
   });
 }

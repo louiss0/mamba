@@ -1,25 +1,7 @@
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:test/test.dart';
-
-class TestCommand extends Command {
-  TestCommand(
-    super.name,
-    super.shortDescription, {
-    super.longDescription,
-    super.positionalSchema,
-    super.flags,
-    super.singleOptions,
-    super.repeatedOptions,
-    super.accessorFlagSchema,
-    super.commands,
-  });
-
-  @override
-  void run(Inputs input) {
-    // TODO: implement run
-  }
-}
+import 'fixtures.dart';
 
 void main() {
   group('Testing Registry.create', () {
@@ -134,7 +116,9 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  singleOptions: [IntOption(name: symbol)],
+                  optionSchema: TestOptionSchema.create([
+                    IntOption(name: symbol),
+                  ]),
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -161,7 +145,9 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  flags: [BooleanFlag(name: symbol)],
+                  flagSchema: TestFlagSchema.create([
+                    BooleanFlag(name: symbol),
+                  ]),
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -188,7 +174,9 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  positionalSchema: PositionalSchema([Positional(symbol)]),
+                  positionalSchema: TestPositionalSchema.create([
+                    Positional(symbol),
+                  ]),
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -215,7 +203,7 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  positionalSchema: PositionalSchema(
+                  positionalSchema: TestPositionalSchema.create(
                     [],
                     variadic: Variadic(symbol),
                   ),
@@ -245,7 +233,9 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  accessors: [AccessorIntOption(name: symbol)],
+                  accessorSchema: TestAccessorOptionSchema.create([
+                    AccessorIntOption(name: symbol),
+                  ]),
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -272,12 +262,12 @@ void main() {
                 () => CommandRegistry.create(
                   'build',
                   "Build this!",
-                  accessors: [
+                  accessorSchema: TestAccessorOptionSchema.create([
                     AccessorListOption(
                       name: 'user',
                       options: [AccessorIntOption(name: symbol)],
                     ),
-                  ],
+                  ]),
                 ),
                 throwsA(
                   isA<MambaRegistryError>().having(
@@ -327,10 +317,10 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                singleOptions: [
+                optionSchema: TestOptionSchema.create([
                   StringOption(name: "commit", regex: RegExp(r"")),
                   StringOption(name: "commit", regex: RegExp(r"")),
-                ],
+                ]),
               );
             }
 
@@ -351,15 +341,13 @@ void main() {
               () => CommandRegistry.create(
                 'commit',
                 'Makes a git commit',
-                singleOptions: [
+                optionSchema: TestOptionSchema.create([
                   StringOption(name: 'message', regex: RegExp(r'\S+')),
-                ],
-                repeatedOptions: [
                   RepeatableStringOption(
                     name: 'message',
                     regex: RegExp(r'\S+'),
                   ),
-                ],
+                ]),
               ),
               throwsA(
                 isA<MambaException>().having(
@@ -376,10 +364,10 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                flags: [
+                flagSchema: TestFlagSchema.create([
                   BooleanFlag(name: "enable"),
                   BooleanFlag(name: "enable"),
-                ],
+                ]),
               );
             }
 
@@ -400,8 +388,10 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                flags: [BooleanFlag(name: "user")],
-                accessors: [AccessorStringOption(name: 'user')],
+                flagSchema: TestFlagSchema.create([BooleanFlag(name: "user")]),
+                accessorSchema: TestAccessorOptionSchema.create([
+                  AccessorStringOption(name: 'user'),
+                ]),
               );
             }
 
@@ -422,8 +412,12 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                singleOptions: [StringOption(name: "user", regex: RegExp(r""))],
-                accessors: [AccessorStringOption(name: 'user')],
+                optionSchema: TestOptionSchema.create([
+                  StringOption(name: "user", regex: RegExp(r"")),
+                ]),
+                accessorSchema: TestAccessorOptionSchema.create([
+                  AccessorStringOption(name: 'user'),
+                ]),
               );
             }
 
@@ -444,7 +438,9 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                positionalSchema: PositionalSchema([Positional("message")]),
+                positionalSchema: TestPositionalSchema.create([
+                  Positional("message"),
+                ]),
                 commands: [TestCommand("message", "Makes a message")],
               );
             }
@@ -466,7 +462,7 @@ void main() {
               CommandRegistry.create(
                 "add",
                 "Adds files to the git index",
-                positionalSchema: PositionalSchema([
+                positionalSchema: TestPositionalSchema.create([
                   Positional("files"),
                   Positional("files"),
                 ]),
@@ -490,7 +486,7 @@ void main() {
               CommandRegistry.create(
                 "commit",
                 "Makes a git commit",
-                positionalSchema: PositionalSchema([
+                positionalSchema: TestPositionalSchema.create([
                   Positional("message"),
                 ], variadic: Variadic("message")),
               );
@@ -519,7 +515,7 @@ void main() {
         final registry = CommandRegistry.create(
           "build",
           "Build this!",
-          singleOptions: [run, agent],
+          optionSchema: TestOptionSchema.create([run, agent]),
         );
 
         expect(registry.singleOptions, equals({"run": run, "agent": agent}));
@@ -532,7 +528,7 @@ void main() {
         final registry = CommandRegistry.create(
           "build",
           "Build this!",
-          flags: [dryRun, verbose],
+          flagSchema: TestFlagSchema.create([dryRun, verbose]),
         );
 
         expect(registry.boolFlags, equals({"dry-run": dryRun}));
@@ -540,7 +536,7 @@ void main() {
       });
 
       test("When accessors are added they are added to the accesors field", () {
-        final accessors = [
+        final accessors = TestAccessorOptionSchema.create([
           AccessorListOption(
             name: 'user',
             options: [
@@ -548,15 +544,15 @@ void main() {
               AccessorStringOption(name: 'email'),
             ],
           ),
-        ];
+        ]);
 
         final registry = CommandRegistry.create(
           "config",
           "configure this command",
-          accessors: accessors,
+          accessorSchema: accessors,
         );
 
-        expect(registry.accessorSchema, equals({'user': accessors.single}));
+        expect(registry.accessors, equals({'user': accessors.schema.single}));
       });
 
       test(
@@ -567,7 +563,7 @@ void main() {
           final registry = CommandRegistry.create(
             "run",
             "Run a command or script",
-            positionalSchema: PositionalSchema(positionals),
+            positionalSchema: TestPositionalSchema.create(positionals),
           );
 
           expect(
@@ -583,7 +579,7 @@ void main() {
         final registry = CommandRegistry.create(
           "run",
           "Run a command or script",
-          positionalSchema: PositionalSchema([], variadic: variadic),
+          positionalSchema: TestPositionalSchema.create([], variadic: variadic),
         );
         expect(registry.variadic, equals(variadic));
       });

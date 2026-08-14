@@ -178,7 +178,7 @@ class HelpFormatter {
   List<String> _accessors(CommandRegistry registry) {
     final values = <String>[];
 
-    final accessorSchema = registry.accessorSchema;
+    final accessorSchema = registry.accessors;
     if (accessorSchema == null) return values;
 
     for (final entry in accessorSchema.entries) {

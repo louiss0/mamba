@@ -19,120 +19,80 @@ final class _MambaCommandNotFoundException extends MambaException {
       );
 }
 
-class _RootCommand extends GroupCommand {
-  static final _globalFlags = [
-    BooleanFlag(
-      name: "help",
-      short: 'h',
-      description: "Display help for commands",
-    ),
-    CountFlag(name: "verbose", short: 'v', description: "Decide log level"),
-  ];
-
-  Command resolve(List<String> path) {
-    return _resolveFrom(current: this, path: path, index: 0);
-  }
-
-  Command _resolveFrom({
-    required Command current,
-    required List<String> path,
-    required int index,
-  }) {
-    if (index == path.length) {
-      return current;
-    }
-
-    final segment = path[index];
-    if (segment == '--help' || segment == '-h') {
-      return _resolveFrom(current: current, path: path, index: index + 1);
-    }
-
-    final children = current.commands ?? const <Command>[];
-
-    Command? matchedCommand;
-
-    for (final child in children) {
-      if (child.name == segment) {
-        matchedCommand = child;
-        break;
-      }
-    }
-
-    if (matchedCommand == null) {
-      throw _MambaCommandNotFoundException(segment, [
-        name,
-        ...path.take(index),
-      ], children.map((command) => command.name).toList(growable: false));
-    }
-
-    return _resolveFrom(current: matchedCommand, path: path, index: index + 1);
-  }
-
-  _RootCommand(
-    super.name,
-    super.shortDescription, {
-    required super.defaultSubCommandPath,
-    super.longDescription,
-    super.positionalSchema,
-    super.accessorFlagSchema,
-    super.helpFormatter,
-    super.writeHelp,
-    List<Flag>? flags,
-    super.singleOptions,
-    super.repeatedOptions,
-    super.commands,
-  }) : super(flags: [..._globalFlags, ...?flags]);
-}
-
 final class Executor {
-  final _RootCommand _rootCommand;
   final HelpFormatter _helpFormatter;
+
+  final CommandRegistry _registry;
+
   final void Function(String) _writeHelp;
+
+  final List<Command>? commands;
 
   Executor(
     String name,
     String shortDescription, {
     String? longDescription,
-    List<String>? defaultSubCommand,
     PositionalSchema? positionalSchema,
-    List<AccessorOption>? accessorFlagSchema,
-
-    List<Flag>? flags,
-
-    List<SingleOption>? singleOptions,
-    List<RepeatableOption>? repeatedOptions,
-
+    AccessorOptionSchema? accessorSchema,
+    FlagSchema? flagSchema,
+    OptionSchema? optionSchema,
     List<Command>? commands,
     HelpFormatter? helpFormatter,
     void Function(String)? writeHelp,
   }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
        _writeHelp = writeHelp ?? print,
-       _rootCommand = _RootCommand(
+       _registry = CommandRegistry.create(
          name,
          shortDescription,
          longDescription: longDescription,
-         defaultSubCommandPath: defaultSubCommand,
-         helpFormatter: helpFormatter,
-         writeHelp: writeHelp,
          positionalSchema: positionalSchema,
-         accessorFlagSchema: accessorFlagSchema,
-         flags: flags,
-         singleOptions: singleOptions,
-         repeatedOptions: repeatedOptions,
+         accessorSchema: accessorSchema,
+         flagSchema: flagSchema,
+         optionSchema: optionSchema,
          commands: commands,
-       );
+       ),
+       commands = commands;
 
   void execute(List<String> args) {
-    final parser = Parser(_rootCommand.registry);
-
-    if (_requestsHelp(args)) {
-      final command = _rootCommand.resolve(args);
-      _writeHelp(_helpFormatter.formatHelp(command.registry));
+    if (args.isEmpty || _requestsHelp(args)) {
+      _writeHelp(_helpFormatter.formatHelp(_registryForArguments(args)));
       return;
     }
 
-    final (commandPath, inputs) = parser.parse(args);
-    _rootCommand.resolve(commandPath).run(inputs);
+    final (commandPath, inputs) = Parser(_registry).parse(args);
+    _commandForPath(commandPath)?.run(inputs, inputs.variadic);
+  }
+
+  CommandRegistry _registryForArguments(List<String> args) {
+    var registry = _registry;
+    var offset = args.firstOrNull == registry.name ? 1 : 0;
+
+    while (offset < args.length && !_requestsHelp([args[offset]])) {
+      final name = args[offset];
+      final children = registry.commandRegistries ?? const <CommandRegistry>[];
+      final command = children
+          .where((candidate) => candidate.name == name)
+          .firstOrNull;
+      if (command == null) {
+        throw _MambaCommandNotFoundException(name, [
+          registry.name,
+        ], children.map((child) => child.name).toList());
+      }
+      registry = command;
+      offset++;
+    }
+    return registry;
+  }
+
+  Command? _commandForPath(List<String> path) {
+    Command? command;
+    var children = commands;
+    for (final name in path) {
+      if (name == _registry.name) continue;
+      command = children?.singleWhere((candidate) => candidate.name == name);
+      children = command?.commands;
+    }
+    return command;
   }
 
   bool _requestsHelp(List<String> args) =>
