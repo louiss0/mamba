@@ -124,8 +124,9 @@ Executor(
 
 Use `StringOption`, `IntOption`, `DoubleOption`, and `ChoiceOption` for one
 value; use the corresponding `Repeatable...Option` classes for repeated
-values. `BooleanFlag` supports a short name, a default value, and optional
-negation. `CountFlag` increments each time it appears.
+values. Options and accessor leaves accept either `--name value` or
+`--name=value`. `BooleanFlag` supports a short name, a default value, and
+optional negation. `CountFlag` increments each time it appears.
 
 ```dart
 enum OutputFormat { text, json }

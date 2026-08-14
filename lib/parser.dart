@@ -43,9 +43,16 @@ class Parser {
         continue;
       }
       if (token.startsWith('--') && token.length > 2) {
-        final name = token.substring(2);
+        final (name, inlineValue) = _splitLongOption(token.substring(2));
         if (_isAccessor(name, registry)) {
-          final values = _parseAccessor(name, args, index, consumed, registry);
+          final values = _parseAccessor(
+            name,
+            inlineValue,
+            args,
+            index,
+            consumed,
+            registry,
+          );
           _mergeAccessorValues(accessorMap, values);
           continue;
         }
@@ -54,7 +61,13 @@ class Parser {
         }
         final option = _findOption(registry, name);
         if (option != null) {
-          final value = _takeOptionValue(args, index, consumed, option.name);
+          final value = _takeOptionValue(
+            args,
+            index,
+            consumed,
+            option.name,
+            inlineValue,
+          );
           if (option is RepeatableOption) {
             _addRepeatedOptionValue(option, value, repeatedOptions);
           } else {
@@ -66,6 +79,9 @@ class Parser {
           continue;
         }
         if (_parseLongFlag(name, registry, boolFlags, countFlags)) {
+          if (inlineValue != null) {
+            throw MambaParseException('Flag --$name does not accept a value');
+          }
           continue;
         }
         throw MambaParseException("This isn't a registered flag");
@@ -162,12 +178,23 @@ class Parser {
             .firstOrNull;
   }
 
+  (String, String?) _splitLongOption(String token) {
+    final separatorIndex = token.indexOf('=');
+    if (separatorIndex < 0) return (token, null);
+    return (
+      token.substring(0, separatorIndex),
+      token.substring(separatorIndex + 1),
+    );
+  }
+
   String _takeOptionValue(
     List<String> args,
     int index,
     Set<int> consumed,
     String name,
+    String? inlineValue,
   ) {
+    if (inlineValue != null) return inlineValue;
     if (index + 1 >= args.length || args[index + 1].startsWith('-')) {
       throw MambaParseException('Option --$name requires a value');
     }
@@ -217,7 +244,7 @@ class Parser {
   ) {
     final option = _findOption(registry, names);
     if (option != null) {
-      final value = _takeOptionValue(args, index, consumed, option.name);
+      final value = _takeOptionValue(args, index, consumed, option.name, null);
       if (option is RepeatableOption) {
         _addRepeatedOptionValue(option, value, repeatedOptions);
       } else {
@@ -535,6 +562,7 @@ class Parser {
 
   Map<String, Object> _parseAccessor(
     String path,
+    String? inlineValue,
     List<String> args,
     int index,
     Set<int> consumed,
@@ -542,7 +570,7 @@ class Parser {
   ) {
     final parts = path.split('.');
     final input = _accessorForPath(path, registry)!;
-    final value = _takeOptionValue(args, index, consumed, path);
+    final value = _takeOptionValue(args, index, consumed, path, inlineValue);
     final parsed = _parseAccessorValue(input, value);
     var values = <String, Object>{parts.last: parsed};
 
