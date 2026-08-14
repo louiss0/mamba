@@ -1,15 +1,6 @@
 import 'errors.dart';
 import 'help_formatter.dart';
 
-typedef BoolFlagMap = Map<String, BooleanFlag>;
-
-typedef CountFlagMap = Map<String, CountFlag>;
-
-typedef SingleOptionMap = Map<String, SingleOption>;
-typedef RepeatedOptionMap = Map<String, RepeatableOption>;
-
-typedef AccessorSchema = Map<String, AccessorOption>;
-
 final class CommandRegistry {
   final String name;
 
@@ -17,21 +8,17 @@ final class CommandRegistry {
 
   final String? longDescription;
 
-  final BoolFlagMap? boolFlags;
+  final Map<String, CountFlag>? countFlags;
+  final Map<String, BooleanFlag>? boolFlags;
 
-  final CountFlagMap? countFlags;
-
-  final SingleOptionMap? singleOptions;
-
-  final RepeatedOptionMap? repeatedOptions;
+  final Map<String, SingleOption>? singleOptions;
+  final Map<String, RepeatableOption>? repeatedOptions;
 
   final Map<String, Positional>? mandatoryPositionals;
-
   final Map<String, Positional>? discretionaryPositionals;
-
   final Variadic? variadic;
 
-  final AccessorSchema? accessorSchema;
+  final Map<String, AccessorOption>? accessors;
 
   final List<CommandRegistry>? commandRegistries;
 
@@ -39,30 +26,28 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    List<AccessorOption>? accessors,
-    List<Flag>? flags,
-    List<SingleOption>? singleOptions,
-    List<RepeatableOption>? repeatedOptions,
     PositionalSchema? positionalSchema,
+    FlagSchema? flagSchema,
+    OptionSchema? optionSchema,
+    AccessorOptionSchema? accessorSchema,
     List<Command>? commands,
   }) {
     _validateDefinition(
-      name: name,
-      shortDescription: shortDescription,
-      accessors: accessors,
-      flags: flags,
-      singleOptions: singleOptions,
-      repeatedOptions: repeatedOptions,
-      positionalSchema: positionalSchema,
-      commands: commands,
+      name,
+      shortDescription,
+      positionalSchema,
+      flagSchema,
+      optionSchema,
+      accessorSchema,
+      commands,
     );
 
     return CommandRegistry(
       name: name,
       shortDescription: shortDescription,
       longDescription: longDescription,
-      accessors: accessors,
-      flags: flags,
+      accessors: accessorSchema,
+      boolFlags: boolFlags,
       singleOptions: singleOptions,
       repeatedOptions: repeatedOptions,
       positionalSchema: positionalSchema,
@@ -74,53 +59,21 @@ final class CommandRegistry {
     required this.name,
     required this.shortDescription,
     this.longDescription,
-    List<AccessorOption>? accessors,
-    List<Flag>? flags,
-    List<SingleOption>? singleOptions,
-    List<RepeatableOption>? repeatedOptions,
-    PositionalSchema? positionalSchema,
+    this.boolFlags,
+    this.countFlags,
+    this.singleOptions,
+    this.repeatedOptions,
+    this.mandatoryPositionals,
+    this.discretionaryPositionals,
+    this.variadic,
+    this.accessors,
     List<Command>? commands,
-  }) : accessorSchema = accessors != null
-           ? Map.unmodifiable({
-               for (final accessor in accessors) accessor.name: accessor,
-             })
-           : null,
-       boolFlags = flags?.fold(
-         {},
-         (map, flag) => flag is BooleanFlag ? {...?map, flag.name: flag} : map,
-       ),
-       countFlags = flags?.fold(
-         {},
-         (map, flag) => flag is CountFlag ? {...?map, flag.name: flag} : map,
-       ),
-       singleOptions = singleOptions?.fold(
-         {},
-         (map, option) => {...?map, option.name: option},
-       ),
-       repeatedOptions = repeatedOptions?.fold(
-         {},
-         (map, option) => {...?map, option.name: option},
-       ),
-       mandatoryPositionals = positionalSchema?.mandatory.fold(
-         {},
-         (map, positional) => {...?map, positional.name: positional},
-       ),
-       discretionaryPositionals = positionalSchema?.discretionary?.fold(
-         {},
-         (map, positional) => {...?map, positional.name: positional},
-       ),
-       variadic = positionalSchema?.variadic,
-       commandRegistries = commands
+  }) : commandRegistries = commands
            ?.map(
              (command) => CommandRegistry(
                name: command.name,
                shortDescription: command.shortDescription,
                longDescription: command.longDescription,
-               flags: command.flags,
-               singleOptions: command.singleOptions,
-               repeatedOptions: command.repeatedOptions,
-               accessors: command.accessorFlagSchema,
-               positionalSchema: command.positionalSchema,
                commands: command.commands,
              ),
            )
@@ -129,26 +82,25 @@ final class CommandRegistry {
   static final RegExp _keyboardSymbol = RegExp(r'[^A-Za-z0-9_-]');
   static final RegExp _number = RegExp(r'\d');
 
-  static void _validateDefinition({
-    required String name,
-    required String shortDescription,
-    required List<AccessorOption>? accessors,
-    required List<Flag>? flags,
-    required List<SingleOption>? singleOptions,
-    required List<RepeatableOption>? repeatedOptions,
-    required PositionalSchema? positionalSchema,
-    required List<Command>? commands,
-  }) {
+  static void _validateDefinition(
+    String name,
+    String shortDescription,
+    PositionalSchema? positionalSchema,
+    FlagSchema? flagSchema,
+    OptionSchema? optionSchema,
+    AccessorOptionSchema? accessorSchema,
+    List<Command>? commands,
+  ) {
     _validateCommandName(name);
     _validateShortDescription(shortDescription);
     _validateNamedInputs(singleOptions, 'Option');
     _validateNamedInputs(repeatedOptions, 'Option');
-    _validateNamedInputs(flags, 'Flag');
+    _validateNamedInputs(boolFlags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(positionalSchema);
     _validateDuplicates(
       accessors,
-      flags,
+      boolFlags,
       [...?singleOptions, ...?repeatedOptions],
       positionalSchema,
       commands,
@@ -330,131 +282,23 @@ final class CommandRegistry {
   }
 }
 
-typedef Inputs = ({
-  Map<String, bool>? boolFlags,
-  Map<String, int>? countFlags,
-  Map<String, String>? singleOptions,
-  Map<String, List<String>>? repeatedOptions,
-  Map<String, Object>? accessorMap,
-  Map<String, String>? mandatoryPositionals,
-  Map<String, String>? discretionaryPositionals,
-  List<String>? variadic,
-});
-
-abstract class Command {
-  final String name;
-  final String shortDescription;
-  final String? longDescription;
-
-  final CommandRegistry registry;
-
-  final PositionalSchema? positionalSchema;
-  final List<AccessorOption>? accessorFlagSchema;
-
-  final List<Flag>? flags;
-  final List<SingleOption>? singleOptions;
-  final List<RepeatableOption>? repeatedOptions;
-  final List<Command>? commands;
-
-  Command(
-    String name,
-    String shortDescription, {
-    String? longDescription,
-
-    required PositionalSchema? positionalSchema,
-    required List<AccessorOption>? accessorFlagSchema,
-
-    required List<Flag>? flags,
-    required List<SingleOption>? singleOptions,
-    required List<RepeatableOption>? repeatedOptions,
-    required List<Command>? commands,
-  }) : registry = CommandRegistry.create(
-         name,
-         shortDescription,
-         longDescription: longDescription,
-         positionalSchema: positionalSchema,
-         accessors: accessorFlagSchema,
-         flags: flags,
-         singleOptions: singleOptions,
-         repeatedOptions: repeatedOptions,
-         commands: commands,
-       ),
-       name = name,
-       shortDescription = shortDescription,
-       longDescription = longDescription,
-       positionalSchema = positionalSchema,
-       accessorFlagSchema = accessorFlagSchema != null
-           ? List.unmodifiable(accessorFlagSchema)
-           : null,
-       flags = flags != null ? List.unmodifiable(flags) : null,
-       singleOptions = singleOptions != null
-           ? List.unmodifiable(singleOptions)
-           : null,
-       repeatedOptions = repeatedOptions != null
-           ? List.unmodifiable(repeatedOptions)
-           : null,
-       commands = commands != null ? List.unmodifiable(commands) : null;
-
-  void run(Inputs input);
+abstract interface class MapToRecord<T extends Record> {
+  T toRecord(Map<String, dynamic> args);
 }
 
-abstract class GroupCommand extends Command {
-  final List<String>? defaultSubCommandPath;
-  final HelpFormatter _helpFormatter;
-  final void Function(String) _writeHelp;
-
-  GroupCommand(
-    super.name,
-    super.shortDescription, {
-    required this.defaultSubCommandPath,
-    HelpFormatter? helpFormatter,
-    void Function(String)? writeHelp,
-    super.longDescription,
-    super.positionalSchema,
-    super.accessorFlagSchema,
-    super.flags,
-    super.singleOptions,
-    super.repeatedOptions,
-    super.commands,
-  }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
-       _writeHelp = writeHelp ?? print;
-
-  @override
-  void run(Inputs inputs) {
-    final subCommandPath = defaultSubCommandPath;
-    if (subCommandPath == null) {
-      _writeHelp(_helpFormatter.formatHelp(registry));
-      return;
-    }
-
-    late Command command;
-
-    for (final name in subCommandPath) {
-      final children = commands ?? const <Command>[];
-
-      Command? next;
-
-      for (final child in children) {
-        if (child.name == name) {
-          next = child;
-          break;
-        }
-      }
-
-      if (next == null) {
-        throw StateError(
-          'Parsed command "$name" does not exist in runtime command tree',
-        );
-      }
-
-      command = next;
-    }
-
-    command.run(inputs);
-  }
+abstract class Schema<T extends Record, U extends NamedInput>
+    implements MapToRecord<T> {
+  List<U> get schema;
 }
 
-class PositionalSchema {
+abstract class FlagSchema<T extends Record> extends Schema<T, Flag> {}
+
+abstract class OptionSchema<T extends Record> extends Schema<T, Option> {}
+
+abstract class AccessorOptionSchema<T extends Record>
+    extends Schema<T, AccessorOption> {}
+
+abstract class PositionalSchema<T extends Record> implements MapToRecord<T> {
   List<Positional> mandatory;
   List<Positional>? discretionary;
   Variadic? variadic;
@@ -462,12 +306,86 @@ class PositionalSchema {
   PositionalSchema(this.mandatory, {this.discretionary, this.variadic});
 }
 
-class Positional {
+abstract class Command<
+  FlagRecord extends Record,
+  OptionRecord extends Record,
+  AccessorRecord extends Record,
+  PositionalRecord extends Record
+> {
   final String name;
-  final String? description;
+  final String shortDescription;
+  final String? longDescription;
+
+  final PositionalSchema<PositionalRecord>? positionalSchema;
+  final AccessorOptionSchema<AccessorRecord>? accessorSchema;
+  final FlagSchema<FlagRecord>? flagSchema;
+  final OptionSchema<OptionRecord>? optionSchema;
+
+  final List<Command>? commands;
+
+  Command(
+    this.name,
+    this.shortDescription, {
+    this.longDescription,
+    this.positionalSchema,
+    this.accessorSchema,
+    this.flagSchema,
+    this.optionSchema,
+    this.commands,
+  });
+
+  void run(
+    ({
+      FlagRecord flags,
+      OptionRecord options,
+      PositionalRecord positionals,
+      AccessorRecord acessors,
+    })
+    input,
+    List<String> variadic,
+  );
+}
+
+abstract class GroupCommand<
+  FlagRecord extends Record,
+  OptionRecord extends Record,
+  AccessorRecord extends Record,
+  PositionalRecord extends Record
+>
+    extends
+        Command<FlagRecord, OptionRecord, AccessorRecord, PositionalRecord> {
+  final List<String>? defaultSubCommandPath;
+
+  GroupCommand(
+    super.name,
+    super.shortDescription, {
+    required this.defaultSubCommandPath,
+    super.longDescription,
+    super.positionalSchema,
+    super.accessorSchema,
+    super.flagSchema,
+    super.optionSchema,
+    super.commands,
+  });
+
+  @override
+  void run(
+    ({
+      FlagRecord flags,
+      OptionRecord options,
+      PositionalRecord positionals,
+      AccessorRecord acessors,
+    })
+    input,
+    List<String> variadic,
+  ) {}
+}
+
+class Positional extends NamedInput {
   final RegExp? regex;
-  Positional(this.name, {this.description, RegExp? regex})
-    : regex = regex ?? RegExp(r'\S+');
+  Positional(String name, {super.description, RegExp? regex})
+    : regex = regex ?? RegExp(r'\S+'),
+      super(name: name);
 }
 
 class Variadic extends Positional {
@@ -725,12 +643,12 @@ sealed class AccessorPrimitiveOption extends AccessorOption {
 }
 
 final class AccessorListOption extends AccessorOption {
-  final List<AccessorPrimitiveOption> options;
+  final List<AccessorOption> options;
 
   AccessorListOption({
     required super.name,
     super.description,
-    required List<AccessorPrimitiveOption> options,
+    required List<AccessorOption> options,
   }) : options = List.unmodifiable(options);
 }
 
@@ -745,13 +663,13 @@ final class AccessorStringOption extends AccessorPrimitiveOption {
 final class AccessorIntOption extends AccessorPrimitiveOption {
   AccessorIntOption({required super.name, super.description});
 
-  RegExp get regex => RegExp(r'\d+', multiLine: true);
+  RegExp get regex => RegExp(r'\d+');
 }
 
 final class AccessorDoubleOption extends AccessorPrimitiveOption {
   AccessorDoubleOption({required super.name, super.description});
 
-  RegExp get regex => RegExp(r'\d+\.\d+', multiLine: true);
+  RegExp get regex => RegExp(r'\d+\.\d+');
 }
 
 final class AccessorChoiceOption<T extends Enum>
