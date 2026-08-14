@@ -140,9 +140,10 @@ final schema = [
 
 ### Nested accessor values
 
-`AccessorOptionSchema` registers either a primitive accessor option or an
-`AccessorListOption` containing primitive options. A nested option such as
-`--server.port 8080` is provided to `toRecord` as a nested map.
+`AccessorOptionSchema` registers primitive accessor options or recursive
+`AccessorListOption` groups. A dotted option such as
+`--remote.origin.urls.fetch https://example.com` is provided to `toRecord` as
+a nested map. Accessor paths may be nested to any depth.
 
 ```dart
 final schema = [

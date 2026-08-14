@@ -182,19 +182,25 @@ class HelpFormatter {
     if (accessorSchema == null) return values;
 
     for (final entry in accessorSchema.entries) {
-      final name = entry.key;
-      final accessor = entry.value;
-      switch (accessor) {
-        case AccessorPrimitiveOption():
-          values.add(_accessorEntry(name, accessor));
-        case AccessorListOption(options: final options):
-          for (final option in options) {
-            values.add(_accessorEntry('$name.${option.name}', option));
-          }
-      }
+      _writeAccessorEntries(values, entry.key, entry.value);
     }
 
     return values;
+  }
+
+  void _writeAccessorEntries(
+    List<String> values,
+    String path,
+    AccessorOption accessor,
+  ) {
+    switch (accessor) {
+      case AccessorPrimitiveOption():
+        values.add(_accessorEntry(path, accessor));
+      case AccessorListOption(options: final options):
+        for (final option in options) {
+          _writeAccessorEntries(values, '$path.${option.name}', option);
+        }
+    }
   }
 
   String _accessorEntry(String name, AccessorOption option) => _entry(

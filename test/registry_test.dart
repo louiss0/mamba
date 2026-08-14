@@ -622,5 +622,68 @@ void main() {
         },
       );
     });
+
+    group('Registers a Git-config-style command tree', () {
+      test('keeps recursive accessor groups on the config command', () {
+        final config = TestCommand(
+          'config',
+          'Read and update configuration.',
+          accessorSchema: TestAccessorOptionSchema.create([
+            AccessorListOption(
+              name: 'remote',
+              options: [
+                AccessorListOption(
+                  name: 'origin',
+                  options: [AccessorStringOption(name: 'url')],
+                ),
+              ],
+            ),
+          ]),
+        );
+        final registry = CommandRegistry.create(
+          'mamba',
+          'Manage settings.',
+          commands: [config],
+        );
+
+        final configRegistry = registry.commandRegistries!.single;
+        final remote =
+            configRegistry.accessors!['remote']! as AccessorListOption;
+        final origin = remote.options.single as AccessorListOption;
+
+        expect(configRegistry.name, 'config');
+        expect(origin.options.single.name, 'url');
+      });
+
+      test('rejects duplicate accessor names at every nesting level', () {
+        expect(
+          () => CommandRegistry.create(
+            'config',
+            'Read configuration.',
+            accessorSchema: TestAccessorOptionSchema.create([
+              AccessorListOption(
+                name: 'remote',
+                options: [
+                  AccessorListOption(
+                    name: 'origin',
+                    options: [
+                      AccessorStringOption(name: 'url'),
+                      AccessorStringOption(name: 'url'),
+                    ],
+                  ),
+                ],
+              ),
+            ]),
+          ),
+          throwsA(
+            isA<MambaException>().having(
+              (error) => error.message,
+              'message',
+              'There are duplicate accessor option names at index 0 and 1',
+            ),
+          ),
+        );
+      });
+    });
   });
 }

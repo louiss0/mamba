@@ -35,11 +35,6 @@ class Parser {
       }
       if (token.startsWith('--') && token.length > 2) {
         final name = token.substring(2);
-        if (name.split('.').length > 3) {
-          throw MambaParseException(
-            'This accessor can\'t be processed\nOnly two dots can be used\n          ',
-          );
-        }
         if (_isAccessor(name, registry)) {
           final values = _parseAccessor(name, args, index, consumed, registry);
           _mergeAccessorValues(accessorMap, values);
@@ -54,7 +49,10 @@ class Parser {
           if (option is RepeatableOption) {
             _addRepeatedOptionValue(option, value, repeatedOptions);
           } else {
-            singleOptions[option.name] = _parseOptionValue(option, value);
+            singleOptions[option.name] = _parseOptionValue(
+              option as SingleOption,
+              value,
+            );
           }
           continue;
         }
@@ -210,7 +208,10 @@ class Parser {
       if (option is RepeatableOption) {
         _addRepeatedOptionValue(option, value, repeatedOptions);
       } else {
-        singleOptions[option.name] = _parseOptionValue(option, value);
+        singleOptions[option.name] = _parseOptionValue(
+          option as SingleOption,
+          value,
+        );
       }
       return;
     }
@@ -250,7 +251,7 @@ class Parser {
     }
   }
 
-  String _parseOptionValue(Option option, String value) {
+  String _parseOptionValue(SingleOption option, String value) {
     return switch (option) {
       StringOption(:final regex) => _parseStringOption(regex, value),
       IntOption() => _parseNumberOption(_parseInt, value),
@@ -259,9 +260,6 @@ class Parser {
         option.name,
         choices.map((choice) => choice.name),
         value,
-      ),
-      RepeatableOption() => throw StateError(
-        'Repeatable options are parsed separately',
       ),
     };
   }
@@ -382,30 +380,45 @@ class Parser {
   ) {
     for (final entry
         in (registry.accessors ?? const <String, AccessorOption>{}).entries) {
-      final name = entry.key;
-      final accessor = entry.value;
-      switch (accessor) {
-        case AccessorChoiceOption(:final defaultValue?)
-            when !values.containsKey(name):
-          values[name] = defaultValue.name;
-        case AccessorListOption(options: final options):
-          final defaults = <String, Object>{};
-          for (final option in options) {
-            if (option case AccessorChoiceOption(:final defaultValue?)) {
-              defaults[option.name] = defaultValue.name;
-            }
-          }
-          if (defaults.isNotEmpty) {
-            final current = values[name];
-            values[name] = {
-              ...defaults,
-              if (current is Map<String, Object>) ...current,
-            };
-          }
-        case AccessorPrimitiveOption():
-          break;
-      }
+      final defaults = _accessorChoiceDefaults(entry.value);
+      if (defaults == null) continue;
+      values[entry.key] = _mergeAccessorDefaults(defaults, values[entry.key]);
     }
+  }
+
+  Object? _accessorChoiceDefaults(AccessorOption accessor) {
+    return switch (accessor) {
+      AccessorChoiceOption(defaultValue: final defaultValue?) =>
+        defaultValue.name,
+      AccessorChoiceOption() => null,
+      AccessorPrimitiveOption() => null,
+      AccessorListOption(options: final options) => _accessorListChoiceDefaults(
+        options,
+      ),
+    };
+  }
+
+  Map<String, Object>? _accessorListChoiceDefaults(
+    List<AccessorOption> options,
+  ) {
+    final defaults = <String, Object>{};
+    for (final option in options) {
+      final value = _accessorChoiceDefaults(option);
+      if (value != null) defaults[option.name] = value;
+    }
+    return defaults.isEmpty ? null : defaults;
+  }
+
+  Object _mergeAccessorDefaults(Object defaults, Object? current) {
+    if (defaults is! Map<String, Object> || current is! Map<String, Object>) {
+      return current ?? defaults;
+    }
+
+    return {
+      ...current,
+      for (final entry in defaults.entries)
+        entry.key: _mergeAccessorDefaults(entry.value, current[entry.key]),
+    };
   }
 
   void _validateRequiredOptions(
@@ -485,20 +498,21 @@ class Parser {
     );
   }
 
-  bool _isAccessor(String path, CommandRegistry registry) {
-    final parts = path.split('.');
-    if (parts.length > 2) {
-      return false;
+  bool _isAccessor(String path, CommandRegistry registry) =>
+      _accessorForPath(path, registry) != null;
+
+  AccessorPrimitiveOption? _accessorForPath(
+    String path,
+    CommandRegistry registry,
+  ) {
+    AccessorOption? accessor = registry.accessors?[path.split('.').first];
+    for (final segment in path.split('.').skip(1)) {
+      if (accessor is! AccessorListOption) return null;
+      accessor = accessor.options
+          .where((option) => option.name == segment)
+          .firstOrNull;
     }
-    final accessor = registry.accessors?[parts.first];
-    if (accessor == null) {
-      return false;
-    }
-    return switch (accessor) {
-      AccessorPrimitiveOption() => parts.length == 1,
-      AccessorListOption(options: final options) =>
-        parts.length == 2 && options.any((option) => option.name == parts.last),
-    };
+    return accessor is AccessorPrimitiveOption ? accessor : null;
   }
 
   Map<String, Object> _parseAccessor(
@@ -509,21 +523,15 @@ class Parser {
     CommandRegistry registry,
   ) {
     final parts = path.split('.');
-    final accessor = registry.accessors![parts.first]!;
-    final input = switch (accessor) {
-      AccessorPrimitiveOption() => accessor,
-      AccessorListOption(options: final options) =>
-        options.firstWhere((option) => option.name == parts.last)
-            as AccessorPrimitiveOption,
-    };
+    final input = _accessorForPath(path, registry)!;
     final value = _takeOptionValue(args, index, consumed, path);
     final parsed = _parseAccessorValue(input, value);
-    return switch (accessor) {
-      AccessorPrimitiveOption() => {parts.first: parsed},
-      AccessorListOption() => {
-        parts.first: {input.name: parsed},
-      },
-    };
+    var values = <String, Object>{parts.last: parsed};
+
+    for (final segment in parts.reversed.skip(1)) {
+      values = {segment: values};
+    }
+    return values;
   }
 
   void _mergeAccessorValues(
@@ -532,16 +540,21 @@ class Parser {
   ) {
     for (final entry in values.entries) {
       final value = entry.value;
-      if (value is Map<String, Object>) {
-        final current = destination[entry.key];
-        destination[entry.key] = {
-          if (current is Map<String, Object>) ...current,
-          ...value,
-        };
-      } else {
-        destination[entry.key] = value;
-      }
+      final current = destination[entry.key];
+      destination[entry.key] = _mergeAccessorValuesAtLevel(current, value);
     }
+  }
+
+  Object _mergeAccessorValuesAtLevel(Object? current, Object value) {
+    if (current is! Map<String, Object> || value is! Map<String, Object>) {
+      return value;
+    }
+
+    return {
+      ...current,
+      for (final entry in value.entries)
+        entry.key: _mergeAccessorValuesAtLevel(current[entry.key], entry.value),
+    };
   }
 
   String _parseAccessorValue(AccessorPrimitiveOption option, String value) {

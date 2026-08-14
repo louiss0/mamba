@@ -191,17 +191,19 @@ final class CommandRegistry {
   }
 
   static void _validateAccessors(List<AccessorOption>? accessors) {
-    if (accessors == null) {
-      return;
-    }
-    _validateDuplicateNames(accessors, 'accessor');
+    if (accessors == null) return;
+    _validateAccessorLevel(accessors, 'accessor');
+  }
+
+  static void _validateAccessorLevel(
+    List<AccessorOption> accessors,
+    String inputKind,
+  ) {
+    _validateDuplicateNames(accessors, inputKind);
     for (final accessor in accessors) {
       _validatePositionalName(accessor.name);
       if (accessor case AccessorListOption(options: final options)) {
-        _validateDuplicateNames(options, 'accessor option');
-        for (final option in options) {
-          _validatePositionalName(option.name);
-        }
+        _validateAccessorLevel(options, 'accessor option');
       }
     }
   }
