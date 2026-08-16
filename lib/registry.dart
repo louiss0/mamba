@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'errors.dart';
 
 /// Parsed command inputs grouped by their concrete value type.
@@ -364,29 +366,7 @@ abstract class Command {
   final List<AccessorOption>? accessors;
   final List<Command>? commands;
 
-  void run(Inputs inputs, List<String> variadic);
-}
-
-abstract class GroupCommand extends Command {
-  GroupCommand(
-    super.name,
-    super.shortDescription, {
-    required this.defaultSubCommandPath,
-    super.longDescription,
-    super.mandatoryPositionals,
-    super.discretionaryPositionals,
-    super.variadic,
-    super.flags,
-    super.options,
-    super.pairedOptions,
-    super.accessors,
-    super.commands,
-  });
-
-  final List<String>? defaultSubCommandPath;
-
-  @override
-  void run(Inputs input, List<String> variadic) {}
+  FutureOr<String> run(Inputs inputs, List<String> variadic);
 }
 
 class Positional extends NamedInput {
