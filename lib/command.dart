@@ -7,18 +7,18 @@ abstract class GroupCommand extends Command {
   GroupCommand(
     super.name,
     super.shortDescription, {
-    super.longDescription,
-    super.mandatoryPositionals,
-    super.discretionaryPositionals,
-    super.variadic,
-    super.flags,
-    super.options,
-    super.pairedOptions,
-    super.accessors,
-    super.commands,
+    required super.longDescription,
+    required super.mandatoryPositionals,
+    required super.discretionaryPositionals,
+    required super.variadic,
+    required super.flags,
+    required super.options,
+    required super.pairedOptions,
+    required super.accessors,
+    required super.commands,
   });
 
-  FutureOr<void> runChildCommand(
+  FutureOr<String> runChildCommand(
     List<String> path,
     Inputs input,
     List<String> variadic,
@@ -38,7 +38,7 @@ abstract class GroupCommand extends Command {
     if (command == null) {
       throw MambaException('command not found in $name ${path.join(" ")}');
     }
-    await command.run(input, variadic);
+    return command.run(input, variadic);
   }
 
   @override
