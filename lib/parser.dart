@@ -172,46 +172,72 @@ class Parser {
           (option) => option is StringOption || option is ChoiceOption,
         ) ??
         false;
+    final hasPairedOptions =
+        registry.pairedOptions?.values.any(
+          (option) =>
+              option is PairedStringOption || option is PairedChoiceOption,
+        ) ??
+        false;
     final hasPairOptions =
         registry.pairOptions?.values.any(
           (option) => option is PairStringOption || option is PairChoiceOption,
         ) ??
         false;
-    return hasSingleOptions || hasPairOptions;
+    return hasSingleOptions || hasPairedOptions || hasPairOptions;
   }
 
   bool _hasSingleOptionType<T extends SingleOption>(CommandRegistry registry) =>
       registry.singleOptions?.values.any((option) => option is T) == true ||
       (T == IntOption &&
-          registry.pairOptions?.values.any(
-                (option) => option is PairIntOption,
-              ) ==
-              true) ||
+          (registry.pairedOptions?.values.any(
+                    (option) => option is PairedIntOption,
+                  ) ==
+                  true ||
+              registry.pairOptions?.values.any(
+                    (option) => option is PairIntOption,
+                  ) ==
+                  true)) ||
       (T == DoubleOption &&
-          registry.pairOptions?.values.any(
-                (option) => option is PairDoubleOption,
-              ) ==
-              true);
+          (registry.pairedOptions?.values.any(
+                    (option) => option is PairedDoubleOption,
+                  ) ==
+                  true ||
+              registry.pairOptions?.values.any(
+                    (option) => option is PairDoubleOption,
+                  ) ==
+                  true));
 
   bool _hasRepeatedOptionType<T extends RepeatableOption>(
     CommandRegistry registry,
   ) =>
       registry.repeatedOptions?.values.any((option) => option is T) == true ||
       (T == RepeatableStringOption &&
-          registry.pairOptions?.values.any(
-                (option) => option is PairRepeatableStringOption,
-              ) ==
-              true) ||
+          (registry.pairedOptions?.values.any(
+                    (option) => option is PairedRepeatableStringOption,
+                  ) ==
+                  true ||
+              registry.pairOptions?.values.any(
+                    (option) => option is PairRepeatableStringOption,
+                  ) ==
+                  true)) ||
       (T == RepeatableIntOption &&
-          registry.pairOptions?.values.any(
-                (option) => option is PairRepeatableIntOption,
-              ) ==
-              true) ||
+          (registry.pairedOptions?.values.any(
+                    (option) => option is PairedRepeatableIntOption,
+                  ) ==
+                  true ||
+              registry.pairOptions?.values.any(
+                    (option) => option is PairRepeatableIntOption,
+                  ) ==
+                  true)) ||
       (T == RepeatableDoubleOption &&
-          registry.pairOptions?.values.any(
-                (option) => option is PairRepeatableDoubleOption,
-              ) ==
-              true);
+          (registry.pairedOptions?.values.any(
+                    (option) => option is PairedRepeatableDoubleOption,
+                  ) ==
+                  true ||
+              registry.pairOptions?.values.any(
+                    (option) => option is PairRepeatableDoubleOption,
+                  ) ==
+                  true));
 
   List<String> _findCommand(List<String> args) {
     final command = <String>[];
@@ -247,11 +273,15 @@ class Parser {
   Option? _findOption(CommandRegistry registry, String name) =>
       registry.singleOptions?[name] ??
       registry.repeatedOptions?[name] ??
+      registry.pairedOptions?[name] ??
       registry.pairOptions?[name] ??
       registry.singleOptions?.values
           .where((option) => option.short == name)
           .firstOrNull ??
       registry.repeatedOptions?.values
+          .where((option) => option.short == name)
+          .firstOrNull ??
+      registry.pairedOptions?.values
           .where((option) => option.short == name)
           .firstOrNull ??
       registry.pairOptions?.values
@@ -393,6 +423,18 @@ class Parser {
           choices.map((choice) => choice.name),
           value,
         );
+      case PairedStringOption(:final regex):
+        stringOptions[option.name] = _parseStringOption(regex, value);
+      case PairedIntOption():
+        intOptions[option.name] = _parseInt(value);
+      case PairedDoubleOption():
+        doubleOptions[option.name] = _parseDouble(value);
+      case PairedChoiceOption(:final choices):
+        stringOptions[option.name] = _parseChoiceOption(
+          option.name,
+          choices.map((choice) => choice.name),
+          value,
+        );
       case PairStringOption(:final regex):
         stringOptions[option.name] = _parseStringOption(regex, value);
       case PairIntOption():
@@ -414,6 +456,20 @@ class Parser {
       case RepeatableIntOption():
         _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
       case RepeatableDoubleOption():
+        _addRepeatedValue(
+          option.name,
+          _parseDouble(value),
+          repeatedDoubleOptions,
+        );
+      case PairedRepeatableStringOption(:final regex):
+        _addRepeatedValue(
+          option.name,
+          _parseStringOption(regex, value),
+          repeatedStringOptions,
+        );
+      case PairedRepeatableIntOption():
+        _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
+      case PairedRepeatableDoubleOption():
         _addRepeatedValue(
           option.name,
           _parseDouble(value),
@@ -572,7 +628,7 @@ class Parser {
         RepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
           option.name,
         ),
-        PairOption() => false,
+        PairedOption() || PairOption() => false,
       };
       if (!present) {
         final message = option is StringOption
@@ -594,9 +650,10 @@ class Parser {
   ) {
     for (final pairedOption
         in registry.pairedOptions?.values ?? const <PairedOption>[]) {
-      final provided = pairedOption.options
+      final options = <Option>[pairedOption, ...pairedOption.options];
+      final provided = options
           .where(
-            (option) => _isPairOptionPresent(
+            (option) => _isPairedOptionPresent(
               option,
               stringOptions,
               intOptions,
@@ -612,16 +669,16 @@ class Parser {
           'Paired option --${pairedOption.name} is required',
         );
       }
-      if (provided > 0 && provided != pairedOption.options.length) {
+      if (provided > 0 && provided != options.length) {
         throw MambaParseException(
-          'Paired options ${pairedOption.options.map((option) => '--${option.name}').join(', ')} must be passed together',
+          'Paired options ${options.map((option) => '--${option.name}').join(', ')} must be passed together',
         );
       }
     }
   }
 
-  bool _isPairOptionPresent(
-    PairOption option,
+  bool _isPairedOptionPresent(
+    Option option,
     Map<String, String> stringOptions,
     Map<String, int> intOptions,
     Map<String, double> doubleOptions,
@@ -629,17 +686,26 @@ class Parser {
     Map<String, List<int>> repeatedIntOptions,
     Map<String, List<double>> repeatedDoubleOptions,
   ) => switch (option) {
+    PairedStringOption() ||
+    PairedChoiceOption() ||
     PairStringOption() ||
     PairChoiceOption() => stringOptions.containsKey(option.name),
-    PairIntOption() => intOptions.containsKey(option.name),
+    PairedIntOption() || PairIntOption() => intOptions.containsKey(option.name),
+    PairedDoubleOption() ||
     PairDoubleOption() => doubleOptions.containsKey(option.name),
-    PairRepeatableStringOption() => repeatedStringOptions.containsKey(
-      option.name,
-    ),
+    PairedRepeatableStringOption() || PairRepeatableStringOption() =>
+      repeatedStringOptions.containsKey(option.name),
+    PairedRepeatableIntOption() ||
     PairRepeatableIntOption() => repeatedIntOptions.containsKey(option.name),
-    PairRepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
-      option.name,
-    ),
+    PairedRepeatableDoubleOption() || PairRepeatableDoubleOption() =>
+      repeatedDoubleOptions.containsKey(option.name),
+    StringOption() ||
+    ChoiceOption() ||
+    IntOption() ||
+    DoubleOption() ||
+    RepeatableStringOption() ||
+    RepeatableIntOption() ||
+    RepeatableDoubleOption() => false,
   };
 
   Map<String, String>? _parsePositionals(

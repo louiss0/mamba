@@ -35,12 +35,9 @@ void main() {
     });
 
     test('indexes paired options by their group name', () {
-      final credentials = PairedOption(
-        name: 'credentials',
-        options: [
-          PairStringOption(name: 'username'),
-          PairStringOption(name: 'password'),
-        ],
+      final credentials = PairedStringOption(
+        name: 'username',
+        options: [PairStringOption(name: 'password')],
       );
 
       final registry = CommandRegistry.create(
@@ -49,7 +46,7 @@ void main() {
         pairedOptions: [credentials],
       );
 
-      expect(registry.pairedOptions, {'credentials': credentials});
+      expect(registry.pairedOptions, {'username': credentials});
     });
 
     test('creates registries for list-defined child commands', () {

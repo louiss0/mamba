@@ -220,26 +220,17 @@ void main() {
     test('parses paired string, int, and double options', () {
       final subject = parser(
         pairedOptions: [
-          PairedOption(
-            name: 'strings',
-            options: [
-              PairStringOption(name: 'first-name'),
-              PairStringOption(name: 'last-name'),
-            ],
+          PairedStringOption(
+            name: 'first-name',
+            options: [PairStringOption(name: 'last-name')],
           ),
-          PairedOption(
-            name: 'ints',
-            options: [
-              PairIntOption(name: 'minimum'),
-              PairIntOption(name: 'maximum'),
-            ],
+          PairedIntOption(
+            name: 'minimum',
+            options: [PairIntOption(name: 'maximum')],
           ),
-          PairedOption(
-            name: 'doubles',
-            options: [
-              PairDoubleOption(name: 'minimum-ratio'),
-              PairDoubleOption(name: 'maximum-ratio'),
-            ],
+          PairedDoubleOption(
+            name: 'minimum-ratio',
+            options: [PairDoubleOption(name: 'maximum-ratio')],
           ),
         ],
       );
@@ -270,39 +261,107 @@ void main() {
       });
     });
 
+    test('parses paired repeatable string, int, and double options', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedRepeatableStringOption(
+            name: 'name',
+            options: [PairRepeatableStringOption(name: 'value')],
+          ),
+          PairedRepeatableIntOption(
+            name: 'minimum',
+            options: [PairRepeatableIntOption(name: 'maximum')],
+          ),
+          PairedRepeatableDoubleOption(
+            name: 'minimum-weight',
+            options: [PairRepeatableDoubleOption(name: 'maximum-weight')],
+          ),
+        ],
+      );
+
+      final inputs = subject.parse([
+        '--name',
+        'Accept',
+        '--value',
+        'application/json',
+        '--name',
+        'Cache-Control',
+        '--value',
+        'no-cache',
+        '--minimum',
+        '1',
+        '--maximum',
+        '2',
+        '--minimum',
+        '3',
+        '--maximum',
+        '4',
+        '--minimum-weight',
+        '0.5',
+        '--maximum-weight',
+        '1.5',
+        '--minimum-weight',
+        '2.5',
+        '--maximum-weight',
+        '3.5',
+      ]).$2;
+
+      expect(inputs.repeatedStringOptions, {
+        'name': ['Accept', 'Cache-Control'],
+        'value': ['application/json', 'no-cache'],
+      });
+      expect(inputs.repeatedIntOptions, {
+        'minimum': [1, 3],
+        'maximum': [2, 4],
+      });
+      expect(inputs.repeatedDoubleOptions, {
+        'minimum-weight': [0.5, 2.5],
+        'maximum-weight': [1.5, 3.5],
+      });
+    });
+
+    test('rejects a partially passed repeatable pair', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedRepeatableStringOption(
+            name: 'name',
+            options: [PairRepeatableStringOption(name: 'value')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, [
+        '--name',
+        'Accept',
+        '--name',
+        'Cache-Control',
+      ]);
+    });
+
     final pairCases = [
       (
         description: 'string and int options',
-        group: PairedOption(
-          name: 'connection',
-          options: [
-            PairStringOption(name: 'host'),
-            PairIntOption(name: 'port'),
-          ],
+        group: PairedStringOption(
+          name: 'host',
+          options: [PairIntOption(name: 'port')],
         ),
         arguments: ['--host', 'localhost', '--port', '8080'],
         missingArguments: ['--host', 'localhost'],
       ),
       (
         description: 'string and double options',
-        group: PairedOption(
-          name: 'threshold',
-          options: [
-            PairStringOption(name: 'label'),
-            PairDoubleOption(name: 'value'),
-          ],
+        group: PairedStringOption(
+          name: 'label',
+          options: [PairDoubleOption(name: 'value')],
         ),
         arguments: ['--label', 'warning', '--value', '0.8'],
         missingArguments: ['--value', '0.8'],
       ),
       (
         description: 'int and double options',
-        group: PairedOption(
-          name: 'range',
-          options: [
-            PairIntOption(name: 'retries'),
-            PairDoubleOption(name: 'delay'),
-          ],
+        group: PairedIntOption(
+          name: 'retries',
+          options: [PairDoubleOption(name: 'delay')],
         ),
         arguments: ['--retries', '3', '--delay', '1.5'],
         missingArguments: ['--retries', '3'],

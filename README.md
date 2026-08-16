@@ -130,18 +130,16 @@ result and the second `Command.run` argument.
 
 ### Paired options
 
-A `PairedOption` groups two or more typed `PairOption` children. If a caller
-passes any child, they must pass every child in the group. The children do not
-accept `required`; the group owns that setting. Parsed values are included in
-the same typed maps as regular options.
+A typed `PairedOption` defines the first CLI option and groups it with one or
+more typed `PairOption` children. If a caller passes the primary or any child,
+they must pass every option in the group. Children do not accept `required`;
+the primary paired option owns that setting. Parsed values are included in the
+same typed maps as regular options.
 
 ```dart
-final credentials = PairedOption(
-  name: 'credentials',
-  options: [
-    PairStringOption(name: 'username'),
-    PairStringOption(name: 'password'),
-  ],
+final credentials = PairedStringOption(
+  name: 'username',
+  options: [PairStringOption(name: 'password')],
 );
 
 final registry = CommandRegistry.create(

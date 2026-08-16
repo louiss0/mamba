@@ -209,9 +209,9 @@ final class CommandRegistry {
     _validateDuplicateNames(pairedOptions, 'paired option');
     _validateNamedInputs(pairedOptions, 'Paired option');
     for (final pairedOption in pairedOptions ?? const <PairedOption>[]) {
-      if (pairedOption.options.length < 2) {
+      if (pairedOption.options.isEmpty) {
         throw const MambaException(
-          'A paired option must contain at least two pair options',
+          'A paired option must contain at least one pair option',
         );
       }
     }
@@ -269,6 +269,7 @@ final class CommandRegistry {
   ) {
     final registeredOptions = [
       ...?options,
+      ...?pairedOptions,
       ...?pairedOptions?.expand((pairedOption) => pairedOption.options),
     ];
     _validateDuplicateNames(registeredOptions, 'option');
@@ -498,22 +499,101 @@ sealed class Option extends NamedInput {
   );
 }
 
-/// A named group of options that must be supplied together.
-final class PairedOption extends NamedInput {
+/// An option that requires each of its [options] to be supplied with it.
+sealed class PairedOption extends Option {
   PairedOption({
-    required super.name,
     required List<PairOption> options,
-    this.short,
-    super.description,
-    this.required = false,
+    required super.short,
+    required super.name,
+    required super.description,
+    super.required,
   }) : options = List.unmodifiable(options);
 
-  final String? short;
-  final bool required;
   final List<PairOption> options;
 }
 
-/// An option that belongs to a [PairedOption].
+final class PairedStringOption extends PairedOption {
+  PairedStringOption({
+    required super.name,
+    required super.options,
+    RegExp? regex,
+    super.short,
+    super.description,
+    super.required,
+  }) : regex = regex ?? RegExp(r'\S+');
+
+  final RegExp regex;
+}
+
+final class PairedIntOption extends PairedOption {
+  PairedIntOption({
+    required super.name,
+    required super.options,
+    super.short,
+    super.description,
+    super.required,
+  });
+}
+
+final class PairedDoubleOption extends PairedOption {
+  PairedDoubleOption({
+    required super.name,
+    required super.options,
+    super.short,
+    super.description,
+    super.required,
+  });
+}
+
+final class PairedChoiceOption<T extends Enum> extends PairedOption {
+  PairedChoiceOption({
+    required this.choices,
+    required super.options,
+    this.defaultValue,
+    required super.name,
+    super.short,
+    super.description,
+    super.required,
+  });
+
+  final List<T> choices;
+  final T? defaultValue;
+}
+
+final class PairedRepeatableStringOption extends PairedOption {
+  PairedRepeatableStringOption({
+    required super.name,
+    required super.options,
+    RegExp? regex,
+    super.short,
+    super.description,
+    super.required,
+  }) : regex = regex ?? RegExp(r'\S+');
+
+  final RegExp regex;
+}
+
+final class PairedRepeatableIntOption extends PairedOption {
+  PairedRepeatableIntOption({
+    required super.name,
+    required super.options,
+    super.short,
+    super.description,
+    super.required,
+  });
+}
+
+final class PairedRepeatableDoubleOption extends PairedOption {
+  PairedRepeatableDoubleOption({
+    required super.name,
+    required super.options,
+    super.short,
+    super.description,
+    super.required,
+  });
+}
+
+/// An option that must accompany a [PairedOption].
 ///
 /// Pair members always inherit their requiredness from their group and therefore
 /// do not expose a `required` constructor parameter.
