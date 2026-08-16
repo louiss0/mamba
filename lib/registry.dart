@@ -343,15 +343,15 @@ abstract class Command {
   Command(
     this.name,
     this.shortDescription, {
-    this.longDescription,
-    this.mandatoryPositionals,
-    this.discretionaryPositionals,
-    this.variadic,
-    this.flags,
-    this.options,
-    this.pairedOptions,
-    this.accessors,
-    this.commands,
+    required this.longDescription,
+    required this.mandatoryPositionals,
+    required this.discretionaryPositionals,
+    required this.variadic,
+    required this.flags,
+    required this.options,
+    required this.pairedOptions,
+    required this.accessors,
+    required this.commands,
   });
 
   final String name;
