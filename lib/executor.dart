@@ -1,3 +1,4 @@
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/parser.dart';
@@ -59,14 +60,23 @@ final class Executor {
        ),
        commands = commands;
 
-  void execute(List<String> args) {
+  Future<void> execute(List<String> args) async {
     if (args.isEmpty || _requestsHelp(args)) {
       _writeHelp(_helpFormatter.formatHelp(_registryForArguments(args)));
       return;
     }
 
     final (commandPath, inputs, variadic) = Parser(_registry).parse(args);
-    _commandForPath(commandPath)?.run(inputs, variadic);
+    final command = _commandForPath(commandPath);
+    if (command == null) return;
+
+    final hookRunner = command is HookRunner ? command as HookRunner : null;
+    final context = MambaContext();
+    hookRunner?.preRun(context);
+    await command.run(inputs, variadic);
+    if (hookRunner != null) {
+      await hookRunner.postRun(MambaReadContext(context));
+    }
   }
 
   CommandRegistry _registryForArguments(List<String> args) {

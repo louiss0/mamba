@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:arg_parser/command.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
@@ -7,15 +5,36 @@ import 'package:arg_parser/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
-class TestHookRunner extends Mock with HookRunner implements Command {
+class TestHookRunner extends Mock implements Command, HookRunner {
+  @override
   final String name;
+
+  @override
   final String shortDescription;
   TestHookRunner(this.name, this.shortDescription);
 }
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(MambaContext());
+    registerFallbackValue(MambaReadContext(MambaContext()));
+    final Inputs emptyInputs = (
+      accessors: null,
+      boolFlags: null,
+      countFlags: null,
+      doubleOptions: null,
+      intOptions: null,
+      positionalOptions: null,
+      repeatedDoubleOptions: null,
+      repeatedIntOptions: null,
+      repeatedStringOptions: null,
+      stringOptions: null,
+    );
+    registerFallbackValue(emptyInputs);
+  });
+
   group('Executor', () {
-    test("executes hooks when a command is a HookRunner", () async  {
+    test("executes hooks when a command is a HookRunner", () async {
       final testHookRunner = TestHookRunner('add', "Add a new item.");
 
       when(() => testHookRunner.run(any(), any())).thenAnswer((_) => '');

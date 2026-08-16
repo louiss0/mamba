@@ -343,15 +343,15 @@ abstract class Command {
   Command(
     this.name,
     this.shortDescription, {
-    required this.longDescription,
-    required this.mandatoryPositionals,
-    required this.discretionaryPositionals,
-    required this.variadic,
-    required this.flags,
-    required this.options,
-    required this.pairedOptions,
-    required this.accessors,
-    required this.commands,
+    this.longDescription,
+    this.mandatoryPositionals,
+    this.discretionaryPositionals,
+    this.variadic,
+    this.flags,
+    this.options,
+    this.pairedOptions,
+    this.accessors,
+    this.commands,
   });
 
   final String name;
@@ -366,7 +366,7 @@ abstract class Command {
   final List<AccessorOption>? accessors;
   final List<Command>? commands;
 
-  FutureOr<String> run(Inputs inputs, List<String> variadic);
+  FutureOr<void> run(Inputs inputs, List<String> variadic);
 }
 
 class Positional extends NamedInput {

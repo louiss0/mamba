@@ -54,20 +54,30 @@ class TestCommand extends Mock implements Command {
 }
 
 void main() {
+  final Inputs emptyInputs = (
+    accessors: null,
+    boolFlags: null,
+    countFlags: null,
+    doubleOptions: null,
+    intOptions: null,
+    positionalOptions: null,
+    repeatedDoubleOptions: null,
+    repeatedIntOptions: null,
+    repeatedStringOptions: null,
+    stringOptions: null,
+  );
+  registerFallbackValue(emptyInputs);
+
   group("GroupCommand", () {
     final stashPush = TestCommand("push");
     final stashPop = TestCommand("pop");
     final stashCommand = TestCommand('stash', commands: [stashPush, stashPop]);
 
-    when(
-      () => stashPush.run(any(), any()),
-    ).thenReturn(Future.value("Push ran"));
+    when(() => stashPush.run(any(), any())).thenAnswer((_) {});
 
-    when(() => stashPop.run(any(), any())).thenReturn(Future.value("Pop ran"));
+    when(() => stashPop.run(any(), any())).thenAnswer((_) {});
 
-    when(
-      () => stashCommand.run(any(), any()),
-    ).thenReturn(Future.value("Stash ran"));
+    when(() => stashCommand.run(any(), any())).thenAnswer((_) {});
 
     final groupCommand = TestGroupCommand('git', commands: [stashCommand]);
 

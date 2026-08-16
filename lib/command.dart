@@ -18,7 +18,7 @@ abstract class GroupCommand extends Command {
     required super.commands,
   });
 
-  FutureOr<String> runChildCommand(
+  Future<void> runChildCommand(
     List<String> path,
     Inputs input,
     List<String> variadic,
@@ -27,22 +27,25 @@ abstract class GroupCommand extends Command {
       throw ArgumentError('path is empty', 'path');
     }
 
-    var commands = super.commands;
-
-    final command = path.fold<Command?>(null, (command, word) {
-      var output = commands!.firstWhere((c) => c.name == word);
-      commands = output.commands;
-      return output;
-    });
-
-    if (command == null) {
-      throw MambaException('command not found in $name ${path.join(" ")}');
+    Command? command;
+    var children = commands;
+    for (final name in path) {
+      command = children
+          ?.where((candidate) => candidate.name == name)
+          .firstOrNull;
+      if (command == null) {
+        throw MambaException(
+          'command not found in ${this.name} ${path.join(" ")}',
+        );
+      }
+      children = command.commands;
     }
-    return command.run(input, variadic);
+
+    await command!.run(input, variadic);
   }
 
   @override
-  FutureOr<String> run(Inputs input, List<String> variadic);
+  FutureOr<void> run(Inputs input, List<String> variadic);
 }
 
 class MambaContextKey<T> {}
