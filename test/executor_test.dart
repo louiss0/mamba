@@ -1,10 +1,40 @@
+import 'dart:async';
+
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
 import 'package:arg_parser/registry.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
+
+class TestHookRunner extends Mock with HookRunner implements Command {
+  final String name;
+  final String shortDescription;
+  TestHookRunner(this.name, this.shortDescription);
+}
 
 void main() {
   group('Executor', () {
+    test("executes hooks when a command is a HookRunner", () async  {
+      final testHookRunner = TestHookRunner('add', "Add a new item.");
+
+      when(() => testHookRunner.run(any(), any())).thenAnswer((_) => '');
+      when(() => testHookRunner.preRun(any())).thenReturn(null);
+      when(() => testHookRunner.postRun(any())).thenReturn(null);
+
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        commands: [testHookRunner],
+      );
+
+      await executor.execute(['add']);
+
+      verify(() => testHookRunner.preRun(any())).called(1);
+      verify(() => testHookRunner.run(any(), any())).called(1);
+      verify(() => testHookRunner.postRun(any())).called(1);
+    });
+
     test('writes help for the root and selected command', () {
       final output = <String>[];
       final build = _RecordingCommand('build', 'Build the workspace.');
