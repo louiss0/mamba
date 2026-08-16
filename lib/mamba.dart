@@ -1,4 +1,4 @@
-/// Schema-driven APIs for defining, parsing, and executing Mamba commands.
+/// APIs for defining, parsing, and executing Mamba commands.
 library;
 
 export 'errors.dart';

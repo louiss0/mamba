@@ -178,10 +178,10 @@ class HelpFormatter {
   List<String> _accessors(CommandRegistry registry) {
     final values = <String>[];
 
-    final accessorSchema = registry.accessors;
-    if (accessorSchema == null) return values;
+    final accessors = registry.accessors;
+    if (accessors == null) return values;
 
-    for (final entry in accessorSchema.entries) {
+    for (final entry in accessors.entries) {
       _writeAccessorEntries(values, entry.key, entry.value);
     }
 

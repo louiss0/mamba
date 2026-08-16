@@ -10,55 +10,53 @@ class Parser {
 
   final CommandRegistry _registry;
 
-  (List<String> command, Inputs inputs) parse(List<String> args) {
+  (List<String> command, Inputs inputs, List<String> variadic) parse(
+    List<String> args,
+  ) {
     final command = _findCommand(args);
     final registry = _registryForCommand(command);
-    final commandLength = command.length;
     final consumed = <int>{};
-    final singleOptions = <String, String>{};
-    final repeatedOptions = <String, List<String>>{};
     final boolFlags = <String, bool>{};
     final countFlags = <String, int>{};
-    final accessorMap = <String, Object>{};
-    final positionals = <String>[];
+    final stringOptions = <String, String>{};
+    final intOptions = <String, int>{};
+    final doubleOptions = <String, double>{};
+    final repeatedStringOptions = <String, List<String>>{};
+    final repeatedIntOptions = <String, List<int>>{};
+    final repeatedDoubleOptions = <String, List<double>>{};
+    final accessorValues = <String, dynamic>{};
+    final positionalValues = <String>[];
     final variadicValues = <String>[];
+
     for (var index = 0; index < args.length; index++) {
-      if (index < commandLength && args[index] == command[index]) {
-        continue;
-      }
-      if (consumed.contains(index)) {
-        continue;
-      }
+      if (index < command.length && args[index] == command[index]) continue;
+      if (consumed.contains(index)) continue;
 
       final token = args[index];
       if (token == '--') {
+        final remaining = args.skip(index + 1);
         if (registry.variadic == null) {
-          positionals.addAll(args.skip(index + 1));
+          positionalValues.addAll(remaining);
         } else {
-          variadicValues.addAll(args.skip(index + 1));
+          variadicValues.addAll(remaining);
         }
         break;
       }
-      if (token.isEmpty) {
-        continue;
-      }
+      if (token.isEmpty) continue;
+
       if (token.startsWith('--') && token.length > 2) {
         final (name, inlineValue) = _splitLongOption(token.substring(2));
         if (_isAccessor(name, registry)) {
-          final values = _parseAccessor(
-            name,
-            inlineValue,
-            args,
-            index,
-            consumed,
-            registry,
+          _mergeAccessorValues(
+            accessorValues,
+            _parseAccessor(name, inlineValue, args, index, consumed, registry),
           );
-          _mergeAccessorValues(accessorMap, values);
           continue;
         }
         if (name.contains('.')) {
           throw MambaParseException("This isn't a registered acessor");
         }
+
         final option = _findOption(registry, name);
         if (option != null) {
           final value = _takeOptionValue(
@@ -68,14 +66,16 @@ class Parser {
             option.name,
             inlineValue,
           );
-          if (option is RepeatableOption) {
-            _addRepeatedOptionValue(option, value, repeatedOptions);
-          } else {
-            singleOptions[option.name] = _parseOptionValue(
-              option as SingleOption,
-              value,
-            );
-          }
+          _addOptionValue(
+            option,
+            value,
+            stringOptions,
+            intOptions,
+            doubleOptions,
+            repeatedStringOptions,
+            repeatedIntOptions,
+            repeatedDoubleOptions,
+          );
           continue;
         }
         if (_parseLongFlag(name, registry, boolFlags, countFlags)) {
@@ -86,6 +86,7 @@ class Parser {
         }
         throw MambaParseException("This isn't a registered flag");
       }
+
       if (token.startsWith('-') && token.length > 1) {
         _parseShortInputs(
           token.substring(1),
@@ -93,44 +94,81 @@ class Parser {
           args,
           index,
           consumed,
-          singleOptions,
-          repeatedOptions,
           boolFlags,
           countFlags,
+          stringOptions,
+          intOptions,
+          doubleOptions,
+          repeatedStringOptions,
+          repeatedIntOptions,
+          repeatedDoubleOptions,
         );
         continue;
       }
-      positionals.add(token);
+      positionalValues.add(token);
     }
 
     _addBooleanDefaults(registry, boolFlags);
-    _addChoiceDefaults(registry, singleOptions);
-    _addAccessorChoiceDefaults(registry, accessorMap);
-    _validateRequiredOptions(registry, singleOptions, repeatedOptions);
+    _addChoiceDefaults(registry, stringOptions);
+    _addAccessorChoiceDefaults(registry, accessorValues);
+    _validateRequiredOptions(
+      registry,
+      stringOptions,
+      intOptions,
+      doubleOptions,
+      repeatedStringOptions,
+      repeatedIntOptions,
+      repeatedDoubleOptions,
+    );
     final parsedPositionals = _parsePositionals(
       registry,
-      positionals,
+      positionalValues,
       variadicValues,
     );
-
-    final flags = <String, dynamic>{...boolFlags, ...countFlags};
-    final options = <String, dynamic>{...singleOptions, ...repeatedOptions};
-    final positionalValues = <String, dynamic>{
-      ...?parsedPositionals.$1,
-      ...?parsedPositionals.$2,
-    };
 
     return (
       command,
       (
-        flags: registry.flagSchema?.toRecord(flags),
-        options: registry.optionSchema?.toRecord(options),
-        positionals: registry.positionalSchema?.toRecord(positionalValues),
-        acessors: registry.accessorSchema?.toRecord(accessorMap),
-        variadic: parsedPositionals.$3 ?? const [],
+        boolFlags: registry.boolFlags == null ? null : boolFlags,
+        countFlags: registry.countFlags == null ? null : countFlags,
+        stringOptions: _hasStringOptions(registry) ? stringOptions : null,
+        intOptions: _hasSingleOptionType<IntOption>(registry)
+            ? intOptions
+            : null,
+        doubleOptions: _hasSingleOptionType<DoubleOption>(registry)
+            ? doubleOptions
+            : null,
+        repeatedStringOptions:
+            _hasRepeatedOptionType<RepeatableStringOption>(registry)
+            ? repeatedStringOptions
+            : null,
+        repeatedIntOptions:
+            _hasRepeatedOptionType<RepeatableIntOption>(registry)
+            ? repeatedIntOptions
+            : null,
+        repeatedDoubleOptions:
+            _hasRepeatedOptionType<RepeatableDoubleOption>(registry)
+            ? repeatedDoubleOptions
+            : null,
+        accessors: accessorValues.isEmpty ? null : accessorValues,
+        positionalOptions: parsedPositionals,
       ),
+      variadicValues,
     );
   }
+
+  bool _hasStringOptions(CommandRegistry registry) =>
+      registry.singleOptions?.values.any(
+        (option) => option is StringOption || option is ChoiceOption,
+      ) ??
+      false;
+
+  bool _hasSingleOptionType<T extends SingleOption>(CommandRegistry registry) =>
+      registry.singleOptions?.values.any((option) => option is T) ?? false;
+
+  bool _hasRepeatedOptionType<T extends RepeatableOption>(
+    CommandRegistry registry,
+  ) => registry.repeatedOptions?.values.any((option) => option is T) ?? false;
 
   List<String> _findCommand(List<String> args) {
     final command = <String>[];
@@ -144,9 +182,7 @@ class Parser {
       final child = registry.commandRegistries
           ?.where((candidate) => candidate.name == args[offset])
           .firstOrNull;
-      if (child == null) {
-        break;
-      }
+      if (child == null) break;
       command.add(child.name);
       registry = child;
       offset++;
@@ -157,9 +193,7 @@ class Parser {
   CommandRegistry _registryForCommand(List<String> command) {
     var registry = _registry;
     for (final name in command) {
-      if (name == registry.name) {
-        continue;
-      }
+      if (name == registry.name) continue;
       registry = registry.commandRegistries!.firstWhere(
         (candidate) => candidate.name == name,
       );
@@ -167,24 +201,24 @@ class Parser {
     return registry;
   }
 
-  Option? _findOption(CommandRegistry registry, String name) {
-    return registry.singleOptions?[name] ??
-        registry.repeatedOptions?[name] ??
-        registry.singleOptions?.values
-            .where((option) => option.short == name)
-            .firstOrNull ??
-        registry.repeatedOptions?.values
-            .where((option) => option.short == name)
-            .firstOrNull;
-  }
+  Option? _findOption(CommandRegistry registry, String name) =>
+      registry.singleOptions?[name] ??
+      registry.repeatedOptions?[name] ??
+      registry.singleOptions?.values
+          .where((option) => option.short == name)
+          .firstOrNull ??
+      registry.repeatedOptions?.values
+          .where((option) => option.short == name)
+          .firstOrNull;
 
   (String, String?) _splitLongOption(String token) {
     final separatorIndex = token.indexOf('=');
-    if (separatorIndex < 0) return (token, null);
-    return (
-      token.substring(0, separatorIndex),
-      token.substring(separatorIndex + 1),
-    );
+    return separatorIndex < 0
+        ? (token, null)
+        : (
+            token.substring(0, separatorIndex),
+            token.substring(separatorIndex + 1),
+          );
   }
 
   String _takeOptionValue(
@@ -220,15 +254,9 @@ class Parser {
       return true;
     }
     final countFlag = registry.countFlags?[name];
-    if (countFlag != null) {
-      countFlags.update(
-        countFlag.name,
-        (count) => count + 1,
-        ifAbsent: () => 1,
-      );
-      return true;
-    }
-    return false;
+    if (countFlag == null) return false;
+    countFlags.update(countFlag.name, (count) => count + 1, ifAbsent: () => 1);
+    return true;
   }
 
   void _parseShortInputs(
@@ -237,29 +265,33 @@ class Parser {
     List<String> args,
     int index,
     Set<int> consumed,
-    Map<String, String> singleOptions,
-    Map<String, List<String>> repeatedOptions,
     Map<String, bool> boolFlags,
     Map<String, int> countFlags,
+    Map<String, String> stringOptions,
+    Map<String, int> intOptions,
+    Map<String, double> doubleOptions,
+    Map<String, List<String>> repeatedStringOptions,
+    Map<String, List<int>> repeatedIntOptions,
+    Map<String, List<double>> repeatedDoubleOptions,
   ) {
     final option = _findOption(registry, names);
     if (option != null) {
-      final value = _takeOptionValue(args, index, consumed, option.name, null);
-      if (option is RepeatableOption) {
-        _addRepeatedOptionValue(option, value, repeatedOptions);
-      } else {
-        singleOptions[option.name] = _parseOptionValue(
-          option as SingleOption,
-          value,
-        );
-      }
+      _addOptionValue(
+        option,
+        _takeOptionValue(args, index, consumed, option.name, null),
+        stringOptions,
+        intOptions,
+        doubleOptions,
+        repeatedStringOptions,
+        repeatedIntOptions,
+        repeatedDoubleOptions,
+      );
       return;
     }
 
     var negative = false;
     for (final character in names.split('')) {
       if (character == '-') {
-        boolFlags.clear();
         negative = true;
         continue;
       }
@@ -291,26 +323,52 @@ class Parser {
     }
   }
 
-  String _parseOptionValue(SingleOption option, String value) {
-    return switch (option) {
-      StringOption(:final regex) => _parseStringOption(regex, value),
-      IntOption() => _parseNumberOption(_parseInt, value),
-      DoubleOption() => _parseNumberOption(_parseDouble, value),
-      ChoiceOption(:final choices) => _parseChoiceOption(
-        option.name,
-        choices.map((choice) => choice.name),
-        value,
-      ),
-    };
+  void _addOptionValue(
+    Option option,
+    String value,
+    Map<String, String> stringOptions,
+    Map<String, int> intOptions,
+    Map<String, double> doubleOptions,
+    Map<String, List<String>> repeatedStringOptions,
+    Map<String, List<int>> repeatedIntOptions,
+    Map<String, List<double>> repeatedDoubleOptions,
+  ) {
+    switch (option) {
+      case StringOption(:final regex):
+        stringOptions[option.name] = _parseStringOption(regex, value);
+      case IntOption():
+        intOptions[option.name] = _parseInt(value);
+      case DoubleOption():
+        doubleOptions[option.name] = _parseDouble(value);
+      case ChoiceOption(:final choices):
+        stringOptions[option.name] = _parseChoiceOption(
+          option.name,
+          choices.map((choice) => choice.name),
+          value,
+        );
+      case RepeatableStringOption(:final regex):
+        _addRepeatedValue(
+          option.name,
+          _parseStringOption(regex, value),
+          repeatedStringOptions,
+        );
+      case RepeatableIntOption():
+        _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
+      case RepeatableDoubleOption():
+        _addRepeatedValue(
+          option.name,
+          _parseDouble(value),
+          repeatedDoubleOptions,
+        );
+    }
   }
 
-  String _parseNumberOption(Object Function(String) parse, String value) {
-    parse(value);
-    return value;
+  void _addRepeatedValue<T>(String name, T value, Map<String, List<T>> values) {
+    values.update(name, (items) => [...items, value], ifAbsent: () => [value]);
   }
 
   String _parseStringOption(RegExp regex, String value) {
-    if (!regex.hasMatch(value)) {
+    if (!_matchesEntirely(regex, value)) {
       throw MambaParseException("This value doesn't satify the requirement");
     }
     return value;
@@ -330,47 +388,6 @@ class Parser {
     return value;
   }
 
-  void _addRepeatedOptionValue(
-    RepeatableOption option,
-    String value,
-    Map<String, List<String>> options,
-  ) {
-    final values = options[option.name] ?? [];
-    _validateRepeatedValue(option, value, values.length);
-    options[option.name] = [...values, value];
-  }
-
-  void _validateRepeatedValue(
-    RepeatableOption option,
-    String value,
-    int count,
-  ) {
-    String? error;
-    switch (option) {
-      case RepeatableStringOption(:final regex):
-        if (!_matchesEntirely(regex, value)) {
-          error = 'Invalid input must be a ';
-        }
-      case RepeatableIntOption():
-        if (!_matchesEntirely(RegExp(r'[+-]?\d+'), value)) {
-          error = value.trim() != value
-              ? "Invalid input must be a int.\nDon't add spaces"
-              : 'Invalid input must be a int';
-        }
-      case RepeatableDoubleOption():
-        if (!_matchesEntirely(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
-          error = value.trimLeft() != value
-              ? "Invalid input must be a  double.\nDon't add spaces"
-              : value.trimRight() != value
-              ? "Invalid input must be a double.\nDon't add spaces"
-              : 'Invalid input must be a double';
-        }
-    }
-    if (error != null) {
-      throw MambaParseException('Wrong option at ${count + 1} $error');
-    }
-  }
-
   int _parseInt(String value) {
     if (!_matchesEntirely(RegExp(r'[+-]?\d+'), value)) {
       throw MambaParseException(
@@ -383,7 +400,7 @@ class Parser {
   double _parseDouble(String value) {
     if (!_matchesEntirely(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
       throw MambaParseException(
-        'Invalid int value: $value never have spaces in between numbers',
+        'Invalid double value: $value never have spaces in between numbers',
       );
     }
     return double.parse(value);
@@ -406,42 +423,38 @@ class Parser {
   ) {
     for (final option
         in registry.singleOptions?.values ?? const <SingleOption>[]) {
-      if (option is ChoiceOption &&
-          option.defaultValue != null &&
-          !values.containsKey(option.name)) {
-        values[option.name] = option.defaultValue!.name;
+      if (option case ChoiceOption(defaultValue: final defaultValue?)) {
+        values.putIfAbsent(option.name, () => defaultValue.name);
       }
     }
   }
 
   void _addAccessorChoiceDefaults(
     CommandRegistry registry,
-    Map<String, Object> values,
+    Map<String, dynamic> values,
   ) {
     for (final entry
         in (registry.accessors ?? const <String, AccessorOption>{}).entries) {
       final defaults = _accessorChoiceDefaults(entry.value);
-      if (defaults == null) continue;
-      values[entry.key] = _mergeAccessorDefaults(defaults, values[entry.key]);
+      if (defaults != null) {
+        values[entry.key] = _mergeAccessorDefaults(defaults, values[entry.key]);
+      }
     }
   }
 
-  Object? _accessorChoiceDefaults(AccessorOption accessor) {
-    return switch (accessor) {
-      AccessorChoiceOption(defaultValue: final defaultValue?) =>
-        defaultValue.name,
-      AccessorChoiceOption() => null,
-      AccessorPrimitiveOption() => null,
-      AccessorListOption(options: final options) => _accessorListChoiceDefaults(
-        options,
-      ),
-    };
-  }
+  dynamic _accessorChoiceDefaults(AccessorOption accessor) =>
+      switch (accessor) {
+        AccessorChoiceOption(defaultValue: final defaultValue?) =>
+          defaultValue.name,
+        AccessorChoiceOption() || AccessorPrimitiveOption() => null,
+        AccessorListOption(options: final options) =>
+          _accessorListChoiceDefaults(options),
+      };
 
-  Map<String, Object>? _accessorListChoiceDefaults(
+  Map<String, dynamic>? _accessorListChoiceDefaults(
     List<AccessorOption> options,
   ) {
-    final defaults = <String, Object>{};
+    final defaults = <String, dynamic>{};
     for (final option in options) {
       final value = _accessorChoiceDefaults(option);
       if (value != null) defaults[option.name] = value;
@@ -449,11 +462,10 @@ class Parser {
     return defaults.isEmpty ? null : defaults;
   }
 
-  Object _mergeAccessorDefaults(Object defaults, Object? current) {
-    if (defaults is! Map<String, Object> || current is! Map<String, Object>) {
+  dynamic _mergeAccessorDefaults(dynamic defaults, dynamic current) {
+    if (defaults is! Map<String, dynamic> || current is! Map<String, dynamic>) {
       return current ?? defaults;
     }
-
     return {
       ...current,
       for (final entry in defaults.entries)
@@ -463,16 +475,32 @@ class Parser {
 
   void _validateRequiredOptions(
     CommandRegistry registry,
-    Map<String, String> singleOptions,
-    Map<String, List<String>> repeatedOptions,
+    Map<String, String> stringOptions,
+    Map<String, int> intOptions,
+    Map<String, double> doubleOptions,
+    Map<String, List<String>> repeatedStringOptions,
+    Map<String, List<int>> repeatedIntOptions,
+    Map<String, List<double>> repeatedDoubleOptions,
   ) {
     for (final option in [
       ...?registry.singleOptions?.values,
       ...?registry.repeatedOptions?.values,
     ]) {
-      if (option.required &&
-          !singleOptions.containsKey(option.name) &&
-          !repeatedOptions.containsKey(option.name)) {
+      if (!option.required) continue;
+      final present = switch (option) {
+        StringOption() ||
+        ChoiceOption() => stringOptions.containsKey(option.name),
+        IntOption() => intOptions.containsKey(option.name),
+        DoubleOption() => doubleOptions.containsKey(option.name),
+        RepeatableStringOption() => repeatedStringOptions.containsKey(
+          option.name,
+        ),
+        RepeatableIntOption() => repeatedIntOptions.containsKey(option.name),
+        RepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
+          option.name,
+        ),
+      };
+      if (!present) {
         final message = option is StringOption
             ? 'The ${option.name} is required'
             : 'Option --${option.name} is required';
@@ -481,7 +509,7 @@ class Parser {
     }
   }
 
-  (Map<String, String>?, Map<String, String>?, List<String>?) _parsePositionals(
+  Map<String, String>? _parsePositionals(
     CommandRegistry registry,
     List<String> values,
     List<String> variadicValues,
@@ -491,56 +519,45 @@ class Parser {
     final discretionary =
         registry.discretionaryPositionals?.values.toList() ??
         const <Positional>[];
-    final mandatoryValues = <String, String>{};
-    final discretionaryValues = <String, String>{};
+    final parsed = <String, String>{};
     var index = 0;
 
     for (final positional in mandatory) {
-      if (index >= values.length ||
-          !positional.regex!.hasMatch(values[index])) {
+      if (index >= values.length || !positional.regex.hasMatch(values[index])) {
         throw MambaParseException(
           'The ${positional.name} is required at $index after this command',
         );
       }
-      mandatoryValues[positional.name] = values[index++];
+      parsed[positional.name] = values[index++];
     }
     for (final positional in discretionary) {
       if (index >= values.length) break;
-      if (!positional.regex!.hasMatch(values[index])) {
+      if (!positional.regex.hasMatch(values[index])) {
         throw ArgumentError(
           'Invalid value for positional ${positional.name} at $index after the command',
         );
       }
-      discretionaryValues[positional.name] = values[index++];
+      parsed[positional.name] = values[index++];
     }
-    final variadic = registry.variadic;
-    if (variadic != null) {
+    if (registry.variadic != null) {
       if (index != values.length) {
         throw MambaParseException(
-          'Variadic values for ${variadic.name} must follow --',
+          'Variadic values for ${registry.variadic!.name} must follow --',
         );
       }
       for (final value in variadicValues) {
-        if (!variadic.regex!.hasMatch(value)) {
-          throw ArgumentError('Invalid value for variadic ${variadic.name}');
+        if (!registry.variadic!.regex.hasMatch(value)) {
+          throw ArgumentError(
+            'Invalid value for variadic ${registry.variadic!.name}',
+          );
         }
       }
-      return (
-        mandatoryValues.isEmpty ? null : mandatoryValues,
-        discretionaryValues.isEmpty ? null : discretionaryValues,
-        variadicValues,
-      );
-    }
-    if (index != values.length) {
+    } else if (index != values.length) {
       throw MambaParseException(
         "This term isn't a registered command positional or variadic",
       );
     }
-    return (
-      mandatoryValues.isEmpty ? null : mandatoryValues,
-      discretionaryValues.isEmpty ? null : discretionaryValues,
-      null,
-    );
+    return parsed.isEmpty ? null : parsed;
   }
 
   bool _isAccessor(String path, CommandRegistry registry) =>
@@ -560,7 +577,7 @@ class Parser {
     return accessor is AccessorPrimitiveOption ? accessor : null;
   }
 
-  Map<String, Object> _parseAccessor(
+  Map<String, dynamic> _parseAccessor(
     String path,
     String? inlineValue,
     List<String> args,
@@ -569,11 +586,11 @@ class Parser {
     CommandRegistry registry,
   ) {
     final parts = path.split('.');
-    final input = _accessorForPath(path, registry)!;
-    final value = _takeOptionValue(args, index, consumed, path, inlineValue);
-    final parsed = _parseAccessorValue(input, value);
-    var values = <String, Object>{parts.last: parsed};
-
+    final value = _parseAccessorValue(
+      _accessorForPath(path, registry)!,
+      _takeOptionValue(args, index, consumed, path, inlineValue),
+    );
+    Map<String, dynamic> values = {parts.last: value};
     for (final segment in parts.reversed.skip(1)) {
       values = {segment: values};
     }
@@ -581,21 +598,21 @@ class Parser {
   }
 
   void _mergeAccessorValues(
-    Map<String, Object> destination,
-    Map<String, Object> values,
+    Map<String, dynamic> destination,
+    Map<String, dynamic> values,
   ) {
     for (final entry in values.entries) {
-      final value = entry.value;
-      final current = destination[entry.key];
-      destination[entry.key] = _mergeAccessorValuesAtLevel(current, value);
+      destination[entry.key] = _mergeAccessorValuesAtLevel(
+        destination[entry.key],
+        entry.value,
+      );
     }
   }
 
-  Object _mergeAccessorValuesAtLevel(Object? current, Object value) {
-    if (current is! Map<String, Object> || value is! Map<String, Object>) {
+  dynamic _mergeAccessorValuesAtLevel(dynamic current, dynamic value) {
+    if (current is! Map<String, dynamic> || value is! Map<String, dynamic>) {
       return value;
     }
-
     return {
       ...current,
       for (final entry in value.entries)
@@ -603,16 +620,15 @@ class Parser {
     };
   }
 
-  String _parseAccessorValue(AccessorPrimitiveOption option, String value) {
-    return switch (option) {
-      AccessorStringOption(:final regex) => _parseStringOption(regex, value),
-      AccessorIntOption() => _parseNumberOption(_parseInt, value),
-      AccessorDoubleOption() => _parseNumberOption(_parseDouble, value),
-      AccessorChoiceOption(:final choices) => _parseChoiceOption(
-        option.name,
-        choices.map((choice) => choice.name),
-        value,
-      ),
-    };
-  }
+  dynamic _parseAccessorValue(AccessorPrimitiveOption option, String value) =>
+      switch (option) {
+        AccessorStringOption(:final regex) => _parseStringOption(regex, value),
+        AccessorIntOption() => _parseInt(value),
+        AccessorDoubleOption() => _parseDouble(value),
+        AccessorChoiceOption(:final choices) => _parseChoiceOption(
+          option.name,
+          choices.map((choice) => choice.name),
+          value,
+        ),
+      };
 }

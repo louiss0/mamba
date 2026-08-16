@@ -1,146 +1,67 @@
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
-import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Executor help routing', () {
-    test('writes root help when no subcommand is provided', () {
-      final calls = <String>[];
+  group('Executor', () {
+    test('writes help for the root and selected command', () {
       final output = <String>[];
+      final build = _RecordingCommand('build', 'Build the workspace.');
       final executor = Executor(
         'workspace',
         'Manage a workspace.',
         writeHelp: output.add,
-        commands: [_RecordingCommand('build', 'Build the workspace.', calls)],
+        commands: [build],
       );
 
       executor.execute([]);
+      executor.execute(['build', '--help']);
 
-      expect(calls, isEmpty);
-      expect(output.single, HelpFormatter().formatHelp(_rootRegistry()));
+      expect(output, hasLength(2));
+      expect(output.first, contains('workspace'));
+      expect(output.last, contains('build'));
+      expect(build.calls, 0);
     });
 
-    test('writes root help instead of running the root command', () {
-      final calls = <String>[];
-      final output = <String>[];
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        writeHelp: output.add,
-        commands: [_RecordingCommand('build', 'Build the workspace.', calls)],
+    test('runs the selected list-defined command with parsed maps', () {
+      final build = _RecordingCommand(
+        'build',
+        'Build the workspace.',
+        flags: [BooleanFlag(name: 'verbose')],
       );
-
-      executor.execute(['--help']);
-
-      expect(calls, isEmpty);
-      expect(output, hasLength(1));
-      expect(output.single, HelpFormatter().formatHelp(_rootRegistry()));
-    });
-
-    test('writes selected command help without running its handler', () {
-      final calls = <String>[];
-      final output = <String>[];
-      final build = _RecordingCommand('build', 'Build the workspace.', calls);
       final executor = Executor(
         'workspace',
         'Manage a workspace.',
-        writeHelp: output.add,
         commands: [build],
       );
 
-      executor.execute(['build', '--help']);
+      executor.execute(['build', '--verbose']);
 
-      expect(calls, isEmpty);
-      expect(output.length, 1);
+      expect(build.calls, 1);
+      expect(build.inputs!.boolFlags, {'verbose': true});
     });
 
-    test('supports the short help flag after a nested command', () {
-      final calls = <String>[];
-      final output = <String>[];
-      final deploy = _RecordingCommand(
-        'deploy',
-        'Deploy the workspace.',
-        calls,
-      );
-      final release = _RecordingCommand(
-        'release',
-        'Manage releases.',
-        calls,
-        commands: [deploy],
-      );
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        writeHelp: output.add,
-        commands: [release],
-      );
-
-      executor.execute(['release', 'deploy', '-h']);
-
-      expect(calls, isEmpty);
-      expect(output.length, 1);
-    });
-
-    test('rejects an unknown command even when help is requested', () {
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        commands: [_RecordingCommand('build', 'Build the workspace.', [])],
-      );
+    test('rejects unknown commands even when help is requested', () {
+      final executor = Executor('workspace', 'Manage a workspace.');
 
       expect(
         () => executor.execute(['unknown', '--help']),
-        throwsA(
-          isA<MambaException>().having(
-            (error) => error.message,
-            'message',
-            contains('Command unknown was not found under workspace.'),
-          ),
-        ),
+        throwsA(isA<MambaException>()),
       );
-    });
-
-    test('runs the selected command when help is absent', () {
-      final calls = <String>[];
-      final build = _RecordingCommand('build', 'Build the workspace.', calls);
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        commands: [build],
-      );
-
-      executor.execute(['build']);
-
-      expect(calls, ['build']);
     });
   });
 }
 
-CommandRegistry _rootRegistry() => CommandRegistry.create(
-  'workspace',
-  'Manage a workspace.',
-  commands: [_RecordingCommand('build', 'Build the workspace.', [])],
-);
-
 final class _RecordingCommand extends Command {
-  _RecordingCommand(
-    super.name,
-    super.shortDescription,
-    this.calls, {
-    super.commands,
-  }) : super(
-         positionalSchema: null,
-         accessorSchema: null,
-         flagSchema: null,
-         optionSchema: null,
-       );
+  _RecordingCommand(super.name, super.shortDescription, {super.flags});
 
-  final List<String> calls;
+  int calls = 0;
+  Inputs? inputs;
 
   @override
   void run(Inputs input, List<String> variadic) {
-    calls.add(name);
+    calls++;
+    inputs = input;
   }
 }

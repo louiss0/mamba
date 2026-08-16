@@ -32,10 +32,12 @@ final class Executor {
     String name,
     String shortDescription, {
     String? longDescription,
-    PositionalSchema? positionalSchema,
-    AccessorOptionSchema? accessorSchema,
-    FlagSchema? flagSchema,
-    OptionSchema? optionSchema,
+    List<Positional>? mandatoryPositionals,
+    List<Positional>? discretionaryPositionals,
+    Variadic? variadic,
+    List<AccessorOption>? accessors,
+    List<Flag>? flags,
+    List<Option>? options,
     List<Command>? commands,
     HelpFormatter? helpFormatter,
     void Function(String)? writeHelp,
@@ -45,10 +47,12 @@ final class Executor {
          name,
          shortDescription,
          longDescription: longDescription,
-         positionalSchema: positionalSchema,
-         accessorSchema: accessorSchema,
-         flagSchema: flagSchema,
-         optionSchema: optionSchema,
+         mandatoryPositionals: mandatoryPositionals,
+         discretionaryPositionals: discretionaryPositionals,
+         variadic: variadic,
+         accessors: accessors,
+         flags: flags,
+         options: options,
          commands: commands,
        ),
        commands = commands;
@@ -59,8 +63,8 @@ final class Executor {
       return;
     }
 
-    final (commandPath, inputs) = Parser(_registry).parse(args);
-    _commandForPath(commandPath)?.run(inputs, inputs.variadic);
+    final (commandPath, inputs, variadic) = Parser(_registry).parse(args);
+    _commandForPath(commandPath)?.run(inputs, variadic);
   }
 
   CommandRegistry _registryForArguments(List<String> args) {

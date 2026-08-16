@@ -1,23 +1,20 @@
 # Mamba
 
-Mamba is a Dart library for defining command-line interfaces with typed schemas.
-It is for developers who want commands, options, flags, nested accessor values,
-and positionals to be declared once and converted into application-friendly
-records after parsing. Mamba keeps command registration and input conversion in
-the same schema so CLI code can focus on its behavior rather than token maps.
+Mamba is a Dart library for defining command-line interfaces with declarative
+input lists. It parses registered flags, options, positionals, and nested
+accessors into typed maps that command handlers can use directly.
 
 [![pub package](https://img.shields.io/pub/v/arg_parser.svg)](https://pub.dev/packages/arg_parser)
 [![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
 ## Features
 
-- Register commands through flag, option, positional, and accessor schemas.
-- Convert parsed inputs into typed Dart records with each schema's `toRecord`.
+- Define commands with lists of flags, options, positionals, and accessors.
+- Receive Boolean flags, count flags, each single-option type, and each
+  repeatable-option type in separate maps.
 - Support Boolean and count flags; string, integer, double, choice, and
   repeatable options; named positionals; variadics; and nested accessor values.
-- Validate command definitions before parsing, including invalid names and
-  duplicate registrations.
-- Render ANSI-styled help and execute registered command handlers.
+- Validate command definitions, render ANSI-styled help, and execute handlers.
 
 ## Installation
 
@@ -29,85 +26,48 @@ dart pub add arg_parser
 
 ## Quick start
 
-Import Mamba's public entry point, define an option schema, register it, and
-parse command-line tokens.
+Define inputs with lists, register a command, and parse tokens.
 
 ```dart
 import 'package:arg_parser/mamba.dart';
-
-class GreetingOptions extends OptionSchema<({String name})> {
-  @override
-  final schema = [
-    StringOption(name: 'name', required: true, regex: RegExp(r'\S+')),
-  ];
-
-  @override
-  ({String name}) toRecord(Map<String, dynamic> args) =>
-      (name: args['name'] as String);
-}
 
 void main() {
   final parser = Parser(
     CommandRegistry.create(
       'greet',
       'Print a greeting.',
-      optionSchema: GreetingOptions(),
+      options: [
+        StringOption(name: 'name', required: true, regex: RegExp(r'\S+')),
+      ],
     ),
   );
 
-  final (_, inputs) = parser.parse(['--name', 'Ada']);
-  final options = inputs.options! as ({String name});
-  print('Hello, ${options.name}!');
+  final (_, inputs, _) = parser.parse(['--name', 'Ada']);
+  print('Hello, ${inputs.stringOptions!['name']}!');
 }
 ```
 
-## Concepts
+## Commands
 
-### Schemas register and shape input
-
-Every schema has two responsibilities:
-
-1. Its `schema` list declares the inputs accepted by a command.
-2. Its `toRecord` method converts the parser's raw values into the record your
-   application uses.
-
-For example, a flag schema can merge a Boolean flag and a count flag into one
-record:
-
-```dart
-class LoggingFlags extends FlagSchema<({bool verbose, int quiet})> {
-  @override
-  final schema = [
-    BooleanFlag(name: 'verbose', short: 'v'),
-    CountFlag(name: 'quiet', short: 'q'),
-  ];
-
-  @override
-  ({bool verbose, int quiet}) toRecord(Map<String, dynamic> args) => (
-    verbose: args['verbose'] as bool? ?? false,
-    quiet: args['quiet'] as int? ?? 0,
-  );
-}
-```
-
-Use `OptionSchema`, `FlagSchema`, `PositionalSchema`, and
-`AccessorOptionSchema` to model each input category. `PositionalSchema` also
-owns mandatory and optional positionals plus an optional `Variadic` input.
-
-### Commands own schemas
-
-Extend `Command` to group schemas with a handler. Nested commands are supplied
-through the `commands` constructor argument. `Executor` registers the root
-command tree, parses its arguments, routes help requests, and runs the selected
-command.
+Extend `Command` to group its input lists with a handler. Nested commands are
+provided through `commands`. `Executor` routes help requests and invokes the
+selected command with parsed inputs and variadic values.
 
 ```dart
 final class GreetCommand extends Command {
-  GreetCommand() : super('greet', 'Print a greeting.');
+  GreetCommand()
+    : super(
+        'greet',
+        'Print a greeting.',
+        flags: [BooleanFlag(name: 'excited')],
+        options: [StringOption(name: 'name', regex: RegExp(r'\S+'))],
+      );
 
   @override
-  void run(Inputs input, List<String> variadic) {
-    print('Hello!');
+  void run(Inputs inputs, List<String> variadic) {
+    final name = inputs.stringOptions?['name'] ?? 'world';
+    final suffix = inputs.boolFlags?['excited'] == true ? '!' : '.';
+    print('Hello, $name$suffix');
   }
 }
 
@@ -115,76 +75,58 @@ Executor(
   'mamba',
   'Example command runner.',
   commands: [GreetCommand()],
-).execute(['greet']);
+).execute(['greet', '--name', 'Ada']);
 ```
 
-## Usage
+## Parsed inputs
 
-### Options and flags
-
-Use `StringOption`, `IntOption`, `DoubleOption`, and `ChoiceOption` for one
-value; use the corresponding `Repeatable...Option` classes for repeated
-values. Options and accessor leaves accept either `--name value` or
-`--name=value`. `BooleanFlag` supports a short name, a default value, and
-optional negation. `CountFlag` increments each time it appears.
+`Parser.parse` returns `(command, inputs, variadic)`. `inputs` has nullable maps
+for each registered input category:
 
 ```dart
-enum OutputFormat { text, json }
-
-final schema = [
-  BooleanFlag(name: 'color', negatable: true),
-  CountFlag(name: 'verbose', short: 'v'),
-  ChoiceOption<OutputFormat>(name: 'format', choices: OutputFormat.values),
-  RepeatableStringOption(name: 'tag'),
-];
+typedef Inputs = ({
+  Map<String, bool>? boolFlags,
+  Map<String, int>? countFlags,
+  Map<String, String>? stringOptions,
+  Map<String, int>? intOptions,
+  Map<String, double>? doubleOptions,
+  Map<String, List<String>>? repeatedStringOptions,
+  Map<String, List<int>>? repeatedIntOptions,
+  Map<String, List<double>>? repeatedDoubleOptions,
+  Map<String, dynamic>? accessors,
+  Map<String, String>? positionalOptions,
+});
 ```
 
-### Positionals and variadics
+A `ChoiceOption` is returned in `stringOptions`. Accessors preserve their
+nested structure and their primitive values, so an `AccessorIntOption` produces
+an `int` in the accessor map.
 
-`PositionalSchema` binds mandatory and optional positionals before a final
-`Variadic`. A variadic accepts values **only** after the option terminator
-`--`; this lets a command safely forward option-like tokens without parsing
-them as Mamba inputs.
+## Input lists
+
+Use `flags`, `options`, `mandatoryPositionals`, `discretionaryPositionals`,
+`variadic`, and `accessors` when creating a `CommandRegistry`, `Command`, or
+`Executor`. Accessors accept a root `List<AccessorOption>` and may contain
+nested `AccessorListOption` groups.
 
 ```dart
-class BuildPositionals extends PositionalSchema<({String script})> {
-  BuildPositionals()
-      : super([Positional('script')], variadic: Variadic('arguments'));
-
-  @override
-  ({String script}) toRecord(Map<String, dynamic> args) =>
-      (script: args['script'] as String);
-}
-
-// `inputs.variadic` receives ['--watch', '-v'].
-final (_, inputs) = parser.parse(['build.dart', '--', '--watch', '-v']);
+final registry = CommandRegistry.create(
+  'config',
+  'Read configuration.',
+  flags: [CountFlag(name: 'verbose', short: 'v')],
+  options: [RepeatableStringOption(name: 'tag')],
+  accessors: [
+    AccessorListOption(
+      name: 'server',
+      options: [AccessorIntOption(name: 'port')],
+    ),
+  ],
+);
 ```
 
-Values after `--` are validated by the variadic's regex. Extra values before
-`--` are rejected rather than being captured by the variadic.
-
-### Nested accessor values
-
-`AccessorOptionSchema` registers primitive accessor options or recursive
-`AccessorListOption` groups. A dotted option such as
-`--remote.origin.urls.fetch https://example.com` is provided to `toRecord` as
-a nested map. Accessor paths may be nested to any depth.
-
-```dart
-final schema = [
-  AccessorListOption(
-    name: 'server',
-    options: [AccessorIntOption(name: 'port')],
-  ),
-];
-```
-
-### Parse errors and help
-
-`Parser.parse` throws `MambaParseException` for invalid command-line input and
-`CommandRegistry.create` throws `MambaException` or `MambaRegistryError` for
-invalid command definitions. Use `HelpFormatter` to render a
-`CommandRegistry`, or `Executor` to route `--help` and `-h` automatically.
+Options and accessor leaves accept either `--name value` or `--name=value`.
+Variadic values are accepted only after `--` and are passed as the third parser
+result and the second `Command.run` argument.
 
 ## Development
 
@@ -192,19 +134,8 @@ invalid command definitions. Use `HelpFormatter` to render a
 dart pub get
 dart analyze
 dart test
-```
-
-Format Dart sources before submitting changes:
-
-```sh
 dart format lib test
 ```
-
-## Contributing
-
-Keep changes focused, add or update behavioral tests, and run `dart analyze`
-and `dart test` before opening a pull request. For substantial API changes,
-open an issue first to discuss the schema and compatibility impact.
 
 ## License
 

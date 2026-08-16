@@ -1,5 +1,5 @@
 name: arg_parser
-description: A schema-driven command-line parser with typed command inputs.
+description: A list-defined command-line parser with typed map inputs.
 version: 1.0.0
 homepage: https://github.com/louiss0/mamba
 repository: https://github.com/louiss0/mamba
@@ -8,7 +8,7 @@ topics:
   - command-line
   - parser
   - cli
-  - schemas
+  - command-line-parser
   - yargs
 environment:
   sdk: ^3.12.2
