@@ -23,6 +23,8 @@ final class CommandRegistry {
     this.countFlags,
     this.singleOptions,
     this.repeatedOptions,
+    this.pairedOptions,
+    this.pairOptions,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
     this.variadic,
@@ -37,6 +39,8 @@ final class CommandRegistry {
   final Map<String, BooleanFlag>? boolFlags;
   final Map<String, SingleOption>? singleOptions;
   final Map<String, RepeatableOption>? repeatedOptions;
+  final Map<String, PairedOption>? pairedOptions;
+  final Map<String, PairOption>? pairOptions;
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
   final Variadic? variadic;
@@ -52,6 +56,7 @@ final class CommandRegistry {
     Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
+    List<PairedOption>? pairedOptions,
     List<AccessorOption>? accessors,
     List<Command>? commands,
   }) {
@@ -63,6 +68,7 @@ final class CommandRegistry {
       variadic,
       flags,
       options,
+      pairedOptions,
       accessors,
       commands,
     );
@@ -78,6 +84,10 @@ final class CommandRegistry {
       ),
       repeatedOptions: _indexByName<RepeatableOption>(
         options?.whereType<RepeatableOption>(),
+      ),
+      pairedOptions: _indexByName<PairedOption>(pairedOptions),
+      pairOptions: _indexByName<PairOption>(
+        pairedOptions?.expand((pairedOption) => pairedOption.options),
       ),
       mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
       discretionaryPositionals: _indexByName<Positional>(
@@ -96,6 +106,7 @@ final class CommandRegistry {
               variadic: command.variadic,
               flags: command.flags,
               options: command.options,
+              pairedOptions: command.pairedOptions,
               accessors: command.accessors,
               commands: command.commands,
             ),
@@ -119,12 +130,14 @@ final class CommandRegistry {
     Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
+    List<PairedOption>? pairedOptions,
     List<AccessorOption>? accessors,
     List<Command>? commands,
   ) {
     _validateCommandName(name);
     _validateShortDescription(shortDescription);
     _validateNamedInputs(options, 'Option');
+    _validatePairedOptions(pairedOptions);
     _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(
@@ -136,6 +149,7 @@ final class CommandRegistry {
       accessors,
       flags,
       options,
+      pairedOptions,
       mandatoryPositionals,
       discretionaryPositionals,
       variadic,
@@ -191,6 +205,22 @@ final class CommandRegistry {
     }
   }
 
+  static void _validatePairedOptions(List<PairedOption>? pairedOptions) {
+    _validateDuplicateNames(pairedOptions, 'paired option');
+    _validateNamedInputs(pairedOptions, 'Paired option');
+    for (final pairedOption in pairedOptions ?? const <PairedOption>[]) {
+      if (pairedOption.options.length < 2) {
+        throw const MambaException(
+          'A paired option must contain at least two pair options',
+        );
+      }
+    }
+    _validateNamedInputs(
+      pairedOptions?.expand((pairedOption) => pairedOption.options),
+      'Pair option',
+    );
+  }
+
   static void _validateAccessors(List<AccessorOption>? accessors) {
     if (accessors != null) _validateAccessorLevel(accessors, 'accessor');
   }
@@ -231,12 +261,17 @@ final class CommandRegistry {
     List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
+    List<PairedOption>? pairedOptions,
     List<Positional>? mandatory,
     List<Positional>? discretionary,
     Variadic? variadic,
     List<Command>? commands,
   ) {
-    _validateDuplicateNames(options, 'option');
+    final registeredOptions = [
+      ...?options,
+      ...?pairedOptions?.expand((pairedOption) => pairedOption.options),
+    ];
+    _validateDuplicateNames(registeredOptions, 'option');
     _validateDuplicateNames(flags, 'flag');
 
     for (final accessor in accessors ?? const <AccessorOption>[]) {
@@ -247,8 +282,9 @@ final class CommandRegistry {
           'This accessor ${accessor.name} has the same name as a flag at index $flagIndex',
         );
       }
-      final optionIndex =
-          options?.indexWhere((option) => option.name == accessor.name) ?? -1;
+      final optionIndex = registeredOptions.indexWhere(
+        (option) => option.name == accessor.name,
+      );
       if (optionIndex >= 0) {
         throw MambaException(
           'This accessor ${accessor.name} has the same name as an option at index $optionIndex',
@@ -310,6 +346,7 @@ abstract class Command {
     this.variadic,
     this.flags,
     this.options,
+    this.pairedOptions,
     this.accessors,
     this.commands,
   });
@@ -322,6 +359,7 @@ abstract class Command {
   final Variadic? variadic;
   final List<Flag>? flags;
   final List<Option>? options;
+  final List<PairedOption>? pairedOptions;
   final List<AccessorOption>? accessors;
   final List<Command>? commands;
 
@@ -339,6 +377,7 @@ abstract class GroupCommand extends Command {
     super.variadic,
     super.flags,
     super.options,
+    super.pairedOptions,
     super.accessors,
     super.commands,
   });
@@ -457,6 +496,92 @@ sealed class Option extends NamedInput {
     description: description,
     required: required,
   );
+}
+
+/// A named group of options that must be supplied together.
+final class PairedOption extends NamedInput {
+  PairedOption({
+    required super.name,
+    required List<PairOption> options,
+    this.short,
+    super.description,
+    this.required = false,
+  }) : options = List.unmodifiable(options);
+
+  final String? short;
+  final bool required;
+  final List<PairOption> options;
+}
+
+/// An option that belongs to a [PairedOption].
+///
+/// Pair members always inherit their requiredness from their group and therefore
+/// do not expose a `required` constructor parameter.
+sealed class PairOption extends Option {
+  const PairOption({
+    required super.short,
+    required super.name,
+    required super.description,
+  }) : super(required: false);
+}
+
+final class PairStringOption extends PairOption {
+  PairStringOption({
+    required super.name,
+    RegExp? regex,
+    super.short,
+    super.description,
+  }) : regex = regex ?? RegExp(r'\S+');
+
+  final RegExp regex;
+}
+
+final class PairIntOption extends PairOption {
+  const PairIntOption({required super.name, super.short, super.description});
+}
+
+final class PairDoubleOption extends PairOption {
+  const PairDoubleOption({required super.name, super.short, super.description});
+}
+
+final class PairChoiceOption<T extends Enum> extends PairOption {
+  PairChoiceOption({
+    required this.choices,
+    this.defaultValue,
+    required super.name,
+    super.short,
+    super.description,
+  });
+
+  final List<T> choices;
+  final T? defaultValue;
+}
+
+final class PairRepeatableStringOption extends PairOption {
+  PairRepeatableStringOption({
+    required super.name,
+    RegExp? regex,
+    super.short,
+    super.description,
+  }) : regex = regex ?? RegExp(r'\S+');
+
+  final RegExp regex;
+}
+
+final class PairRepeatableIntOption extends PairOption {
+  const PairRepeatableIntOption({
+    required super.name,
+    super.short,
+    super.description,
+  });
+}
+
+final class PairRepeatableDoubleOption extends PairOption {
+  const PairRepeatableDoubleOption({
+    required super.name,
+    super.short,
+    super.description,
+  });
 }
 
 sealed class SingleOption extends Option {

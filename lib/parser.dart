@@ -120,6 +120,15 @@ class Parser {
       repeatedIntOptions,
       repeatedDoubleOptions,
     );
+    _validatePairedOptions(
+      registry,
+      stringOptions,
+      intOptions,
+      doubleOptions,
+      repeatedStringOptions,
+      repeatedIntOptions,
+      repeatedDoubleOptions,
+    );
     final parsedPositionals = _parsePositionals(
       registry,
       positionalValues,
@@ -157,18 +166,52 @@ class Parser {
     );
   }
 
-  bool _hasStringOptions(CommandRegistry registry) =>
-      registry.singleOptions?.values.any(
-        (option) => option is StringOption || option is ChoiceOption,
-      ) ??
-      false;
+  bool _hasStringOptions(CommandRegistry registry) {
+    final hasSingleOptions =
+        registry.singleOptions?.values.any(
+          (option) => option is StringOption || option is ChoiceOption,
+        ) ??
+        false;
+    final hasPairOptions =
+        registry.pairOptions?.values.any(
+          (option) => option is PairStringOption || option is PairChoiceOption,
+        ) ??
+        false;
+    return hasSingleOptions || hasPairOptions;
+  }
 
   bool _hasSingleOptionType<T extends SingleOption>(CommandRegistry registry) =>
-      registry.singleOptions?.values.any((option) => option is T) ?? false;
+      registry.singleOptions?.values.any((option) => option is T) == true ||
+      (T == IntOption &&
+          registry.pairOptions?.values.any(
+                (option) => option is PairIntOption,
+              ) ==
+              true) ||
+      (T == DoubleOption &&
+          registry.pairOptions?.values.any(
+                (option) => option is PairDoubleOption,
+              ) ==
+              true);
 
   bool _hasRepeatedOptionType<T extends RepeatableOption>(
     CommandRegistry registry,
-  ) => registry.repeatedOptions?.values.any((option) => option is T) ?? false;
+  ) =>
+      registry.repeatedOptions?.values.any((option) => option is T) == true ||
+      (T == RepeatableStringOption &&
+          registry.pairOptions?.values.any(
+                (option) => option is PairRepeatableStringOption,
+              ) ==
+              true) ||
+      (T == RepeatableIntOption &&
+          registry.pairOptions?.values.any(
+                (option) => option is PairRepeatableIntOption,
+              ) ==
+              true) ||
+      (T == RepeatableDoubleOption &&
+          registry.pairOptions?.values.any(
+                (option) => option is PairRepeatableDoubleOption,
+              ) ==
+              true);
 
   List<String> _findCommand(List<String> args) {
     final command = <String>[];
@@ -204,10 +247,14 @@ class Parser {
   Option? _findOption(CommandRegistry registry, String name) =>
       registry.singleOptions?[name] ??
       registry.repeatedOptions?[name] ??
+      registry.pairOptions?[name] ??
       registry.singleOptions?.values
           .where((option) => option.short == name)
           .firstOrNull ??
       registry.repeatedOptions?.values
+          .where((option) => option.short == name)
+          .firstOrNull ??
+      registry.pairOptions?.values
           .where((option) => option.short == name)
           .firstOrNull;
 
@@ -346,6 +393,18 @@ class Parser {
           choices.map((choice) => choice.name),
           value,
         );
+      case PairStringOption(:final regex):
+        stringOptions[option.name] = _parseStringOption(regex, value);
+      case PairIntOption():
+        intOptions[option.name] = _parseInt(value);
+      case PairDoubleOption():
+        doubleOptions[option.name] = _parseDouble(value);
+      case PairChoiceOption(:final choices):
+        stringOptions[option.name] = _parseChoiceOption(
+          option.name,
+          choices.map((choice) => choice.name),
+          value,
+        );
       case RepeatableStringOption(:final regex):
         _addRepeatedValue(
           option.name,
@@ -355,6 +414,20 @@ class Parser {
       case RepeatableIntOption():
         _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
       case RepeatableDoubleOption():
+        _addRepeatedValue(
+          option.name,
+          _parseDouble(value),
+          repeatedDoubleOptions,
+        );
+      case PairRepeatableStringOption(:final regex):
+        _addRepeatedValue(
+          option.name,
+          _parseStringOption(regex, value),
+          repeatedStringOptions,
+        );
+      case PairRepeatableIntOption():
+        _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
+      case PairRepeatableDoubleOption():
         _addRepeatedValue(
           option.name,
           _parseDouble(value),
@@ -499,6 +572,7 @@ class Parser {
         RepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
           option.name,
         ),
+        PairOption() => false,
       };
       if (!present) {
         final message = option is StringOption
@@ -508,6 +582,65 @@ class Parser {
       }
     }
   }
+
+  void _validatePairedOptions(
+    CommandRegistry registry,
+    Map<String, String> stringOptions,
+    Map<String, int> intOptions,
+    Map<String, double> doubleOptions,
+    Map<String, List<String>> repeatedStringOptions,
+    Map<String, List<int>> repeatedIntOptions,
+    Map<String, List<double>> repeatedDoubleOptions,
+  ) {
+    for (final pairedOption
+        in registry.pairedOptions?.values ?? const <PairedOption>[]) {
+      final provided = pairedOption.options
+          .where(
+            (option) => _isPairOptionPresent(
+              option,
+              stringOptions,
+              intOptions,
+              doubleOptions,
+              repeatedStringOptions,
+              repeatedIntOptions,
+              repeatedDoubleOptions,
+            ),
+          )
+          .length;
+      if (pairedOption.required && provided == 0) {
+        throw MambaParseException(
+          'Paired option --${pairedOption.name} is required',
+        );
+      }
+      if (provided > 0 && provided != pairedOption.options.length) {
+        throw MambaParseException(
+          'Paired options ${pairedOption.options.map((option) => '--${option.name}').join(', ')} must be passed together',
+        );
+      }
+    }
+  }
+
+  bool _isPairOptionPresent(
+    PairOption option,
+    Map<String, String> stringOptions,
+    Map<String, int> intOptions,
+    Map<String, double> doubleOptions,
+    Map<String, List<String>> repeatedStringOptions,
+    Map<String, List<int>> repeatedIntOptions,
+    Map<String, List<double>> repeatedDoubleOptions,
+  ) => switch (option) {
+    PairStringOption() ||
+    PairChoiceOption() => stringOptions.containsKey(option.name),
+    PairIntOption() => intOptions.containsKey(option.name),
+    PairDoubleOption() => doubleOptions.containsKey(option.name),
+    PairRepeatableStringOption() => repeatedStringOptions.containsKey(
+      option.name,
+    ),
+    PairRepeatableIntOption() => repeatedIntOptions.containsKey(option.name),
+    PairRepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
+      option.name,
+    ),
+  };
 
   Map<String, String>? _parsePositionals(
     CommandRegistry registry,

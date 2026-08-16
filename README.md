@@ -128,6 +128,29 @@ Options and accessor leaves accept either `--name value` or `--name=value`.
 Variadic values are accepted only after `--` and are passed as the third parser
 result and the second `Command.run` argument.
 
+### Paired options
+
+A `PairedOption` groups two or more typed `PairOption` children. If a caller
+passes any child, they must pass every child in the group. The children do not
+accept `required`; the group owns that setting. Parsed values are included in
+the same typed maps as regular options.
+
+```dart
+final credentials = PairedOption(
+  name: 'credentials',
+  options: [
+    PairStringOption(name: 'username'),
+    PairStringOption(name: 'password'),
+  ],
+);
+
+final registry = CommandRegistry.create(
+  'login',
+  'Authenticate a user.',
+  pairedOptions: [credentials],
+);
+```
+
 ## Development
 
 ```sh

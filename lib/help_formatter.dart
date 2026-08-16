@@ -132,6 +132,7 @@ class HelpFormatter {
     _writeSection(buffer, 'Options', [
       ...?registry.singleOptions?.values.map(_option),
       ...?registry.repeatedOptions?.values.map(_option),
+      ...?registry.pairOptions?.values.map(_option),
     ]);
     _writeSection(
       buffer,

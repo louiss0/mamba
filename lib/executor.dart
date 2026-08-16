@@ -38,6 +38,7 @@ final class Executor {
     List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
+    List<PairedOption>? pairedOptions,
     List<Command>? commands,
     HelpFormatter? helpFormatter,
     void Function(String)? writeHelp,
@@ -53,6 +54,7 @@ final class Executor {
          accessors: accessors,
          flags: flags,
          options: options,
+         pairedOptions: pairedOptions,
          commands: commands,
        ),
        commands = commands;

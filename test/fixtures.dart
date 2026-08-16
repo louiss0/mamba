@@ -10,6 +10,7 @@ class TestCommand extends Command {
     super.variadic,
     super.flags,
     super.options,
+    super.pairedOptions,
     super.accessors,
     super.commands,
   });

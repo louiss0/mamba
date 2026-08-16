@@ -9,6 +9,7 @@ Parser parser({
   List<Flag>? flags,
   List<Option>? options,
   List<AccessorOption>? accessors,
+  List<PairedOption>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
   Variadic? variadic,
@@ -19,6 +20,7 @@ Parser parser({
     flags: flags,
     options: options,
     accessors: accessors,
+    pairedOptions: pairedOptions,
     mandatoryPositionals: mandatoryPositionals,
     discretionaryPositionals: discretionaryPositionals,
     variadic: variadic,
@@ -212,6 +214,114 @@ void main() {
         allOf(contains('verbose'), contains('name'), contains('profile')),
       );
     });
+  });
+
+  group('Paired options', () {
+    test('parses paired string, int, and double options', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOption(
+            name: 'strings',
+            options: [
+              PairStringOption(name: 'first-name'),
+              PairStringOption(name: 'last-name'),
+            ],
+          ),
+          PairedOption(
+            name: 'ints',
+            options: [
+              PairIntOption(name: 'minimum'),
+              PairIntOption(name: 'maximum'),
+            ],
+          ),
+          PairedOption(
+            name: 'doubles',
+            options: [
+              PairDoubleOption(name: 'minimum-ratio'),
+              PairDoubleOption(name: 'maximum-ratio'),
+            ],
+          ),
+        ],
+      );
+
+      final inputs = subject.parse([
+        '--first-name',
+        'Ada',
+        '--last-name',
+        'Lovelace',
+        '--minimum',
+        '1',
+        '--maximum',
+        '2',
+        '--minimum-ratio',
+        '0.5',
+        '--maximum-ratio',
+        '1.5',
+      ]).$2;
+
+      expect(inputs.stringOptions, {
+        'first-name': 'Ada',
+        'last-name': 'Lovelace',
+      });
+      expect(inputs.intOptions, {'minimum': 1, 'maximum': 2});
+      expect(inputs.doubleOptions, {
+        'minimum-ratio': 0.5,
+        'maximum-ratio': 1.5,
+      });
+    });
+
+    final pairCases = [
+      (
+        description: 'string and int options',
+        group: PairedOption(
+          name: 'connection',
+          options: [
+            PairStringOption(name: 'host'),
+            PairIntOption(name: 'port'),
+          ],
+        ),
+        arguments: ['--host', 'localhost', '--port', '8080'],
+        missingArguments: ['--host', 'localhost'],
+      ),
+      (
+        description: 'string and double options',
+        group: PairedOption(
+          name: 'threshold',
+          options: [
+            PairStringOption(name: 'label'),
+            PairDoubleOption(name: 'value'),
+          ],
+        ),
+        arguments: ['--label', 'warning', '--value', '0.8'],
+        missingArguments: ['--value', '0.8'],
+      ),
+      (
+        description: 'int and double options',
+        group: PairedOption(
+          name: 'range',
+          options: [
+            PairIntOption(name: 'retries'),
+            PairDoubleOption(name: 'delay'),
+          ],
+        ),
+        arguments: ['--retries', '3', '--delay', '1.5'],
+        missingArguments: ['--retries', '3'],
+      ),
+    ];
+
+    for (final (:description, :group, :arguments, :missingArguments)
+        in pairCases) {
+      test('parses $description when both options are passed', () {
+        expect(
+          () => parser(pairedOptions: [group]).parse(arguments),
+          returnsNormally,
+        );
+      });
+
+      test('rejects $description when one option is missing', () {
+        expectParseError(parser(pairedOptions: [group]), missingArguments);
+      });
+    }
   });
 
   group('Parser validation', () {

@@ -34,6 +34,24 @@ void main() {
       expect(registry.accessors, {'profile': profile});
     });
 
+    test('indexes paired options by their group name', () {
+      final credentials = PairedOption(
+        name: 'credentials',
+        options: [
+          PairStringOption(name: 'username'),
+          PairStringOption(name: 'password'),
+        ],
+      );
+
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        pairedOptions: [credentials],
+      );
+
+      expect(registry.pairedOptions, {'credentials': credentials});
+    });
+
     test('creates registries for list-defined child commands', () {
       final registry = CommandRegistry.create(
         'tool',
