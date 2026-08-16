@@ -4,6 +4,8 @@ import 'package:test/test.dart';
 
 import 'fixtures.dart';
 
+enum VariantChoice { one }
+
 void main() {
   group('CommandRegistry', () {
     test('indexes list-defined inputs by their names', () {
@@ -47,6 +49,74 @@ void main() {
       );
 
       expect(registry.pairedOptions, {'username': credentials});
+    });
+
+    test('defaults paired options to grouping', () {
+      final credentials = PairedStringOption(
+        name: 'username',
+        options: [PairStringOption(name: 'password')],
+      );
+
+      expect(credentials.variant, isFalse);
+    });
+
+    test('supports variants for every paired option type', () {
+      final variants = <PairedOption>[
+        PairedStringOption(
+          name: 'string',
+          variant: true,
+          options: [PairStringOption(name: 'string-pair')],
+        ),
+        PairedIntOption(
+          name: 'int',
+          variant: true,
+          options: [PairIntOption(name: 'int-pair')],
+        ),
+        PairedDoubleOption(
+          name: 'double',
+          variant: true,
+          options: [PairDoubleOption(name: 'double-pair')],
+        ),
+        PairedChoiceOption<VariantChoice>(
+          name: 'choice',
+          choices: VariantChoice.values,
+          variant: true,
+          options: [
+            PairChoiceOption<VariantChoice>(
+              name: 'choice-pair',
+              choices: VariantChoice.values,
+            ),
+          ],
+        ),
+        PairedRepeatableStringOption(
+          name: 'repeated-string',
+          variant: true,
+          options: [PairRepeatableStringOption(name: 'repeated-string-pair')],
+        ),
+        PairedRepeatableIntOption(
+          name: 'repeated-int',
+          variant: true,
+          options: [PairRepeatableIntOption(name: 'repeated-int-pair')],
+        ),
+        PairedRepeatableDoubleOption(
+          name: 'repeated-double',
+          variant: true,
+          options: [PairRepeatableDoubleOption(name: 'repeated-double-pair')],
+        ),
+      ];
+
+      expect(variants.map((option) => option.variant), everyElement(isTrue));
+    });
+
+    test('rejects paired options without a paired member', () {
+      expect(
+        () => CommandRegistry.create(
+          'login',
+          'Authenticate a user.',
+          pairedOptions: [PairedStringOption(name: 'username', options: [])],
+        ),
+        throwsA(isA<MambaException>()),
+      );
     });
 
     test('creates registries for list-defined child commands', () {

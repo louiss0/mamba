@@ -131,10 +131,12 @@ result and the second `Command.run` argument.
 ### Paired options
 
 A typed `PairedOption` defines the first CLI option and groups it with one or
-more typed `PairOption` children. If a caller passes the primary or any child,
-they must pass every option in the group. Children do not accept `required`;
-the primary paired option owns that setting. Parsed values are included in the
-same typed maps as regular options.
+more typed `PairOption` children. By default, if a caller passes the primary or
+any child, they must pass every option in the group. Set `variant: true` to
+make the members mutually exclusive: an optional variant accepts zero or one
+member, while a required variant accepts exactly one. Children do not accept
+`required`; the primary paired option owns that setting. Parsed values are
+included in the same typed maps as regular options.
 
 ```dart
 final credentials = PairedStringOption(
@@ -147,6 +149,40 @@ final registry = CommandRegistry.create(
   'Authenticate a user.',
   pairedOptions: [credentials],
 );
+```
+
+### Help formatter DSLs
+
+`HelpFormatter` renders each paired group as one expression. Optional groups use
+square brackets, required groups use angle brackets, repeatable members use
+`...`, and member descriptions are joined with `; `:
+
+```text
+[ --username & --password ] Username; Password
+< ...--header | -H & --request-id > Header; Request ID
+```
+
+`PairDSL` is the public formatter value behind `&`. It accepts a primary member
+and an iterable of paired members; members may be plain or ANSI-styled strings.
+
+```dart
+PairDSL('--username', ['--password']).string;
+// --username & --password
+```
+
+`OrDSL` is also public and joins a primary member with alternatives using ` | `.
+Set `variant: true` on a `PairedOption` to have `CommandRegistry`, `Parser`,
+and `HelpFormatter` model an exactly-one alternative group.
+
+```dart
+final credentials = PairedStringOption(
+  name: 'token',
+  variant: true,
+  options: [PairStringOption(name: 'api-key')],
+);
+
+OrDSL('--token', ['--api-key']).string;
+// --token | --api-key
 ```
 
 ## Development

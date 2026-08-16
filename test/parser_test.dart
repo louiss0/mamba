@@ -383,6 +383,65 @@ void main() {
     }
   });
 
+  group('Paired option variants', () {
+    test('accepts one optional variant member', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedStringOption(
+            name: 'token',
+            variant: true,
+            options: [PairStringOption(name: 'api-key')],
+          ),
+        ],
+      );
+
+      expect(() => subject.parse(['--token', 'secret']), returnsNormally);
+    });
+
+    test('rejects multiple variant members', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedStringOption(
+            name: 'token',
+            variant: true,
+            options: [PairStringOption(name: 'api-key')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, ['--token', 'secret', '--api-key', 'key']);
+    });
+
+    test('accepts one repeatable variant member', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedRepeatableStringOption(
+            name: 'tag',
+            variant: true,
+            options: [PairRepeatableStringOption(name: 'label')],
+          ),
+        ],
+      );
+
+      expect(() => subject.parse(['--tag', 'first']), returnsNormally);
+    });
+
+    test('requires one member for a required variant', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedStringOption(
+            name: 'token',
+            required: true,
+            variant: true,
+            options: [PairStringOption(name: 'api-key')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, []);
+    });
+  });
+
   group('Parser validation', () {
     test('rejects invalid values and missing required options', () {
       final subject = parser(

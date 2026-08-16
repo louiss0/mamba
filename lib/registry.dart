@@ -479,7 +479,7 @@ sealed class Option extends NamedInput {
   );
 }
 
-/// An option that requires each of its [options] to be supplied with it.
+/// An option with members that form either a required-together group or variant.
 sealed class PairedOption extends Option {
   PairedOption({
     required List<PairOption> options,
@@ -487,9 +487,11 @@ sealed class PairedOption extends Option {
     required super.name,
     required super.description,
     super.required,
+    this.variant = false,
   }) : options = List.unmodifiable(options);
 
   final List<PairOption> options;
+  final bool variant;
 }
 
 final class PairedStringOption extends PairedOption {
@@ -500,6 +502,7 @@ final class PairedStringOption extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   }) : regex = regex ?? RegExp(r'\S+');
 
   final RegExp regex;
@@ -512,6 +515,7 @@ final class PairedIntOption extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   });
 }
 
@@ -522,6 +526,7 @@ final class PairedDoubleOption extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   });
 }
 
@@ -534,6 +539,7 @@ final class PairedChoiceOption<T extends Enum> extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   });
 
   final List<T> choices;
@@ -548,6 +554,7 @@ final class PairedRepeatableStringOption extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   }) : regex = regex ?? RegExp(r'\S+');
 
   final RegExp regex;
@@ -560,6 +567,7 @@ final class PairedRepeatableIntOption extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   });
 }
 
@@ -570,13 +578,14 @@ final class PairedRepeatableDoubleOption extends PairedOption {
     super.short,
     super.description,
     super.required,
+    super.variant,
   });
 }
 
-/// An option that must accompany a [PairedOption].
+/// A member of a [PairedOption] group or variant.
 ///
-/// Pair members always inherit their requiredness from their group and therefore
-/// do not expose a `required` constructor parameter.
+/// Pair members always inherit their requiredness from their primary option and
+/// therefore do not expose a `required` constructor parameter.
 sealed class PairOption extends Option {
   const PairOption({
     required super.short,

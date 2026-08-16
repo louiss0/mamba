@@ -67,6 +67,18 @@ final class OptionalString extends FormattedString {
   }
 }
 
+/// Joins a primary help member with members that must be supplied with it.
+final class PairDSL extends FormattedString {
+  PairDSL(String primaryMember, Iterable<String> pairMembers)
+    : super._([primaryMember, ...pairMembers].join(' & '));
+}
+
+/// Joins a primary help member with mutually exclusive alternatives.
+final class OrDSL extends FormattedString {
+  OrDSL(String primaryMember, Iterable<String> alternativeMembers)
+    : super._([primaryMember, ...alternativeMembers].join(' | '));
+}
+
 final class SectionTitleString extends FormattedString {
   SectionTitleString(String string) : super(string.brightGreen);
 }
@@ -132,8 +144,7 @@ class HelpFormatter {
     _writeSection(buffer, 'Options', [
       ...?registry.singleOptions?.values.map(_option),
       ...?registry.repeatedOptions?.values.map(_option),
-      ...?registry.pairedOptions?.values.map(_option),
-      ...?registry.pairOptions?.values.map(_option),
+      ...?registry.pairedOptions?.values.map(_pairedOption),
     ]);
     _writeSection(
       buffer,
@@ -176,6 +187,40 @@ class HelpFormatter {
     required: option.required,
     variadic: option is RepeatableOption,
   );
+
+  String _pairedOption(PairedOption option) {
+    final members = [option, ...option.options];
+    final membersAfterPrimary = members.skip(1).map(_pairedMember);
+    final expression = option.variant
+        ? OrDSL(_pairedMember(members.first), membersAfterPrimary)
+        : PairDSL(_pairedMember(members.first), membersAfterPrimary);
+    final grammar = option.required
+        ? requiredFormatter(expression.string)
+        : optionalFormatter(expression.string);
+    final description = members
+        .map((member) => member.description ?? '')
+        .join('; ');
+
+    return '${grammar.string} ${entryDescriptionFormatter(description).string}';
+  }
+
+  String _pairedMember(Option option) {
+    final longName = '--${option.name}';
+    final displayName = option.short == null
+        ? longName
+        : '$longName | -${option.short}'.bold;
+    return _isRepeatablePairMember(option) ? '...$displayName' : displayName;
+  }
+
+  bool _isRepeatablePairMember(Option option) => switch (option) {
+    PairedRepeatableStringOption() ||
+    PairedRepeatableIntOption() ||
+    PairedRepeatableDoubleOption() ||
+    PairRepeatableStringOption() ||
+    PairRepeatableIntOption() ||
+    PairRepeatableDoubleOption() => true,
+    _ => false,
+  };
 
   List<String> _accessors(CommandRegistry registry) {
     final values = <String>[];

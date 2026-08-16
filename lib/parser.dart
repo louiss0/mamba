@@ -669,6 +669,14 @@ class Parser {
           'Paired option --${pairedOption.name} is required',
         );
       }
+      if (pairedOption.variant) {
+        if (provided > 1) {
+          throw MambaParseException(
+            'Variant options ${options.map((option) => '--${option.name}').join(', ')} accept only one option',
+          );
+        }
+        continue;
+      }
       if (provided > 0 && provided != options.length) {
         throw MambaParseException(
           'Paired options ${options.map((option) => '--${option.name}').join(', ')} must be passed together',

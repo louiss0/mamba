@@ -1,3 +1,9 @@
+## Unreleased
+
+- Added public `PairDSL` and `OrDSL` formatter values.
+- Render paired options as grouped `&` expressions in help output.
+- Added `PairedOption.variant` for exactly-one `|` alternative groups.
+
 ## 1.0.0
 
 - Added immutable, Yargs-inspired option and command schemas.
