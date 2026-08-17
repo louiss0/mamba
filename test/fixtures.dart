@@ -2,8 +2,8 @@ import 'package:arg_parser/registry.dart';
 
 class TestCommand extends Command {
   TestCommand(
-    super.name,
-    super.shortDescription, {
+    this.name,
+    this.shortDescription, {
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
@@ -21,4 +21,10 @@ class TestCommand extends Command {
     Inputs input,
     List<String> variadic,
   ) => '';
+
+  @override
+  final String name;
+
+  @override
+  final String shortDescription;
 }

@@ -172,9 +172,14 @@ void main() {
 }
 
 final class _RecordingCommand extends Command {
+  @override
+  final String name;
+  @override
+  final String shortDescription;
+
   _RecordingCommand(
-    super.name,
-    super.shortDescription, {
+    this.name,
+    this.shortDescription, {
     this.output = '',
     super.flags,
     super.mandatoryPositionals,

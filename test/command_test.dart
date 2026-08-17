@@ -6,10 +6,14 @@ import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
 class TestGroupCommand extends GroupCommand {
-  TestGroupCommand(String name, {required super.commands})
+  @override
+  final String name;
+
+  @override
+  String get shortDescription => "This is a test command";
+
+  TestGroupCommand(this.name, {required super.commands})
     : super(
-        name,
-        'This is a command',
         longDescription: '',
         mandatoryPositionals: null,
         discretionaryPositionals: null,

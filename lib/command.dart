@@ -7,19 +7,22 @@ import 'package:arg_parser/registry.dart';
 export 'context.dart';
 
 abstract class GroupCommand extends Command {
-  GroupCommand(
-    super.name,
-    super.shortDescription, {
-    required super.longDescription,
-    required super.mandatoryPositionals,
-    required super.discretionaryPositionals,
-    required super.variadic,
-    required super.flags,
-    required super.options,
-    required super.pairedOptions,
-    required super.accessors,
-    required super.commands,
+  GroupCommand({
+    super.longDescription,
+    super.mandatoryPositionals,
+    super.discretionaryPositionals,
+    super.variadic,
+    super.flags,
+    super.options,
+    super.pairedOptions,
+    super.accessors,
+    super.commands,
   });
+
+  @override
+  String get name;
+  @override
+  String get shortDescription;
 
   Future<String> runChildCommand(
     List<String> path,

@@ -339,9 +339,17 @@ final class CommandRegistry {
 }
 
 abstract class Command {
-  Command(
-    this.name,
-    this.shortDescription, {
+  final String? longDescription;
+  final List<Positional>? mandatoryPositionals;
+  final List<Positional>? discretionaryPositionals;
+  final Variadic? variadic;
+  final List<Flag>? flags;
+  final List<Option>? options;
+  final List<PairedOption>? pairedOptions;
+  final List<AccessorOption>? accessors;
+  final List<Command>? commands;
+
+  Command({
     this.longDescription,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
@@ -353,17 +361,8 @@ abstract class Command {
     this.commands,
   });
 
-  final String name;
-  final String shortDescription;
-  final String? longDescription;
-  final List<Positional>? mandatoryPositionals;
-  final List<Positional>? discretionaryPositionals;
-  final Variadic? variadic;
-  final List<Flag>? flags;
-  final List<Option>? options;
-  final List<PairedOption>? pairedOptions;
-  final List<AccessorOption>? accessors;
-  final List<Command>? commands;
+  String get name;
+  String get shortDescription;
 
   FutureOr<String> run(
     Map<String, String>? positionals,
