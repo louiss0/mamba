@@ -19,6 +19,7 @@ class Parser {
   )
   parse(List<String> args) {
     final command = _findCommand(args);
+    final commandIndexes = _commandTokenIndexes(args, command);
     final registry = _registryForCommand(command);
     final consumed = <int>{};
     final boolFlags = <String, bool>{};
@@ -34,7 +35,7 @@ class Parser {
     final trailingArguments = <String>[];
 
     for (var index = 0; index < args.length; index++) {
-      if (index < command.length && args[index] == command[index]) continue;
+      if (commandIndexes.contains(index)) continue;
       if (consumed.contains(index)) continue;
 
       final token = args[index];
@@ -239,20 +240,63 @@ class Parser {
     final command = <String>[];
     var registry = _registry;
     var offset = 0;
-    if (args.isNotEmpty && args.first == registry.name) {
-      command.add(registry.name);
-      offset = 1;
-    }
     while (offset < args.length) {
+      final token = args[offset];
+      if (token == '--') break;
+      if (token == registry.name && command.isEmpty) {
+        command.add(registry.name);
+        offset++;
+        continue;
+      }
+
       final child = registry.commandRegistries
-          ?.where((candidate) => candidate.name == args[offset])
+          ?.where((candidate) => candidate.name == token)
           .firstOrNull;
-      if (child == null) break;
-      command.add(child.name);
-      registry = child;
-      offset++;
+      if (child != null) {
+        command.add(child.name);
+        registry = child;
+        offset++;
+        continue;
+      }
+      if (_isRegisteredFlagToken(token, registry)) {
+        offset++;
+        continue;
+      }
+      break;
     }
     return command;
+  }
+
+  Set<int> _commandTokenIndexes(List<String> args, List<String> command) {
+    final indexes = <int>{};
+    var commandIndex = 0;
+    for (final (index, token) in args.indexed) {
+      if (token == '--') break;
+      if (commandIndex < command.length && token == command[commandIndex]) {
+        indexes.add(index);
+        commandIndex++;
+      }
+    }
+    return indexes;
+  }
+
+  bool _isRegisteredFlagToken(String token, CommandRegistry registry) {
+    if (token.startsWith('--') && token.length > 2) {
+      final (name, _) = _splitLongOption(token.substring(2));
+      final negativeName = name.startsWith('no-') ? name.substring(3) : null;
+      return registry.boolFlags?.containsKey(name) == true ||
+          registry.countFlags?.containsKey(name) == true ||
+          (negativeName != null &&
+              registry.boolFlags?.containsKey(negativeName) == true);
+    }
+    if (!token.startsWith('-') || token.length <= 1) return false;
+    final names = token.substring(1).split('');
+    return names.every(
+      (name) =>
+          registry.boolFlags?.values.any((flag) => flag.short == name) ==
+              true ||
+          registry.countFlags?.values.any((flag) => flag.short == name) == true,
+    );
   }
 
   CommandRegistry _registryForCommand(List<String> command) {

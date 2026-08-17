@@ -149,6 +149,25 @@ void main() {
       );
     });
 
+    test('reserves the built-in help flag name and alias', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'help')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'custom', short: 'h')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
     test('rejects invalid and duplicate list definitions', () {
       expect(
         () => CommandRegistry.create('bad name', 'Tool command.'),

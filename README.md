@@ -85,6 +85,26 @@ Executor(
 ).execute(['greet', '--name', 'Ada']);
 ```
 
+`Executor` adds the Boolean `--dry-run` flag and count `--verbose` flag to
+its registry and makes them available to every command. A default command path
+is relative to the executor name:
+
+```dart
+Executor(
+  'git',
+  'Version control.',
+  defaultSubCommandPath: ['status'],
+  commands: [StatusCommand()],
+).execute([]);
+```
+
+`GroupCommand` can use the same relative path with
+`defaultSubCommandPath`; `runChildCommand` rejects empty or parent-qualified
+paths. Commands using `HookRunner` receive selected-command hooks, while
+persistent hooks run for each hook-enabled command on the selected path. The
+optional `standardInput` stream is useful for embedding and testing; without it,
+`Executor` reads process stdin only when it is piped.
+
 ## Parsed inputs
 
 `Parser.parse` returns

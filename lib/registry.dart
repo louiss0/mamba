@@ -44,13 +44,25 @@ final class CommandRegistry {
     List<PairedOption>? pairedOptions,
     List<AccessorOption>? accessors,
     List<Command>? commands,
+    List<Flag>? inheritedFlags,
+    bool inheritFlags = false,
   }) {
+    final localFlagNames = flags?.map((flag) => flag.name).toSet();
+    final List<Flag>? registeredFlags = inheritedFlags == null && flags == null
+        ? null
+        : [
+            ...?inheritedFlags?.where(
+              (flag) => !(localFlagNames?.contains(flag.name) ?? false),
+            ),
+            ...?flags,
+          ];
+
     _validateDefinition(
       name,
       shortDescription,
       mandatoryPositionals,
       discretionaryPositionals,
-      flags,
+      registeredFlags,
       options,
       pairedOptions,
       accessors,
@@ -61,8 +73,12 @@ final class CommandRegistry {
       name: name,
       shortDescription: shortDescription,
       longDescription: longDescription,
-      boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
-      countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
+      boolFlags: _indexByName<BooleanFlag>(
+        registeredFlags?.whereType<BooleanFlag>(),
+      ),
+      countFlags: _indexByName<CountFlag>(
+        registeredFlags?.whereType<CountFlag>(),
+      ),
       singleOptions: _indexByName<SingleOption>(
         options?.whereType<SingleOption>(),
       ),
@@ -91,6 +107,8 @@ final class CommandRegistry {
               pairedOptions: command.pairedOptions,
               accessors: command.accessors,
               commands: command.commands,
+              inheritedFlags: inheritFlags ? registeredFlags : null,
+              inheritFlags: inheritFlags,
             ),
           )
           .toList(),
@@ -173,6 +191,13 @@ final class CommandRegistry {
   ) {
     if (inputs == null) return;
     for (final input in inputs) {
+      if (input.name == 'help' ||
+          (input is Flag && input.short == 'h') ||
+          (input is Option && input.short == 'h')) {
+        throw MambaRegistryError(
+          'The help flag and -h alias are reserved by the executor',
+        );
+      }
       if (_keyboardSymbol.hasMatch(input.name)) {
         throw MambaRegistryError(
           "$inputKind names can't use keyboard symbols other than _ or -",
@@ -207,6 +232,9 @@ final class CommandRegistry {
   ) {
     _validateDuplicateNames(accessors, inputKind);
     for (final accessor in accessors) {
+      if (accessor.name == 'help') {
+        throw MambaRegistryError('The help flag is reserved by the executor');
+      }
       _validatePositionalName(accessor.name);
       if (accessor case AccessorListOption(options: final options)) {
         _validateAccessorLevel(options, 'accessor option');

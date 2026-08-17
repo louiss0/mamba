@@ -523,7 +523,10 @@ abstract class Command {
 /// This type of command is allowed to select it's subcommands to run
 /// This type of commands should only use it's sub command runner in `run`
 abstract class GroupCommand extends Command {
+  final List<String>? defaultSubCommandPath;
+
   GroupCommand({
+    List<String>? defaultSubCommandPath,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
@@ -532,7 +535,17 @@ abstract class GroupCommand extends Command {
     super.pairedOptions,
     super.accessors,
     super.commands,
-  });
+  }) : defaultSubCommandPath = _copyDefaultSubCommandPath(
+         defaultSubCommandPath,
+       ) {
+    if (this.defaultSubCommandPath?.contains(name) == true) {
+      throw ArgumentError.value(
+        defaultSubCommandPath,
+        'defaultSubCommandPath',
+        'must be relative to the group command',
+      );
+    }
+  }
 
   @override
   String get name;
@@ -547,6 +560,13 @@ abstract class GroupCommand extends Command {
   ) async {
     if (path.isEmpty) {
       throw ArgumentError('path is empty', 'path');
+    }
+    if (path.contains(name)) {
+      throw ArgumentError.value(
+        path,
+        'path',
+        'must be relative to the group command',
+      );
     }
 
     Command? command;
@@ -566,12 +586,35 @@ abstract class GroupCommand extends Command {
     return command!.run(positionals, input, trailingArguments);
   }
 
+  static List<String>? _copyDefaultSubCommandPath(List<String>? path) {
+    if (path == null) return null;
+    if (path.isEmpty) {
+      throw ArgumentError.value(
+        path,
+        'defaultSubCommandPath',
+        'must not be empty',
+      );
+    }
+    if (path.any((name) => name.isEmpty)) {
+      throw ArgumentError.value(
+        path,
+        'defaultSubCommandPath',
+        'must contain command names',
+      );
+    }
+    return List.unmodifiable(path);
+  }
+
   @override
-  FutureOr<String> run(
+  Future<String> run(
     ParsedPositionals positionals,
     ParsedNamedInputs input,
     List<String> trailingArguments,
-  );
+  ) async {
+    final path = defaultSubCommandPath;
+    if (path == null) return '';
+    return runChildCommand(path, positionals, input, trailingArguments);
+  }
 }
 
 /// Is used for allowing the user to process standard input

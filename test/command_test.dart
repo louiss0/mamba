@@ -11,23 +11,19 @@ class TestGroupCommand extends GroupCommand {
   @override
   String get shortDescription => "This is a test command";
 
-  TestGroupCommand(this.name, {required super.commands})
-    : super(
-        longDescription: '',
-        mandatoryPositionals: null,
-        discretionaryPositionals: null,
-        flags: null,
-        options: null,
-        pairedOptions: null,
-        accessors: null,
-      );
-
-  @override
-  FutureOr<String> run(
-    Map<String, String>? positionals,
-    ParsedNamedInputs input,
-    List<String> trailingArguments,
-  ) => '';
+  TestGroupCommand(
+    this.name, {
+    required super.commands,
+    super.defaultSubCommandPath,
+  }) : super(
+         longDescription: '',
+         mandatoryPositionals: null,
+         discretionaryPositionals: null,
+         flags: null,
+         options: null,
+         pairedOptions: null,
+         accessors: null,
+       );
 
   FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
@@ -100,6 +96,44 @@ void main() {
       verifyNever(() => stashPush.run(any(), any(), any()));
       verify(() => stashPop.run(any(), any(), any())).called(1);
       verifyNever(() => stashCommand.run(any(), any(), any()));
+    });
+
+    test('runs a relative default subcommand path', () async {
+      final git = TestGroupCommand(
+        'git',
+        commands: [stashCommand],
+        defaultSubCommandPath: ['stash', 'pop'],
+      );
+
+      await git.run(null, emptyInputs, []);
+
+      verify(() => stashPop.run(any(), any(), any())).called(1);
+    });
+
+    test('rejects empty and parent-qualified default paths', () {
+      expect(
+        () => TestGroupCommand(
+          'git',
+          commands: [stashCommand],
+          defaultSubCommandPath: [],
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => TestGroupCommand(
+          'git',
+          commands: [stashCommand],
+          defaultSubCommandPath: ['git'],
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('requires child paths to be relative to the group', () {
+      expect(
+        () => groupCommand.runWithNothingBasedOnCommandPathWithNothing(['git']),
+        throwsA(isA<ArgumentError>()),
+      );
     });
   });
 }
