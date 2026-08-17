@@ -1,11 +1,5 @@
-import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
-import 'package:chalkdart/chalk.dart';
 
-void main(List<String> args) {
-  try {
-    Executor("mamba", "This is the Manba CLI").execute(args);
-  } on MambaException catch (e) {
-    print(chalk.red(e.message));
-  }
+Future<void> main(List<String> args) async {
+  Executor("mamba", "This is the Manba CLI").execute(args);
 }
