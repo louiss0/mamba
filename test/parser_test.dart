@@ -1,3 +1,4 @@
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/parser.dart';
 import 'package:arg_parser/registry.dart';
@@ -12,7 +13,6 @@ Parser parser({
   List<PairedOption>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
-  Variadic? variadic,
 }) => Parser(
   CommandRegistry.create(
     'tool',
@@ -23,7 +23,6 @@ Parser parser({
     pairedOptions: pairedOptions,
     mandatoryPositionals: mandatoryPositionals,
     discretionaryPositionals: discretionaryPositionals,
-    variadic: variadic,
   ),
 );
 
@@ -152,15 +151,22 @@ void main() {
       expect(inputs.countFlags, isEmpty);
     });
 
-    test('collects variadic arguments separately from inputs', () {
-      final result = parser(
-        variadic: Variadic('arguments'),
-      ).parse(['--', '--unknown', '-x']);
+    test('collects arguments after -- separately from inputs', () {
+      final result = parser().parse(['--', '--unknown', '-x']);
 
       expect(result.$2, isNull);
       expect(result.$1, isEmpty);
       expect(result.$3.accessors, isNull);
       expect(result.$4, ['--unknown', '-x']);
+    });
+
+    test('does not parse arguments after -- as options or positionals', () {
+      final result = parser(
+        mandatoryPositionals: [Positional('source')],
+      ).parse(['source', '--', '--unknown', 'extra']);
+
+      expect(result.$2, {'source': 'source'});
+      expect(result.$4, ['--unknown', 'extra']);
     });
   });
 

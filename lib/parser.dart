@@ -15,7 +15,7 @@ class Parser {
     List<String> command,
     Map<String, String>? positionals,
     ParsedNamedInputs inputs,
-    List<String> variadic,
+    List<String> trailingArguments,
   )
   parse(List<String> args) {
     final command = _findCommand(args);
@@ -31,7 +31,7 @@ class Parser {
     final repeatedDoubleOptions = <String, List<double>>{};
     final accessorValues = <String, dynamic>{};
     final positionalValues = <String>[];
-    final variadicValues = <String>[];
+    final trailingArguments = <String>[];
 
     for (var index = 0; index < args.length; index++) {
       if (index < command.length && args[index] == command[index]) continue;
@@ -39,12 +39,7 @@ class Parser {
 
       final token = args[index];
       if (token == '--') {
-        final remaining = args.skip(index + 1);
-        if (registry.variadic == null) {
-          positionalValues.addAll(remaining);
-        } else {
-          variadicValues.addAll(remaining);
-        }
+        trailingArguments.addAll(args.skip(index + 1));
         break;
       }
       if (token.isEmpty) continue;
@@ -134,11 +129,7 @@ class Parser {
       repeatedIntOptions,
       repeatedDoubleOptions,
     );
-    final parsedPositionals = _parsePositionals(
-      registry,
-      positionalValues,
-      variadicValues,
-    );
+    final parsedPositionals = _parsePositionals(registry, positionalValues);
 
     return (
       command,
@@ -167,7 +158,7 @@ class Parser {
             : null,
         accessors: accessorValues.isEmpty ? null : accessorValues,
       ),
-      variadicValues,
+      trailingArguments,
     );
   }
 
@@ -724,7 +715,6 @@ class Parser {
   Map<String, String>? _parsePositionals(
     CommandRegistry registry,
     List<String> values,
-    List<String> variadicValues,
   ) {
     final mandatory =
         registry.mandatoryPositionals?.values.toList() ?? const <Positional>[];
@@ -751,22 +741,9 @@ class Parser {
       }
       parsed[positional.name] = values[index++];
     }
-    if (registry.variadic != null) {
-      if (index != values.length) {
-        throw MambaParseException(
-          'Variadic values for ${registry.variadic!.name} must follow --',
-        );
-      }
-      for (final value in variadicValues) {
-        if (!registry.variadic!.regex.hasMatch(value)) {
-          throw ArgumentError(
-            'Invalid value for variadic ${registry.variadic!.name}',
-          );
-        }
-      }
-    } else if (index != values.length) {
+    if (index != values.length) {
       throw MambaParseException(
-        "This term isn't a registered command positional or variadic",
+        "This term isn't a registered command positional",
       );
     }
     return parsed.isEmpty ? null : parsed;

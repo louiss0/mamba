@@ -15,7 +15,6 @@ final class CommandRegistry {
     this.pairOptions,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
-    this.variadic,
     this.accessors,
     this.commandRegistries,
   });
@@ -31,7 +30,6 @@ final class CommandRegistry {
   final Map<String, PairOption>? pairOptions;
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
-  final Variadic? variadic;
   final Map<String, AccessorOption>? accessors;
   final List<CommandRegistry>? commandRegistries;
 
@@ -41,7 +39,6 @@ final class CommandRegistry {
     String? longDescription,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
-    Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,
@@ -53,7 +50,6 @@ final class CommandRegistry {
       shortDescription,
       mandatoryPositionals,
       discretionaryPositionals,
-      variadic,
       flags,
       options,
       pairedOptions,
@@ -81,7 +77,6 @@ final class CommandRegistry {
       discretionaryPositionals: _indexByName<Positional>(
         discretionaryPositionals,
       ),
-      variadic: variadic,
       accessors: _indexByName<AccessorOption>(accessors),
       commandRegistries: commands
           ?.map(
@@ -91,7 +86,6 @@ final class CommandRegistry {
               longDescription: command.longDescription,
               mandatoryPositionals: command.mandatoryPositionals,
               discretionaryPositionals: command.discretionaryPositionals,
-              variadic: command.variadic,
               flags: command.flags,
               options: command.options,
               pairedOptions: command.pairedOptions,
@@ -115,7 +109,6 @@ final class CommandRegistry {
     String shortDescription,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
-    Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,
@@ -128,11 +121,7 @@ final class CommandRegistry {
     _validatePairedOptions(pairedOptions);
     _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
-    _validatePositionals(
-      mandatoryPositionals,
-      discretionaryPositionals,
-      variadic,
-    );
+    _validatePositionals(mandatoryPositionals, discretionaryPositionals);
     _validateDuplicates(
       accessors,
       flags,
@@ -140,7 +129,6 @@ final class CommandRegistry {
       pairedOptions,
       mandatoryPositionals,
       discretionaryPositionals,
-      variadic,
       commands,
     );
   }
@@ -229,12 +217,10 @@ final class CommandRegistry {
   static void _validatePositionals(
     List<Positional>? mandatory,
     List<Positional>? discretionary,
-    Variadic? variadic,
   ) {
     for (final positional in [...?mandatory, ...?discretionary]) {
       _validatePositionalName(positional.name);
     }
-    if (variadic != null) _validatePositionalName(variadic.name);
   }
 
   static void _validatePositionalName(String name) {
@@ -252,7 +238,6 @@ final class CommandRegistry {
     List<PairedOption>? pairedOptions,
     List<Positional>? mandatory,
     List<Positional>? discretionary,
-    Variadic? variadic,
     List<Command>? commands,
   ) {
     final registeredOptions = [
@@ -290,12 +275,6 @@ final class CommandRegistry {
         );
       }
     }
-    if (variadic != null && names.contains(variadic.name)) {
-      throw const MambaException(
-        "A positional and variadic can't have the same name you can pluralize the variadic",
-      );
-    }
-
     final commandNames = commands?.map((command) => command.name).toList();
     for (final positional in positionals) {
       final commandIndex = commandNames?.indexOf(positional.name) ?? -1;

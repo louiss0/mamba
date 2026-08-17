@@ -7,7 +7,6 @@ class TestCommand extends Command {
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
-    super.variadic,
     super.flags,
     super.options,
     super.pairedOptions,
@@ -19,7 +18,7 @@ class TestCommand extends Command {
   String run(
     Map<String, String>? positionals,
     ParsedNamedInputs input,
-    List<String> variadic,
+    List<String> trailingArguments,
   ) => '';
 
   @override

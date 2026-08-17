@@ -259,15 +259,10 @@ a command.
 
 ### Positional validation
 
-Positionals obey three structural rules:
-
-1. names are unique;
-2. a required positional cannot follow an optional one;
-3. a variadic positional must be last.
-
-Without these rules, the same token sequence could have multiple valid
-bindings. Positional names also cannot conflict with active option paths
-because both are merged into one result object.
+Positionals are declared as ordered mandatory and discretionary values. Their
+names must be unique and valid, and positional names cannot conflict with
+active option paths because both are merged into one result object. Arguments
+after `--` bypass this schema and are passed through unchanged.
 
 A node cannot declare both child commands and positionals. A bare token at such
 a node would be ambiguous: it could be a command name or the first positional.
@@ -557,7 +552,7 @@ Behavioral tests were written around the public contract. They cover:
 - nested option schemas, object-container behavior, and path conflicts;
 - activation before and after command selection;
 - sibling isolation, aliases, and nested commands;
-- named, required, and variadic positionals;
+- named, required, and discretionary positionals;
 - terminator behavior;
 - structured error codes, tokens, and absolute indices.
 

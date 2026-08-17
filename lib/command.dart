@@ -19,10 +19,6 @@ class Positional extends NamedInput {
   final RegExp regex;
 }
 
-class Variadic extends Positional {
-  Variadic(super.name, {super.description, super.regex});
-}
-
 sealed class Flag extends NamedInput {
   const Flag({
     required this.short,
@@ -490,11 +486,13 @@ typedef ParsedSingleOptions = ({
 
 typedef ParsedPositionals = Map<String, String>?;
 
+/// The Blueprint for any class that wants to be a command
+/// The name and short description must be provided
+/// If the short description is
 abstract class Command {
   final String? longDescription;
   final List<Positional>? mandatoryPositionals;
   final List<Positional>? discretionaryPositionals;
-  final Variadic? variadic;
   final List<Flag>? flags;
   final List<Option>? options;
   final List<PairedOption>? pairedOptions;
@@ -505,7 +503,6 @@ abstract class Command {
     this.longDescription,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
-    this.variadic,
     this.flags,
     this.options,
     this.pairedOptions,
@@ -519,16 +516,17 @@ abstract class Command {
   FutureOr<String> run(
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
-    List<String> variadic,
+    List<String> trailingArguments,
   );
 }
 
+/// This type of command is allowed to select it's subcommands to run
+/// This type of commands should only use it's sub command runner in `run`
 abstract class GroupCommand extends Command {
   GroupCommand({
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
-    super.variadic,
     super.flags,
     super.options,
     super.pairedOptions,
@@ -545,7 +543,7 @@ abstract class GroupCommand extends Command {
     List<String> path,
     ParsedPositionals positionals,
     ParsedNamedInputs input,
-    List<String> variadic,
+    List<String> trailingArguments,
   ) async {
     if (path.isEmpty) {
       throw ArgumentError('path is empty', 'path');
@@ -565,18 +563,20 @@ abstract class GroupCommand extends Command {
       children = command.commands;
     }
 
-    return command!.run(positionals, input, variadic);
+    return command!.run(positionals, input, trailingArguments);
   }
 
   @override
   FutureOr<String> run(
     ParsedPositionals positionals,
     ParsedNamedInputs input,
-    List<String> variadic,
+    List<String> trailingArguments,
   );
 }
 
-class ProcessedStandardInput {
+/// Is used for allowing the user to process standard input
+/// It's automatically sent bytes from standard input
+final class ProcessedStandardInput {
   final List<int> bytes;
   ProcessedStandardInput(this.bytes);
 
@@ -599,7 +599,7 @@ mixin HookRunner on Command {
 
   /// Runs before the selected command
   void preRun(
-    ProcessedStandardInput input,
+    ProcessedStandardInput? input,
     MambaReadContext context,
     ParsedPositionals positionals,
     ParsedSingleOptions options,

@@ -44,7 +44,6 @@ final class Executor {
     String? longDescription,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
-    Variadic? variadic,
     List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
@@ -66,7 +65,6 @@ final class Executor {
          longDescription: longDescription,
          mandatoryPositionals: mandatoryPositionals,
          discretionaryPositionals: discretionaryPositionals,
-         variadic: variadic,
          accessors: accessors,
          flags: flags,
          options: options,
@@ -82,7 +80,7 @@ final class Executor {
         return;
       }
 
-      final (commandPath, positionals, inputs, variadic) = Parser(
+      final (commandPath, positionals, inputs, trailingArguments) = Parser(
         _registry,
       ).parse(args);
       final command = _commandForPath(commandPath);
@@ -90,19 +88,19 @@ final class Executor {
 
       final hookRunner = command is HookRunner ? command : null;
       final context = MambaReadContext(_context);
-      if (stdioType(stdin) == StdioType.pipe) {
-        hookRunner?.preRun(
-          ProcessedStandardInput(await stdin.expand((bytes) => bytes).toList()),
-          context,
-          positionals,
-          (
-            stringOptions: inputs.stringOptions,
-            intOptions: inputs.intOptions,
-            doubleOptions: inputs.doubleOptions,
-          ),
-        );
+      if (hookRunner != null) {
+        final standardInput = stdioType(stdin) == StdioType.pipe
+            ? ProcessedStandardInput(
+                await stdin.expand((bytes) => bytes).toList(),
+              )
+            : null;
+        hookRunner.preRun(standardInput, context, positionals, (
+          stringOptions: inputs.stringOptions,
+          intOptions: inputs.intOptions,
+          doubleOptions: inputs.doubleOptions,
+        ));
       }
-      final output = await command.run(positionals, inputs, variadic);
+      final output = await command.run(positionals, inputs, trailingArguments);
       _writeOutput(output);
       if (hookRunner != null) {
         await hookRunner.postRun(context);
@@ -144,6 +142,11 @@ final class Executor {
     return command;
   }
 
-  bool _requestsHelp(List<String> args) =>
-      args.contains('--help') || args.contains('-h');
+  bool _requestsHelp(List<String> args) {
+    for (final argument in args) {
+      if (argument == '--') return false;
+      if (argument == '--help' || argument == '-h') return true;
+    }
+    return false;
+  }
 }

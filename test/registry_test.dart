@@ -1,3 +1,4 @@
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:test/test.dart';

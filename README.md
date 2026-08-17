@@ -13,7 +13,8 @@ accessors into typed maps that command handlers can use directly.
 - Receive Boolean flags, count flags, each single-option type, and each
   repeatable-option type in separate maps.
 - Support Boolean and count flags; string, integer, double, choice, and
-  repeatable options; named positionals; variadics; and nested accessor values.
+  repeatable options; named positionals; trailing arguments after `--`; and
+  nested accessor values.
 - Validate command definitions, render ANSI-styled help, and execute handlers.
 
 ## Installation
@@ -51,8 +52,9 @@ void main() {
 
 Extend `Command` to group its input lists with a handler. Nested commands are
 provided through `commands`. `Executor` routes help requests and invokes the
-selected command with positionals, parsed inputs, and variadic values. Returned
-command strings are written to stdout; thrown errors are written to stderr.
+selected command with positionals, parsed inputs, and trailing arguments.
+Returned command strings are written to stdout; thrown errors are written to
+stderr.
 
 ```dart
 final class GreetCommand extends Command {
@@ -68,7 +70,7 @@ final class GreetCommand extends Command {
   String run(
     Map<String, String>? positionals,
     Inputs inputs,
-    List<String> variadic,
+    List<String> trailingArguments,
   ) {
     final name = inputs.stringOptions?['name'] ?? 'world';
     final suffix = inputs.boolFlags?['excited'] == true ? '!' : '.';
@@ -85,8 +87,9 @@ Executor(
 
 ## Parsed inputs
 
-`Parser.parse` returns `(command, positionals, inputs, variadic)`. `inputs` has
-nullable maps for each registered input category:
+`Parser.parse` returns
+`(command, positionals, inputs, trailingArguments)`. `inputs` has nullable maps
+for each registered input category:
 
 ```dart
 typedef Inputs = ({
@@ -109,8 +112,8 @@ an `int` in the accessor map.
 ## Input lists
 
 Use `flags`, `options`, `mandatoryPositionals`, `discretionaryPositionals`,
-`variadic`, and `accessors` when creating a `CommandRegistry`, `Command`, or
-`Executor`. Accessors accept a root `List<AccessorOption>` and may contain
+and `accessors` when creating a `CommandRegistry`, `Command`, or `Executor`.
+Accessors accept a root `List<AccessorOption>` and may contain
 nested `AccessorListOption` groups.
 
 ```dart
@@ -129,9 +132,9 @@ final registry = CommandRegistry.create(
 ```
 
 Options and accessor leaves accept either `--name value` or `--name=value`.
-Variadic values are accepted only after `--` and are passed as the third parser
-result and third `Command.run` argument. Named positionals are passed as the
-first `Command.run` argument.
+Arguments after `--` are not parsed and are passed as the fourth parser result
+and third `Command.run` argument. Named positionals are passed as the first
+`Command.run` argument.
 
 ### Context
 

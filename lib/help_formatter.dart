@@ -1,5 +1,6 @@
 import 'package:chalkdart/chalkstrings.dart';
 
+import 'command.dart';
 import 'registry.dart';
 
 abstract class FormattedString {
@@ -14,22 +15,6 @@ abstract class FormattedString {
       throw FormatException(
         'Formatted strings must not contain SGR (Select Graphic Rendition)',
       );
-    }
-    return string;
-  }
-}
-
-final class VariadicString extends FormattedString {
-  VariadicString(String string) : super('...${_parse(string)}');
-  VariadicString._formatted(String string) : super._('...$string');
-
-  factory VariadicString.format(String string) =>
-      VariadicString._formatted(string);
-
-  static String _parse(String string) {
-    final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
-    if (unformatted.contains('...')) {
-      throw FormatException('Variadic strings must not contain ...');
     }
     return string;
   }
@@ -95,9 +80,6 @@ class HelpFormatter {
   OptionalString optionalFormatter(String string) =>
       OptionalString.format(string);
 
-  VariadicString variadicFormatter(String string) =>
-      VariadicString.format(string);
-
   SectionTitleString sectionTitleFormater(String string) =>
       SectionTitleString(string);
 
@@ -116,7 +98,6 @@ class HelpFormatter {
     final positionals = [
       ...?registry.mandatoryPositionals?.values.map(_requiredPositional),
       ...?registry.discretionaryPositionals?.values.map(_optionalPositional),
-      if (registry.variadic != null) _variadicPositional(registry.variadic!),
     ];
     final commandLine =
         '${registry.name}${positionals.isEmpty ? '' : ' ${positionals.map((positional) => positional.string).join(' ')}'}';
@@ -169,15 +150,11 @@ class HelpFormatter {
   OptionalString _optionalPositional(Positional positional) =>
       optionalFormatter(positional.name);
 
-  OptionalString _variadicPositional(Variadic positional) =>
-      optionalFormatter(variadicFormatter(positional.name).string);
-
   String _flag(Flag flag) => _entry(
     name: flag.name,
     short: flag.short,
     description: flag.description,
     required: false,
-    variadic: false,
   );
 
   String _option(Option option) => _entry(
@@ -185,7 +162,7 @@ class HelpFormatter {
     short: option.short,
     description: option.description,
     required: option.required,
-    variadic: option is RepeatableOption,
+    repeatable: option is RepeatableOption,
   );
 
   String _pairedOption(PairedOption option) {
@@ -250,27 +227,21 @@ class HelpFormatter {
     }
   }
 
-  String _accessorEntry(String name, AccessorOption option) => _entry(
-    name: name,
-    description: option.description,
-    required: false,
-    variadic: false,
-  );
+  String _accessorEntry(String name, AccessorOption option) =>
+      _entry(name: name, description: option.description, required: false);
 
   String _entry({
     required String name,
     required String? description,
     required bool required,
-    required bool variadic,
+    bool repeatable = false,
     String? short,
   }) {
     final displayName = short == null ? name : '$name |  $short'.bold;
-    final variadicName = variadic
-        ? variadicFormatter(displayName).string
-        : displayName;
+    final repeatableName = repeatable ? '...$displayName' : displayName;
     final grammar = required
-        ? requiredFormatter(variadicName)
-        : optionalFormatter(variadicName);
+        ? requiredFormatter(repeatableName)
+        : optionalFormatter(repeatableName);
 
     return '${grammar.string} ${entryDescriptionFormatter(description ?? '').string}';
   }

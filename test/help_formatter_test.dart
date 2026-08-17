@@ -1,3 +1,4 @@
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:chalkdart/chalkstrings.dart';
@@ -12,7 +13,6 @@ void main() {
       expect(() => RequiredString('value'), throwsFormatException);
       expect(() => RequiredString('< value >'.red), throwsFormatException);
       expect(RequiredString('value'.red).string, contains('value'));
-      expect(VariadicString('value'.red).string, startsWith('...'));
     });
   });
 
@@ -272,14 +272,13 @@ void main() {
         ],
         mandatoryPositionals: [Positional('url')],
         discretionaryPositionals: [Positional('output')],
-        variadic: Variadic('arguments'),
       );
 
       final help = HelpFormatter().formatHelp(registry);
 
       expect(help, contains('curl'));
       expect(help, contains('url'));
-      expect(help, contains('arguments'));
+      expect(help, isNot(contains('arguments')));
       expect(help, contains('verbose'));
       expect(help, contains('output'));
       expect(help, contains('header'));

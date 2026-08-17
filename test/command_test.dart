@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:arg_parser/command.dart';
-import 'package:arg_parser/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
@@ -17,7 +16,6 @@ class TestGroupCommand extends GroupCommand {
         longDescription: '',
         mandatoryPositionals: null,
         discretionaryPositionals: null,
-        variadic: null,
         flags: null,
         options: null,
         pairedOptions: null,
@@ -28,7 +26,7 @@ class TestGroupCommand extends GroupCommand {
   FutureOr<String> run(
     Map<String, String>? positionals,
     ParsedNamedInputs input,
-    List<String> variadic,
+    List<String> trailingArguments,
   ) => '';
 
   FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(

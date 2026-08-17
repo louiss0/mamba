@@ -14,7 +14,8 @@ loading, localization, and shell-completion script generation.
 
 Mamba is a smaller Dart CLI library built around declarative schema classes.
 It offers typed record conversion, command classes with synchronous handlers,
-regular and nested dotted options, flags, positionals, variadics, basic help,
+regular and nested dotted options, flags, positionals, trailing arguments,
+basic help,
 and definition validation. Its most distinctive feature is a schema for
 nested **accessor options**, which converts declared inputs such as
 `--remote.origin.urls.fetch` into a nested Dart map before the schema converts
@@ -39,9 +40,9 @@ shell completion.
 | Option scope | Root options are global by default; command-local options are lazily configured and may be local or global | The parser resolves the selected command registry and parses that registry's declared inputs; it does not merge ancestor schemas into the selected command |
 | Boolean and count flags | Boolean, negated Boolean, count, defaults, aliases, parser configuration | `BooleanFlag` (optional negation/default) and `CountFlag`; short-flag clusters are supported |
 | Option values | String, number, Boolean, array, count, normalized paths, fixed arity, defaults, coercions, config options, aliases, and parser-level configuration | String (with `RegExp`), integer, double, enum-choice, and repeatable string/integer/double options; schema code performs final Dart conversion |
-| Positionals | Required, optional, aliases, and variadic positionals declared in a command string and refined through `.positional()` | Ordered mandatory and discretionary `Positional` declarations plus one regex-validated `Variadic`; variadic values must follow the `--` option terminator |
+| Positionals | Required, optional, aliases, and trailing positionals declared in a command string and refined through `.positional()` | Ordered mandatory and discretionary `Positional` declarations; tokens after `--` are passed through as trailing arguments |
 | Nested/dotted values | Parser dot notation turns dotted keys into object properties; behavior is configurable | Explicit recursive `AccessorListOption` declarations validate every path segment and merge values into a nested map of arbitrary depth |
-| Token forms | Delegates comprehensive token syntax to `yargs-parser`, including `--key=value`, short-value forms, `--`, aliases, camel-case expansion, arrays, `narg`, and configurable parsing rules | Supports `--key value`, `--key=value`, long flags, option short names with a separate value, flag clusters, and `--` for literal variadic values. It does not implement configurable parser behavior or general aliases. |
+| Token forms | Delegates comprehensive token syntax to `yargs-parser`, including `--key=value`, short-value forms, `--`, aliases, camel-case expansion, arrays, `narg`, and configurable parsing rules | Supports `--key value`, `--key=value`, long flags, option short names with a separate value, flag clusters, and `--` for literal trailing arguments. It does not implement configurable parser behavior or general aliases. |
 | Validation | Required options/commands, choices, strict options/commands, conflicts, implications, custom checks, required option values, and near-match command suggestions | Required options, enum choices, regex/numeric validation, positional shape, unknown inputs, and duplicate/invalid declaration checks |
 | Help and version | Configurable usage, descriptions, examples, epilogues, option groups, defaults, choices, hidden entries, version output, wrapping, and locale-aware labels | `HelpFormatter` renders ANSI-styled command, description, flags, accessors, options, positionals, and child commands; `Executor` recognizes `-h`/`--help`. No version facility or help-layout configuration is exposed. |
 | Errors and process behavior | Configurable failure handler, usage-on-failure, captured callback output, and configurable process exit behavior | Invalid schemas and user input raise Mamba exceptions; `Executor` prints help through an injectable callback but does not define exit-code or stderr policy |
@@ -86,8 +87,8 @@ The following are not exposed by the present Mamba implementation:
    This differs from Yargs's default global-option model.
 3. **Conventional parser forms and configuration.** Mamba has no general
    option aliases, `narg`, arrays consumed from one occurrence, camel-case
-   expansion, or parser-configuration switches. Its `--` terminator is
-   reserved for declared variadic values. It also has no environment,
+   expansion, or parser-configuration switches. Its `--` terminator passes
+   the remaining tokens through as trailing arguments. It also has no environment,
    config-file/object, or package-config integration.
 4. **Cross-option validation and custom conversion.** Yargs provides
    implications, conflicts, arbitrary checks, and per-option coercion. Mamba's

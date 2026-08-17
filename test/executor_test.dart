@@ -1,7 +1,7 @@
 import 'package:arg_parser/command.dart';
+import 'package:arg_parser/context.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
-import 'package:arg_parser/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
@@ -30,6 +30,12 @@ void main() {
       stringOptions: null,
     );
     registerFallbackValue(emptyInputs);
+    const ParsedSingleOptions emptyOptions = (
+      doubleOptions: null,
+      intOptions: null,
+      stringOptions: null,
+    );
+    registerFallbackValue(emptyOptions);
   });
 
   group('Executor', () {
@@ -37,7 +43,9 @@ void main() {
       final testHookRunner = TestHookRunner('add', "Add a new item.");
 
       when(() => testHookRunner.run(any(), any(), any())).thenAnswer((_) => '');
-      when(() => testHookRunner.preRun(any())).thenReturn(null);
+      when(
+        () => testHookRunner.preRun(any(), any(), any(), any()),
+      ).thenReturn(null);
       when(() => testHookRunner.postRun(any())).thenReturn(null);
 
       final executor = Executor(
@@ -48,7 +56,7 @@ void main() {
 
       await executor.execute(['add']);
 
-      verify(() => testHookRunner.preRun(any())).called(1);
+      verify(() => testHookRunner.preRun(any(), any(), any(), any())).called(1);
       verify(() => testHookRunner.run(any(), any(), any())).called(1);
       verify(() => testHookRunner.postRun(any())).called(1);
     });
@@ -59,7 +67,7 @@ void main() {
       final command = TestHookRunner('add', 'Add a new item.');
       String? deployment;
       when(() => command.run(any(), any(), any())).thenAnswer((_) => '');
-      when(() => command.preRun(any())).thenReturn(null);
+      when(() => command.preRun(any(), any(), any(), any())).thenReturn(null);
       when(() => command.postRun(any())).thenAnswer((invocation) {
         final context =
             invocation.positionalArguments.single as MambaReadContext;
@@ -153,6 +161,19 @@ void main() {
       expect(build.inputs!.boolFlags, {'verbose': true});
     });
 
+    test('passes arguments after -- to commands', () async {
+      final build = _RecordingCommand('build', 'Build the workspace.');
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        commands: [build],
+      );
+
+      await executor.execute(['build', '--', '--help', 'value']);
+
+      expect(build.trailingArguments, ['--help', 'value']);
+    });
+
     test(
       'writes unknown-command errors to stderr when help is requested',
       () async {
@@ -190,15 +211,17 @@ final class _RecordingCommand extends Command {
   int calls = 0;
   Map<String, String>? positionals;
   ParsedNamedInputs? inputs;
+  List<String>? trailingArguments;
   @override
   String run(
     Map<String, String>? receivedPositionals,
     ParsedNamedInputs input,
-    List<String> variadic,
+    List<String> receivedTrailingArguments,
   ) {
     calls++;
     positionals = receivedPositionals;
     inputs = input;
+    trailingArguments = receivedTrailingArguments;
     return output;
   }
 }
