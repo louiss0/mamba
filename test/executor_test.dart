@@ -1,8 +1,5 @@
-import 'dart:convert';
-
 import 'package:arg_parser/command.dart';
 import 'package:arg_parser/context.dart';
-import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/executor.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
@@ -94,29 +91,6 @@ void main() {
       },
     );
 
-    test('passes piped standard input to pre-run hooks', () async {
-      final command = TestHookRunner('add', 'Add a new item.');
-      ProcessedStandardInput? receivedInput;
-      when(() => command.run(any(), any(), any())).thenAnswer((_) => '');
-      when(() => command.preRun(any(), any(), any(), any())).thenAnswer((
-        invocation,
-      ) {
-        receivedInput =
-            invocation.positionalArguments.first as ProcessedStandardInput;
-      });
-      when(() => command.postRun(any())).thenReturn(null);
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        standardInput: Stream.value(utf8.encode('piped input')),
-        commands: [command],
-      );
-
-      await executor.execute(['add']);
-
-      expect(receivedInput!.utf8Text, 'piped input');
-    });
-
     test('provides constructor context to command hooks', () async {
       final deploymentKey = MambaContextKey<String>();
       final context = MambaContext()..set(deploymentKey, 'production');
@@ -139,43 +113,6 @@ void main() {
       await executor.execute(['add']);
 
       expect(deployment, 'production');
-    });
-
-    test('writes command results to stdout', () async {
-      final output = <Object>[];
-      final build = _RecordingCommand(
-        'build',
-        'Build the workspace.',
-        output: 'Build completed.',
-      );
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        writeOutput: output.add,
-        commands: [build],
-      );
-
-      await executor.execute(['build']);
-
-      expect(output, ['Build completed.']);
-    });
-
-    test('writes thrown command errors to stderr', () async {
-      final errors = <Object>[];
-      final command = TestHookRunner('add', 'Add a new item.');
-      when(
-        () => command.run(any(), any(), any()),
-      ).thenThrow(StateError('failed'));
-      final executor = Executor(
-        'workspace',
-        'Manage a workspace.',
-        writeError: errors.add,
-        commands: [command],
-      );
-
-      await executor.execute(['add']);
-
-      expect(errors, [isA<StateError>()]);
     });
 
     test(
@@ -211,22 +148,17 @@ void main() {
       );
     });
 
-    test('writes help for the root and selected command', () {
-      final output = <String>[];
+    test('does not run commands when help is requested', () async {
       final build = _RecordingCommand('build', 'Build the workspace.');
       final executor = Executor(
         'workspace',
         'Manage a workspace.',
-        writeHelp: output.add,
         commands: [build],
       );
 
-      executor.execute([]);
-      executor.execute(['build', '--help']);
+      await executor.execute([]);
+      await executor.execute(['build', '--help']);
 
-      expect(output, hasLength(2));
-      expect(output.first, contains('workspace'));
-      expect(output.last, contains('build'));
       expect(build.calls, 0);
     });
 
@@ -375,14 +307,10 @@ void main() {
                 : '${command.name} ran';
           });
         }
-        final output = <Object>[];
-        final help = <String>[];
         final executor = Executor(
           'git',
           'The stupid content tracker.',
           commands: commands,
-          writeOutput: output.add,
-          writeHelp: help.add,
         );
 
         await executor.execute(['--dry-run', '-vv', 'git', 'status']);
@@ -395,29 +323,14 @@ void main() {
         ).called(1);
         expect(statusInputs!.boolFlags?['dry-run'], isTrue);
         expect(statusInputs!.countFlags?['verbose'], 2);
-        expect(output, ['status would run']);
-        expect(help, hasLength(2));
-        for (final commandName in commandNames) {
-          expect(help.first, contains(commandName));
-        }
-        expect(help.last, contains('dry-run'));
-        expect(help.last, contains('verbose'));
-      },
-    );
-
-    test(
-      'writes unknown-command errors to stderr when help is requested',
-      () async {
-        final errors = <Object>[];
-        final executor = Executor(
-          'workspace',
-          'Manage a workspace.',
-          writeError: errors.add,
+        verifyNever(
+          () =>
+              commands[commandNames.indexOf('merge')].run(any(), any(), any()),
         );
-
-        await executor.execute(['unknown', '--help']);
-
-        expect(errors, [isA<MambaException>()]);
+        verifyNever(
+          () =>
+              commands[commandNames.indexOf('rebase')].run(any(), any(), any()),
+        );
       },
     );
   });
@@ -432,12 +345,9 @@ final class _RecordingCommand extends Command {
   _RecordingCommand(
     this.name,
     this.shortDescription, {
-    this.output = '',
     super.flags,
     super.mandatoryPositionals,
   });
-
-  final String output;
 
   int calls = 0;
   Map<String, String>? positionals;
@@ -453,6 +363,6 @@ final class _RecordingCommand extends Command {
     positionals = receivedPositionals;
     inputs = input;
     trailingArguments = receivedTrailingArguments;
-    return output;
+    return '';
   }
 }

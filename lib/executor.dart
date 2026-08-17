@@ -42,14 +42,6 @@ final class Executor {
 
   final MambaContext _context;
 
-  final void Function(String) _writeHelp;
-
-  final void Function(Object) _writeOutput;
-
-  final void Function(Object) _writeError;
-
-  final Stream<List<int>>? _standardInput;
-
   final List<String>? _defaultSubCommandPath;
 
   final List<Command>? commands;
@@ -58,8 +50,6 @@ final class Executor {
     String name,
     String shortDescription, {
     String? longDescription,
-    List<Positional>? mandatoryPositionals,
-    List<Positional>? discretionaryPositionals,
     List<AccessorOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
@@ -67,19 +57,9 @@ final class Executor {
     List<String>? defaultSubCommandPath,
     List<Command>? commands,
     MambaContext? context,
-    Stream<List<int>>? standardInput,
     HelpFormatter? helpFormatter,
-    void Function(String)? writeHelp,
-    void Function(Object)? writeOutput,
-    void Function(Object)? writeError,
   }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
        _context = context ?? MambaContext(),
-       _writeHelp = writeHelp ?? stdout.writeln,
-       _writeOutput = writeOutput ?? stdout.writeln,
-       _writeError = writeError ?? stderr.writeln,
-       // Keep the input source private while exposing a descriptive parameter.
-       // ignore: prefer_initializing_formals
-       _standardInput = standardInput,
        _defaultSubCommandPath = _copyDefaultSubCommandPath(
          name,
          defaultSubCommandPath,
@@ -88,8 +68,6 @@ final class Executor {
          name,
          shortDescription,
          longDescription: longDescription,
-         mandatoryPositionals: mandatoryPositionals,
-         discretionaryPositionals: discretionaryPositionals,
          accessors: accessors,
          flags: [..._defaultFlags, ...?flags],
          options: options,
@@ -102,13 +80,13 @@ final class Executor {
   Future<void> execute(List<String> args) async {
     try {
       if (_requestsHelp(args)) {
-        _writeHelp(_helpFormatter.formatHelp(_registryForArguments(args)));
+        stdout.writeln(_helpFormatter.formatHelp(_registryForArguments(args)));
         return;
       }
 
       final executionArguments = _argumentsWithDefaultCommand(args);
       if (executionArguments.isEmpty) {
-        _writeHelp(_helpFormatter.formatHelp(_registryForArguments(args)));
+        stdout.writeln(_helpFormatter.formatHelp(_registryForArguments(args)));
         return;
       }
 
@@ -135,7 +113,7 @@ final class Executor {
         hookRunner.preRun(standardInput, context, positionals, options);
       }
       final output = await command.run(positionals, inputs, trailingArguments);
-      _writeOutput(output);
+      stdout.writeln(output);
       if (hookRunner != null) {
         await hookRunner.postRun(context);
       }
@@ -148,17 +126,11 @@ final class Executor {
         );
       }
     } catch (error) {
-      _writeError(error);
+      stderr.writeln(error);
     }
   }
 
   Future<ProcessedStandardInput?> _readStandardInput() async {
-    final source = _standardInput;
-    if (source != null) {
-      return ProcessedStandardInput(
-        await source.expand((bytes) => bytes).toList(),
-      );
-    }
     if (stdioType(stdin) != StdioType.pipe) return null;
     return ProcessedStandardInput(
       await stdin.expand((bytes) => bytes).toList(),

@@ -101,9 +101,7 @@ Executor(
 `GroupCommand` can use the same relative path with
 `defaultSubCommandPath`; `runChildCommand` rejects empty or parent-qualified
 paths. Commands using `HookRunner` receive selected-command hooks, while
-persistent hooks run for each hook-enabled command on the selected path. The
-optional `standardInput` stream is useful for embedding and testing; without it,
-`Executor` reads process stdin only when it is piped.
+persistent hooks run for each hook-enabled command on the selected path.
 
 ## Parsed inputs
 
@@ -131,8 +129,8 @@ an `int` in the accessor map.
 
 ## Input lists
 
-Use `flags`, `options`, `mandatoryPositionals`, `discretionaryPositionals`,
-and `accessors` when creating a `CommandRegistry`, `Command`, or `Executor`.
+Use `flags`, `options`, and `accessors` when creating an `Executor`.
+Positionals are declared on `Command` or `CommandRegistry` instances.
 Accessors accept a root `List<AccessorOption>` and may contain
 nested `AccessorListOption` groups.
 
