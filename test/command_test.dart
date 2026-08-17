@@ -27,7 +27,7 @@ class TestGroupCommand extends GroupCommand {
   @override
   FutureOr<String> run(
     Map<String, String>? positionals,
-    Inputs input,
+    ParsedNamedInputs input,
     List<String> variadic,
   ) => '';
 
@@ -59,7 +59,7 @@ class TestCommand extends Mock implements Command {
 }
 
 void main() {
-  final Inputs emptyInputs = (
+  final ParsedNamedInputs emptyInputs = (
     accessors: null,
     boolFlags: null,
     countFlags: null,

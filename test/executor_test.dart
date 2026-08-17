@@ -18,7 +18,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(MambaContext());
     registerFallbackValue(MambaReadContext(MambaContext()));
-    final Inputs emptyInputs = (
+    final ParsedNamedInputs emptyInputs = (
       accessors: null,
       boolFlags: null,
       countFlags: null,
@@ -189,11 +189,11 @@ final class _RecordingCommand extends Command {
 
   int calls = 0;
   Map<String, String>? positionals;
-  Inputs? inputs;
+  ParsedNamedInputs? inputs;
   @override
   String run(
     Map<String, String>? receivedPositionals,
-    Inputs input,
+    ParsedNamedInputs input,
     List<String> variadic,
   ) {
     calls++;

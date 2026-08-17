@@ -13,7 +13,7 @@ class Parser {
   (
     List<String> command,
     Map<String, String>? positionals,
-    Inputs inputs,
+    NamedInputs inputs,
     List<String> variadic,
   )
   parse(List<String> args) {

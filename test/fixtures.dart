@@ -1,4 +1,4 @@
-import 'package:arg_parser/registry.dart';
+import 'package:arg_parser/command.dart';
 
 class TestCommand extends Command {
   TestCommand(
@@ -18,7 +18,7 @@ class TestCommand extends Command {
   @override
   String run(
     Map<String, String>? positionals,
-    Inputs input,
+    ParsedNamedInputs input,
     List<String> variadic,
   ) => '';
 
