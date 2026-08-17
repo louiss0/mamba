@@ -24,7 +24,6 @@ void main() {
       countFlags: null,
       doubleOptions: null,
       intOptions: null,
-      positionalOptions: null,
       repeatedDoubleOptions: null,
       repeatedIntOptions: null,
       repeatedStringOptions: null,

@@ -10,9 +10,13 @@ class Parser {
 
   final CommandRegistry _registry;
 
-  (List<String> command, Inputs inputs, List<String> variadic) parse(
-    List<String> args,
-  ) {
+  (
+    List<String> command,
+    Map<String, String>? positionals,
+    Inputs inputs,
+    List<String> variadic,
+  )
+  parse(List<String> args) {
     final command = _findCommand(args);
     final registry = _registryForCommand(command);
     final consumed = <int>{};
@@ -137,6 +141,7 @@ class Parser {
 
     return (
       command,
+      parsedPositionals,
       (
         boolFlags: registry.boolFlags == null ? null : boolFlags,
         countFlags: registry.countFlags == null ? null : countFlags,
@@ -160,7 +165,6 @@ class Parser {
             ? repeatedDoubleOptions
             : null,
         accessors: accessorValues.isEmpty ? null : accessorValues,
-        positionalOptions: parsedPositionals,
       ),
       variadicValues,
     );

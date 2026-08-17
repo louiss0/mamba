@@ -13,7 +13,6 @@ typedef Inputs = ({
   Map<String, List<int>>? repeatedIntOptions,
   Map<String, List<double>>? repeatedDoubleOptions,
   Map<String, dynamic>? accessors,
-  Map<String, String>? positionalOptions,
 });
 
 final class CommandRegistry {

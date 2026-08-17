@@ -70,14 +70,16 @@ final class Executor {
       return;
     }
 
-    final (commandPath, inputs, variadic) = Parser(_registry).parse(args);
+    final (commandPath, positionals, inputs, variadic) = Parser(
+      _registry,
+    ).parse(args);
     final command = _commandForPath(commandPath);
     if (command == null) return;
 
     final hookRunner = command is HookRunner ? command as HookRunner : null;
     hookRunner?.preRun(_context);
     final context = MambaReadContext(_context);
-    await command.run(inputs.positionalOptions, inputs, variadic);
+    await command.run(positionals, inputs, variadic);
     if (hookRunner != null) {
       await hookRunner.postRun(context);
     }

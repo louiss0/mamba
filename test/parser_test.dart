@@ -65,7 +65,7 @@ void main() {
         discretionaryPositionals: [Positional('target')],
       );
 
-      final inputs = subject.parse([
+      final result = subject.parse([
         'input.txt',
         'output.txt',
         '--no-color',
@@ -87,7 +87,8 @@ void main() {
         '--server.port',
         '8080',
         '--server.timeout=2.5',
-      ]).$2;
+      ]);
+      final inputs = result.$3;
 
       expect(inputs.boolFlags, {'color': false});
       expect(inputs.countFlags, {'verbose': 2});
@@ -106,14 +107,12 @@ void main() {
       expect(inputs.accessors, {
         'server': {'port': 8080, 'timeout': 2.5},
       });
-      expect(inputs.positionalOptions, {
-        'source': 'input.txt',
-        'target': 'output.txt',
-      });
+      expect(result.$2, {'source': 'input.txt', 'target': 'output.txt'});
     });
 
     test('returns nullable maps according to registered content', () {
-      final inputs = parser().parse([]).$2;
+      final result = parser().parse([]);
+      final inputs = result.$3;
 
       expect(inputs.boolFlags, isNull);
       expect(inputs.countFlags, isNull);
@@ -124,7 +123,7 @@ void main() {
       expect(inputs.repeatedIntOptions, isNull);
       expect(inputs.repeatedDoubleOptions, isNull);
       expect(inputs.accessors, isNull);
-      expect(inputs.positionalOptions, isNull);
+      expect(result.$2, isNull);
     });
 
     test('returns choice options in the string option map', () {
@@ -136,7 +135,7 @@ void main() {
             defaultValue: Mode.auto,
           ),
         ],
-      ).parse([]).$2;
+      ).parse([]).$3;
 
       expect(inputs.stringOptions, {'mode': 'auto'});
     });
@@ -147,7 +146,7 @@ void main() {
           BooleanFlag(name: 'color', defaultValue: true),
           CountFlag(name: 'verbose'),
         ],
-      ).parse([]).$2;
+      ).parse([]).$3;
 
       expect(inputs.boolFlags, {'color': true});
       expect(inputs.countFlags, isEmpty);
@@ -158,10 +157,10 @@ void main() {
         variadic: Variadic('arguments'),
       ).parse(['--', '--unknown', '-x']);
 
-      expect(result.$2.positionalOptions, isNull);
+      expect(result.$2, isNull);
       expect(result.$1, isEmpty);
-      expect(result.$2.accessors, isNull);
-      expect(result.$3, ['--unknown', '-x']);
+      expect(result.$3.accessors, isNull);
+      expect(result.$4, ['--unknown', '-x']);
     });
   });
 
@@ -187,7 +186,7 @@ void main() {
         'ada',
         '--remote.origin.url',
         'https://example.com',
-      ]).$2;
+      ]).$3;
 
       expect(inputs.accessors, {
         'profile': 'ada',
@@ -248,7 +247,7 @@ void main() {
         '0.5',
         '--maximum-ratio',
         '1.5',
-      ]).$2;
+      ]).$3;
 
       expect(inputs.stringOptions, {
         'first-name': 'Ada',
@@ -304,7 +303,7 @@ void main() {
         '2.5',
         '--maximum-weight',
         '3.5',
-      ]).$2;
+      ]).$3;
 
       expect(inputs.repeatedStringOptions, {
         'name': ['Accept', 'Cache-Control'],

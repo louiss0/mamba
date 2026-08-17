@@ -42,7 +42,7 @@ void main() {
     ),
   );
 
-  final (_, inputs, _) = parser.parse(['--name', 'Ada']);
+  final (_, _, inputs, _) = parser.parse(['--name', 'Ada']);
   print('Hello, ${inputs.stringOptions!['name']}!');
 }
 ```
@@ -84,8 +84,8 @@ Executor(
 
 ## Parsed inputs
 
-`Parser.parse` returns `(command, inputs, variadic)`. `inputs` has nullable maps
-for each registered input category:
+`Parser.parse` returns `(command, positionals, inputs, variadic)`. `inputs` has
+nullable maps for each registered input category:
 
 ```dart
 typedef Inputs = ({
@@ -98,7 +98,6 @@ typedef Inputs = ({
   Map<String, List<int>>? repeatedIntOptions,
   Map<String, List<double>>? repeatedDoubleOptions,
   Map<String, dynamic>? accessors,
-  Map<String, String>? positionalOptions,
 });
 ```
 
