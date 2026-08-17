@@ -366,7 +366,11 @@ abstract class Command {
   final List<AccessorOption>? accessors;
   final List<Command>? commands;
 
-  FutureOr<void> run(Inputs inputs, List<String> variadic);
+  FutureOr<void> run(
+    Map<String, String>? positionals,
+    Inputs inputs,
+    List<String> variadic,
+  );
 }
 
 class Positional extends NamedInput {

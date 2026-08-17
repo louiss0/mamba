@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:arg_parser/command.dart' show GroupCommand;
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
@@ -21,14 +21,16 @@ class TestGroupCommand extends GroupCommand {
       );
 
   @override
-  FutureOr<String> run(Inputs input, List<String> variadic) {
-    return '';
-  }
+  FutureOr<void> run(
+    Map<String, String>? positionals,
+    Inputs input,
+    List<String> variadic,
+  ) {}
 
   FutureOr<void> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
   ) {
-    return runChildCommand(commandPath, (
+    return runChildCommand(commandPath, null, (
       accessors: null,
       boolFlags: null,
       countFlags: null,
@@ -73,20 +75,20 @@ void main() {
     final stashPop = TestCommand("pop");
     final stashCommand = TestCommand('stash', commands: [stashPush, stashPop]);
 
-    when(() => stashPush.run(any(), any())).thenAnswer((_) {});
+    when(() => stashPush.run(any(), any(), any())).thenAnswer((_) {});
 
-    when(() => stashPop.run(any(), any())).thenAnswer((_) {});
+    when(() => stashPop.run(any(), any(), any())).thenAnswer((_) {});
 
-    when(() => stashCommand.run(any(), any())).thenAnswer((_) {});
+    when(() => stashCommand.run(any(), any(), any())).thenAnswer((_) {});
 
     final groupCommand = TestGroupCommand('git', commands: [stashCommand]);
 
     test("calls the run child command", () {
       groupCommand.runWithNothingBasedOnCommandPathWithNothing(['stash']);
 
-      verifyNever(() => stashPush.run(any(), any()));
-      verifyNever(() => stashPop.run(any(), any()));
-      verify(() => stashCommand.run(any(), any())).called(1);
+      verifyNever(() => stashPush.run(any(), any(), any()));
+      verifyNever(() => stashPop.run(any(), any(), any()));
+      verify(() => stashCommand.run(any(), any(), any())).called(1);
     });
 
     test("calls the child's child command when path points to it", () {
@@ -95,9 +97,9 @@ void main() {
         'pop',
       ]);
 
-      verifyNever(() => stashPush.run(any(), any()));
-      verify(() => stashPop.run(any(), any())).called(1);
-      verifyNever(() => stashCommand.run(any(), any()));
+      verifyNever(() => stashPush.run(any(), any(), any()));
+      verify(() => stashPop.run(any(), any(), any())).called(1);
+      verifyNever(() => stashCommand.run(any(), any(), any()));
     });
   });
 }

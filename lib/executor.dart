@@ -25,6 +25,8 @@ final class Executor {
 
   final CommandRegistry _registry;
 
+  final MambaContext _context;
+
   final void Function(String) _writeHelp;
 
   final List<Command>? commands;
@@ -41,9 +43,11 @@ final class Executor {
     List<Option>? options,
     List<PairedOption>? pairedOptions,
     List<Command>? commands,
+    MambaContext? context,
     HelpFormatter? helpFormatter,
     void Function(String)? writeHelp,
   }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
+       _context = context ?? MambaContext(),
        _writeHelp = writeHelp ?? print,
        _registry = CommandRegistry.create(
          name,
@@ -71,11 +75,11 @@ final class Executor {
     if (command == null) return;
 
     final hookRunner = command is HookRunner ? command as HookRunner : null;
-    final context = MambaContext();
-    hookRunner?.preRun(context);
-    await command.run(inputs, variadic);
+    hookRunner?.preRun(_context);
+    final context = MambaReadContext(_context);
+    await command.run(inputs.positionalOptions, inputs, variadic);
     if (hookRunner != null) {
-      await hookRunner.postRun(MambaReadContext(context));
+      await hookRunner.postRun(context);
     }
   }
 

@@ -37,7 +37,7 @@ void main() {
     test("executes hooks when a command is a HookRunner", () async {
       final testHookRunner = TestHookRunner('add', "Add a new item.");
 
-      when(() => testHookRunner.run(any(), any())).thenAnswer((_) => '');
+      when(() => testHookRunner.run(any(), any(), any())).thenAnswer((_) => '');
       when(() => testHookRunner.preRun(any())).thenReturn(null);
       when(() => testHookRunner.postRun(any())).thenReturn(null);
 
@@ -50,8 +50,32 @@ void main() {
       await executor.execute(['add']);
 
       verify(() => testHookRunner.preRun(any())).called(1);
-      verify(() => testHookRunner.run(any(), any())).called(1);
+      verify(() => testHookRunner.run(any(), any(), any())).called(1);
       verify(() => testHookRunner.postRun(any())).called(1);
+    });
+
+    test('provides constructor context to command hooks', () async {
+      final deploymentKey = MambaContextKey<String>();
+      final context = MambaContext()..set(deploymentKey, 'production');
+      final command = TestHookRunner('add', 'Add a new item.');
+      String? deployment;
+      when(() => command.run(any(), any(), any())).thenAnswer((_) {});
+      when(() => command.preRun(any())).thenReturn(null);
+      when(() => command.postRun(any())).thenAnswer((invocation) {
+        final context =
+            invocation.positionalArguments.single as MambaReadContext;
+        deployment = context.get(deploymentKey);
+      });
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        context: context,
+        commands: [command],
+      );
+
+      await executor.execute(['add']);
+
+      expect(deployment, 'production');
     });
 
     test('writes help for the root and selected command', () {
@@ -73,10 +97,11 @@ void main() {
       expect(build.calls, 0);
     });
 
-    test('runs the selected list-defined command with parsed maps', () {
+    test('passes positionals and parsed maps to commands', () async {
       final build = _RecordingCommand(
         'build',
         'Build the workspace.',
+        mandatoryPositionals: [Positional('target')],
         flags: [BooleanFlag(name: 'verbose')],
       );
       final executor = Executor(
@@ -85,9 +110,10 @@ void main() {
         commands: [build],
       );
 
-      executor.execute(['build', '--verbose']);
+      await executor.execute(['build', 'release', '--verbose']);
 
       expect(build.calls, 1);
+      expect(build.positionals, {'target': 'release'});
       expect(build.inputs!.boolFlags, {'verbose': true});
     });
 
@@ -103,14 +129,24 @@ void main() {
 }
 
 final class _RecordingCommand extends Command {
-  _RecordingCommand(super.name, super.shortDescription, {super.flags});
+  _RecordingCommand(
+    super.name,
+    super.shortDescription, {
+    super.flags,
+    super.mandatoryPositionals,
+  });
 
   int calls = 0;
+  Map<String, String>? positionals;
   Inputs? inputs;
-
   @override
-  void run(Inputs input, List<String> variadic) {
+  void run(
+    Map<String, String>? receivedPositionals,
+    Inputs input,
+    List<String> variadic,
+  ) {
     calls++;
+    positionals = receivedPositionals;
     inputs = input;
   }
 }

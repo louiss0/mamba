@@ -51,7 +51,7 @@ void main() {
 
 Extend `Command` to group its input lists with a handler. Nested commands are
 provided through `commands`. `Executor` routes help requests and invokes the
-selected command with parsed inputs and variadic values.
+selected command with positionals, parsed inputs, and variadic values.
 
 ```dart
 final class GreetCommand extends Command {
@@ -64,7 +64,11 @@ final class GreetCommand extends Command {
       );
 
   @override
-  void run(Inputs inputs, List<String> variadic) {
+  void run(
+    Map<String, String>? positionals,
+    Inputs inputs,
+    List<String> variadic,
+  ) {
     final name = inputs.stringOptions?['name'] ?? 'world';
     final suffix = inputs.boolFlags?['excited'] == true ? '!' : '.';
     print('Hello, $name$suffix');
@@ -126,7 +130,27 @@ final registry = CommandRegistry.create(
 
 Options and accessor leaves accept either `--name value` or `--name=value`.
 Variadic values are accepted only after `--` and are passed as the third parser
-result and the second `Command.run` argument.
+result and third `Command.run` argument. Named positionals are passed as the
+first `Command.run` argument.
+
+### Context
+
+Supply a `MambaContext` to `Executor` when it is constructed to make values
+available to command hooks. `HookRunner.postRun` receives a
+`MambaReadContext`, which exposes only `get`; if no context is supplied,
+`Executor` creates an empty one.
+
+```dart
+final environmentKey = MambaContextKey<String>();
+final context = MambaContext()..set(environmentKey, 'production');
+
+final executor = Executor(
+  'mamba',
+  'Example command runner.',
+  context: context,
+  commands: [GreetCommand()],
+);
+```
 
 ### Paired options
 

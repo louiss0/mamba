@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:arg_parser/context.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/registry.dart';
+
+export 'context.dart';
 
 abstract class GroupCommand extends Command {
   GroupCommand(
@@ -20,6 +23,7 @@ abstract class GroupCommand extends Command {
 
   Future<void> runChildCommand(
     List<String> path,
+    Map<String, String>? positionals,
     Inputs input,
     List<String> variadic,
   ) async {
@@ -41,35 +45,15 @@ abstract class GroupCommand extends Command {
       children = command.commands;
     }
 
-    await command!.run(input, variadic);
+    await command!.run(positionals, input, variadic);
   }
 
   @override
-  FutureOr<void> run(Inputs input, List<String> variadic);
-}
-
-class MambaContextKey<T> {}
-
-class MambaContext {
-  final Map<MambaContextKey<dynamic>, dynamic> _values = {};
-
-  void set<T>(MambaContextKey<T> key, T value) {
-    _values[key] = value;
-  }
-
-  T? get<T>(MambaContextKey<T> key) {
-    return _values[key] as T?;
-  }
-}
-
-class MambaReadContext {
-  final MambaContext _context;
-
-  MambaReadContext(this._context);
-
-  T? get<T>(MambaContextKey<T> key) {
-    return _context.get(key);
-  }
+  FutureOr<void> run(
+    Map<String, String>? positionals,
+    Inputs input,
+    List<String> variadic,
+  );
 }
 
 mixin HookRunner {
