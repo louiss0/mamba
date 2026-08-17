@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:arg_parser/context.dart';
 import 'package:arg_parser/errors.dart';
-import 'package:arg_parser/registry.dart';
 
 sealed class NamedInput {
   const NamedInput({required this.name, required this.description});
@@ -471,7 +470,7 @@ final class AccessorChoiceOption<T extends Enum>
 }
 
 /// Parsed command inputs grouped by their concrete value type.
-typedef NamedInputs = ({
+typedef ParsedNamedInputs = ({
   Map<String, bool>? boolFlags,
   Map<String, int>? countFlags,
   Map<String, String>? stringOptions,
@@ -483,11 +482,13 @@ typedef NamedInputs = ({
   Map<String, dynamic>? accessors,
 });
 
-typedef SingleOptionNamedInputs = ({
+typedef ParsedSingleOptions = ({
   Map<String, String>? stringOptions,
   Map<String, int>? intOptions,
   Map<String, double>? doubleOptions,
 });
+
+typedef ParsedPositionals = Map<String, String>?;
 
 abstract class Command {
   final String? longDescription;
@@ -516,8 +517,8 @@ abstract class Command {
   String get shortDescription;
 
   FutureOr<String> run(
-    Map<String, String>? positionals,
-    NamedInputs inputs,
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
     List<String> variadic,
   );
 }
@@ -542,8 +543,8 @@ abstract class GroupCommand extends Command {
 
   Future<String> runChildCommand(
     List<String> path,
-    Map<String, String>? positionals,
-    Inputs input,
+    ParsedPositionals positionals,
+    ParsedNamedInputs input,
     List<String> variadic,
   ) async {
     if (path.isEmpty) {
@@ -569,14 +570,15 @@ abstract class GroupCommand extends Command {
 
   @override
   FutureOr<String> run(
-    Map<String, String>? positionals,
-    Inputs input,
+    ParsedPositionals positionals,
+    ParsedNamedInputs input,
     List<String> variadic,
   );
 }
 
-mixin HookRunner {
-  void preRun(MambaContext context) {}
+class ProcessedStandardInput {
+  final List<int> bytes;
+  ProcessedStandardInput(this.bytes);
 
   String get text => String.fromCharCodes(bytes);
 
@@ -588,11 +590,34 @@ mixin HookRunner {
 /// Gives Commands the power to run functions before and After the run function
 /// The user is expected to make use of `preRun()` It's the input processor
 mixin HookRunner on Command {
-  /// Runs on every command
-  void prePersistentRun(MambaContext context) {}
+  /// Runs before every command run
+  void prePersistentRun(
+    MambaContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  );
 
-  // Runs before the selected command
-  void preRun(ProcessedStandardInput input, MambaReadContext context);
-  // Runs after the selected command
-  FutureOr<void> postRun(MambaReadContext context) {}
+  /// Runs before the selected command
+  void preRun(
+    ProcessedStandardInput input,
+    MambaReadContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) {
+    print("The selected ${super.name} will run");
+  }
+
+  /// Runs after the selected command
+  FutureOr<void> postRun(MambaReadContext context) {
+    print("The selected ${super.name} has ran");
+  }
+
+  /// Runs after every command run
+  FutureOr<void> postPersistentRun(
+    MambaContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) {
+    print("This command ${super.name} has hooked into the context");
+  }
 }
