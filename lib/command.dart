@@ -618,6 +618,6 @@ mixin HookRunner on Command {
     ParsedPositionals positionals,
     ParsedSingleOptions options,
   ) {
-    print("This command ${super.name} has hooked into the context");
+    print("This command ${super.name} was used");
   }
 }
