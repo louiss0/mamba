@@ -217,12 +217,13 @@ final class PairedRepeatableDoubleOption extends PairedOption {
 ///
 /// Pair members always inherit their requiredness from their primary option and
 /// therefore do not expose a `required` constructor parameter.
-sealed class PairOption extends Option {
+sealed class PairOption extends NamedInput {
+  final String? short;
   const PairOption({
-    required super.short,
+    required this.short,
     required super.name,
     required super.description,
-  }) : super(required: false);
+  });
 }
 
 final class PairStringOption extends PairOption {

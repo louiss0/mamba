@@ -181,15 +181,17 @@ class HelpFormatter {
     return '${grammar.string} ${entryDescriptionFormatter(description).string}';
   }
 
-  String _pairedMember(Option option) {
+  String _pairedMember(NamedInput option) {
     final longName = '--${option.name}';
-    final displayName = option.short == null
-        ? longName
-        : '$longName | -${option.short}'.bold;
+    final short = switch (option) {
+      Option(short: final short) || PairOption(short: final short) => short,
+      _ => null,
+    };
+    final displayName = short == null ? longName : '$longName | -$short'.bold;
     return _isRepeatablePairMember(option) ? '...$displayName' : displayName;
   }
 
-  bool _isRepeatablePairMember(Option option) => switch (option) {
+  bool _isRepeatablePairMember(NamedInput option) => switch (option) {
     PairedRepeatableStringOption() ||
     PairedRepeatableIntOption() ||
     PairedRepeatableDoubleOption() ||

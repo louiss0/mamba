@@ -310,7 +310,7 @@ class Parser {
     return registry;
   }
 
-  Option? _findOption(CommandRegistry registry, String name) =>
+  NamedInput? _findOption(CommandRegistry registry, String name) =>
       registry.singleOptions?[name] ??
       registry.repeatedOptions?[name] ??
       registry.pairedOptions?[name] ??
@@ -441,7 +441,7 @@ class Parser {
   }
 
   void _addOptionValue(
-    Option option,
+    NamedInput option,
     String value,
     Map<String, String> stringOptions,
     Map<String, int> intOptions,
@@ -529,6 +529,8 @@ class Parser {
           _parseDouble(value),
           repeatedDoubleOptions,
         );
+      case _:
+        throw StateError('Unsupported named input value');
     }
   }
 
@@ -668,7 +670,7 @@ class Parser {
         RepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
           option.name,
         ),
-        PairedOption() || PairOption() => false,
+        PairedOption() => false,
       };
       if (!present) {
         final message = option is StringOption
@@ -690,7 +692,7 @@ class Parser {
   ) {
     for (final pairedOption
         in registry.pairedOptions?.values ?? const <PairedOption>[]) {
-      final options = <Option>[pairedOption, ...pairedOption.options];
+      final options = <NamedInput>[pairedOption, ...pairedOption.options];
       final provided = options
           .where(
             (option) => _isPairedOptionPresent(
@@ -726,7 +728,7 @@ class Parser {
   }
 
   bool _isPairedOptionPresent(
-    Option option,
+    NamedInput option,
     Map<String, String> stringOptions,
     Map<String, int> intOptions,
     Map<String, double> doubleOptions,
@@ -754,6 +756,7 @@ class Parser {
     RepeatableStringOption() ||
     RepeatableIntOption() ||
     RepeatableDoubleOption() => false,
+    _ => false,
   };
 
   Map<String, String>? _parsePositionals(
