@@ -255,6 +255,77 @@ void main() {
       expect(build.trailingArguments, ['--help', 'value']);
     });
 
+    test('executes git config with nested accessor flags', () async {
+      final config = _FakeGitCommand('config');
+      when(() => config.accessors).thenReturn([
+        // These paths mirror names from `git help --config`.
+        AccessorListOption(
+          name: 'user',
+          options: [AccessorStringOption(name: 'name')],
+        ),
+        AccessorListOption(
+          name: 'branch',
+          options: [
+            AccessorListOption(
+              name: 'main',
+              options: [AccessorStringOption(name: 'remote')],
+            ),
+          ],
+        ),
+        AccessorListOption(
+          name: 'remote',
+          options: [
+            AccessorListOption(
+              name: 'origin',
+              options: [
+                AccessorStringOption(name: 'url'),
+                AccessorListOption(
+                  name: 'fetch',
+                  options: [AccessorStringOption(name: 'refspec')],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ]);
+      ParsedNamedInputs? configInputs;
+      when(() => config.run(any(), any(), any())).thenAnswer((invocation) {
+        configInputs = invocation.positionalArguments[1] as ParsedNamedInputs;
+        return 'config ran';
+      });
+      final executor = Executor(
+        'git',
+        'The stupid content tracker.',
+        commands: [config],
+      );
+
+      await executor.execute([
+        'git',
+        'config',
+        '--user.name=Ada',
+        '--branch.main.remote',
+        'origin',
+        '--remote.origin.url',
+        'https://example.com/repository.git',
+        '--remote.origin.fetch.refspec',
+        '+refs/heads/*:refs/remotes/origin/*',
+      ]);
+
+      verify(() => config.run(any(), any(), any())).called(1);
+      expect(configInputs!.accessors, {
+        'user': {'name': 'Ada'},
+        'branch': {
+          'main': {'remote': 'origin'},
+        },
+        'remote': {
+          'origin': {
+            'url': 'https://example.com/repository.git',
+            'fetch': {'refspec': '+refs/heads/*:refs/remotes/origin/*'},
+          },
+        },
+      });
+    });
+
     test(
       'executes a mock git command tree and renders every command in help',
       () async {
@@ -270,6 +341,7 @@ void main() {
           'clean',
           'clone',
           'commit',
+          'config',
           'describe',
           'diff',
           'fetch',
