@@ -1,3 +1,4 @@
+import 'package:arg_parser/command.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/registry.dart';
 
@@ -13,7 +14,7 @@ class Parser {
   (
     List<String> command,
     Map<String, String>? positionals,
-    NamedInputs inputs,
+    ParsedNamedInputs inputs,
     List<String> variadic,
   )
   parse(List<String> args) {
