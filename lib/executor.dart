@@ -56,7 +56,7 @@ final class Executor {
     void Function(Object)? writeError,
   }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
        _context = context ?? MambaContext(),
-       _writeHelp = writeHelp ?? print,
+       _writeHelp = writeHelp ?? stdout.writeln,
        _writeOutput = writeOutput ?? stdout.writeln,
        _writeError = writeError ?? stderr.writeln,
        _registry = CommandRegistry.create(
