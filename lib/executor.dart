@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:arg_parser/command.dart';
+import 'package:arg_parser/context.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/help_formatter.dart';
 import 'package:arg_parser/parser.dart';
@@ -87,9 +88,20 @@ final class Executor {
       final command = _commandForPath(commandPath);
       if (command == null) return;
 
-      final hookRunner = command is HookRunner ? command as HookRunner : null;
-      hookRunner?.preRun(_context);
+      final hookRunner = command is HookRunner ? command : null;
       final context = MambaReadContext(_context);
+      if (stdioType(stdin) == StdioType.pipe) {
+        hookRunner?.preRun(
+          ProcessedStandardInput(await stdin.expand((bytes) => bytes).toList()),
+          context,
+          positionals,
+          (
+            stringOptions: inputs.stringOptions,
+            intOptions: inputs.intOptions,
+            doubleOptions: inputs.doubleOptions,
+          ),
+        );
+      }
       final output = await command.run(positionals, inputs, variadic);
       _writeOutput(output);
       if (hookRunner != null) {
