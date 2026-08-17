@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:arg_parser/command.dart';
 import 'package:arg_parser/errors.dart';
 import 'package:arg_parser/help_formatter.dart';
@@ -29,6 +31,10 @@ final class Executor {
 
   final void Function(String) _writeHelp;
 
+  final void Function(Object) _writeOutput;
+
+  final void Function(Object) _writeError;
+
   final List<Command>? commands;
 
   Executor(
@@ -46,9 +52,13 @@ final class Executor {
     MambaContext? context,
     HelpFormatter? helpFormatter,
     void Function(String)? writeHelp,
+    void Function(Object)? writeOutput,
+    void Function(Object)? writeError,
   }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
        _context = context ?? MambaContext(),
        _writeHelp = writeHelp ?? print,
+       _writeOutput = writeOutput ?? stdout.writeln,
+       _writeError = writeError ?? stderr.writeln,
        _registry = CommandRegistry.create(
          name,
          shortDescription,
@@ -65,23 +75,28 @@ final class Executor {
        commands = commands;
 
   Future<void> execute(List<String> args) async {
-    if (args.isEmpty || _requestsHelp(args)) {
-      _writeHelp(_helpFormatter.formatHelp(_registryForArguments(args)));
-      return;
-    }
+    try {
+      if (args.isEmpty || _requestsHelp(args)) {
+        _writeHelp(_helpFormatter.formatHelp(_registryForArguments(args)));
+        return;
+      }
 
-    final (commandPath, positionals, inputs, variadic) = Parser(
-      _registry,
-    ).parse(args);
-    final command = _commandForPath(commandPath);
-    if (command == null) return;
+      final (commandPath, positionals, inputs, variadic) = Parser(
+        _registry,
+      ).parse(args);
+      final command = _commandForPath(commandPath);
+      if (command == null) return;
 
-    final hookRunner = command is HookRunner ? command as HookRunner : null;
-    hookRunner?.preRun(_context);
-    final context = MambaReadContext(_context);
-    await command.run(positionals, inputs, variadic);
-    if (hookRunner != null) {
-      await hookRunner.postRun(context);
+      final hookRunner = command is HookRunner ? command as HookRunner : null;
+      hookRunner?.preRun(_context);
+      final context = MambaReadContext(_context);
+      final output = await command.run(positionals, inputs, variadic);
+      _writeOutput(output);
+      if (hookRunner != null) {
+        await hookRunner.postRun(context);
+      }
+    } catch (error) {
+      _writeError(error);
     }
   }
 

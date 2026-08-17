@@ -58,7 +58,7 @@ void main() {
       final context = MambaContext()..set(deploymentKey, 'production');
       final command = TestHookRunner('add', 'Add a new item.');
       String? deployment;
-      when(() => command.run(any(), any(), any())).thenAnswer((_) {});
+      when(() => command.run(any(), any(), any())).thenAnswer((_) => '');
       when(() => command.preRun(any())).thenReturn(null);
       when(() => command.postRun(any())).thenAnswer((invocation) {
         final context =
@@ -75,6 +75,43 @@ void main() {
       await executor.execute(['add']);
 
       expect(deployment, 'production');
+    });
+
+    test('writes command results to stdout', () async {
+      final output = <Object>[];
+      final build = _RecordingCommand(
+        'build',
+        'Build the workspace.',
+        output: 'Build completed.',
+      );
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        writeOutput: output.add,
+        commands: [build],
+      );
+
+      await executor.execute(['build']);
+
+      expect(output, ['Build completed.']);
+    });
+
+    test('writes thrown command errors to stderr', () async {
+      final errors = <Object>[];
+      final command = TestHookRunner('add', 'Add a new item.');
+      when(
+        () => command.run(any(), any(), any()),
+      ).thenThrow(StateError('failed'));
+      final executor = Executor(
+        'workspace',
+        'Manage a workspace.',
+        writeError: errors.add,
+        commands: [command],
+      );
+
+      await executor.execute(['add']);
+
+      expect(errors, [isA<StateError>()]);
     });
 
     test('writes help for the root and selected command', () {
@@ -116,14 +153,21 @@ void main() {
       expect(build.inputs!.boolFlags, {'verbose': true});
     });
 
-    test('rejects unknown commands even when help is requested', () {
-      final executor = Executor('workspace', 'Manage a workspace.');
+    test(
+      'writes unknown-command errors to stderr when help is requested',
+      () async {
+        final errors = <Object>[];
+        final executor = Executor(
+          'workspace',
+          'Manage a workspace.',
+          writeError: errors.add,
+        );
 
-      expect(
-        () => executor.execute(['unknown', '--help']),
-        throwsA(isA<MambaException>()),
-      );
-    });
+        await executor.execute(['unknown', '--help']);
+
+        expect(errors, [isA<MambaException>()]);
+      },
+    );
   });
 }
 
@@ -131,15 +175,18 @@ final class _RecordingCommand extends Command {
   _RecordingCommand(
     super.name,
     super.shortDescription, {
+    this.output = '',
     super.flags,
     super.mandatoryPositionals,
   });
+
+  final String output;
 
   int calls = 0;
   Map<String, String>? positionals;
   Inputs? inputs;
   @override
-  void run(
+  String run(
     Map<String, String>? receivedPositionals,
     Inputs input,
     List<String> variadic,
@@ -147,5 +194,6 @@ final class _RecordingCommand extends Command {
     calls++;
     positionals = receivedPositionals;
     inputs = input;
+    return output;
   }
 }

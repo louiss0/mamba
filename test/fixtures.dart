@@ -16,9 +16,9 @@ class TestCommand extends Command {
   });
 
   @override
-  void run(
+  String run(
     Map<String, String>? positionals,
     Inputs input,
     List<String> variadic,
-  ) {}
+  ) => '';
 }

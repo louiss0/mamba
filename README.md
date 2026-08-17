@@ -51,7 +51,8 @@ void main() {
 
 Extend `Command` to group its input lists with a handler. Nested commands are
 provided through `commands`. `Executor` routes help requests and invokes the
-selected command with positionals, parsed inputs, and variadic values.
+selected command with positionals, parsed inputs, and variadic values. Returned
+command strings are written to stdout; thrown errors are written to stderr.
 
 ```dart
 final class GreetCommand extends Command {
@@ -64,14 +65,14 @@ final class GreetCommand extends Command {
       );
 
   @override
-  void run(
+  String run(
     Map<String, String>? positionals,
     Inputs inputs,
     List<String> variadic,
   ) {
     final name = inputs.stringOptions?['name'] ?? 'world';
     final suffix = inputs.boolFlags?['excited'] == true ? '!' : '.';
-    print('Hello, $name$suffix');
+    return 'Hello, $name$suffix';
   }
 }
 

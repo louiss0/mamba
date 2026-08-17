@@ -365,7 +365,7 @@ abstract class Command {
   final List<AccessorOption>? accessors;
   final List<Command>? commands;
 
-  FutureOr<void> run(
+  FutureOr<String> run(
     Map<String, String>? positionals,
     Inputs inputs,
     List<String> variadic,

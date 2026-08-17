@@ -21,7 +21,7 @@ abstract class GroupCommand extends Command {
     required super.commands,
   });
 
-  Future<void> runChildCommand(
+  Future<String> runChildCommand(
     List<String> path,
     Map<String, String>? positionals,
     Inputs input,
@@ -45,11 +45,11 @@ abstract class GroupCommand extends Command {
       children = command.commands;
     }
 
-    await command!.run(positionals, input, variadic);
+    return command!.run(positionals, input, variadic);
   }
 
   @override
-  FutureOr<void> run(
+  FutureOr<String> run(
     Map<String, String>? positionals,
     Inputs input,
     List<String> variadic,

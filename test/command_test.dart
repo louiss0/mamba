@@ -21,13 +21,13 @@ class TestGroupCommand extends GroupCommand {
       );
 
   @override
-  FutureOr<void> run(
+  FutureOr<String> run(
     Map<String, String>? positionals,
     Inputs input,
     List<String> variadic,
-  ) {}
+  ) => '';
 
-  FutureOr<void> runWithNothingBasedOnCommandPathWithNothing(
+  FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
   ) {
     return runChildCommand(commandPath, null, (
@@ -73,11 +73,11 @@ void main() {
     final stashPop = TestCommand("pop");
     final stashCommand = TestCommand('stash', commands: [stashPush, stashPop]);
 
-    when(() => stashPush.run(any(), any(), any())).thenAnswer((_) {});
+    when(() => stashPush.run(any(), any(), any())).thenAnswer((_) => '');
 
-    when(() => stashPop.run(any(), any(), any())).thenAnswer((_) {});
+    when(() => stashPop.run(any(), any(), any())).thenAnswer((_) => '');
 
-    when(() => stashCommand.run(any(), any(), any())).thenAnswer((_) {});
+    when(() => stashCommand.run(any(), any(), any())).thenAnswer((_) => '');
 
     final groupCommand = TestGroupCommand('git', commands: [stashCommand]);
 
