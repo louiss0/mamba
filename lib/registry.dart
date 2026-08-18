@@ -44,19 +44,43 @@ final class CommandRegistry {
     List<PairedOption>? pairedOptions,
     List<AccessorOption>? accessors,
     List<Command>? commands,
-  }) => _build(
-    name,
-    shortDescription,
-    longDescription: longDescription,
-    mandatoryPositionals: mandatoryPositionals,
-    discretionaryPositionals: discretionaryPositionals,
-    flags: flags,
-    options: options == null && pairedOptions == null
-        ? null
-        : [...?options, ...?pairedOptions],
-    accessors: accessors,
-    commands: commands,
-  );
+  }) {
+    _validateDefinition(
+      name,
+      shortDescription,
+      mandatoryPositionals,
+      discretionaryPositionals,
+      flags,
+      options,
+      pairedOptions,
+      accessors,
+      commands,
+    );
+
+    return CommandRegistry._(
+      name: name,
+      shortDescription: shortDescription,
+      longDescription: longDescription,
+      boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
+      countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
+      singleOptions: _indexByName<SingleOption>(
+        options?.whereType<SingleOption>(),
+      ),
+      repeatedOptions: _indexByName<RepeatableOption>(
+        options?.whereType<RepeatableOption>(),
+      ),
+      pairedOptions: _indexByName<PairedOption>(pairedOptions),
+      pairOptions: _indexByName<PairOption>(
+        pairedOptions?.expand((pairedOption) => pairedOption.options),
+      ),
+      mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
+      discretionaryPositionals: _indexByName<Positional>(
+        discretionaryPositionals,
+      ),
+      accessors: _indexByName<AccessorOption>(accessors),
+      commandRegistries: commands?.map(_fromCommand).toList(),
+    );
+  }
 
   static CommandRegistry _fromCommand(
     Command command, {
@@ -75,58 +99,33 @@ final class CommandRegistry {
         ? null
         : [...?command.options, ...?command.pairedOptions];
     final registeredOptions = _mergeByName(publishedOptions, localOptions);
-
-    return _build(
-      command.name,
-      command.shortDescription,
-      longDescription: command.longDescription,
-      mandatoryPositionals: command.mandatoryPositionals,
-      discretionaryPositionals: command.discretionaryPositionals,
-      flags: registeredFlags,
-      options: registeredOptions,
-      accessors: command.accessors,
-      commands: command.commands,
-      childInheritedFlags: publishedFlags,
-      childInheritedOptions: publishedOptions,
-    );
-  }
-
-  static CommandRegistry _build(
-    String name,
-    String shortDescription, {
-    String? longDescription,
-    List<Positional>? mandatoryPositionals,
-    List<Positional>? discretionaryPositionals,
-    List<Flag>? flags,
-    List<Option>? options,
-    List<AccessorOption>? accessors,
-    List<Command>? commands,
-    List<Flag>? childInheritedFlags,
-    List<Option>? childInheritedOptions,
-  }) {
-    final ordinaryOptions = options
+    final ordinaryOptions = registeredOptions
         ?.where((option) => option is! PairedOption)
         .toList();
-    final pairedOptions = options?.whereType<PairedOption>().toList();
+    final pairedOptions = registeredOptions?.whereType<PairedOption>().toList();
 
     _validateDefinition(
-      name,
-      shortDescription,
-      mandatoryPositionals,
-      discretionaryPositionals,
-      flags,
+      command.name,
+      command.shortDescription,
+      command.mandatoryPositionals,
+      command.discretionaryPositionals,
+      registeredFlags,
       ordinaryOptions,
       pairedOptions,
-      accessors,
-      commands,
+      command.accessors,
+      command.commands,
     );
 
     return CommandRegistry._(
-      name: name,
-      shortDescription: shortDescription,
-      longDescription: longDescription,
-      boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
-      countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
+      name: command.name,
+      shortDescription: command.shortDescription,
+      longDescription: command.longDescription,
+      boolFlags: _indexByName<BooleanFlag>(
+        registeredFlags?.whereType<BooleanFlag>(),
+      ),
+      countFlags: _indexByName<CountFlag>(
+        registeredFlags?.whereType<CountFlag>(),
+      ),
       singleOptions: _indexByName<SingleOption>(
         ordinaryOptions?.whereType<SingleOption>(),
       ),
@@ -137,17 +136,19 @@ final class CommandRegistry {
       pairOptions: _indexByName<PairOption>(
         pairedOptions?.expand((pairedOption) => pairedOption.options),
       ),
-      mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
-      discretionaryPositionals: _indexByName<Positional>(
-        discretionaryPositionals,
+      mandatoryPositionals: _indexByName<Positional>(
+        command.mandatoryPositionals,
       ),
-      accessors: _indexByName<AccessorOption>(accessors),
-      commandRegistries: commands
+      discretionaryPositionals: _indexByName<Positional>(
+        command.discretionaryPositionals,
+      ),
+      accessors: _indexByName<AccessorOption>(command.accessors),
+      commandRegistries: command.commands
           ?.map(
-            (command) => _fromCommand(
-              command,
-              inheritedFlags: childInheritedFlags,
-              inheritedOptions: childInheritedOptions,
+            (child) => _fromCommand(
+              child,
+              inheritedFlags: publishedFlags,
+              inheritedOptions: publishedOptions,
             ),
           )
           .toList(),
