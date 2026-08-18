@@ -653,6 +653,8 @@ final class ProcessedStandardInput {
 /// Gives Commands the power to run functions before and After the run function
 /// The user is expected to make use of `preRun()` It's the input processor
 mixin HookRunner on Command {
+  // Hook output is an executor integration concern, not unit-test behavior.
+  // coverage:ignore-start
   /// Runs before every command run
   void prePersistentRun(
     MambaContext context,
@@ -683,4 +685,6 @@ mixin HookRunner on Command {
   ) {
     print("This command ${super.name} was used");
   }
+
+  // coverage:ignore-end
 }

@@ -116,6 +116,18 @@ void main() {
       expect(help, contains('[ --token | --apiKey ] Token; API key'));
     });
 
+    test('renders required ordinary options with required grammar', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        options: [IntOption(name: 'count', required: true)],
+      );
+
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+      expect(help, contains('< count >'));
+    });
+
     test('renders paired groups after ordinary options', () {
       final registry = CommandRegistry.create(
         'login',

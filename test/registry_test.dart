@@ -294,6 +294,27 @@ void main() {
       );
     });
 
+    test('recursively validates nested accessor names', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          accessors: [
+            AccessorListOption(
+              name: 'server',
+              options: [
+                AccessorListOption(
+                  name: 'authentication',
+                  options: [AccessorStringOption(name: 'help')],
+                ),
+              ],
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
     test('rejects collisions between accessors and other inputs', () {
       expect(
         () => CommandRegistry.create(

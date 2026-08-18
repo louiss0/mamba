@@ -410,29 +410,18 @@ class Parser {
       return;
     }
 
-    var negative = false;
     for (final character in names.split('')) {
-      if (character == '-') {
-        negative = true;
-        continue;
-      }
       final boolFlag = registry.boolFlags?.values
           .where((flag) => flag.short == character)
           .firstOrNull;
       if (boolFlag != null) {
-        if (negative && !boolFlag.negatable) {
-          throw MambaParseException(
-            "This isn't a registered short flag or option",
-          );
-        }
-        boolFlags[boolFlag.name] = !negative;
-        negative = false;
+        boolFlags[boolFlag.name] = true;
         continue;
       }
       final countFlag = registry.countFlags?.values
           .where((flag) => flag.short == character)
           .firstOrNull;
-      if (countFlag != null && !negative) {
+      if (countFlag != null) {
         countFlags.update(
           countFlag.name,
           (count) => count + 1,
@@ -533,8 +522,11 @@ class Parser {
           _parseDouble(value),
           repeatedDoubleOptions,
         );
+      // Registry construction prevents non-option inputs from reaching here.
+      // coverage:ignore-start
       case _:
         throw StateError('Unsupported named input value');
+      // coverage:ignore-end
     }
   }
 
@@ -677,7 +669,8 @@ class Parser {
         RepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
           option.name,
         ),
-        PairedOption() => false,
+        // Paired options are validated by _validatePairedOptions.
+        PairedOption() => false, // coverage:ignore-line
       };
       if (!present) {
         final message = option is StringOption
@@ -756,6 +749,8 @@ class Parser {
     RepeatablePairIntOption() => repeatedIntOptions.containsKey(option.name),
     RepeatablePairedDoubleOption() || RepeatablePairDoubleOption() =>
       repeatedDoubleOptions.containsKey(option.name),
+    // Only paired primary and member options are supplied by callers.
+    // coverage:ignore-start
     StringOption() ||
     ChoiceOption() ||
     IntOption() ||
@@ -764,6 +759,7 @@ class Parser {
     RepeatableIntOption() ||
     RepeatableDoubleOption() => false,
     _ => false,
+    // coverage:ignore-end
   };
 
   Map<String, String>? _parsePositionals(

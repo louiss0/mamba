@@ -473,6 +473,23 @@ void main() {
       expect(result.$1, isEmpty);
       expect(result.$4, ['config']);
     });
+
+    test('discovers commands after a negated inherited flag', () {
+      final subject = Parser(
+        CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'color', negatable: true)],
+          commands: [_ParserCommand('config')],
+          inheritFlags: true,
+        ),
+      );
+
+      final result = subject.parse(['--no-color', 'config']);
+
+      expect(result.$1, ['config']);
+      expect(result.$3.boolFlags, {'color': false});
+    });
   });
 
   group('Parser option forms', () {
@@ -531,6 +548,28 @@ void main() {
 
       expect(subject.parse(['-vvq']).$3.countFlags, {'verbose': 2});
       expectParseError(subject, ['-vx']);
+    });
+
+    test('increments repeated long count flags', () {
+      final inputs = parser(
+        flags: [CountFlag(name: 'verbose', short: 'v')],
+      ).parse(['--verbose', '--verbose']).$3;
+
+      expect(inputs.countFlags, {'verbose': 2});
+    });
+
+    test('parses paired primary and member short aliases', () {
+      final inputs = parser(
+        pairedOptions: [
+          PairedIntOption(
+            name: 'minimum',
+            short: 'm',
+            options: [PairIntOption(name: 'maximum', short: 'x')],
+          ),
+        ],
+      ).parse(['-m', '-2', '-x', '-1']).$3;
+
+      expect(inputs.intOptions, {'minimum': -2, 'maximum': -1});
     });
   });
 
@@ -680,6 +719,19 @@ void main() {
       expectParseError(subject, ['--integer=1.5']);
       expectParseError(subject, ['--decimal=.5']);
       expectParseError(subject, ['--decimal=1e2']);
+    });
+
+    test('rejects missing and invalid mandatory positionals', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          Positional('source', regex: RegExp(r'^valid$')),
+          Positional('target'),
+        ],
+      );
+
+      expectParseError(subject, []);
+      expectParseError(subject, ['invalid']);
+      expectParseError(subject, ['valid']);
     });
 
     test('rejects invalid discretionary positionals', () {
