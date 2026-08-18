@@ -198,7 +198,7 @@ final registry = CommandRegistry.create(
 
 ### Help formatter DSLs
 
-`HelpFormatter` renders each paired group as one expression. Optional groups use
+`MambaHelpFormatter` renders each paired group as one expression. Optional groups use
 square brackets, required groups use angle brackets, repeatable members use
 `...`, and member descriptions are joined with `; `:
 
@@ -207,17 +207,17 @@ square brackets, required groups use angle brackets, repeatable members use
 < ...--header | -H & --request-id > Header; Request ID
 ```
 
-`PairDSL` is the public formatter value behind `&`. It accepts a primary member
+`PairString` is the public formatter value behind `&`. It accepts a primary member
 and an iterable of paired members; members may be plain or ANSI-styled strings.
 
 ```dart
-PairDSL('--username', ['--password']).string;
+PairString('--username', ['--password']).string;
 // --username & --password
 ```
 
-`OrDSL` is also public and joins a primary member with alternatives using ` | `.
+`OrString` is also public and joins a primary member with alternatives using ` | `.
 Set `variant: true` on a `PairedOption` to have `CommandRegistry`, `Parser`,
-and `HelpFormatter` model an exactly-one alternative group.
+and `MambaHelpFormatter` model an exactly-one alternative group.
 
 ```dart
 final credentials = PairedStringOption(
@@ -226,7 +226,7 @@ final credentials = PairedStringOption(
   options: [PairStringOption(name: 'api-key')],
 );
 
-OrDSL('--token', ['--api-key']).string;
+OrString('--token', ['--api-key']).string;
 // --token | --api-key
 ```
 

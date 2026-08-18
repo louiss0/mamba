@@ -212,7 +212,7 @@ void main() {
         mandatoryPositionals: [Positional('source')],
       );
 
-      final help = HelpFormatter().formatHelp(registry);
+      final help = MambaHelpFormatter().format(registry);
 
       expect(
         help,
@@ -269,17 +269,17 @@ void main() {
     test('parses paired repeatable string, int, and double options', () {
       final subject = parser(
         pairedOptions: [
-          PairedRepeatableStringOption(
+          RepeatablePairedStringOption(
             name: 'name',
-            options: [PairRepeatableStringOption(name: 'value')],
+            options: [RepeatablePairStringOption(name: 'value')],
           ),
-          PairedRepeatableIntOption(
+          RepeatablePairedIntOption(
             name: 'minimum',
-            options: [PairRepeatableIntOption(name: 'maximum')],
+            options: [RepeatablePairIntOption(name: 'maximum')],
           ),
-          PairedRepeatableDoubleOption(
+          RepeatablePairedDoubleOption(
             name: 'minimum-weight',
-            options: [PairRepeatableDoubleOption(name: 'maximum-weight')],
+            options: [RepeatablePairDoubleOption(name: 'maximum-weight')],
           ),
         ],
       );
@@ -328,9 +328,9 @@ void main() {
     test('rejects a partially passed repeatable pair', () {
       final subject = parser(
         pairedOptions: [
-          PairedRepeatableStringOption(
+          RepeatablePairedStringOption(
             name: 'name',
-            options: [PairRepeatableStringOption(name: 'value')],
+            options: [RepeatablePairStringOption(name: 'value')],
           ),
         ],
       );
@@ -420,10 +420,10 @@ void main() {
     test('accepts one repeatable variant member', () {
       final subject = parser(
         pairedOptions: [
-          PairedRepeatableStringOption(
+          RepeatablePairedStringOption(
             name: 'tag',
             variant: true,
-            options: [PairRepeatableStringOption(name: 'label')],
+            options: [RepeatablePairStringOption(name: 'label')],
           ),
         ],
       );

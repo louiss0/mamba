@@ -58,7 +58,7 @@ final class Executor {
     List<Command>? commands,
     MambaContext? context,
     HelpFormatter? helpFormatter,
-  }) : _helpFormatter = helpFormatter ?? HelpFormatter(),
+  }) : _helpFormatter = helpFormatter ?? MambaHelpFormatter(),
        _context = context ?? MambaContext(),
        _defaultSubCommandPath = _copyDefaultSubCommandPath(
          name,
@@ -80,13 +80,13 @@ final class Executor {
   Future<void> execute(List<String> args) async {
     try {
       if (_requestsHelp(args)) {
-        stdout.writeln(_helpFormatter.formatHelp(_registryForArguments(args)));
+        stdout.writeln(_helpFormatter.format(_registryForArguments(args)));
         return;
       }
 
       final executionArguments = _argumentsWithDefaultCommand(args);
       if (executionArguments.isEmpty) {
-        stdout.writeln(_helpFormatter.formatHelp(_registryForArguments(args)));
+        stdout.writeln(_helpFormatter.format(_registryForArguments(args)));
         return;
       }
 

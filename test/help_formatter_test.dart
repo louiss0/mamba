@@ -19,7 +19,7 @@ void main() {
   group('PairDSL', () {
     test('joins a primary member with paired members', () {
       expect(
-        PairDSL('--username', ['--password']).string,
+        PairString('--username', ['--password']).string,
         '--username & --password',
       );
     });
@@ -29,7 +29,7 @@ void main() {
       final pairMember = '--password'.red;
 
       expect(
-        PairDSL(primaryMember, [pairMember]).string,
+        PairString(primaryMember, [pairMember]).string,
         '$primaryMember & $pairMember',
       );
     });
@@ -37,14 +37,14 @@ void main() {
     test(
       'preserves the primary member when no paired members are supplied',
       () {
-        expect(PairDSL('--username', const []).string, '--username');
+        expect(PairString('--username', const []).string, '--username');
       },
     );
   });
 
   group('OrDSL', () {
     test('joins a primary member with alternative members', () {
-      expect(OrDSL('--token', ['--api-key']).string, '--token | --api-key');
+      expect(OrString('--token', ['--api-key']).string, '--token | --api-key');
     });
 
     test('preserves ANSI-styled members', () {
@@ -52,13 +52,13 @@ void main() {
       final alternativeMember = '--api-key'.red;
 
       expect(
-        OrDSL(primaryMember, [alternativeMember]).string,
+        OrString(primaryMember, [alternativeMember]).string,
         '$primaryMember | $alternativeMember',
       );
     });
 
     test('preserves the primary member when no alternatives are supplied', () {
-      expect(OrDSL('--token', const []).string, '--token');
+      expect(OrString('--token', const []).string, '--token');
     });
   });
 
@@ -83,7 +83,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(
         help,
@@ -107,7 +107,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(help, contains('[ --token | --api-key ] Token; API key'));
     });
@@ -125,7 +125,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(help, contains('[ region ]'));
       expect(help, contains('--username'));
@@ -148,7 +148,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(
         help,
@@ -175,7 +175,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(
         help,
@@ -188,7 +188,7 @@ void main() {
         'login',
         'Authenticate a user.',
         pairedOptions: [
-          PairedRepeatableStringOption(
+          RepeatablePairedStringOption(
             name: 'header',
             short: 'H',
             description: 'Header',
@@ -199,7 +199,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(
         help,
@@ -216,7 +216,7 @@ void main() {
             name: 'session',
             description: 'Session',
             options: [
-              PairRepeatableStringOption(
+              RepeatablePairStringOption(
                 name: 'header',
                 short: 'H',
                 description: 'Header',
@@ -226,7 +226,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(
         help,
@@ -239,17 +239,17 @@ void main() {
         'login',
         'Authenticate a user.',
         pairedOptions: [
-          PairedRepeatableIntOption(
+          RepeatablePairedIntOption(
             name: 'port',
             description: 'Port',
             options: [
-              PairRepeatableDoubleOption(name: 'weight', description: 'Weight'),
+              RepeatablePairDoubleOption(name: 'weight', description: 'Weight'),
             ],
           ),
         ],
       );
 
-      final help = _withoutAnsi(HelpFormatter().formatHelp(registry));
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
       expect(help, contains('[ ...--port & ...--weight ] Port; Weight'));
     });
@@ -274,7 +274,7 @@ void main() {
         discretionaryPositionals: [Positional('output')],
       );
 
-      final help = HelpFormatter().formatHelp(registry);
+      final help = MambaHelpFormatter().format(registry);
 
       expect(help, contains('curl'));
       expect(help, contains('url'));

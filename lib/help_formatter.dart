@@ -22,10 +22,6 @@ abstract class FormattedString {
 
 final class RequiredString extends FormattedString {
   RequiredString(String string) : super('< ${_parse(string)} >');
-  RequiredString._formatted(String string) : super._('< $string >'.red);
-
-  factory RequiredString.format(String string) =>
-      RequiredString._formatted(string);
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -38,10 +34,6 @@ final class RequiredString extends FormattedString {
 
 final class OptionalString extends FormattedString {
   OptionalString(String string) : super('[ ${_parse(string)} ]');
-  OptionalString._formatted(String string) : super._('[ $string ]'.dimGray);
-
-  factory OptionalString.format(String string) =>
-      OptionalString._formatted(string);
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -53,14 +45,14 @@ final class OptionalString extends FormattedString {
 }
 
 /// Joins a primary help member with members that must be supplied with it.
-final class PairDSL extends FormattedString {
-  PairDSL(String primaryMember, Iterable<String> pairMembers)
+final class PairString extends FormattedString {
+  PairString(String primaryMember, Iterable<String> pairMembers)
     : super._([primaryMember, ...pairMembers].join(' & '));
 }
 
 /// Joins a primary help member with mutually exclusive alternatives.
-final class OrDSL extends FormattedString {
-  OrDSL(String primaryMember, Iterable<String> alternativeMembers)
+final class OrString extends FormattedString {
+  OrString(String primaryMember, Iterable<String> alternativeMembers)
     : super._([primaryMember, ...alternativeMembers].join(' | '));
 }
 
@@ -72,28 +64,46 @@ final class EntryDescriptionString extends FormattedString {
   EntryDescriptionString(String string) : super(string.brightYellow);
 }
 
-/// Renders a [CommandRegistry] as ANSI-styled command-line help text.
-class HelpFormatter {
-  RequiredString requiredFormatter(String string) =>
-      RequiredString.format(string);
+abstract class HelpFormatter {
+  RequiredString formatIntoRequiredString(String string) =>
+      RequiredString(string.red);
 
-  OptionalString optionalFormatter(String string) =>
-      OptionalString.format(string);
+  OptionalString formatIntoOptionalString(String string) =>
+      OptionalString(string.dimGray);
 
-  SectionTitleString sectionTitleFormater(String string) =>
+  SectionTitleString formatIntoSectionTitle(String string) =>
       SectionTitleString(string);
 
-  EntryDescriptionString entryDescriptionFormatter(String string) =>
+  EntryDescriptionString formatIntoEntryDescription(String string) =>
       EntryDescriptionString(string);
 
-  void longDescriptionFormater(StringBuffer buffer, String longDescription) {
+  OrString formatIntoOrString(
+    String primaryMember,
+    Iterable<String> alternativeMembers,
+  ) => OrString(primaryMember, alternativeMembers);
+
+  PairString formatIntoPairString(
+    String primaryMember,
+    Iterable<String> pairMembers,
+  ) => PairString(primaryMember, pairMembers);
+
+  void formatLongDescription(StringBuffer buffer, String longDescription);
+
+  String format(CommandRegistry registry);
+}
+
+/// Renders a [CommandRegistry] as ANSI-styled command-line help text.
+final class MambaHelpFormatter extends HelpFormatter {
+  @override
+  void formatLongDescription(StringBuffer buffer, String longDescription) {
     buffer
       ..writeln('-' * 10)
       ..writeln(longDescription)
       ..writeln('-' * 10);
   }
 
-  String formatHelp(CommandRegistry registry) {
+  @override
+  String format(CommandRegistry registry) {
     final buffer = StringBuffer();
     final positionals = [
       ...?registry.mandatoryPositionals?.values.map(_requiredPositional),
@@ -106,7 +116,7 @@ class HelpFormatter {
 
     final longDescription = registry.longDescription;
     if (longDescription != null) {
-      longDescriptionFormater(buffer, longDescription);
+      formatLongDescription(buffer, longDescription);
       buffer.writeln();
     }
 
@@ -134,7 +144,7 @@ class HelpFormatter {
               ?.map(
                 (command) =>
                     '${command.name} '
-                    '${entryDescriptionFormatter(command.shortDescription).string}',
+                    '${formatIntoEntryDescription(command.shortDescription).string}',
               )
               .toList() ??
           const [],
@@ -145,10 +155,10 @@ class HelpFormatter {
   }
 
   RequiredString _requiredPositional(Positional positional) =>
-      requiredFormatter(positional.name);
+      formatIntoRequiredString(positional.name);
 
   OptionalString _optionalPositional(Positional positional) =>
-      optionalFormatter(positional.name);
+      formatIntoOptionalString(positional.name);
 
   String _flag(Flag flag) => _entry(
     name: flag.name,
@@ -169,16 +179,19 @@ class HelpFormatter {
     final members = [option, ...option.options];
     final membersAfterPrimary = members.skip(1).map(_pairedMember);
     final expression = option.variant
-        ? OrDSL(_pairedMember(members.first), membersAfterPrimary)
-        : PairDSL(_pairedMember(members.first), membersAfterPrimary);
+        ? formatIntoOrString(_pairedMember(members.first), membersAfterPrimary)
+        : formatIntoPairString(
+            _pairedMember(members.first),
+            membersAfterPrimary,
+          );
     final grammar = option.required
-        ? requiredFormatter(expression.string)
-        : optionalFormatter(expression.string);
+        ? formatIntoRequiredString(expression.string)
+        : formatIntoOptionalString(expression.string);
     final description = members
         .map((member) => member.description ?? '')
         .join('; ');
 
-    return '${grammar.string} ${entryDescriptionFormatter(description).string}';
+    return '${grammar.string} ${formatIntoEntryDescription(description).string}';
   }
 
   String _pairedMember(NamedInput option) {
@@ -192,12 +205,7 @@ class HelpFormatter {
   }
 
   bool _isRepeatablePairMember(NamedInput option) => switch (option) {
-    PairedRepeatableStringOption() ||
-    PairedRepeatableIntOption() ||
-    PairedRepeatableDoubleOption() ||
-    PairRepeatableStringOption() ||
-    PairRepeatableIntOption() ||
-    PairRepeatableDoubleOption() => true,
+    RepeatablePairedOption() || RepeatablePairOption() => true,
     _ => false,
   };
 
@@ -242,10 +250,10 @@ class HelpFormatter {
     final displayName = short == null ? name : '$name |  $short'.bold;
     final repeatableName = repeatable ? '...$displayName' : displayName;
     final grammar = required
-        ? requiredFormatter(repeatableName)
-        : optionalFormatter(repeatableName);
+        ? formatIntoRequiredString(repeatableName)
+        : formatIntoOptionalString(repeatableName);
 
-    return '${grammar.string} ${entryDescriptionFormatter(description ?? '').string}';
+    return '${grammar.string} ${formatIntoEntryDescription(description ?? '').string}';
   }
 
   void _writeSection(
@@ -255,7 +263,7 @@ class HelpFormatter {
     bool includeEntrySpacing = true,
   }) {
     if (entries.isEmpty) return;
-    buffer.writeln(sectionTitleFormater(title).string);
+    buffer.writeln(formatIntoSectionTitle(title).string);
     if (includeEntrySpacing) buffer.writeln();
     for (final entry in entries) {
       buffer.writeln(entry);

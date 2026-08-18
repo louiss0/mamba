@@ -132,7 +132,7 @@ final class PairedStringOption extends PairedOption {
     RegExp? regex,
     super.short,
     super.description,
-    super.required,
+    super.required = false,
     super.variant,
   }) : regex = regex ?? RegExp(r'\S+');
 
@@ -177,22 +177,33 @@ final class PairedChoiceOption<T extends Enum> extends PairedOption {
   final T? defaultValue;
 }
 
-final class PairedRepeatableStringOption extends PairedOption {
-  PairedRepeatableStringOption({
+sealed class RepeatablePairedOption extends PairedOption {
+  RepeatablePairedOption({
+    required super.name,
+    required super.options,
+    super.short,
+    super.description,
+    super.required = false,
+    super.variant = false,
+  });
+}
+
+final class RepeatablePairedStringOption extends RepeatablePairedOption {
+  RepeatablePairedStringOption({
     required super.name,
     required super.options,
     RegExp? regex,
     super.short,
     super.description,
-    super.required,
-    super.variant,
+    super.required = false,
+    super.variant = false,
   }) : regex = regex ?? RegExp(r'\S+');
 
   final RegExp regex;
 }
 
-final class PairedRepeatableIntOption extends PairedOption {
-  PairedRepeatableIntOption({
+final class RepeatablePairedIntOption extends RepeatablePairedOption {
+  RepeatablePairedIntOption({
     required super.name,
     required super.options,
     super.short,
@@ -202,8 +213,8 @@ final class PairedRepeatableIntOption extends PairedOption {
   });
 }
 
-final class PairedRepeatableDoubleOption extends PairedOption {
-  PairedRepeatableDoubleOption({
+final class RepeatablePairedDoubleOption extends RepeatablePairedOption {
+  RepeatablePairedDoubleOption({
     required super.name,
     required super.options,
     super.short,
@@ -246,7 +257,7 @@ final class PairDoubleOption extends PairOption {
 }
 
 final class PairChoiceOption<T extends Enum> extends PairOption {
-  PairChoiceOption({
+  const PairChoiceOption({
     required this.choices,
     this.defaultValue,
     required super.name,
@@ -258,8 +269,16 @@ final class PairChoiceOption<T extends Enum> extends PairOption {
   final T? defaultValue;
 }
 
-final class PairRepeatableStringOption extends PairOption {
-  PairRepeatableStringOption({
+sealed class RepeatablePairOption extends PairOption {
+  const RepeatablePairOption({
+    required super.name,
+    super.short,
+    super.description,
+  });
+}
+
+final class RepeatablePairStringOption extends RepeatablePairOption {
+  RepeatablePairStringOption({
     required super.name,
     RegExp? regex,
     super.short,
@@ -269,16 +288,16 @@ final class PairRepeatableStringOption extends PairOption {
   final RegExp regex;
 }
 
-final class PairRepeatableIntOption extends PairOption {
-  const PairRepeatableIntOption({
+final class RepeatablePairIntOption extends RepeatablePairOption {
+  const RepeatablePairIntOption({
     required super.name,
     super.short,
     super.description,
   });
 }
 
-final class PairRepeatableDoubleOption extends PairOption {
-  const PairRepeatableDoubleOption({
+final class RepeatablePairDoubleOption extends RepeatablePairOption {
+  const RepeatablePairDoubleOption({
     required super.name,
     super.short,
     super.description,
@@ -295,7 +314,7 @@ sealed class SingleOption extends Option {
 }
 
 final class StringOption extends SingleOption {
-  StringOption({
+  const StringOption({
     required super.name,
     required this.regex,
     super.short,
@@ -307,7 +326,7 @@ final class StringOption extends SingleOption {
 }
 
 final class IntOption extends SingleOption {
-  IntOption({
+  const IntOption({
     required super.name,
     super.short,
     super.required,
@@ -316,7 +335,7 @@ final class IntOption extends SingleOption {
 }
 
 final class DoubleOption extends SingleOption {
-  DoubleOption({
+  const DoubleOption({
     required super.name,
     super.short,
     super.required,
@@ -325,7 +344,7 @@ final class DoubleOption extends SingleOption {
 }
 
 final class ChoiceOption<T extends Enum> extends SingleOption {
-  ChoiceOption({
+  const ChoiceOption({
     this.defaultValue,
     required this.choices,
     required super.name,

@@ -210,29 +210,29 @@ class Parser {
       registry.repeatedOptions?.values.any((option) => option is T) == true ||
       (T == RepeatableStringOption &&
           (registry.pairedOptions?.values.any(
-                    (option) => option is PairedRepeatableStringOption,
+                    (option) => option is RepeatablePairedStringOption,
                   ) ==
                   true ||
               registry.pairOptions?.values.any(
-                    (option) => option is PairRepeatableStringOption,
+                    (option) => option is RepeatablePairStringOption,
                   ) ==
                   true)) ||
       (T == RepeatableIntOption &&
           (registry.pairedOptions?.values.any(
-                    (option) => option is PairedRepeatableIntOption,
+                    (option) => option is RepeatablePairedIntOption,
                   ) ==
                   true ||
               registry.pairOptions?.values.any(
-                    (option) => option is PairRepeatableIntOption,
+                    (option) => option is RepeatablePairIntOption,
                   ) ==
                   true)) ||
       (T == RepeatableDoubleOption &&
           (registry.pairedOptions?.values.any(
-                    (option) => option is PairedRepeatableDoubleOption,
+                    (option) => option is RepeatablePairedDoubleOption,
                   ) ==
                   true ||
               registry.pairOptions?.values.any(
-                    (option) => option is PairRepeatableDoubleOption,
+                    (option) => option is RepeatablePairDoubleOption,
                   ) ==
                   true));
 
@@ -501,29 +501,29 @@ class Parser {
           _parseDouble(value),
           repeatedDoubleOptions,
         );
-      case PairedRepeatableStringOption(:final regex):
+      case RepeatablePairedStringOption(:final regex):
         _addRepeatedValue(
           option.name,
           _parseStringOption(regex, value),
           repeatedStringOptions,
         );
-      case PairedRepeatableIntOption():
+      case RepeatablePairedIntOption():
         _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
-      case PairedRepeatableDoubleOption():
+      case RepeatablePairedDoubleOption():
         _addRepeatedValue(
           option.name,
           _parseDouble(value),
           repeatedDoubleOptions,
         );
-      case PairRepeatableStringOption(:final regex):
+      case RepeatablePairStringOption(:final regex):
         _addRepeatedValue(
           option.name,
           _parseStringOption(regex, value),
           repeatedStringOptions,
         );
-      case PairRepeatableIntOption():
+      case RepeatablePairIntOption():
         _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
-      case PairRepeatableDoubleOption():
+      case RepeatablePairDoubleOption():
         _addRepeatedValue(
           option.name,
           _parseDouble(value),
@@ -743,11 +743,11 @@ class Parser {
     PairedIntOption() || PairIntOption() => intOptions.containsKey(option.name),
     PairedDoubleOption() ||
     PairDoubleOption() => doubleOptions.containsKey(option.name),
-    PairedRepeatableStringOption() || PairRepeatableStringOption() =>
+    RepeatablePairedStringOption() || RepeatablePairStringOption() =>
       repeatedStringOptions.containsKey(option.name),
-    PairedRepeatableIntOption() ||
-    PairRepeatableIntOption() => repeatedIntOptions.containsKey(option.name),
-    PairedRepeatableDoubleOption() || PairRepeatableDoubleOption() =>
+    RepeatablePairedIntOption() ||
+    RepeatablePairIntOption() => repeatedIntOptions.containsKey(option.name),
+    RepeatablePairedDoubleOption() || RepeatablePairDoubleOption() =>
       repeatedDoubleOptions.containsKey(option.name),
     StringOption() ||
     ChoiceOption() ||

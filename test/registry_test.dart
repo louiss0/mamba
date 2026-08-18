@@ -89,20 +89,20 @@ void main() {
             ),
           ],
         ),
-        PairedRepeatableStringOption(
+        RepeatablePairedStringOption(
           name: 'repeated-string',
           variant: true,
-          options: [PairRepeatableStringOption(name: 'repeated-string-pair')],
+          options: [RepeatablePairStringOption(name: 'repeated-string-pair')],
         ),
-        PairedRepeatableIntOption(
+        RepeatablePairedIntOption(
           name: 'repeated-int',
           variant: true,
-          options: [PairRepeatableIntOption(name: 'repeated-int-pair')],
+          options: [RepeatablePairIntOption(name: 'repeated-int-pair')],
         ),
-        PairedRepeatableDoubleOption(
+        RepeatablePairedDoubleOption(
           name: 'repeated-double',
           variant: true,
-          options: [PairRepeatableDoubleOption(name: 'repeated-double-pair')],
+          options: [RepeatablePairDoubleOption(name: 'repeated-double-pair')],
         ),
       ];
 
