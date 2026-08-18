@@ -14,6 +14,12 @@ void main() {
       expect(() => RequiredString('< value >'.red), throwsFormatException);
       expect(RequiredString('value'.red).string, contains('value'));
     });
+
+    test('rejects optional delimiters after removing ANSI styling', () {
+      expect(() => OptionalString('[value]'.red), throwsFormatException);
+      expect(() => OptionalString('value]'.red), throwsFormatException);
+      expect(OptionalString('value'.red).string, contains('value'));
+    });
   });
 
   group('PairDSL', () {
@@ -44,12 +50,12 @@ void main() {
 
   group('OrDSL', () {
     test('joins a primary member with alternative members', () {
-      expect(OrString('--token', ['--api-key']).string, '--token | --api-key');
+      expect(OrString('--token', ['--apiKey']).string, '--token | --apiKey');
     });
 
     test('preserves ANSI-styled members', () {
       final primaryMember = '--token'.bold;
-      final alternativeMember = '--api-key'.red;
+      final alternativeMember = '--apiKey'.red;
 
       expect(
         OrString(primaryMember, [alternativeMember]).string,
@@ -100,16 +106,14 @@ void main() {
             name: 'token',
             variant: true,
             description: 'Token',
-            options: [
-              PairStringOption(name: 'api-key', description: 'API key'),
-            ],
+            options: [PairStringOption(name: 'apiKey', description: 'API key')],
           ),
         ],
       );
 
       final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-      expect(help, contains('[ --token | --api-key ] Token; API key'));
+      expect(help, contains('[ --token | --apiKey ] Token; API key'));
     });
 
     test('renders paired groups after ordinary options', () {
@@ -162,12 +166,12 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           PairedStringOption(
-            name: 'client-id',
+            name: 'clientId',
             required: true,
             description: 'Client ID',
             options: [
               PairStringOption(
-                name: 'client-secret',
+                name: 'clientSecret',
                 description: 'Client secret',
               ),
             ],
@@ -179,7 +183,7 @@ void main() {
 
       expect(
         help,
-        contains('< --client-id & --client-secret > Client ID; Client secret'),
+        contains('< --clientId & --clientSecret > Client ID; Client secret'),
       );
     });
 
@@ -193,7 +197,7 @@ void main() {
             short: 'H',
             description: 'Header',
             options: [
-              PairStringOption(name: 'request-id', description: 'Request ID'),
+              PairStringOption(name: 'requestId', description: 'Request ID'),
             ],
           ),
         ],
@@ -203,7 +207,7 @@ void main() {
 
       expect(
         help,
-        contains('[ ...--header | -H & --request-id ] Header; Request ID'),
+        contains('[ ...--header | -H & --requestId ] Header; Request ID'),
       );
     });
 
@@ -254,6 +258,23 @@ void main() {
       expect(help, contains('[ ...--port & ...--weight ] Port; Weight'));
     });
 
+    test('renders child commands with their descriptions', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          _HelpCommand('config', 'Configure the tool.'),
+          _HelpCommand('run', 'Run the tool.'),
+        ],
+      );
+
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+      expect(help, contains('Commands'));
+      expect(help, contains('config Configure the tool.'));
+      expect(help, contains('run Run the tool.'));
+    });
+
     test('formats list-defined command inputs and nested accessors', () {
       final registry = CommandRegistry.create(
         'curl',
@@ -285,4 +306,21 @@ void main() {
       expect(help, contains('tls.cert'));
     });
   });
+}
+
+class _HelpCommand extends Command {
+  _HelpCommand(this.name, this.shortDescription);
+
+  @override
+  final String name;
+
+  @override
+  final String shortDescription;
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) => '';
 }

@@ -116,6 +116,8 @@ final class CommandRegistry {
   }
 
   static final RegExp _keyboardSymbol = RegExp(r'[^A-Za-z0-9_-]');
+  static final RegExp _namedInputName = RegExp(r'^[A-Za-z][A-Za-z0-9]*$');
+  static final RegExp _shortInputName = RegExp(r'^[A-Za-z]$');
   static final RegExp _number = RegExp(r'\d');
 
   static Map<String, T>? _indexByName<T extends NamedInput>(
@@ -198,9 +200,19 @@ final class CommandRegistry {
           'The help flag and -h alias are reserved by the executor',
         );
       }
-      if (_keyboardSymbol.hasMatch(input.name)) {
+      if (!_namedInputName.hasMatch(input.name)) {
         throw MambaRegistryError(
-          "$inputKind names can't use keyboard symbols other than _ or -",
+          '$inputKind names must be alphanumeric and start with a letter',
+        );
+      }
+      final short = switch (input) {
+        Flag(short: final short) || Option(short: final short) => short,
+        PairOption(short: final short) => short,
+        _ => null,
+      };
+      if (short != null && !_shortInputName.hasMatch(short)) {
+        throw MambaRegistryError(
+          '$inputKind short aliases must be a single letter',
         );
       }
     }

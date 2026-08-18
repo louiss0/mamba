@@ -13,6 +13,7 @@ Parser parser({
   List<PairedOption>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
+  List<Command>? commands,
 }) => Parser(
   CommandRegistry.create(
     'tool',
@@ -23,6 +24,7 @@ Parser parser({
     pairedOptions: pairedOptions,
     mandatoryPositionals: mandatoryPositionals,
     discretionaryPositionals: discretionaryPositionals,
+    commands: commands,
   ),
 );
 
@@ -226,44 +228,41 @@ void main() {
       final subject = parser(
         pairedOptions: [
           PairedStringOption(
-            name: 'first-name',
-            options: [PairStringOption(name: 'last-name')],
+            name: 'firstName',
+            options: [PairStringOption(name: 'lastName')],
           ),
           PairedIntOption(
             name: 'minimum',
             options: [PairIntOption(name: 'maximum')],
           ),
           PairedDoubleOption(
-            name: 'minimum-ratio',
-            options: [PairDoubleOption(name: 'maximum-ratio')],
+            name: 'minimumRatio',
+            options: [PairDoubleOption(name: 'maximumRatio')],
           ),
         ],
       );
 
       final inputs = subject.parse([
-        '--first-name',
+        '--firstName',
         'Ada',
-        '--last-name',
+        '--lastName',
         'Lovelace',
         '--minimum',
         '1',
         '--maximum',
         '2',
-        '--minimum-ratio',
+        '--minimumRatio',
         '0.5',
-        '--maximum-ratio',
+        '--maximumRatio',
         '1.5',
       ]).$3;
 
       expect(inputs.stringOptions, {
-        'first-name': 'Ada',
-        'last-name': 'Lovelace',
+        'firstName': 'Ada',
+        'lastName': 'Lovelace',
       });
       expect(inputs.intOptions, {'minimum': 1, 'maximum': 2});
-      expect(inputs.doubleOptions, {
-        'minimum-ratio': 0.5,
-        'maximum-ratio': 1.5,
-      });
+      expect(inputs.doubleOptions, {'minimumRatio': 0.5, 'maximumRatio': 1.5});
     });
 
     test('parses paired repeatable string, int, and double options', () {
@@ -278,8 +277,8 @@ void main() {
             options: [RepeatablePairIntOption(name: 'maximum')],
           ),
           RepeatablePairedDoubleOption(
-            name: 'minimum-weight',
-            options: [RepeatablePairDoubleOption(name: 'maximum-weight')],
+            name: 'minimumWeight',
+            options: [RepeatablePairDoubleOption(name: 'maximumWeight')],
           ),
         ],
       );
@@ -301,13 +300,13 @@ void main() {
         '3',
         '--maximum',
         '4',
-        '--minimum-weight',
+        '--minimumWeight',
         '0.5',
-        '--maximum-weight',
+        '--maximumWeight',
         '1.5',
-        '--minimum-weight',
+        '--minimumWeight',
         '2.5',
-        '--maximum-weight',
+        '--maximumWeight',
         '3.5',
       ]).$3;
 
@@ -320,8 +319,8 @@ void main() {
         'maximum': [2, 4],
       });
       expect(inputs.repeatedDoubleOptions, {
-        'minimum-weight': [0.5, 2.5],
-        'maximum-weight': [1.5, 3.5],
+        'minimumWeight': [0.5, 2.5],
+        'maximumWeight': [1.5, 3.5],
       });
     });
 
@@ -395,7 +394,7 @@ void main() {
           PairedStringOption(
             name: 'token',
             variant: true,
-            options: [PairStringOption(name: 'api-key')],
+            options: [PairStringOption(name: 'apiKey')],
           ),
         ],
       );
@@ -409,12 +408,12 @@ void main() {
           PairedStringOption(
             name: 'token',
             variant: true,
-            options: [PairStringOption(name: 'api-key')],
+            options: [PairStringOption(name: 'apiKey')],
           ),
         ],
       );
 
-      expectParseError(subject, ['--token', 'secret', '--api-key', 'key']);
+      expectParseError(subject, ['--token', 'secret', '--apiKey', 'key']);
     });
 
     test('accepts one repeatable variant member', () {
@@ -438,12 +437,181 @@ void main() {
             name: 'token',
             required: true,
             variant: true,
-            options: [PairStringOption(name: 'api-key')],
+            options: [PairStringOption(name: 'apiKey')],
           ),
         ],
       );
 
       expectParseError(subject, []);
+    });
+  });
+
+  group('Parser command discovery', () {
+    test('parses root-qualified nested commands around inherited flags', () {
+      final child = _ParserCommand('config', commands: [_ParserCommand('get')]);
+      final subject = Parser(
+        CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'verbose', short: 'v')],
+          commands: [child],
+          inheritFlags: true,
+        ),
+      );
+
+      final result = subject.parse(['tool', '-v', 'config', 'get']);
+
+      expect(result.$1, ['tool', 'config', 'get']);
+      expect(result.$3.boolFlags, {'verbose': true});
+    });
+
+    test('stops command discovery at the trailing argument separator', () {
+      final result = parser(
+        commands: [_ParserCommand('config')],
+      ).parse(['--', 'config']);
+
+      expect(result.$1, isEmpty);
+      expect(result.$4, ['config']);
+    });
+  });
+
+  group('Parser option forms', () {
+    test('parses short aliases for every ordinary option category', () {
+      final inputs = parser(
+        options: [
+          StringOption(name: 'name', short: 'n', regex: RegExp(r'.+')),
+          IntOption(name: 'count', short: 'c'),
+          DoubleOption(name: 'ratio', short: 'r'),
+        ],
+      ).parse(['-n', 'Ada', '-c', '2', '-r', '1.5']).$3;
+
+      expect(inputs.stringOptions, {'name': 'Ada'});
+      expect(inputs.intOptions, {'count': 2});
+      expect(inputs.doubleOptions, {'ratio': 1.5});
+    });
+
+    test('keeps equals signs after the first inline separator', () {
+      final inputs = parser(
+        options: [StringOption(name: 'query', regex: RegExp(r'.+'))],
+      ).parse(['--query=a=b']).$3;
+
+      expect(inputs.stringOptions, {'query': 'a=b'});
+    });
+
+    test('rejects values attached to flags and unknown accessor paths', () {
+      final subject = parser(
+        flags: [BooleanFlag(name: 'color')],
+        accessors: [
+          AccessorListOption(
+            name: 'server',
+            options: [AccessorIntOption(name: 'port')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, ['--color=true']);
+      expectParseError(subject, ['--server.missing', '1']);
+      expectParseError(subject, ['--server', '1']);
+    });
+
+    test('rejects missing option values', () {
+      final subject = parser(options: [IntOption(name: 'count')]);
+
+      expectParseError(subject, ['--count']);
+      expectParseError(subject, ['--count', '--other']);
+    });
+
+    test('parses count bundles and rejects unknown short members', () {
+      final subject = parser(
+        flags: [
+          CountFlag(name: 'verbose', short: 'v'),
+          BooleanFlag(name: 'quiet', short: 'q'),
+        ],
+      );
+
+      expect(subject.parse(['-vvq']).$3.countFlags, {'verbose': 2});
+      expectParseError(subject, ['-vx']);
+    });
+  });
+
+  group('Parser choices and accessors', () {
+    test('parses ordinary, paired, pair-member, and accessor choices', () {
+      final inputs =
+          parser(
+            options: [ChoiceOption(name: 'mode', choices: Mode.values)],
+            pairedOptions: [
+              PairedChoiceOption(
+                name: 'primary',
+                choices: Mode.values,
+                options: [
+                  PairChoiceOption(name: 'secondary', choices: Mode.values),
+                ],
+              ),
+            ],
+            accessors: [
+              AccessorChoiceOption(name: 'profile', choices: Mode.values),
+            ],
+          ).parse([
+            '--mode',
+            'always',
+            '--primary',
+            'auto',
+            '--secondary',
+            'always',
+            '--profile',
+            'auto',
+          ]).$3;
+
+      expect(inputs.stringOptions, {
+        'mode': 'always',
+        'primary': 'auto',
+        'secondary': 'always',
+      });
+      expect(inputs.accessors, {'profile': 'auto'});
+    });
+
+    test('merges nested accessor defaults with explicit values', () {
+      final inputs = parser(
+        accessors: [
+          AccessorListOption(
+            name: 'server',
+            options: [
+              AccessorChoiceOption(
+                name: 'mode',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+              AccessorListOption(
+                name: 'tls',
+                options: [
+                  AccessorChoiceOption(
+                    name: 'mode',
+                    choices: Mode.values,
+                    defaultValue: Mode.always,
+                  ),
+                  AccessorStringOption(name: 'certificate'),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ).parse(['--server.tls.certificate', 'cert.pem']).$3;
+
+      expect(inputs.accessors, {
+        'server': {
+          'mode': 'auto',
+          'tls': {'mode': 'always', 'certificate': 'cert.pem'},
+        },
+      });
+    });
+
+    test('rejects invalid choice values', () {
+      expectParseError(
+        parser(
+          options: [ChoiceOption(name: 'mode', choices: Mode.values)],
+        ),
+        ['--mode', 'never'],
+      );
     });
   });
 
@@ -478,5 +646,67 @@ void main() {
         expectParseError(subject, ['source', 'extra']);
       },
     );
+
+    test('validates every required ordinary option type', () {
+      final cases = <Option>[
+        IntOption(name: 'integer', required: true),
+        DoubleOption(name: 'decimal', required: true),
+        RepeatableStringOption(name: 'words', required: true),
+        RepeatableIntOption(name: 'integers', required: true),
+        RepeatableDoubleOption(name: 'decimals', required: true),
+      ];
+
+      for (final option in cases) {
+        expectParseError(parser(options: [option]), []);
+      }
+    });
+
+    test('accepts negative numbers as inline and separate option values', () {
+      final subject = parser(
+        options: [
+          IntOption(name: 'integer', short: 'i'),
+          DoubleOption(name: 'decimal', short: 'd'),
+        ],
+      );
+
+      final inputs = subject.parse(['--integer', '-2', '-d', '-1.5']).$3;
+      expect(inputs.intOptions, {'integer': -2});
+      expect(inputs.doubleOptions, {'decimal': -1.5});
+
+      final inlineInputs = subject.parse(['--integer=-3', '--decimal=-2.5']).$3;
+      expect(inlineInputs.intOptions, {'integer': -3});
+      expect(inlineInputs.doubleOptions, {'decimal': -2.5});
+
+      expectParseError(subject, ['--integer=1.5']);
+      expectParseError(subject, ['--decimal=.5']);
+      expectParseError(subject, ['--decimal=1e2']);
+    });
+
+    test('rejects invalid discretionary positionals', () {
+      final subject = parser(
+        discretionaryPositionals: [
+          Positional('target', regex: RegExp(r'^valid$')),
+        ],
+      );
+
+      expect(() => subject.parse(['invalid']), throwsArgumentError);
+    });
   });
+}
+
+class _ParserCommand extends Command {
+  _ParserCommand(this.name, {super.commands});
+
+  @override
+  final String name;
+
+  @override
+  String get shortDescription => 'Parser command.';
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) => '';
 }

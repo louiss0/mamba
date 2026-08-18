@@ -346,11 +346,15 @@ class Parser {
     String? inlineValue,
   ) {
     if (inlineValue != null) return inlineValue;
-    if (index + 1 >= args.length || args[index + 1].startsWith('-')) {
+    if (index + 1 >= args.length) {
+      throw MambaParseException('Option --$name requires a value');
+    }
+    final value = args[index + 1];
+    if (value.startsWith('-') && !_isNegativeNumber(value)) {
       throw MambaParseException('Option --$name requires a value');
     }
     consumed.add(index + 1);
-    return args[index + 1];
+    return value;
   }
 
   bool _parseLongFlag(
@@ -581,6 +585,9 @@ class Parser {
     final match = regex.firstMatch(value);
     return match != null && match.start == 0 && match.end == value.length;
   }
+
+  bool _isNegativeNumber(String value) =>
+      _matchesEntirely(RegExp(r'-(?:\d+\.?\d*|\.\d+)'), value);
 
   void _addBooleanDefaults(CommandRegistry registry, Map<String, bool> values) {
     for (final flag in registry.boolFlags?.values ?? const <BooleanFlag>[]) {

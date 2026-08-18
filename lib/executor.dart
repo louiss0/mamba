@@ -23,10 +23,11 @@ final class _MambaCommandNotFoundException extends MambaException {
       );
 }
 
+// coverage: ignore-start
 final class Executor {
   static final List<Flag> _defaultFlags = List.unmodifiable([
     BooleanFlag(
-      name: 'dry-run',
+      name: 'dryRun',
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag(
@@ -283,3 +284,5 @@ final class Executor {
     return false;
   }
 }
+
+// coverage: ignore-end

@@ -66,17 +66,17 @@ void main() {
         PairedStringOption(
           name: 'string',
           variant: true,
-          options: [PairStringOption(name: 'string-pair')],
+          options: [PairStringOption(name: 'stringPair')],
         ),
         PairedIntOption(
           name: 'int',
           variant: true,
-          options: [PairIntOption(name: 'int-pair')],
+          options: [PairIntOption(name: 'intPair')],
         ),
         PairedDoubleOption(
           name: 'double',
           variant: true,
-          options: [PairDoubleOption(name: 'double-pair')],
+          options: [PairDoubleOption(name: 'doublePair')],
         ),
         PairedChoiceOption<VariantChoice>(
           name: 'choice',
@@ -84,25 +84,25 @@ void main() {
           variant: true,
           options: [
             PairChoiceOption<VariantChoice>(
-              name: 'choice-pair',
+              name: 'choicePair',
               choices: VariantChoice.values,
             ),
           ],
         ),
         RepeatablePairedStringOption(
-          name: 'repeated-string',
+          name: 'repeatedString',
           variant: true,
-          options: [RepeatablePairStringOption(name: 'repeated-string-pair')],
+          options: [RepeatablePairStringOption(name: 'repeatedStringPair')],
         ),
         RepeatablePairedIntOption(
-          name: 'repeated-int',
+          name: 'repeatedInt',
           variant: true,
-          options: [RepeatablePairIntOption(name: 'repeated-int-pair')],
+          options: [RepeatablePairIntOption(name: 'repeatedIntPair')],
         ),
         RepeatablePairedDoubleOption(
-          name: 'repeated-double',
+          name: 'repeatedDouble',
           variant: true,
-          options: [RepeatablePairDoubleOption(name: 'repeated-double-pair')],
+          options: [RepeatablePairDoubleOption(name: 'repeatedDoublePair')],
         ),
       ];
 
@@ -165,6 +165,174 @@ void main() {
           flags: [BooleanFlag(name: 'custom', short: 'h')],
         ),
         throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('inherits parent flags while allowing local overrides', () {
+      final inherited = BooleanFlag(name: 'color', description: 'parent');
+      final local = BooleanFlag(name: 'color', description: 'child');
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: [inherited],
+        inheritFlags: true,
+        commands: [
+          TestCommand('config', 'Configure.', flags: [local]),
+        ],
+      );
+
+      expect(
+        registry.commandRegistries!.single.boolFlags!['color'],
+        same(local),
+      );
+    });
+
+    test('distinguishes absent input collections from empty collections', () {
+      final absent = CommandRegistry.create('tool', 'Tool command.');
+      final empty = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        options: const [],
+      );
+
+      expect(absent.singleOptions, isNull);
+      expect(empty.singleOptions, isEmpty);
+    });
+
+    test('rejects invalid command and description boundaries', () {
+      for (final name in ['', 'tool1', '_', '-', 'tool!']) {
+        expect(
+          () => CommandRegistry.create(name, 'Tool command.'),
+          throwsA(anyOf(isA<MambaException>(), isA<MambaRegistryError>())),
+        );
+      }
+      expect(
+        () => CommandRegistry.create('tool', ''),
+        throwsA(isA<MambaException>()),
+      );
+      expect(
+        () => CommandRegistry.create('tool', 'x' * 150),
+        throwsA(isA<MambaException>()),
+      );
+      expect(() => CommandRegistry.create('tool', 'x' * 149), returnsNormally);
+    });
+
+    test(
+      'accepts alphanumeric option and flag names starting with a letter',
+      () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'verbose2', short: 'v')],
+          options: [IntOption(name: 'retry2', short: 'r')],
+        );
+
+        expect(registry.boolFlags, contains('verbose2'));
+        expect(registry.singleOptions, contains('retry2'));
+      },
+    );
+
+    test(
+      'rejects option and flag names that are not letter-led alphanumeric',
+      () {
+        for (final name in ['2fast', 'dry-run', 'dry_run', 'verbose!']) {
+          expect(
+            () => CommandRegistry.create(
+              'tool',
+              'Tool command.',
+              flags: [BooleanFlag(name: name)],
+            ),
+            throwsA(isA<MambaRegistryError>()),
+          );
+          expect(
+            () => CommandRegistry.create(
+              'tool',
+              'Tool command.',
+              options: [IntOption(name: name)],
+            ),
+            throwsA(isA<MambaRegistryError>()),
+          );
+        }
+      },
+    );
+
+    test('rejects non-letter short aliases', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'verbose', short: '2')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [IntOption(name: 'retry', short: '-')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects invalid input and positional symbols', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [StringOption(name: 'bad!', regex: RegExp(r'.+'))],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          mandatoryPositionals: [Positional('bad!')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects collisions between accessors and other inputs', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          accessors: [AccessorStringOption(name: 'profile')],
+          flags: [BooleanFlag(name: 'profile')],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          accessors: [AccessorStringOption(name: 'profile')],
+          options: [StringOption(name: 'profile', regex: RegExp(r'.+'))],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+    });
+
+    test('rejects positional collisions', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          mandatoryPositionals: [Positional('source')],
+          discretionaryPositionals: [Positional('source')],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          mandatoryPositionals: [Positional('config')],
+          commands: [TestCommand('config', 'Configure.')],
+        ),
+        throwsA(isA<MambaException>()),
       );
     });
 
