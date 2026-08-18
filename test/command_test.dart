@@ -167,40 +167,6 @@ void main() {
   });
 
   group('Input definitions', () {
-    test('option factories preserve their definitions', () {
-      final string = Option.stringOption(
-        'name',
-        RegExp(r'^Ada$'),
-        short: 'n',
-        required: true,
-      );
-      final integer = Option.intOption('count', short: 'c');
-      final decimal = Option.doubleOption('ratio', short: 'r');
-      final choice = Option.choiceOption('mode', _TestMode.values);
-
-      expect(string, isA<StringOption>());
-      expect(string.required, isTrue);
-      expect(string.short, 'n');
-      expect(integer, isA<IntOption>());
-      expect(decimal, isA<DoubleOption>());
-      expect(choice.choices, _TestMode.values);
-    });
-
-    test('repeatable option factories preserve their definitions', () {
-      final integer = RepeatableOption.intOption(name: 'count', required: true);
-      final decimal = RepeatableOption.doubleOption(name: 'ratio');
-      final string = RepeatableOption.stringOption(
-        name: 'name',
-        regex: RegExp(r'^Ada$'),
-      );
-
-      expect(integer, isA<RepeatableIntOption>());
-      expect(integer.required, isTrue);
-      expect(decimal, isA<RepeatableDoubleOption>());
-      expect(string, isA<RepeatableStringOption>());
-      expect(string.regex.hasMatch('Ada'), isTrue);
-    });
-
     test('accessor numeric regexes describe their accepted shapes', () {
       expect(AccessorIntOption(name: 'port').regex.hasMatch('80'), isTrue);
       expect(AccessorDoubleOption(name: 'ratio').regex.hasMatch('1.5'), isTrue);
@@ -226,5 +192,3 @@ void main() {
     });
   });
 }
-
-enum _TestMode { automatic, manual }

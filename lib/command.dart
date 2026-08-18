@@ -56,58 +56,6 @@ sealed class Option extends NamedInput {
 
   final String? short;
   final bool required;
-
-  static StringOption stringOption(
-    String name,
-    RegExp regex, {
-    String? short,
-    String? description,
-    bool required = false,
-  }) => StringOption(
-    name: name,
-    regex: regex,
-    short: short,
-    description: description,
-    required: required,
-  );
-
-  static IntOption intOption(
-    String name, {
-    String? short,
-    String? description,
-    bool required = false,
-  }) => IntOption(
-    name: name,
-    short: short,
-    description: description,
-    required: required,
-  );
-
-  static DoubleOption doubleOption(
-    String name, {
-    String? short,
-    String? description,
-    bool required = false,
-  }) => DoubleOption(
-    name: name,
-    short: short,
-    description: description,
-    required: required,
-  );
-
-  static ChoiceOption<T> choiceOption<T extends Enum>(
-    String name,
-    List<T> choices, {
-    String? short,
-    String? description,
-    bool required = false,
-  }) => ChoiceOption(
-    name: name,
-    choices: choices,
-    short: short,
-    description: description,
-    required: required,
-  );
 }
 
 /// An option with members that form either a required-together group or variant.
@@ -364,44 +312,6 @@ sealed class RepeatableOption extends Option {
     super.short,
     super.description,
   });
-
-  static RepeatableIntOption intOption({
-    required String name,
-    String? short,
-    String? description,
-    bool required = false,
-  }) => RepeatableIntOption(
-    name: name,
-    short: short,
-    description: description,
-    required: required,
-  );
-
-  static RepeatableDoubleOption doubleOption({
-    required String name,
-    String? short,
-    String? description,
-    bool required = false,
-  }) => RepeatableDoubleOption(
-    name: name,
-    short: short,
-    description: description,
-    required: required,
-  );
-
-  static RepeatableStringOption stringOption({
-    required String name,
-    required RegExp regex,
-    String? short,
-    String? description,
-    bool required = false,
-  }) => RepeatableStringOption(
-    name: name,
-    short: short,
-    description: description,
-    required: required,
-    regex: regex,
-  );
 }
 
 final class RepeatableStringOption extends RepeatableOption {
