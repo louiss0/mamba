@@ -44,26 +44,78 @@ final class CommandRegistry {
     List<PairedOption>? pairedOptions,
     List<AccessorOption>? accessors,
     List<Command>? commands,
-    List<Flag>? inheritedFlags,
-    bool inheritFlags = false,
-  }) {
-    final localFlagNames = flags?.map((flag) => flag.name).toSet();
-    final List<Flag>? registeredFlags = inheritedFlags == null && flags == null
+  }) => _build(
+    name,
+    shortDescription,
+    longDescription: longDescription,
+    mandatoryPositionals: mandatoryPositionals,
+    discretionaryPositionals: discretionaryPositionals,
+    flags: flags,
+    options: options == null && pairedOptions == null
         ? null
-        : [
-            ...?inheritedFlags?.where(
-              (flag) => !(localFlagNames?.contains(flag.name) ?? false),
-            ),
-            ...?flags,
-          ];
+        : [...?options, ...?pairedOptions],
+    accessors: accessors,
+    commands: commands,
+  );
+
+  static CommandRegistry _fromCommand(
+    Command command, {
+    List<Flag>? inheritedFlags,
+    List<Option>? inheritedOptions,
+  }) {
+    final group = command is GroupCommand ? command : null;
+    final publishedFlags = _mergeByName(inheritedFlags, group?.inheritedFlags);
+    final publishedOptions = _mergeByName(
+      inheritedOptions,
+      group?.inheritedOptions,
+    );
+    final registeredFlags = _mergeByName(publishedFlags, command.flags);
+    final localOptions =
+        command.options == null && command.pairedOptions == null
+        ? null
+        : [...?command.options, ...?command.pairedOptions];
+    final registeredOptions = _mergeByName(publishedOptions, localOptions);
+
+    return _build(
+      command.name,
+      command.shortDescription,
+      longDescription: command.longDescription,
+      mandatoryPositionals: command.mandatoryPositionals,
+      discretionaryPositionals: command.discretionaryPositionals,
+      flags: registeredFlags,
+      options: registeredOptions,
+      accessors: command.accessors,
+      commands: command.commands,
+      childInheritedFlags: publishedFlags,
+      childInheritedOptions: publishedOptions,
+    );
+  }
+
+  static CommandRegistry _build(
+    String name,
+    String shortDescription, {
+    String? longDescription,
+    List<Positional>? mandatoryPositionals,
+    List<Positional>? discretionaryPositionals,
+    List<Flag>? flags,
+    List<Option>? options,
+    List<AccessorOption>? accessors,
+    List<Command>? commands,
+    List<Flag>? childInheritedFlags,
+    List<Option>? childInheritedOptions,
+  }) {
+    final ordinaryOptions = options
+        ?.where((option) => option is! PairedOption)
+        .toList();
+    final pairedOptions = options?.whereType<PairedOption>().toList();
 
     _validateDefinition(
       name,
       shortDescription,
       mandatoryPositionals,
       discretionaryPositionals,
-      registeredFlags,
-      options,
+      flags,
+      ordinaryOptions,
       pairedOptions,
       accessors,
       commands,
@@ -73,17 +125,13 @@ final class CommandRegistry {
       name: name,
       shortDescription: shortDescription,
       longDescription: longDescription,
-      boolFlags: _indexByName<BooleanFlag>(
-        registeredFlags?.whereType<BooleanFlag>(),
-      ),
-      countFlags: _indexByName<CountFlag>(
-        registeredFlags?.whereType<CountFlag>(),
-      ),
+      boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
+      countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
       singleOptions: _indexByName<SingleOption>(
-        options?.whereType<SingleOption>(),
+        ordinaryOptions?.whereType<SingleOption>(),
       ),
       repeatedOptions: _indexByName<RepeatableOption>(
-        options?.whereType<RepeatableOption>(),
+        ordinaryOptions?.whereType<RepeatableOption>(),
       ),
       pairedOptions: _indexByName<PairedOption>(pairedOptions),
       pairOptions: _indexByName<PairOption>(
@@ -96,23 +144,28 @@ final class CommandRegistry {
       accessors: _indexByName<AccessorOption>(accessors),
       commandRegistries: commands
           ?.map(
-            (command) => CommandRegistry.create(
-              command.name,
-              command.shortDescription,
-              longDescription: command.longDescription,
-              mandatoryPositionals: command.mandatoryPositionals,
-              discretionaryPositionals: command.discretionaryPositionals,
-              flags: command.flags,
-              options: command.options,
-              pairedOptions: command.pairedOptions,
-              accessors: command.accessors,
-              commands: command.commands,
-              inheritedFlags: inheritFlags ? registeredFlags : null,
-              inheritFlags: inheritFlags,
+            (command) => _fromCommand(
+              command,
+              inheritedFlags: childInheritedFlags,
+              inheritedOptions: childInheritedOptions,
             ),
           )
           .toList(),
     );
+  }
+
+  static List<T>? _mergeByName<T extends NamedInput>(
+    List<T>? inherited,
+    List<T>? local,
+  ) {
+    if (inherited == null && local == null) return null;
+    final localNames = local?.map((input) => input.name).toSet();
+    return [
+      ...?inherited?.where(
+        (input) => !(localNames?.contains(input.name) ?? false),
+      ),
+      ...?local,
+    ];
   }
 
   static final RegExp _keyboardSymbol = RegExp(r'[^A-Za-z0-9_-]');

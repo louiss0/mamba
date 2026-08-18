@@ -168,23 +168,59 @@ void main() {
       );
     });
 
-    test('inherits parent flags while allowing local overrides', () {
-      final inherited = BooleanFlag(name: 'color', description: 'parent');
-      final local = BooleanFlag(name: 'color', description: 'child');
+    test('group commands publish explicit inputs to descendants', () {
+      final inheritedFlag = BooleanFlag(name: 'color');
+      final inheritedOption = IntOption(name: 'retries');
+      final localFlag = BooleanFlag(name: 'color', description: 'child');
+      final localOption = IntOption(name: 'retries', description: 'child');
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
-        flags: [inherited],
-        inheritFlags: true,
         commands: [
-          TestCommand('config', 'Configure.', flags: [local]),
+          TestGroupCommand(
+            'config',
+            'Configure.',
+            inheritedFlags: [inheritedFlag],
+            inheritedOptions: [inheritedOption],
+            commands: [
+              TestCommand(
+                'get',
+                'Get configuration.',
+                flags: [localFlag],
+                options: [localOption],
+              ),
+            ],
+          ),
         ],
       );
 
-      expect(
-        registry.commandRegistries!.single.boolFlags!['color'],
-        same(local),
+      final group = registry.commandRegistries!.single;
+      final child = group.commandRegistries!.single;
+      expect(group.boolFlags!['color'], same(inheritedFlag));
+      expect(group.singleOptions!['retries'], same(inheritedOption));
+      expect(child.boolFlags!['color'], same(localFlag));
+      expect(child.singleOptions!['retries'], same(localOption));
+    });
+
+    test('ordinary command inputs are not inherited by children', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestCommand(
+            'config',
+            'Configure.',
+            flags: [BooleanFlag(name: 'color')],
+            options: [IntOption(name: 'retries')],
+            commands: [TestCommand('get', 'Get configuration.')],
+          ),
+        ],
       );
+
+      final child =
+          registry.commandRegistries!.single.commandRegistries!.single;
+      expect(child.boolFlags, isNull);
+      expect(child.singleOptions, isNull);
     });
 
     test('distinguishes absent input collections from empty collections', () {

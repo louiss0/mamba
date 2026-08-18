@@ -74,7 +74,6 @@ final class Executor {
          options: options,
          pairedOptions: pairedOptions,
          commands: commands,
-         inheritFlags: true,
        ),
        commands = commands;
 

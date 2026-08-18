@@ -454,9 +454,13 @@ abstract class Command {
 /// This type of commands should only use it's sub command runner in `run`
 abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
+  final List<Flag>? inheritedFlags;
+  final List<Option>? inheritedOptions;
 
   GroupCommand({
     List<String>? defaultSubCommandPath,
+    this.inheritedFlags,
+    this.inheritedOptions,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,

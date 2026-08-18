@@ -1,5 +1,23 @@
 import 'package:arg_parser/command.dart';
 
+class TestGroupCommand extends GroupCommand {
+  TestGroupCommand(
+    this.name,
+    this.shortDescription, {
+    super.inheritedFlags,
+    super.inheritedOptions,
+    super.flags,
+    super.options,
+    super.commands,
+  });
+
+  @override
+  final String name;
+
+  @override
+  final String shortDescription;
+}
+
 class TestCommand extends Command {
   TestCommand(
     this.name,

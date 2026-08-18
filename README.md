@@ -85,9 +85,8 @@ Executor(
 ).execute(['greet', '--name', 'Ada']);
 ```
 
-`Executor` adds the Boolean `--dry-run` flag and count `--verbose` flag to
-its registry and makes them available to every command. A default command path
-is relative to the executor name:
+`Executor` adds the Boolean `--dry-run` flag and count `--verbose` flag to its
+root registry. A default command path is relative to the executor name:
 
 ```dart
 Executor(
@@ -100,8 +99,11 @@ Executor(
 
 `GroupCommand` can use the same relative path with
 `defaultSubCommandPath`; `runChildCommand` rejects empty or parent-qualified
-paths. Commands using `HookRunner` receive selected-command hooks, while
-persistent hooks run for each hook-enabled command on the selected path.
+paths. A group publishes only the inputs listed in `inheritedFlags` and
+`inheritedOptions` to itself and its descendants. Inputs in its ordinary
+`flags` and `options` lists remain local. Commands using `HookRunner` receive
+selected-command hooks, while persistent hooks run for each hook-enabled
+command on the selected path.
 
 ## Parsed inputs
 

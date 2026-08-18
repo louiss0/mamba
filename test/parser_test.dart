@@ -447,22 +447,29 @@ void main() {
   });
 
   group('Parser command discovery', () {
-    test('parses root-qualified nested commands around inherited flags', () {
-      final child = _ParserCommand('config', commands: [_ParserCommand('get')]);
+    test('parses root-qualified commands around inherited inputs', () {
+      final config = _ParserGroupCommand(
+        'config',
+        inheritedFlags: [BooleanFlag(name: 'verbose', short: 'v')],
+        inheritedOptions: [IntOption(name: 'retries')],
+        commands: [_ParserCommand('get')],
+      );
       final subject = Parser(
-        CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          flags: [BooleanFlag(name: 'verbose', short: 'v')],
-          commands: [child],
-          inheritFlags: true,
-        ),
+        CommandRegistry.create('tool', 'Tool command.', commands: [config]),
       );
 
-      final result = subject.parse(['tool', '-v', 'config', 'get']);
+      final result = subject.parse([
+        'tool',
+        'config',
+        '-v',
+        'get',
+        '--retries',
+        '2',
+      ]);
 
       expect(result.$1, ['tool', 'config', 'get']);
       expect(result.$3.boolFlags, {'verbose': true});
+      expect(result.$3.intOptions, {'retries': 2});
     });
 
     test('stops command discovery at the trailing argument separator', () {
@@ -474,20 +481,24 @@ void main() {
       expect(result.$4, ['config']);
     });
 
-    test('discovers commands after a negated inherited flag', () {
+    test('discovers descendants after a negated inherited flag', () {
       final subject = Parser(
         CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [BooleanFlag(name: 'color', negatable: true)],
-          commands: [_ParserCommand('config')],
-          inheritFlags: true,
+          commands: [
+            _ParserGroupCommand(
+              'config',
+              inheritedFlags: [BooleanFlag(name: 'color', negatable: true)],
+              commands: [_ParserCommand('get')],
+            ),
+          ],
         ),
       );
 
-      final result = subject.parse(['--no-color', 'config']);
+      final result = subject.parse(['config', '--no-color', 'get']);
 
-      expect(result.$1, ['config']);
+      expect(result.$1, ['config', 'get']);
       expect(result.$3.boolFlags, {'color': false});
     });
   });
@@ -746,8 +757,23 @@ void main() {
   });
 }
 
+class _ParserGroupCommand extends GroupCommand {
+  _ParserGroupCommand(
+    this.name, {
+    super.inheritedFlags,
+    super.inheritedOptions,
+    super.commands,
+  });
+
+  @override
+  final String name;
+
+  @override
+  String get shortDescription => 'Parser group command.';
+}
+
 class _ParserCommand extends Command {
-  _ParserCommand(this.name, {super.commands});
+  _ParserCommand(this.name);
 
   @override
   final String name;
