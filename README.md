@@ -1,247 +1,460 @@
 # Mamba
 
-Mamba is a Dart library for defining command-line interfaces with declarative
-input lists. It parses registered flags, options, positionals, and nested
-accessors into typed maps that command handlers can use directly.
-
 [![pub package](https://img.shields.io/pub/v/arg_parser.svg)](https://pub.dev/packages/arg_parser)
 [![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
-## Features
+A CLI Framework that that makes commands define their accepted inputs using fields.
+There are two kinds of commands! `Command` and `GroupCommand`. 
+A _command_ is a class that defines a subcommand.
+A _group command_ is a sub command that allows nested subcommands.
+The main class that you work with is called `Executor`
+The executor is the class that executes your commands!
 
-- Define commands with lists of flags, options, positionals, and accessors.
-- Receive Boolean flags, count flags, each single-option type, and each
-  repeatable-option type in separate maps.
-- Support Boolean and count flags; string, integer, double, choice, and
-  repeatable options; named positionals; trailing arguments after `--`; and
-  nested accessor values.
-- Validate command definitions, render ANSI-styled help, and execute handlers.
+## Usage
 
-## Installation
+To use Mamba you need to first install it `dart pub add mamba`!
 
-Mamba requires Dart SDK `^3.12.2`.
-
-```sh
-dart pub add arg_parser
-```
-
-## Quick start
-
-Define inputs with lists, register a command, and parse tokens.
+Then make a `lib/main.dart` file and call the executor! With a name description. 
 
 ```dart
-import 'package:arg_parser/mamba.dart';
+import 'package:mamba/mamba.dart';
 
-void main() {
-  final parser = Parser(
-    CommandRegistry.create(
-      'greet',
-      'Print a greeting.',
-      options: [
-        StringOption(name: 'name', required: true, regex: RegExp(r'\S+')),
-      ],
-    ),
-  );
-
-  final (_, _, inputs, _) = parser.parse(['--name', 'Ada']);
-  print('Hello, ${inputs.stringOptions!['name']}!');
+void main(List<String> args) {
+  final executor = Executor('git', "A tool that's used for managing the distribution of code");
+  executor.execute(args);
 }
 ```
 
-## Commands
+After this you use `dart run lib/main.dart ` to run your executor!
 
-Extend `Command` to group its input lists with a handler. Only
-`GroupCommand` accepts nested commands through `commands`; use `Command` for
-leaf handlers. `Executor` routes help requests and invokes the selected command
-with positionals, parsed inputs, and trailing arguments. Returned command
-strings are written to stdout; thrown errors are written to stderr.
+When you run the command **you'll end up seeing nothing but the help menu**!
+
+This is what the executor does when you run the root command it only opens the help menu!
+There's no way to make it do anything! You'll need commands! 
+
+To resgister a command you take make a class inherit from `Command`. 
 
 ```dart
-final class GreetCommand extends Command {
-  GreetCommand()
+import 'package:mamba/mamba.dart';
+
+class Commit extends Command {
+
+  @override 
+  String get name => 'commit';
+
+  @override
+  String get shortDescription => "Record changes to the repository";
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    
+    print("Committing...");
+    
+    return "Committed!";
+  }
+}
+```
+
+Then you register in into the `Executor`. 
+
+```dart
+import 'package:mamba/mamba.dart';
+
+void main(List<String> args) {
+  final executor = Executor(
+    'git', 
+    "A tool that's used for managing the distribution of code",
+    commands: [
+      Commit(),
+    ],
+  );
+  executor.execute(args);
+}
+```
+
+In your terminal you run `dart run lib/main.dart commit`. 
+
+That's how this framework works!
+
+## Commands 
+
+A command is a class whose it's `run()` is called when it's name is word in the parsed arguments.
+The run function **returns a string**! That string is automatically **printed to stdout**.
+
+The run function takes three arguments! 
+1. All registered arguments that parsed stored in a `Map<String, String>`
+2. All flags, options that were parsed stored in a record. 
+3. A list of all parsed arguments that were passed after `--` 
+
+### Positionals 
+
+To allow a command to take an mandatory argument you register `mandatoryPositionals` 
+
+```dart
+class Switch extends Command {
+  @override
+  String get name => 'switch';
+
+  @override
+  String get shortDescription => "Change the current branch";
+
+  Command(
+    
+  ): super(
+    mandatoryPositionals: [
+      Positional("branch"),
+    ],
+  
+  );
+}
+```
+
+The run function will store it in the first positional argument in the map.
+What you do is get the value you know will be stored in the map!
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    
+    return "Going to branch ${positionals!['branch']}";
+   
+  }
+```
+
+To allow a command to take an optional positional argument! Register `optionalPositionals`
+
+```dart
+class Branch extends Command {
+    @override
+    String get name => 'branch';
+
+    @override
+    String get shortDescription => "List, create, or delete branches";
+
+  Command(): super(
+    optionalPositionals: [
+      Positional("branch"),
+    ],
+  );
+  
+}
+```
+
+The run function will then take the positional argument the same way. 
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final branch = positionals!['branch'];
+    return "Going to branch $branch";
+  }
+}
+```
+
+### Flags 
+
+If you want to register a command with a flag you use the `flags`
+
+```dart
+class Commit extends Command {
+  @override
+  String get name => 'commit';
+
+  @override
+  String get shortDescription => 'Record changes to the repository';
+
+  Command(): super(
+    flags: [
+      BooleanFlag(
+        name: 'interactive',
+        description: 'Do an interactive commit',
+      ),
+    ],
+  );
+}
+```
+
+The `run` function will then take the flag value from the `inputs` record.
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final interactive = inputs.flags!['interactive'];
+    return "Interactive commit: $interactive";
+  }
+}
+```
+
+### Options
+
+If you want to register options for a command, use the `options` parameter.
+```dart
+
+enum FixupMode {
+  amend,
+  reword,
+}
+
+class Commit extends Command {
+  @override
+  String get name => 'commit';
+
+  @override
+  String get shortDescription => 'Record changes to the repository';
+
+  Command(): super(
+    options: [
+      StringOption('message', description: 'Commit message', short: 'm'),
+      ChoiceOption<FixupMode>("fixup", choices: FixupMode.values),
+    ],
+  );
+}
+```
+
+
+The `run` function will then take the option values from the `inputs` record.
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final fixup = inputs.options!['fixup'];
+    
+    final message = inputs.options!['message'];
+
+    if (fixup == FixupMode.amend.name) {
+      return "Fixup mode: $fixup, message: $message";
+    }
+
+    if (fixup == FixupMode.reword.name) {
+      return "Reword mode: $fixup, message: $message";
+    }
+    
+    return "New message: $message";
+  }
+}
+```
+
+## Group Command 
+
+A group command is a command that groups multiple subcommands together.
+It can register a series of flags or options that must be inherited by subcomamnds.
+It can run one of it's child commands. Even ones that are not deeply nested.
+
+To make a group command, use the `GroupCommand` class.
+
+```dart
+class Remote extends GroupCommand {
+  @override
+  String get name => 'remote';
+
+  @override
+  String get shortDescription => 'Manage remote repositories';
+
+  Remote() : super([
+    Add(),
+    Rename(),
+    Remove(),
+  ]);
+}
+```
+
+The remote subcommands define the positional arguments accepted by their Git
+counterparts.
+
+```dart
+class Add extends Command {
+  @override
+  String get name => 'add';
+
+  @override
+  String get shortDescription => 'Add a remote repository';
+
+  Add()
     : super(
-        'greet',
-        'Print a greeting.',
-        flags: [BooleanFlag(name: 'excited')],
-        options: [StringOption(name: 'name', regex: RegExp(r'\S+'))],
+        mandatoryPositionals: [
+          Positional('name'),
+          Positional('url'),
+        ],
       );
 
   @override
-  String run(
-    Map<String, String>? positionals,
-    Inputs inputs,
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
     List<String> trailingArguments,
   ) {
-    final name = inputs.stringOptions?['name'] ?? 'world';
-    final suffix = inputs.boolFlags?['excited'] == true ? '!' : '.';
-    return 'Hello, $name$suffix';
+    return 'Added remote ${positionals!['name']} at ${positionals['url']}';
   }
 }
 
-Executor(
-  'mamba',
-  'Example command runner.',
-  commands: [GreetCommand()],
-).execute(['greet', '--name', 'Ada']);
+class Rename extends Command {
+  @override
+  String get name => 'rename';
+
+  @override
+  String get shortDescription => 'Rename a remote repository';
+
+  Rename()
+    : super(
+        mandatoryPositionals: [
+          Positional('old-name'),
+          Positional('new-name'),
+        ],
+      );
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return 'Renamed remote ${positionals!['old-name']} to ${positionals['new-name']}';
+  }
+}
+
+class Remove extends Command {
+  @override
+  String get name => 'remove';
+
+  @override
+  String get shortDescription => 'Remove a remote repository';
+
+  Remove() : super(mandatoryPositionals: [Positional('name')]);
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return 'Removed remote ${positionals!['name']}';
+  }
+}
 ```
 
-`Executor` adds the Boolean `--dry-run` flag and count `--verbose` flag to its
-root registry. A default command path is relative to the executor name:
+### Inherited Options
+
+A group command is allowed to make its children inherit its options. To do this,
+use the `inheritedOptions` property. For example, `git notes` shares its
+`--ref <notes-ref>` option with subcommands such as `list`, `add`, `show`, and
+`remove`.
 
 ```dart
-Executor(
-  'git',
-  'Version control.',
-  defaultSubCommandPath: ['status'],
-  commands: [StatusCommand()],
-).execute([]);
+class Notes extends GroupCommand {
+  @override
+  String get name => 'notes';
+
+  @override
+  String get shortDescription => 'Add and inspect notes';
+
+  Notes()
+    : super(
+        [
+          NotesList(),
+          NotesAdd(),
+          NotesShow(),
+          NotesRemove(),
+        ],
+        inheritedOptions: [
+          StringOption(
+            name: 'ref',
+            regex: RegExp(r'\S+'),
+            description: 'Notes reference to use',
+          ),
+        ],
+      );
+}
+
+// Implement NotesList, NotesAdd, NotesShow, and NotesRemove as Command classes.
 ```
 
-`GroupCommand` owns nested command trees and can use the same relative path
-with `defaultSubCommandPath`; `runChildCommand` rejects empty or
-parent-qualified paths. A group publishes only the inputs listed in
-`inheritedFlags` and `inheritedOptions` to itself and its descendants. Inputs
-in its ordinary `flags` and `options` lists remain local. Commands using
-`HookRunner` receive
-selected-command hooks, while persistent hooks run for each hook-enabled
-command on the selected path.
+### Inherited Flags
 
-## Parsed inputs
-
-`Parser.parse` returns
-`(command, positionals, inputs, trailingArguments)`. `inputs` has nullable maps
-for each registered input category:
+A group command is allowed to make its children inherit its flags. To do this,
+use the `inheritedFlags` property. For example, `git submodule` shares its
+`--quiet` flag with subcommands such as `add`, `status`, `init`, `update`, and
+`sync`.
 
 ```dart
-typedef Inputs = ({
-  Map<String, bool>? boolFlags,
-  Map<String, int>? countFlags,
-  Map<String, String>? stringOptions,
-  Map<String, int>? intOptions,
-  Map<String, double>? doubleOptions,
-  Map<String, List<String>>? repeatedStringOptions,
-  Map<String, List<int>>? repeatedIntOptions,
-  Map<String, List<double>>? repeatedDoubleOptions,
-  Map<String, dynamic>? accessors,
-});
+class Submodule extends GroupCommand {
+  @override
+  String get name => 'submodule';
+
+  @override
+  String get shortDescription => 'Initialize and manage submodules';
+
+  Submodule()
+    : super(
+        [
+          SubmoduleAdd(),
+          SubmoduleStatus(),
+          SubmoduleInit(),
+          SubmoduleUpdate(),
+          SubmoduleSync(),
+        ],
+        inheritedFlags: [
+          BooleanFlag(
+            name: 'quiet',
+            short: 'q',
+            description: 'Suppress progress output',
+          ),
+        ],
+      );
+}
+
+// Implement the Submodule* child commands as Command classes.
 ```
 
-A `ChoiceOption` is returned in `stringOptions`. Accessors preserve their
-nested structure and their primitive values, so an `AccessorIntOption` produces
-an `int` in the accessor map.
+### Default Subcommands
 
-## Input lists
-
-Use `flags`, `options`, and `accessors` when creating an `Executor`.
-Positionals are declared on `Command` or `CommandRegistry` instances.
-Accessors accept a root `List<AccessorOption>` and may contain
-nested `AccessorListOption` groups.
+A group command can run one of its children when the group itself is invoked.
+Override `run` and call `runChildCommand` with the path to the default child.
+For example, Git treats `git stash` like `git stash push`.
 
 ```dart
-final registry = CommandRegistry.create(
-  'config',
-  'Read configuration.',
-  flags: [CountFlag(name: 'verbose', short: 'v')],
-  options: [RepeatableStringOption(name: 'tag')],
-  accessors: [
-    AccessorListOption(
-      name: 'server',
-      options: [AccessorIntOption(name: 'port')],
-    ),
-  ],
-);
+class Stash extends GroupCommand {
+  @override
+  String get name => 'stash';
+
+  @override
+  String get shortDescription => 'Stash the current changes';
+
+  Stash() : super([StashPush(), StashPop(), StashList()]);
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return runChildCommand(
+      ['push'],
+      positionals,
+      inputs,
+      trailingArguments,
+    );
+  }
+}
+
+// Implement StashPush, StashPop, and StashList as Command classes.
 ```
-
-Options and accessor leaves accept either `--name value` or `--name=value`.
-Arguments after `--` are not parsed and are passed as the fourth parser result
-and third `Command.run` argument. Named positionals are passed as the first
-`Command.run` argument.
-
-### Context
-
-Supply a `MambaContext` to `Executor` when it is constructed to make values
-available to command hooks. `HookRunner.postRun` receives a
-`MambaReadContext`, which exposes only `get`; if no context is supplied,
-`Executor` creates an empty one.
-
-```dart
-final environmentKey = MambaContextKey<String>();
-final context = MambaContext()..set(environmentKey, 'production');
-
-final executor = Executor(
-  'mamba',
-  'Example command runner.',
-  context: context,
-  commands: [GreetCommand()],
-);
-```
-
-### Paired options
-
-A typed `PairedOption` defines the first CLI option and groups it with one or
-more typed `PairOption` children. By default, if a caller passes the primary or
-any child, they must pass every option in the group. Set `variant: true` to
-make the members mutually exclusive: an optional variant accepts zero or one
-member, while a required variant accepts exactly one. Children do not accept
-`required`; the primary paired option owns that setting. Parsed values are
-included in the same typed maps as regular options.
-
-```dart
-final credentials = PairedStringOption(
-  name: 'username',
-  options: [PairStringOption(name: 'password')],
-);
-
-final registry = CommandRegistry.create(
-  'login',
-  'Authenticate a user.',
-  pairedOptions: [credentials],
-);
-```
-
-### Help formatter DSLs
-
-`MambaHelpFormatter` renders each paired group as one expression. Optional groups use
-square brackets, required groups use angle brackets, repeatable members use
-`...`, and member descriptions are joined with `; `:
-
-```text
-[ --username & --password ] Username; Password
-< ...--header | -H & --request-id > Header; Request ID
-```
-
-`PairString` is the public formatter value behind `&`. It accepts a primary member
-and an iterable of paired members; members may be plain or ANSI-styled strings.
-
-```dart
-PairString('--username', ['--password']).string;
-// --username & --password
-```
-
-`OrString` is also public and joins a primary member with alternatives using ` | `.
-Set `variant: true` on a `PairedOption` to have `CommandRegistry`, `Parser`,
-and `MambaHelpFormatter` model an exactly-one alternative group.
-
-```dart
-final credentials = PairedStringOption(
-  name: 'token',
-  variant: true,
-  options: [PairStringOption(name: 'api-key')],
-);
-
-OrString('--token', ['--api-key']).string;
-// --token | --api-key
-```
-
-## Development
-
-```sh
-dart pub get
-dart analyze
-dart test
-dart format lib test
-```
-
-## License
-
-Mamba is licensed under the [MIT License](LICENSE).
