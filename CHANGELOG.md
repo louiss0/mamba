@@ -1,3 +1,9 @@
+## 0.0.1
+
+- Restored the README from the pre-release revision.
+
+
+
 ## 0.0.0
 
 - Added immutable, list-defined command and option schemas.

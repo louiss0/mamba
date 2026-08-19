@@ -1,43 +1,49 @@
 # Mamba
 
-[![pub package](https://img.shields.io/pub/v/mamba.svg)](https://pub.dev/packages/mamba)
+[![pub package](https://img.shields.io/pub/v/arg_parser.svg)](https://pub.dev/packages/arg_parser)
 [![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
-Mamba is a typed, list-defined framework for building Dart command-line tools.
-Define commands and their inputs as immutable schemas; Mamba parses arguments,
-validates values, renders help, and executes the selected command.
+A CLI Framework that that makes commands define their accepted inputs using fields.
+There are two kinds of commands! `Command` and `GroupCommand`. 
+A _command_ is a class that defines a subcommand.
+A _group command_ is a sub command that allows nested subcommands.
+The main class that you work with is called `Executor`
+The executor is the class that executes your commands!
 
-## Install
+## Usage
 
-```sh
-dart pub add mamba
-```
+To use Mamba you need to first install it `dart pub add mamba`!
 
-## Quick start
+Then make a `lib/main.dart` file and call the executor! With a name description. 
 
 ```dart
-import 'dart:async';
+import 'package:mamba/mamba.dart';
 
+void main(List<String> args) {
+  final executor = Executor('git', "A tool that's used for managing the distribution of code");
+  executor.execute(args);
+}
+```
+
+After this you use `dart run lib/main.dart ` to run your executor!
+
+When you run the command **you'll end up seeing nothing but the help menu**!
+
+This is what the executor does when you run the root command it only opens the help menu!
+There's no way to make it do anything! You'll need commands! 
+
+To resgister a command you take make a class inherit from `Command`. 
+
+```dart
 import 'package:mamba/mamba.dart';
 
 class Commit extends Command {
-  Commit()
-    : super(
-        mandatoryPositionals: [Positional('message')],
-        flags: [
-          BooleanFlag(
-            name: 'amend',
-            short: 'a',
-            description: 'Amend the previous commit.',
-          ),
-        ],
-      );
 
-  @override
+  @override 
   String get name => 'commit';
 
   @override
-  String get shortDescription => 'Record changes to the repository.';
+  String get shortDescription => "Record changes to the repository";
 
   @override
   FutureOr<String> run(
@@ -45,114 +51,410 @@ class Commit extends Command {
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
   ) {
-    final message = positionals!['message']!;
-    final amend = inputs.boolFlags!['amend']!;
-    return 'Committing "$message"${amend ? ' as an amendment' : ''}.';
+    
+    print("Committing...");
+    
+    return "Committed!";
   }
 }
+```
 
-Future<void> main(List<String> args) async {
+Then you register in into the `Executor`. 
+
+```dart
+import 'package:mamba/mamba.dart';
+
+void main(List<String> args) {
   final executor = Executor(
-    'git',
-    'A source-control tool.',
-    commands: [Commit()],
+    'git', 
+    "A tool that's used for managing the distribution of code",
+    commands: [
+      Commit(),
+    ],
   );
-
-  await executor.execute(args);
+  executor.execute(args);
 }
 ```
 
-Run it with:
+In your terminal you run `dart run lib/main.dart commit`. 
 
-```sh
-dart run bin/main.dart commit "Document the release" --amend
-```
+That's how this framework works!
 
-Use `--help` or `-h` to print help for the root command or a selected command.
+## Commands 
 
-## Inputs
+A command is a class whose it's `run()` is called when it's name is word in the parsed arguments.
+The run function **returns a string**! That string is automatically **printed to stdout**.
 
-A command can declare the following inputs through its `Command` constructor:
+The run function takes three arguments! 
+1. All registered arguments that parsed stored in a `Map<String, String>`
+2. All flags, options that were parsed stored in a record. 
+3. A list of all parsed arguments that were passed after `--` 
 
-- `mandatoryPositionals` and `discretionaryPositionals` accept ordered values.
-- `flags` accepts `BooleanFlag` and `CountFlag` values.
-- `options` accepts typed single and repeatable string, integer, double, and
-  enum-choice options.
-- `pairedOptions` requires related values together, or accepts exactly one
-  member when `variant: true`.
-- `accessors` accepts dotted options and returns nested maps.
+### Positionals 
 
-Values are passed to `run` as `ParsedPositionals` and `ParsedNamedInputs`.
-For example, boolean flags are in `inputs.boolFlags`, string and enum options
-are in `inputs.stringOptions`, and integer options are in `inputs.intOptions`.
-Arguments after `--` are passed unchanged as `trailingArguments`.
+To allow a command to take an mandatory argument you register `mandatoryPositionals` 
 
 ```dart
-class Push extends Command {
-  Push()
-    : super(
-        options: [
-          StringOption(
-            name: 'remote',
-            short: 'r',
-            regex: RegExp(r'\S+'),
-            required: true,
-            description: 'The remote to push to.',
-          ),
-          ChoiceOption<Mode>(
-            name: 'force',
-            choices: Mode.values,
-            defaultValue: Mode.never,
-            description: 'When to force the push.',
-          ),
-        ],
-      );
+class Switch extends Command {
+  @override
+  String get name => 'switch';
 
   @override
-  String get name => 'push';
+  String get shortDescription => "Change the current branch";
 
-  @override
-  String get shortDescription => 'Push changes to a remote.';
+  Command(
+    
+  ): super(
+    mandatoryPositionals: [
+      Positional("branch"),
+    ],
+  
+  );
+}
+```
 
+The run function will store it in the first positional argument in the map.
+What you do is get the value you know will be stored in the map!
+
+```dart
   @override
-  String run(
+  FutureOr<String> run(
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
   ) {
-    return 'Pushing to ${inputs.stringOptions!['remote']}.';
+    
+    return "Going to branch ${positionals!['branch']}";
+   
   }
-}
-
-enum Mode { never, always }
 ```
 
-## Nested commands
+To allow a command to take an optional positional argument! Register `optionalPositionals`
 
-Use `GroupCommand` to organize child commands. Group commands can publish
-`inheritedFlags` and `inheritedOptions` to every descendant.
+```dart
+class Branch extends Command {
+    @override
+    String get name => 'branch';
+
+    @override
+    String get shortDescription => "List, create, or delete branches";
+
+  Command(): super(
+    optionalPositionals: [
+      Positional("branch"),
+    ],
+  );
+  
+}
+```
+
+The run function will then take the positional argument the same way. 
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final branch = positionals!['branch'];
+    return "Going to branch $branch";
+  }
+}
+```
+
+### Flags 
+
+If you want to register a command with a flag you use the `flags`
+
+```dart
+class Commit extends Command {
+  @override
+  String get name => 'commit';
+
+  @override
+  String get shortDescription => 'Record changes to the repository';
+
+  Command(): super(
+    flags: [
+      BooleanFlag(
+        name: 'interactive',
+        description: 'Do an interactive commit',
+      ),
+    ],
+  );
+}
+```
+
+The `run` function will then take the flag value from the `inputs` record.
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final interactive = inputs.flags!['interactive'];
+    return "Interactive commit: $interactive";
+  }
+}
+```
+
+### Options
+
+If you want to register options for a command, use the `options` parameter.
+```dart
+
+enum FixupMode {
+  amend,
+  reword,
+}
+
+class Commit extends Command {
+  @override
+  String get name => 'commit';
+
+  @override
+  String get shortDescription => 'Record changes to the repository';
+
+  Command(): super(
+    options: [
+      StringOption('message', description: 'Commit message', short: 'm'),
+      ChoiceOption<FixupMode>("fixup", choices: FixupMode.values),
+    ],
+  );
+}
+```
+
+
+The `run` function will then take the option values from the `inputs` record.
+
+```dart
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final fixup = inputs.options!['fixup'];
+    
+    final message = inputs.options!['message'];
+
+    if (fixup == FixupMode.amend.name) {
+      return "Fixup mode: $fixup, message: $message";
+    }
+
+    if (fixup == FixupMode.reword.name) {
+      return "Reword mode: $fixup, message: $message";
+    }
+    
+    return "New message: $message";
+  }
+}
+```
+
+## Group Command 
+
+A group command is a command that groups multiple subcommands together.
+It can register a series of flags or options that must be inherited by subcomamnds.
+It can run one of it's child commands. Even ones that are not deeply nested.
+
+To make a group command, use the `GroupCommand` class.
 
 ```dart
 class Remote extends GroupCommand {
-  Remote()
-    : super(
-        [RemoteAdd(), RemoteRemove()],
-        inheritedFlags: [
-          BooleanFlag(
-            name: 'verbose',
-            short: 'v',
-            description: 'Show detailed output.',
-          ),
-        ],
-      );
-
   @override
   String get name => 'remote';
 
   @override
-  String get shortDescription => 'Manage remote repositories.';
+  String get shortDescription => 'Manage remote repositories';
+
+  Remote() : super([
+    Add(),
+    Rename(),
+    Remove(),
+  ]);
 }
 ```
 
-A group can set `defaultSubCommandPath` to run a child when the group itself is
-invoked. Implement `run` only when custom default-command behavior is needed.
+The remote subcommands define the positional arguments accepted by their Git
+counterparts.
+
+```dart
+class Add extends Command {
+  @override
+  String get name => 'add';
+
+  @override
+  String get shortDescription => 'Add a remote repository';
+
+  Add()
+    : super(
+        mandatoryPositionals: [
+          Positional('name'),
+          Positional('url'),
+        ],
+      );
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return 'Added remote ${positionals!['name']} at ${positionals['url']}';
+  }
+}
+
+class Rename extends Command {
+  @override
+  String get name => 'rename';
+
+  @override
+  String get shortDescription => 'Rename a remote repository';
+
+  Rename()
+    : super(
+        mandatoryPositionals: [
+          Positional('old-name'),
+          Positional('new-name'),
+        ],
+      );
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return 'Renamed remote ${positionals!['old-name']} to ${positionals['new-name']}';
+  }
+}
+
+class Remove extends Command {
+  @override
+  String get name => 'remove';
+
+  @override
+  String get shortDescription => 'Remove a remote repository';
+
+  Remove() : super(mandatoryPositionals: [Positional('name')]);
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return 'Removed remote ${positionals!['name']}';
+  }
+}
+```
+
+### Inherited Options
+
+A group command is allowed to make its children inherit its options. To do this,
+use the `inheritedOptions` property. For example, `git notes` shares its
+`--ref <notes-ref>` option with subcommands such as `list`, `add`, `show`, and
+`remove`.
+
+```dart
+class Notes extends GroupCommand {
+  @override
+  String get name => 'notes';
+
+  @override
+  String get shortDescription => 'Add and inspect notes';
+
+  Notes()
+    : super(
+        [
+          NotesList(),
+          NotesAdd(),
+          NotesShow(),
+          NotesRemove(),
+        ],
+        inheritedOptions: [
+          StringOption(
+            name: 'ref',
+            regex: RegExp(r'\S+'),
+            description: 'Notes reference to use',
+          ),
+        ],
+      );
+}
+
+// Implement NotesList, NotesAdd, NotesShow, and NotesRemove as Command classes.
+```
+
+### Inherited Flags
+
+A group command is allowed to make its children inherit its flags. To do this,
+use the `inheritedFlags` property. For example, `git submodule` shares its
+`--quiet` flag with subcommands such as `add`, `status`, `init`, `update`, and
+`sync`.
+
+```dart
+class Submodule extends GroupCommand {
+  @override
+  String get name => 'submodule';
+
+  @override
+  String get shortDescription => 'Initialize and manage submodules';
+
+  Submodule()
+    : super(
+        [
+          SubmoduleAdd(),
+          SubmoduleStatus(),
+          SubmoduleInit(),
+          SubmoduleUpdate(),
+          SubmoduleSync(),
+        ],
+        inheritedFlags: [
+          BooleanFlag(
+            name: 'quiet',
+            short: 'q',
+            description: 'Suppress progress output',
+          ),
+        ],
+      );
+}
+
+// Implement the Submodule* child commands as Command classes.
+```
+
+### Default Subcommands
+
+A group command can run one of its children when the group itself is invoked.
+Override `run` and call `runChildCommand` with the path to the default child.
+For example, Git treats `git stash` like `git stash push`.
+
+```dart
+class Stash extends GroupCommand {
+  @override
+  String get name => 'stash';
+
+  @override
+  String get shortDescription => 'Stash the current changes';
+
+  Stash() : super([StashPush(), StashPop(), StashList()]);
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    return runChildCommand(
+      ['push'],
+      positionals,
+      inputs,
+      trailingArguments,
+    );
+  }
+}
+
+// Implement StashPush, StashPop, and StashList as Command classes.
+```
