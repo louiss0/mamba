@@ -240,6 +240,84 @@ void main() {
     }
   });
 
+  group('Nested hidden accessor lists', () {
+    final formatter = MambaHelpFormatter();
+
+    CommandRegistry createRegistryWithHiddenAccessorList(String? hiddenList) =>
+        CommandRegistry.create(
+          'platformctl',
+          'Manage platform deployments.',
+          accessors: [
+            AccessorListOption(
+              name: 'deployment',
+              hidden: hiddenList == 'deployment',
+              options: [
+                AccessorListOption(
+                  name: 'runtime',
+                  hidden: hiddenList == 'runtime',
+                  options: [
+                    AccessorListOption(
+                      name: 'network',
+                      hidden: hiddenList == 'network',
+                      options: [
+                        AccessorListOption(
+                          name: 'tls',
+                          hidden: hiddenList == 'tls',
+                          options: [
+                            AccessorListOption(
+                              name: 'client',
+                              hidden: hiddenList == 'client',
+                              options: [
+                                AccessorStringOption(
+                                  name: 'certificate',
+                                  description: 'mTLS client certificate.',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+
+    test('renders a five-level accessor path when no list is hidden', () {
+      final registry = createRegistryWithHiddenAccessorList(null);
+
+      final help = _withoutAnsi(formatter.format(registry));
+
+      expect(
+        help,
+        contains('deployment.runtime.network.tls.client.certificate'),
+      );
+      expect(help, contains('mTLS client certificate.'));
+    });
+
+    for (final hiddenList in [
+      'deployment',
+      'runtime',
+      'network',
+      'tls',
+      'client',
+    ]) {
+      test('does not display descendants of hidden $hiddenList accessors', () {
+        final registry = createRegistryWithHiddenAccessorList(hiddenList);
+
+        final help = _withoutAnsi(formatter.format(registry));
+
+        expect(
+          help,
+          isNot(contains('deployment.runtime.network.tls.client.certificate')),
+        );
+        expect(help, isNot(contains('mTLS client certificate.')));
+      });
+    }
+  });
+
   group('HelpFormatter', () {
     test('renders optional paired options as one PairDSL expression', () {
       final registry = CommandRegistry.create(
