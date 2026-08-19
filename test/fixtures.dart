@@ -3,12 +3,12 @@ import 'package:arg_parser/command.dart';
 class TestGroupCommand extends GroupCommand {
   TestGroupCommand(
     this.name,
+    super.commands,
     this.shortDescription, {
     super.inheritedFlags,
     super.inheritedOptions,
     super.flags,
     super.options,
-    super.commands,
   });
 
   @override

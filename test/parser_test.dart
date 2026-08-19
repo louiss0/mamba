@@ -452,7 +452,7 @@ void main() {
         'config',
         inheritedFlags: [BooleanFlag(name: 'verbose', short: 'v')],
         inheritedOptions: [IntOption(name: 'retries')],
-        commands: [_ParserCommand('get')],
+        [_ParserCommand('get')],
       );
       final subject = Parser(
         CommandRegistry.create('tool', 'Tool command.', commands: [config]),
@@ -490,7 +490,7 @@ void main() {
             _ParserGroupCommand(
               'config',
               inheritedFlags: [BooleanFlag(name: 'color', negatable: true)],
-              commands: [_ParserCommand('get')],
+              [_ParserCommand('get')],
             ),
           ],
         ),
@@ -759,10 +759,10 @@ void main() {
 
 class _ParserGroupCommand extends GroupCommand {
   _ParserGroupCommand(
-    this.name, {
+    this.name,
+    super.commands, {
     super.inheritedFlags,
     super.inheritedOptions,
-    super.commands,
   });
 
   @override

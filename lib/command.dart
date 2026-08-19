@@ -475,13 +475,13 @@ abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
   final List<Flag>? inheritedFlags;
   final List<Option>? inheritedOptions;
-  final List<Command>? commands;
+  final List<Command> commands;
 
-  GroupCommand({
+  GroupCommand(
+    this.commands, {
     List<String>? defaultSubCommandPath,
     this.inheritedFlags,
     this.inheritedOptions,
-    this.commands,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
@@ -506,7 +506,7 @@ abstract class GroupCommand extends Command {
   @override
   String get shortDescription;
 
-  Future<String> runChildCommand(
+  FutureOr<String> runChildCommand(
     List<String> path,
     ParsedPositionals positionals,
     ParsedNamedInputs input,
@@ -524,7 +524,7 @@ abstract class GroupCommand extends Command {
     }
 
     Command? command;
-    var children = commands;
+    List<Command>? children = commands;
     for (final name in path) {
       command = children
           ?.where((candidate) => candidate.name == name)
@@ -537,7 +537,7 @@ abstract class GroupCommand extends Command {
       children = command is GroupCommand ? command.commands : null;
     }
 
-    return command!.run(positionals, input, trailingArguments);
+    return (await command!.run(positionals, input, trailingArguments));
   }
 
   static List<String>? _copyDefaultSubCommandPath(List<String>? path) {
@@ -560,7 +560,7 @@ abstract class GroupCommand extends Command {
   }
 
   @override
-  Future<String> run(
+  FutureOr<String> run(
     ParsedPositionals positionals,
     ParsedNamedInputs input,
     List<String> trailingArguments,

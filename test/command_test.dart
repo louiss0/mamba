@@ -12,19 +12,16 @@ class TestGroupCommand extends GroupCommand {
   @override
   String get shortDescription => "This is a test command";
 
-  TestGroupCommand(
-    this.name, {
-    required super.commands,
-    super.defaultSubCommandPath,
-  }) : super(
-         longDescription: '',
-         mandatoryPositionals: null,
-         discretionaryPositionals: null,
-         flags: null,
-         options: null,
-         pairedOptions: null,
-         accessors: null,
-       );
+  TestGroupCommand(this.name, super.commands, {super.defaultSubCommandPath})
+    : super(
+        longDescription: '',
+        mandatoryPositionals: null,
+        discretionaryPositionals: null,
+        flags: null,
+        options: null,
+        pairedOptions: null,
+        accessors: null,
+      );
 
   FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
@@ -55,9 +52,9 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
   final String name;
 
   @override
-  final List<Command>? commands;
+  final List<Command> commands;
 
-  TestChildGroupCommand(this.name, {this.commands});
+  TestChildGroupCommand(this.name, this.commands);
 }
 
 void main() {
@@ -77,10 +74,7 @@ void main() {
   group("GroupCommand", () {
     final stashPush = TestCommand("push");
     final stashPop = TestCommand("pop");
-    final stashCommand = TestChildGroupCommand(
-      'stash',
-      commands: [stashPush, stashPop],
-    );
+    final stashCommand = TestChildGroupCommand('stash', [stashPush, stashPop]);
 
     when(() => stashPush.run(any(), any(), any())).thenAnswer((_) => '');
 
@@ -90,7 +84,7 @@ void main() {
       () => stashCommand.run(any(), any(), any()),
     ).thenAnswer((_) => Future.value(''));
 
-    final groupCommand = TestGroupCommand('git', commands: [stashCommand]);
+    final groupCommand = TestGroupCommand('git', [stashCommand]);
 
     test("calls the run child command", () {
       groupCommand.runWithNothingBasedOnCommandPathWithNothing(['stash']);
@@ -114,7 +108,7 @@ void main() {
     test('runs a relative default subcommand path', () async {
       final git = TestGroupCommand(
         'git',
-        commands: [stashCommand],
+        [stashCommand],
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
@@ -125,17 +119,14 @@ void main() {
 
     test('rejects empty and parent-qualified default paths', () {
       expect(
-        () => TestGroupCommand(
-          'git',
-          commands: [stashCommand],
-          defaultSubCommandPath: [],
-        ),
+        () =>
+            TestGroupCommand('git', [stashCommand], defaultSubCommandPath: []),
         throwsA(isA<ArgumentError>()),
       );
       expect(
         () => TestGroupCommand(
           'git',
-          commands: [stashCommand],
+          [stashCommand],
           defaultSubCommandPath: ['git'],
         ),
         throwsA(isA<ArgumentError>()),
@@ -170,7 +161,7 @@ void main() {
       expect(
         () => TestGroupCommand(
           'git',
-          commands: [stashCommand],
+          [stashCommand],
           defaultSubCommandPath: ['stash', ''],
         ),
         throwsA(isA<ArgumentError>()),

@@ -179,10 +179,7 @@ void main() {
         commands: [
           TestGroupCommand(
             'config',
-            'Configure.',
-            inheritedFlags: [inheritedFlag],
-            inheritedOptions: [inheritedOption],
-            commands: [
+            [
               TestCommand(
                 'get',
                 'Get configuration.',
@@ -190,6 +187,9 @@ void main() {
                 options: [localOption],
               ),
             ],
+            'Configure.',
+            inheritedFlags: [inheritedFlag],
+            inheritedOptions: [inheritedOption],
           ),
         ],
       );
@@ -209,10 +209,10 @@ void main() {
         commands: [
           TestGroupCommand(
             'config',
+            [TestCommand('get', 'Get configuration.')],
             'Configure.',
             flags: [BooleanFlag(name: 'color')],
             options: [IntOption(name: 'retries')],
-            commands: [TestCommand('get', 'Get configuration.')],
           ),
         ],
       );
