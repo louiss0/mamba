@@ -121,8 +121,8 @@ final class MambaHelpFormatter extends HelpFormatter {
     }
 
     _writeSection(buffer, 'Flags', [
-      ...?registry.boolFlags?.values.map(_flag),
-      ...?registry.countFlags?.values.map(_flag),
+      ...?registry.boolFlags?.values.where((flag) => !flag.hidden).map(_flag),
+      ...?registry.countFlags?.values.where((flag) => !flag.hidden).map(_flag),
     ]);
     buffer.writeln();
     _writeSection(
@@ -133,8 +133,12 @@ final class MambaHelpFormatter extends HelpFormatter {
     );
     buffer.writeln();
     _writeSection(buffer, 'Options', [
-      ...?registry.singleOptions?.values.map(_option),
-      ...?registry.repeatedOptions?.values.map(_option),
+      ...?registry.singleOptions?.values
+          .where((option) => !option.hidden)
+          .map(_option),
+      ...?registry.repeatedOptions?.values
+          .where((option) => !option.hidden)
+          .map(_option),
       ...?registry.pairedOptions?.values.map(_pairedOption),
     ]);
     _writeSection(
@@ -230,6 +234,8 @@ final class MambaHelpFormatter extends HelpFormatter {
     switch (accessor) {
       case AccessorPrimitiveOption():
         values.add(_accessorEntry(path, accessor));
+      case AccessorListOption(hidden: true):
+        return;
       case AccessorListOption(options: final options):
         for (final option in options) {
           _writeAccessorEntries(values, '$path.${option.name}', option);

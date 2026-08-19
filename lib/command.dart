@@ -24,9 +24,11 @@ sealed class Flag extends NamedInput {
     required this.short,
     required super.name,
     required super.description,
+    this.hidden = false,
   });
 
   final String? short;
+  final bool hidden;
 }
 
 final class BooleanFlag extends Flag {
@@ -34,6 +36,7 @@ final class BooleanFlag extends Flag {
     super.short,
     required super.name,
     super.description,
+    super.hidden,
     this.defaultValue = false,
     this.negatable = false,
   });
@@ -43,7 +46,12 @@ final class BooleanFlag extends Flag {
 }
 
 final class CountFlag extends Flag {
-  const CountFlag({super.short, required super.name, super.description});
+  const CountFlag({
+    super.short,
+    required super.name,
+    super.description,
+    super.hidden,
+  });
 }
 
 sealed class Option extends NamedInput {
@@ -52,10 +60,12 @@ sealed class Option extends NamedInput {
     required super.name,
     required super.description,
     this.required = false,
+    this.hidden = false,
   });
 
   final String? short;
   final bool required;
+  final bool hidden;
 }
 
 /// An option with members that form either a required-together group or variant.
@@ -258,6 +268,7 @@ sealed class SingleOption extends Option {
     required super.name,
     required super.description,
     super.required,
+    super.hidden,
   });
 }
 
@@ -268,6 +279,7 @@ final class StringOption extends SingleOption {
     super.short,
     super.description,
     super.required,
+    super.hidden,
   });
 
   final RegExp regex;
@@ -279,6 +291,7 @@ final class IntOption extends SingleOption {
     super.short,
     super.required,
     super.description,
+    super.hidden,
   });
 }
 
@@ -288,6 +301,7 @@ final class DoubleOption extends SingleOption {
     super.short,
     super.required,
     super.description,
+    super.hidden,
   });
 }
 
@@ -299,6 +313,7 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
     super.short,
     super.description,
     super.required,
+    super.hidden,
   });
 
   final List<T> choices;
@@ -311,6 +326,7 @@ sealed class RepeatableOption extends Option {
     required super.required,
     super.short,
     super.description,
+    super.hidden,
   });
 }
 
@@ -321,6 +337,7 @@ final class RepeatableStringOption extends RepeatableOption {
     RegExp? regex,
     super.short,
     super.description,
+    super.hidden,
   }) : regex = regex ?? RegExp(r'\S+');
 
   final RegExp regex;
@@ -332,6 +349,7 @@ final class RepeatableIntOption extends RepeatableOption {
     super.required = false,
     super.short,
     super.description,
+    super.hidden,
   });
 }
 
@@ -341,6 +359,7 @@ final class RepeatableDoubleOption extends RepeatableOption {
     super.required = false,
     super.short,
     super.description,
+    super.hidden,
   });
 }
 
@@ -356,9 +375,11 @@ final class AccessorListOption extends AccessorOption {
   AccessorListOption({
     required super.name,
     super.description,
+    this.hidden = false,
     required List<AccessorOption> options,
   }) : options = List.unmodifiable(options);
 
+  final bool hidden;
   final List<AccessorOption> options;
 }
 

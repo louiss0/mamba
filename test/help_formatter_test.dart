@@ -7,6 +7,19 @@ import 'package:test/test.dart';
 String _withoutAnsi(String value) =>
     value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
 
+final _hiddenInputRegistry = CommandRegistry.create(
+  'tool',
+  'Tool command.',
+  options: [
+    StringOption(
+      name: 'secret',
+      description: 'Internal value.',
+      regex: RegExp(r'\S+'),
+      hidden: true,
+    ),
+  ],
+);
+
 void main() {
   group('Formatted strings', () {
     test('requires ANSI styling and valid delimiters', () {
@@ -66,6 +79,165 @@ void main() {
     test('preserves the primary member when no alternatives are supplied', () {
       expect(OrString('--token', const []).string, '--token');
     });
+  });
+
+  group('Hidden inputs', () {
+    final formatter = MambaHelpFormatter();
+
+    test('does not display a hidden option from a top-level registry', () {
+      final help = _withoutAnsi(formatter.format(_hiddenInputRegistry));
+
+      expect(help, isNot(contains('secret')));
+      expect(help, isNot(contains('Internal value.')));
+    });
+
+    for (final (:type, :flag) in <({String type, Flag flag})>[
+      (
+        type: 'boolean flag',
+        flag: BooleanFlag(
+          name: 'debug',
+          description: 'Enable debugging.',
+          hidden: true,
+        ),
+      ),
+      (
+        type: 'count flag',
+        flag: CountFlag(
+          name: 'verbose',
+          description: 'Increase verbosity.',
+          hidden: true,
+        ),
+      ),
+    ]) {
+      test('does not display a hidden $type', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [flag],
+        );
+
+        final help = _withoutAnsi(formatter.format(registry));
+
+        expect(help, isNot(contains(flag.name)));
+        expect(help, isNot(contains(flag.description)));
+      });
+    }
+
+    for (final (:type, :option) in <({String type, Option option})>[
+      (
+        type: 'string option',
+        option: StringOption(
+          name: 'token',
+          description: 'Authentication token.',
+          regex: RegExp(r'\S+'),
+          hidden: true,
+        ),
+      ),
+      (
+        type: 'integer option',
+        option: IntOption(
+          name: 'retries',
+          description: 'Retry count.',
+          hidden: true,
+        ),
+      ),
+      (
+        type: 'double option',
+        option: DoubleOption(
+          name: 'ratio',
+          description: 'Sampling ratio.',
+          hidden: true,
+        ),
+      ),
+      (
+        type: 'choice option',
+        option: ChoiceOption(
+          name: 'format',
+          description: 'Output format.',
+          choices: _OutputFormat.values,
+          hidden: true,
+        ),
+      ),
+    ]) {
+      test('does not display a hidden $type', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [option],
+        );
+
+        final help = _withoutAnsi(formatter.format(registry));
+
+        expect(help, isNot(contains(option.name)));
+        expect(help, isNot(contains(option.description)));
+      });
+    }
+
+    for (final (:type, :accessor)
+        in <({String type, AccessorListOption accessor})>[
+          (
+            type: 'accessor list option',
+            accessor: AccessorListOption(
+              name: 'credentials',
+              description: 'Internal credentials.',
+              hidden: true,
+              options: [AccessorStringOption(name: 'token')],
+            ),
+          ),
+        ]) {
+      test('does not display a hidden $type', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          accessors: [accessor],
+        );
+
+        final help = _withoutAnsi(formatter.format(registry));
+
+        expect(help, isNot(contains(accessor.name)));
+        expect(help, isNot(contains(accessor.description)));
+      });
+    }
+
+    for (final (:type, :option) in <({String type, RepeatableOption option})>[
+      (
+        type: 'repeatable string option',
+        option: RepeatableStringOption(
+          name: 'header',
+          description: 'Additional header.',
+          hidden: true,
+        ),
+      ),
+      (
+        type: 'repeatable integer option',
+        option: RepeatableIntOption(
+          name: 'port',
+          description: 'Additional port.',
+          hidden: true,
+        ),
+      ),
+      (
+        type: 'repeatable double option',
+        option: RepeatableDoubleOption(
+          name: 'weight',
+          description: 'Additional weight.',
+          hidden: true,
+        ),
+      ),
+    ]) {
+      test('does not display a hidden $type', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [option],
+        );
+
+        final help = _withoutAnsi(formatter.format(registry));
+
+        expect(help, isNot(contains(option.name)));
+        expect(help, isNot(contains(option.description)));
+      });
+    }
   });
 
   group('HelpFormatter', () {
@@ -319,6 +491,8 @@ void main() {
     });
   });
 }
+
+enum _OutputFormat { json }
 
 class _HelpCommand extends Command {
   _HelpCommand(this.name, this.shortDescription);
