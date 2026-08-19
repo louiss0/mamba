@@ -47,10 +47,17 @@ class TestCommand extends Mock implements Command {
   @override
   final String name;
 
+  TestCommand(this.name);
+}
+
+class TestChildGroupCommand extends Mock implements GroupCommand {
+  @override
+  final String name;
+
   @override
   final List<Command>? commands;
 
-  TestCommand(this.name, {this.commands});
+  TestChildGroupCommand(this.name, {this.commands});
 }
 
 void main() {
@@ -70,13 +77,18 @@ void main() {
   group("GroupCommand", () {
     final stashPush = TestCommand("push");
     final stashPop = TestCommand("pop");
-    final stashCommand = TestCommand('stash', commands: [stashPush, stashPop]);
+    final stashCommand = TestChildGroupCommand(
+      'stash',
+      commands: [stashPush, stashPop],
+    );
 
     when(() => stashPush.run(any(), any(), any())).thenAnswer((_) => '');
 
     when(() => stashPop.run(any(), any(), any())).thenAnswer((_) => '');
 
-    when(() => stashCommand.run(any(), any(), any())).thenAnswer((_) => '');
+    when(
+      () => stashCommand.run(any(), any(), any()),
+    ).thenAnswer((_) => Future.value(''));
 
     final groupCommand = TestGroupCommand('git', commands: [stashCommand]);
 

@@ -88,6 +88,7 @@ final class CommandRegistry {
     List<Option>? inheritedOptions,
   }) {
     final group = command is GroupCommand ? command : null;
+    final childCommands = group?.commands;
     final publishedFlags = _mergeByName(inheritedFlags, group?.inheritedFlags);
     final publishedOptions = _mergeByName(
       inheritedOptions,
@@ -113,7 +114,7 @@ final class CommandRegistry {
       ordinaryOptions,
       pairedOptions,
       command.accessors,
-      command.commands,
+      childCommands,
     );
 
     return CommandRegistry._(
@@ -143,7 +144,7 @@ final class CommandRegistry {
         command.discretionaryPositionals,
       ),
       accessors: _indexByName<AccessorOption>(command.accessors),
-      commandRegistries: command.commands
+      commandRegistries: childCommands
           ?.map(
             (child) => _fromCommand(
               child,

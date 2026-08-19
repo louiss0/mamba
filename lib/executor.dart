@@ -199,7 +199,7 @@ final class Executor {
       );
       if (command == null) return const [];
       selectedCommands.add(command);
-      children = command.commands;
+      children = command is GroupCommand ? command.commands : null;
     }
     return selectedCommands;
   }

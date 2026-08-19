@@ -50,11 +50,11 @@ void main() {
 
 ## Commands
 
-Extend `Command` to group its input lists with a handler. Nested commands are
-provided through `commands`. `Executor` routes help requests and invokes the
-selected command with positionals, parsed inputs, and trailing arguments.
-Returned command strings are written to stdout; thrown errors are written to
-stderr.
+Extend `Command` to group its input lists with a handler. Only
+`GroupCommand` accepts nested commands through `commands`; use `Command` for
+leaf handlers. `Executor` routes help requests and invokes the selected command
+with positionals, parsed inputs, and trailing arguments. Returned command
+strings are written to stdout; thrown errors are written to stderr.
 
 ```dart
 final class GreetCommand extends Command {
@@ -97,11 +97,12 @@ Executor(
 ).execute([]);
 ```
 
-`GroupCommand` can use the same relative path with
-`defaultSubCommandPath`; `runChildCommand` rejects empty or parent-qualified
-paths. A group publishes only the inputs listed in `inheritedFlags` and
-`inheritedOptions` to itself and its descendants. Inputs in its ordinary
-`flags` and `options` lists remain local. Commands using `HookRunner` receive
+`GroupCommand` owns nested command trees and can use the same relative path
+with `defaultSubCommandPath`; `runChildCommand` rejects empty or
+parent-qualified paths. A group publishes only the inputs listed in
+`inheritedFlags` and `inheritedOptions` to itself and its descendants. Inputs
+in its ordinary `flags` and `options` lists remain local. Commands using
+`HookRunner` receive
 selected-command hooks, while persistent hooks run for each hook-enabled
 command on the selected path.
 

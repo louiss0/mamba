@@ -202,12 +202,12 @@ void main() {
       expect(child.singleOptions!['retries'], same(localOption));
     });
 
-    test('ordinary command inputs are not inherited by children', () {
+    test('only group commands register child commands', () {
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
         commands: [
-          TestCommand(
+          TestGroupCommand(
             'config',
             'Configure.',
             flags: [BooleanFlag(name: 'color')],
@@ -217,8 +217,10 @@ void main() {
         ],
       );
 
-      final child =
-          registry.commandRegistries!.single.commandRegistries!.single;
+      final group = registry.commandRegistries!.single;
+      final child = group.commandRegistries!.single;
+      expect(group.boolFlags, contains('color'));
+      expect(group.singleOptions, contains('retries'));
       expect(child.boolFlags, isNull);
       expect(child.singleOptions, isNull);
     });

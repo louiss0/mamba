@@ -427,7 +427,6 @@ abstract class Command {
   final List<Option>? options;
   final List<PairedOption>? pairedOptions;
   final List<AccessorOption>? accessors;
-  final List<Command>? commands;
 
   Command({
     this.longDescription,
@@ -437,7 +436,6 @@ abstract class Command {
     this.options,
     this.pairedOptions,
     this.accessors,
-    this.commands,
   });
 
   String get name;
@@ -456,11 +454,13 @@ abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
   final List<Flag>? inheritedFlags;
   final List<Option>? inheritedOptions;
+  final List<Command>? commands;
 
   GroupCommand({
     List<String>? defaultSubCommandPath,
     this.inheritedFlags,
     this.inheritedOptions,
+    this.commands,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
@@ -468,7 +468,6 @@ abstract class GroupCommand extends Command {
     super.options,
     super.pairedOptions,
     super.accessors,
-    super.commands,
   }) : defaultSubCommandPath = _copyDefaultSubCommandPath(
          defaultSubCommandPath,
        ) {
@@ -514,7 +513,7 @@ abstract class GroupCommand extends Command {
           'command not found in ${this.name} ${path.join(" ")}',
         );
       }
-      children = command.commands;
+      children = command is GroupCommand ? command.commands : null;
     }
 
     return command!.run(positionals, input, trailingArguments);

@@ -29,7 +29,6 @@ class TestCommand extends Command {
     super.options,
     super.pairedOptions,
     super.accessors,
-    super.commands,
   });
 
   @override
