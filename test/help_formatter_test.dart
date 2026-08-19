@@ -1,6 +1,6 @@
-import 'package:arg_parser/command.dart';
-import 'package:arg_parser/help_formatter.dart';
-import 'package:arg_parser/registry.dart';
+import 'package:mamba/command.dart';
+import 'package:mamba/help_formatter.dart';
+import 'package:mamba/registry.dart';
 import 'package:chalkdart/chalkstrings.dart';
 import 'package:test/test.dart';
 

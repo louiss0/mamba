@@ -1,4 +1,4 @@
-import 'package:arg_parser/command.dart';
+import 'package:mamba/command.dart';
 
 import 'errors.dart';
 
@@ -342,6 +342,9 @@ final class CommandRegistry {
     ];
     _validateDuplicateNames(registeredOptions, 'option');
     _validateDuplicateNames(flags, 'flag');
+    _validateDuplicateNames([...?flags, ...registeredOptions], 'input');
+    _validateDuplicateShortAliases([...?flags, ...registeredOptions]);
+    _validateDuplicateCommandNames(commands);
 
     for (final accessor in accessors ?? const <AccessorOption>[]) {
       final flagIndex =
@@ -376,6 +379,37 @@ final class CommandRegistry {
       if (commandIndex >= 0) {
         throw MambaException(
           'This positional mesaage has the same name as a command at index $commandIndex',
+        );
+      }
+    }
+  }
+
+  static void _validateDuplicateShortAliases(Iterable<NamedInput> inputs) {
+    final names = <String, String>{};
+    for (final input in inputs) {
+      final short = switch (input) {
+        Flag(short: final short) ||
+        Option(short: final short) ||
+        PairOption(short: final short) => short,
+        _ => null,
+      };
+      if (short == null) continue;
+      final previousName = names[short];
+      if (previousName != null) {
+        throw MambaException(
+          'The short alias -$short is assigned to both $previousName and ${input.name}',
+        );
+      }
+      names[short] = input.name;
+    }
+  }
+
+  static void _validateDuplicateCommandNames(List<Command>? commands) {
+    final names = <String>{};
+    for (final command in commands ?? const <Command>[]) {
+      if (!names.add(command.name)) {
+        throw MambaException(
+          'There are duplicate command names: ${command.name}',
         );
       }
     }

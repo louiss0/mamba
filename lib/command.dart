@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:arg_parser/context.dart';
-import 'package:arg_parser/errors.dart';
+import 'package:mamba/context.dart';
+import 'package:mamba/errors.dart';
 
 sealed class NamedInput {
   const NamedInput({required this.name, required this.description});

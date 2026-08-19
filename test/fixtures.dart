@@ -1,4 +1,4 @@
-import 'package:arg_parser/command.dart';
+import 'package:mamba/command.dart';
 
 class TestGroupCommand extends GroupCommand {
   TestGroupCommand(

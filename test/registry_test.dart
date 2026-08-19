@@ -1,6 +1,6 @@
-import 'package:arg_parser/command.dart';
-import 'package:arg_parser/errors.dart';
-import 'package:arg_parser/registry.dart';
+import 'package:mamba/command.dart';
+import 'package:mamba/errors.dart';
+import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
 
 import 'fixtures.dart';
@@ -390,6 +390,44 @@ void main() {
           'Tool command.',
           mandatoryPositionals: [Positional('config')],
           commands: [TestCommand('config', 'Configure.')],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+    });
+
+    test('rejects duplicate command names', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand('config', 'Configure.'),
+            TestCommand('config', 'Configure again.'),
+          ],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+    });
+
+    test('rejects conflicting flag and option names', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'verbose')],
+          options: [IntOption(name: 'verbose')],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+    });
+
+    test('rejects conflicting short aliases', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag(name: 'verbose', short: 'v')],
+          options: [IntOption(name: 'version', short: 'v')],
         ),
         throwsA(isA<MambaException>()),
       );

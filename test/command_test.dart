@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:arg_parser/command.dart';
-import 'package:arg_parser/errors.dart';
+import 'package:mamba/command.dart';
+import 'package:mamba/errors.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 

@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:arg_parser/command.dart';
-import 'package:arg_parser/context.dart';
-import 'package:arg_parser/errors.dart';
-import 'package:arg_parser/help_formatter.dart';
-import 'package:arg_parser/parser.dart';
-import 'package:arg_parser/registry.dart';
+import 'package:mamba/command.dart';
+import 'package:mamba/context.dart';
+import 'package:mamba/errors.dart';
+import 'package:mamba/help_formatter.dart';
+import 'package:mamba/parser.dart';
+import 'package:mamba/registry.dart';
 
 final class _MambaCommandNotFoundException extends MambaException {
   _MambaCommandNotFoundException(

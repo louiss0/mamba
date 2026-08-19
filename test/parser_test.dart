@@ -1,7 +1,7 @@
-import 'package:arg_parser/command.dart';
-import 'package:arg_parser/help_formatter.dart';
-import 'package:arg_parser/parser.dart';
-import 'package:arg_parser/registry.dart';
+import 'package:mamba/command.dart';
+import 'package:mamba/help_formatter.dart';
+import 'package:mamba/parser.dart';
+import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
 
 enum Mode { auto, always }
@@ -481,6 +481,30 @@ void main() {
       expect(result.$4, ['config']);
     });
 
+    test(
+      'discovers descendants after inherited options before the command',
+      () {
+        final subject = Parser(
+          CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            commands: [
+              _ParserGroupCommand(
+                'config',
+                inheritedOptions: [IntOption(name: 'retries')],
+                [_ParserCommand('get')],
+              ),
+            ],
+          ),
+        );
+
+        final result = subject.parse(['config', '--retries', '2', 'get']);
+
+        expect(result.$1, ['config', 'get']);
+        expect(result.$3.intOptions, {'retries': 2});
+      },
+    );
+
     test('discovers descendants after a negated inherited flag', () {
       final subject = Parser(
         CommandRegistry.create(
@@ -753,6 +777,14 @@ void main() {
       );
 
       expect(() => subject.parse(['invalid']), throwsArgumentError);
+    });
+
+    test('requires positional expressions to match the entire value', () {
+      final subject = parser(
+        mandatoryPositionals: [Positional('initial', regex: RegExp(r'[A-Z]'))],
+      );
+
+      expectParseError(subject, ['Ada']);
     });
   });
 }

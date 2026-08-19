@@ -1,12 +1,12 @@
-## Unreleased
+## 0.0.0
 
-- Removed declared trailing positional schemas; tokens after `--` are passed
-  through as trailing arguments.
-- Added public `PairDSL` and `OrDSL` formatter values.
-- Render paired options as grouped `&` expressions in help output.
+- Added immutable, list-defined command and option schemas.
+- Added typed flags, options, accessors, command groups, hooks, and help output.
+- Added parsing and validation for typed, paired, repeatable, and inherited inputs.
+- Tokens after `--` are passed through as trailing arguments.
+- Added `PairString` and `OrString` formatter values for paired-option help.
 - Added `PairedOption.variant` for exactly-one `|` alternative groups.
 
-## 1.0.0
 
 - Added immutable, Yargs-inspired option and command schemas.
 - Added Boolean and string options with aliases, defaults, choices, and validation.

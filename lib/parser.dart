@@ -1,6 +1,6 @@
-import 'package:arg_parser/command.dart';
-import 'package:arg_parser/errors.dart';
-import 'package:arg_parser/registry.dart';
+import 'package:mamba/command.dart';
+import 'package:mamba/errors.dart';
+import 'package:mamba/registry.dart';
 
 class MambaParseException extends MambaException {
   MambaParseException(super.message);
@@ -258,8 +258,9 @@ class Parser {
         offset++;
         continue;
       }
-      if (_isRegisteredFlagToken(token, registry)) {
-        offset++;
+      final inputLength = _registeredInputTokenLength(token, registry);
+      if (inputLength != null) {
+        offset += inputLength;
         continue;
       }
       break;
@@ -278,6 +279,20 @@ class Parser {
       }
     }
     return indexes;
+  }
+
+  int? _registeredInputTokenLength(String token, CommandRegistry registry) {
+    if (token.startsWith('--') && token.length > 2) {
+      final (name, inlineValue) = _splitLongOption(token.substring(2));
+      if (_isAccessor(name, registry) || _findOption(registry, name) != null) {
+        return inlineValue == null ? 2 : 1;
+      }
+    }
+    if (token.startsWith('-') && token.length > 1) {
+      final names = token.substring(1);
+      if (_findOption(registry, names) != null) return 2;
+    }
+    return _isRegisteredFlagToken(token, registry) ? 1 : null;
   }
 
   bool _isRegisteredFlagToken(String token, CommandRegistry registry) {
@@ -775,7 +790,8 @@ class Parser {
     var index = 0;
 
     for (final positional in mandatory) {
-      if (index >= values.length || !positional.regex.hasMatch(values[index])) {
+      if (index >= values.length ||
+          !_matchesEntirely(positional.regex, values[index])) {
         throw MambaParseException(
           'The ${positional.name} is required at $index after this command',
         );
@@ -784,7 +800,7 @@ class Parser {
     }
     for (final positional in discretionary) {
       if (index >= values.length) break;
-      if (!positional.regex.hasMatch(values[index])) {
+      if (!_matchesEntirely(positional.regex, values[index])) {
         throw ArgumentError(
           'Invalid value for positional ${positional.name} at $index after the command',
         );
