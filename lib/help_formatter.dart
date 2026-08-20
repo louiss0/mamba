@@ -121,6 +121,7 @@ final class MambaHelpFormatter extends HelpFormatter {
     }
 
     _writeSection(buffer, 'Flags', [
+      _flag(registry.helpFlag),
       ...?registry.boolFlags?.values.where((flag) => !flag.hidden).map(_flag),
       ...?registry.countFlags?.values.where((flag) => !flag.hidden).map(_flag),
     ]);

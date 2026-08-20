@@ -9,9 +9,11 @@ void main() {
       final MambaExecutor<MambaExecutionResult> executor = factory.fake();
 
       final result = await executor.execute([]);
+      final success = result as MambaSuccessResult;
 
       expect(result, isA<MambaSuccessResult>());
-      expect((result as MambaSuccessResult).output, contains('mamba'));
+      expect(success.output, contains('mamba'));
+      expect(success.output, contains('help'));
     });
 
     test('creates a console executor', () {

@@ -292,26 +292,7 @@ class Parser {
       final names = token.substring(1);
       if (_findOption(registry, names) != null) return 2;
     }
-    return _isRegisteredFlagToken(token, registry) ? 1 : null;
-  }
-
-  bool _isRegisteredFlagToken(String token, CommandRegistry registry) {
-    if (token.startsWith('--') && token.length > 2) {
-      final (name, _) = _splitLongOption(token.substring(2));
-      final negativeName = name.startsWith('no-') ? name.substring(3) : null;
-      return registry.boolFlags?.containsKey(name) == true ||
-          registry.countFlags?.containsKey(name) == true ||
-          (negativeName != null &&
-              registry.boolFlags?.containsKey(negativeName) == true);
-    }
-    if (!token.startsWith('-') || token.length <= 1) return false;
-    final names = token.substring(1).split('');
-    return names.every(
-      (name) =>
-          registry.boolFlags?.values.any((flag) => flag.short == name) ==
-              true ||
-          registry.countFlags?.values.any((flag) => flag.short == name) == true,
-    );
+    return registry.isRegisteredFlagToken(token) ? 1 : null;
   }
 
   CommandRegistry _registryForCommand(List<String> command) {

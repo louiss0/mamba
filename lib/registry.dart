@@ -2,10 +2,28 @@ import 'package:mamba/command.dart';
 
 import 'errors.dart';
 
+final class MambaCommandNotFoundException extends MambaException {
+  MambaCommandNotFoundException(
+    String name,
+    List<String> parentPath,
+    List<String> availableCommands,
+  ) : super(
+        "Command $name was not found under ${parentPath.join(' ')}."
+        "${availableCommands.isEmpty ? 'This command has no subcommands.' : 'Available commands: ${availableCommands.join(', ')}'}",
+      );
+}
+
 final class CommandRegistry {
+  static final BooleanFlag _helpFlag = BooleanFlag(
+    name: 'help',
+    short: 'h',
+    description: 'Show this help message.',
+  );
+
   CommandRegistry._({
     required this.name,
     required this.shortDescription,
+    required this.helpFlag,
     this.longDescription,
     this.boolFlags,
     this.countFlags,
@@ -21,6 +39,7 @@ final class CommandRegistry {
 
   final String name;
   final String shortDescription;
+  final BooleanFlag helpFlag;
   final String? longDescription;
   final Map<String, CountFlag>? countFlags;
   final Map<String, BooleanFlag>? boolFlags;
@@ -60,6 +79,7 @@ final class CommandRegistry {
     return CommandRegistry._(
       name: name,
       shortDescription: shortDescription,
+      helpFlag: _helpFlag,
       longDescription: longDescription,
       boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
       countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
@@ -120,6 +140,7 @@ final class CommandRegistry {
     return CommandRegistry._(
       name: command.name,
       shortDescription: command.shortDescription,
+      helpFlag: _helpFlag,
       longDescription: command.longDescription,
       boolFlags: _indexByName<BooleanFlag>(
         registeredFlags?.whereType<BooleanFlag>(),
@@ -154,6 +175,66 @@ final class CommandRegistry {
           )
           .toList(),
     );
+  }
+
+  bool requestsHelp(List<String> args) {
+    for (final argument in args) {
+      if (argument == '--') return false;
+      if (argument == '--help' || argument == '-h') return true;
+    }
+    return false;
+  }
+
+  CommandRegistry registryForArguments(List<String> args) {
+    var registry = this;
+    var offset = 0;
+    while (offset < args.length) {
+      final token = args[offset];
+      if (token == '--' || requestsHelp([token])) break;
+      if (token == registry.name && identical(registry, this)) {
+        offset++;
+        continue;
+      }
+      if (registry.isRegisteredFlagToken(token)) {
+        offset++;
+        continue;
+      }
+
+      final children = registry.commandRegistries ?? const <CommandRegistry>[];
+      final command = children
+          .where((candidate) => candidate.name == token)
+          .firstOrNull;
+      if (command == null) {
+        throw MambaCommandNotFoundException(token, [
+          registry.name,
+        ], children.map((child) => child.name).toList());
+      }
+      registry = command;
+      offset++;
+    }
+    return registry;
+  }
+
+  bool isRegisteredFlagToken(String token) {
+    if (token.startsWith('--') && token.length > 2) {
+      final name = token.substring(2).split('=').first;
+      final negativeName = name.startsWith('no-') ? name.substring(3) : null;
+      return name == helpFlag.name ||
+          boolFlags?.containsKey(name) == true ||
+          countFlags?.containsKey(name) == true ||
+          (negativeName != null &&
+              boolFlags?.containsKey(negativeName) == true);
+    }
+    if (!token.startsWith('-') || token.length <= 1) return false;
+    return token
+        .substring(1)
+        .split('')
+        .every(
+          (name) =>
+              helpFlag.short == name ||
+              boolFlags?.values.any((flag) => flag.short == name) == true ||
+              countFlags?.values.any((flag) => flag.short == name) == true,
+        );
   }
 
   static List<T>? _mergeByName<T extends NamedInput>(

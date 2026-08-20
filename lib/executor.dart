@@ -7,22 +7,6 @@ import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 
-final class _MambaCommandNotFoundException extends MambaException {
-  _MambaCommandNotFoundException(
-    /// The command segment that could not be resolved.
-    String name,
-
-    /// The successfully resolved path before the missing command.
-    List<String> parentPath,
-
-    /// Commands that are actually available beneath the parent.
-    List<String> availableCommands,
-  ) : super(
-        "Command $name was not found under ${parentPath.join(' ')}."
-        "${availableCommands.isEmpty ? 'This command has no subcommands.' : 'Available commands: ${availableCommands.join(', ')}'}",
-      );
-}
-
 sealed class MambaExecutionResult {
   const MambaExecutionResult();
 }
@@ -170,13 +154,17 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     ParsedPositionals? parsedPositionals;
     late ParsedSingleOptions options;
     try {
-      if (_requestsHelp(args)) {
-        return writeOut(_helpFormatter.format(_registryForArguments(args)));
+      if (_registry.requestsHelp(args)) {
+        return writeOut(
+          _helpFormatter.format(_registry.registryForArguments(args)),
+        );
       }
 
       final executionArguments = _argumentsWithDefaultCommand(args);
       if (executionArguments.isEmpty) {
-        return writeOut(_helpFormatter.format(_registryForArguments(args)));
+        return writeOut(
+          _helpFormatter.format(_registry.registryForArguments(args)),
+        );
       }
 
       final (commandPath, positionals, inputs, trailingArguments) = Parser(
@@ -212,14 +200,12 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       if (hookRunner != null && context != null) {
         await hookRunner.postRun(context);
       }
-      for (final persistentHookRunner
-          in persistentHookRunners.toList().reversed) {
-        await persistentHookRunner.postPersistentRun(
-          _context,
-          parsedPositionals,
-          options,
-        );
-      }
+
+      Future.forEach(
+        persistentHookRunners.toList().reversed,
+        (hookRunner) async =>
+            hookRunner.postPersistentRun(_context, parsedPositionals, options),
+      );
     }
   }
 
@@ -228,58 +214,6 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     return ProcessedStandardInput(
       await stdin.expand((bytes) => bytes).toList(),
     );
-  }
-
-  CommandRegistry _registryForArguments(List<String> args) {
-    var registry = _registry;
-    var offset = 0;
-    while (offset < args.length) {
-      final name = args[offset];
-      if (name == '--' || _requestsHelp([name])) break;
-      if (name == registry.name && identical(registry, _registry)) {
-        offset++;
-        continue;
-      }
-      if (_isRegisteredFlagToken(name, registry)) {
-        offset++;
-        continue;
-      }
-
-      final children = registry.commandRegistries ?? const <CommandRegistry>[];
-      final command = children
-          .where((candidate) => candidate.name == name)
-          .firstOrNull;
-      if (command == null) {
-        throw _MambaCommandNotFoundException(name, [
-          registry.name,
-        ], children.map((child) => child.name).toList());
-      }
-      registry = command;
-      offset++;
-    }
-    return registry;
-  }
-
-  bool _isRegisteredFlagToken(String token, CommandRegistry registry) {
-    if (token.startsWith('--') && token.length > 2) {
-      final name = token.substring(2).split('=').first;
-      final negativeName = name.startsWith('no-') ? name.substring(3) : null;
-      return registry.boolFlags?.containsKey(name) == true ||
-          registry.countFlags?.containsKey(name) == true ||
-          (negativeName != null &&
-              registry.boolFlags?.containsKey(negativeName) == true);
-    }
-    if (!token.startsWith('-') || token.length <= 1) return false;
-    return token
-        .substring(1)
-        .split('')
-        .every(
-          (name) =>
-              registry.boolFlags?.values.any((flag) => flag.short == name) ==
-                  true ||
-              registry.countFlags?.values.any((flag) => flag.short == name) ==
-                  true,
-        );
   }
 
   List<Command> _commandsForPath(List<String> path) {
@@ -325,7 +259,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         offset++;
         continue;
       }
-      if (_isRegisteredFlagToken(token, _registry)) {
+      if (_registry.isRegisteredFlagToken(token)) {
         offset++;
         continue;
       }
@@ -338,12 +272,4 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
   bool _isRootCommand(String name) =>
       _registry.commandRegistries?.any((command) => command.name == name) ==
       true;
-
-  bool _requestsHelp(List<String> args) {
-    for (final argument in args) {
-      if (argument == '--') return false;
-      if (argument == '--help' || argument == '-h') return true;
-    }
-    return false;
-  }
 }

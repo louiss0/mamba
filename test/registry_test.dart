@@ -29,6 +29,7 @@ void main() {
       );
 
       expect(registry.boolFlags, {'color': color});
+      expect(registry.helpFlag.short, 'h');
       expect(registry.countFlags, {'verbose': verbose});
       expect(registry.singleOptions, {'name': name});
       expect(registry.repeatedOptions, {'tag': tag});
@@ -165,6 +166,22 @@ void main() {
           flags: [BooleanFlag(name: 'custom', short: 'h')],
         ),
         throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('resolves the command whose help was requested', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: [CountFlag(name: 'verbose', short: 'v')],
+        commands: [TestGroupCommand('config', [], 'Configure the tool.')],
+      );
+
+      expect(registry.requestsHelp(['config', '--help']), isTrue);
+      expect(registry.requestsHelp(['--', '--help']), isFalse);
+      expect(
+        registry.registryForArguments(['--verbose', 'config', '-h']).name,
+        'config',
       );
     });
 
