@@ -497,4 +497,182 @@ void main() {
       );
     });
   });
+
+  group('processes aliases correctly', () {
+    test('indexes command aliases by alias and command name', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestCommand('checkout', 'Checkout.', aliases: ['co', 'check']),
+        ],
+      );
+
+      expect(registry.aliases, {'co': 'checkout', 'check': 'checkout'});
+      expect(registry.registryForArguments(['co']).name, 'checkout');
+      expect(registry.registryForArguments(['check']).name, 'checkout');
+    });
+
+    test('throws a Mamba error for duplicate aliases on one command', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand('checkout', 'Checkout.', aliases: ['co', 'co']),
+          ],
+        ),
+        throwsA(
+          isA<MambaException>().having(
+            (error) => error.message,
+            'message',
+            contains('tool checkout'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects an alias already registered by another command', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand('checkout', 'Checkout.', aliases: ['co']),
+            TestCommand('config', 'Configure.', aliases: ['co']),
+          ],
+        ),
+        throwsA(
+          isA<MambaException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains('already registered'), contains('pick another one')),
+          ),
+        ),
+      );
+    });
+
+    test('rejects an alias equal to its command name', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand('checkout', 'Checkout.', aliases: ['checkout']),
+          ],
+        ),
+        throwsA(
+          isA<MambaException>().having(
+            (error) => error.message,
+            'message',
+            contains('tool checkout'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects an explicitly empty alias list', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [TestCommand('checkout', 'Checkout.', aliases: const [])],
+        ),
+        throwsA(
+          isA<MambaException>().having(
+            (error) => error.message,
+            'message',
+            contains('tool checkout'),
+          ),
+        ),
+      );
+    });
+
+    for (final depth in [1, 2, 3, 4, 5]) {
+      for (final violation in _AliasViolation.values) {
+        test('reports the command path for $violation at depth $depth', () {
+          final commandPath = ['tool', ..._groupNames.take(depth)];
+          final invalidCommand = _nestedCommandWithAliasViolation(
+            depth,
+            violation,
+          );
+          final path = violation == _AliasViolation.duplicateAcrossCommands
+              ? [...commandPath, 'second']
+              : [...commandPath, 'leaf'];
+
+          expect(
+            () => CommandRegistry.create(
+              'tool',
+              'Tool command.',
+              commands: [invalidCommand],
+            ),
+            throwsA(
+              isA<MambaException>().having(
+                (error) => error.message,
+                'message',
+                contains(path.join(' ')),
+              ),
+            ),
+          );
+        });
+      }
+    }
+  });
+}
+
+const _groupNames = ['one', 'two', 'three', 'four', 'five'];
+
+enum _AliasViolation {
+  duplicateOnCommand,
+  duplicateAcrossCommands,
+  sameAsCommand,
+  empty,
+}
+
+Command _nestedCommandWithAliasViolation(int depth, _AliasViolation violation) {
+  final groupNames = _groupNames.take(depth).toList();
+  final command = switch (violation) {
+    _AliasViolation.duplicateAcrossCommands => TestGroupCommand(
+      groupNames.last,
+      [
+        TestCommand('first', 'First.', aliases: ['shared']),
+        TestCommand('second', 'Second.', aliases: ['shared']),
+      ],
+      'Group.',
+      aliases: ['group-alias-${groupNames.last}'],
+    ),
+    _AliasViolation.duplicateOnCommand => TestGroupCommand(
+      groupNames.last,
+      [
+        TestCommand('leaf', 'Leaf.', aliases: ['leaf-alias', 'leaf-alias']),
+      ],
+      'Group.',
+      aliases: ['group-alias-${groupNames.last}'],
+    ),
+    _AliasViolation.sameAsCommand => TestGroupCommand(
+      groupNames.last,
+      [
+        TestCommand('leaf', 'Leaf.', aliases: ['leaf']),
+      ],
+      'Group.',
+      aliases: ['group-alias-${groupNames.last}'],
+    ),
+    _AliasViolation.empty => TestGroupCommand(
+      groupNames.last,
+      [TestCommand('leaf', 'Leaf.', aliases: const [])],
+      'Group.',
+      aliases: ['group-alias-${groupNames.last}'],
+    ),
+  };
+
+  var nested = command;
+  for (var index = depth - 2; index >= 0; index--) {
+    nested = TestGroupCommand(
+      groupNames[index],
+      [nested],
+      'Group.',
+      aliases: ['group-alias-${groupNames[index]}'],
+    );
+  }
+  return nested;
 }

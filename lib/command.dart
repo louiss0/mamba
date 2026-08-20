@@ -516,11 +516,15 @@ typedef ParsedPositionals = Map<String, String>?;
 
 /// A declarative command definition and its executable behavior.
 ///
-/// Subclasses register positionals, flags, options, paired options, and
-/// accessors through this constructor, then provide [name], [shortDescription],
-/// and [run]. The executor gives [run] the values validated by the parser.
+/// Subclasses register aliases, positionals, flags, options, paired options,
+/// and accessors through this constructor, then provide [name],
+/// [shortDescription], and [run]. The executor gives [run] the values
+/// validated by the parser.
 abstract class Command {
   final String? longDescription;
+
+  /// Alternative names used to select this command among its siblings.
+  final List<String>? aliases;
   final List<Positional>? mandatoryPositionals;
   final List<Positional>? discretionaryPositionals;
   final List<Flag>? flags;
@@ -530,6 +534,7 @@ abstract class Command {
 
   Command({
     this.longDescription,
+    this.aliases,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
     this.flags,
@@ -565,6 +570,7 @@ abstract class GroupCommand extends Command {
   GroupCommand(
     this.commands, {
     List<String>? defaultSubCommandPath,
+    super.aliases,
     this.inheritedFlags,
     this.inheritedOptions,
     super.longDescription,

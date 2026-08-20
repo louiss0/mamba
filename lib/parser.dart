@@ -261,8 +261,9 @@ class Parser {
         continue;
       }
 
+      final commandName = registry.aliases?[token] ?? token;
       final child = registry.commandRegistries
-          ?.where((candidate) => candidate.name == token)
+          ?.where((candidate) => candidate.name == commandName)
           .firstOrNull;
       if (child != null) {
         command.add(child.name);
@@ -283,12 +284,21 @@ class Parser {
   Set<int> _commandTokenIndexes(List<String> args, List<String> command) {
     final indexes = <int>{};
     var commandIndex = 0;
+    var registry = _registry;
     for (final (index, token) in args.indexed) {
       if (token == '--') break;
-      if (commandIndex < command.length && token == command[commandIndex]) {
-        indexes.add(index);
-        commandIndex++;
+      if (commandIndex >= command.length) break;
+      final commandName = command[commandIndex];
+      final isCommandToken =
+          token == commandName || registry.aliases?[token] == commandName;
+      if (!isCommandToken) continue;
+      indexes.add(index);
+      if (!(commandName == registry.name && identical(registry, _registry))) {
+        registry = registry.commandRegistries!.firstWhere(
+          (candidate) => candidate.name == commandName,
+        );
       }
+      commandIndex++;
     }
     return indexes;
   }

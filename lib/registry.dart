@@ -32,6 +32,7 @@ final class CommandRegistry {
     required this.shortDescription,
     required this.helpFlag,
     this.longDescription,
+    this.aliases,
     this.boolFlags,
     this.countFlags,
     this.singleOptions,
@@ -48,6 +49,9 @@ final class CommandRegistry {
   final String shortDescription;
   final BooleanFlag helpFlag;
   final String? longDescription;
+
+  /// Maps each registered child alias to that child's canonical name.
+  final Map<String, String>? aliases;
   final Map<String, CountFlag>? countFlags;
   final Map<String, BooleanFlag>? boolFlags;
   final Map<String, SingleOption>? singleOptions;
@@ -79,6 +83,7 @@ final class CommandRegistry {
     _validateDefinition(
       name,
       shortDescription,
+      null,
       mandatoryPositionals,
       discretionaryPositionals,
       flags,
@@ -86,6 +91,7 @@ final class CommandRegistry {
       pairedOptions,
       accessors,
       commands,
+      [name],
     );
 
     return CommandRegistry._(
@@ -93,6 +99,7 @@ final class CommandRegistry {
       shortDescription: shortDescription,
       helpFlag: _helpFlag,
       longDescription: longDescription,
+      aliases: _indexAliases(commands),
       boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
       countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
       singleOptions: _indexByName<SingleOption>(
@@ -110,12 +117,15 @@ final class CommandRegistry {
         discretionaryPositionals,
       ),
       accessors: _indexByName<AccessorOption>(accessors),
-      commandRegistries: commands?.map(_fromCommand).toList(),
+      commandRegistries: commands
+          ?.map((command) => _fromCommand(command, parentPath: [name]))
+          .toList(),
     );
   }
 
   static CommandRegistry _fromCommand(
     Command command, {
+    List<String> parentPath = const <String>[],
     List<Flag>? inheritedFlags,
     List<Option>? inheritedOptions,
   }) {
@@ -137,9 +147,11 @@ final class CommandRegistry {
         .toList();
     final pairedOptions = registeredOptions?.whereType<PairedOption>().toList();
 
+    final commandPath = [...parentPath, command.name];
     _validateDefinition(
       command.name,
       command.shortDescription,
+      command.aliases,
       command.mandatoryPositionals,
       command.discretionaryPositionals,
       registeredFlags,
@@ -147,6 +159,7 @@ final class CommandRegistry {
       pairedOptions,
       command.accessors,
       childCommands,
+      commandPath,
     );
 
     return CommandRegistry._(
@@ -154,6 +167,7 @@ final class CommandRegistry {
       shortDescription: command.shortDescription,
       helpFlag: _helpFlag,
       longDescription: command.longDescription,
+      aliases: _indexAliases(childCommands),
       boolFlags: _indexByName<BooleanFlag>(
         registeredFlags?.whereType<BooleanFlag>(),
       ),
@@ -181,6 +195,7 @@ final class CommandRegistry {
           ?.map(
             (child) => _fromCommand(
               child,
+              parentPath: commandPath,
               inheritedFlags: publishedFlags,
               inheritedOptions: publishedOptions,
             ),
@@ -218,8 +233,9 @@ final class CommandRegistry {
       }
 
       final children = registry.commandRegistries ?? const <CommandRegistry>[];
+      final commandName = registry.aliases?[token] ?? token;
       final command = children
-          .where((candidate) => candidate.name == token)
+          .where((candidate) => candidate.name == commandName)
           .firstOrNull;
       if (command == null) {
         throw MambaCommandNotFoundException(token, [
@@ -281,9 +297,19 @@ final class CommandRegistry {
     Iterable<T>? inputs,
   ) => inputs == null ? null : {for (final input in inputs) input.name: input};
 
+  static Map<String, String>? _indexAliases(List<Command>? commands) =>
+      commands == null
+      ? null
+      : {
+          for (final command in commands)
+            for (final alias in command.aliases ?? const <String>[])
+              alias: command.name,
+        };
+
   static void _validateDefinition(
     String name,
     String shortDescription,
+    List<String>? aliases,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
     List<Flag>? flags,
@@ -291,9 +317,11 @@ final class CommandRegistry {
     List<PairedOption>? pairedOptions,
     List<AccessorOption>? accessors,
     List<Command>? commands,
+    List<String> commandPath,
   ) {
     _validateCommandName(name);
     _validateShortDescription(shortDescription);
+    _validateAliases(name, aliases, commandPath);
     _validateNamedInputs(options, 'Option');
     _validatePairedOptions(pairedOptions);
     _validateNamedInputs(flags, 'Flag');
@@ -307,7 +335,33 @@ final class CommandRegistry {
       mandatoryPositionals,
       discretionaryPositionals,
       commands,
+      commandPath,
     );
+  }
+
+  static void _validateAliases(
+    String commandName,
+    List<String>? aliases,
+    List<String> commandPath,
+  ) {
+    if (aliases == null) return;
+    final path = commandPath.join(' ');
+    if (aliases.isEmpty) {
+      throw MambaException('Aliases for command path $path must not be empty.');
+    }
+    final registered = <String>{};
+    for (final alias in aliases) {
+      if (!registered.add(alias)) {
+        throw MambaException(
+          'Alias $alias is registered more than once for command path $path.',
+        );
+      }
+      if (alias == commandName) {
+        throw MambaException(
+          'Alias $alias cannot be the same as command path $path.',
+        );
+      }
+    }
   }
 
   static void _validateCommandName(String name) {
@@ -436,6 +490,7 @@ final class CommandRegistry {
     List<Positional>? mandatory,
     List<Positional>? discretionary,
     List<Command>? commands,
+    List<String> commandPath,
   ) {
     final registeredOptions = [
       ...?options,
@@ -447,6 +502,7 @@ final class CommandRegistry {
     _validateDuplicateNames([...?flags, ...registeredOptions], 'input');
     _validateDuplicateShortAliases([...?flags, ...registeredOptions]);
     _validateDuplicateCommandNames(commands);
+    _validateDuplicateAliases(commands, commandPath);
 
     for (final accessor in accessors ?? const <AccessorOption>[]) {
       final flagIndex =
@@ -513,6 +569,34 @@ final class CommandRegistry {
         throw MambaException(
           'There are duplicate command names: ${command.name}',
         );
+      }
+    }
+  }
+
+  static void _validateDuplicateAliases(
+    List<Command>? commands,
+    List<String> parentPath,
+  ) {
+    final registered = <String, String>{};
+    final commandNames = {
+      for (final command in commands ?? const <Command>[]) command.name,
+    };
+    for (final command in commands ?? const <Command>[]) {
+      final commandPath = [...parentPath, command.name];
+      _validateAliases(command.name, command.aliases, commandPath);
+      for (final alias in command.aliases ?? const <String>[]) {
+        if (commandNames.contains(alias)) {
+          throw MambaException(
+            'Alias $alias is the same as a command in command path ${commandPath.join(' ')}.',
+          );
+        }
+        final registeredCommand = registered[alias];
+        if (registeredCommand != null) {
+          throw MambaException(
+            'Alias $alias is already registered for a command; pick another one. Command path: ${commandPath.join(' ')}.',
+          );
+        }
+        registered[alias] = command.name;
       }
     }
   }

@@ -293,5 +293,6 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
   bool _isRootCommand(String name) =>
       _registry.commandRegistries?.any((command) => command.name == name) ==
-      true;
+          true ||
+      _registry.aliases?.containsKey(name) == true;
 }

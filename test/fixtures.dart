@@ -5,6 +5,7 @@ class TestGroupCommand extends GroupCommand {
     this.name,
     super.commands,
     this.shortDescription, {
+    super.aliases,
     super.inheritedFlags,
     super.inheritedOptions,
     super.flags,
@@ -23,6 +24,7 @@ class TestCommand extends Command {
     this.name,
     this.shortDescription, {
     super.longDescription,
+    super.aliases,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
     super.flags,

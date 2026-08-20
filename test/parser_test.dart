@@ -472,6 +472,16 @@ void main() {
       expect(result.$3.intOptions, {'retries': 2});
     });
 
+    test('discovers command aliases as canonical command paths', () {
+      final result = parser(
+        commands: [
+          _ParserCommand('checkout', aliases: ['co']),
+        ],
+      ).parse(['co']);
+
+      expect(result.$1, ['checkout']);
+    });
+
     test('stops command discovery at the trailing argument separator', () {
       final result = parser(
         commands: [_ParserCommand('config')],
@@ -805,7 +815,7 @@ class _ParserGroupCommand extends GroupCommand {
 }
 
 class _ParserCommand extends Command {
-  _ParserCommand(this.name);
+  _ParserCommand(this.name, {super.aliases});
 
   @override
   final String name;
