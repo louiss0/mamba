@@ -9,7 +9,7 @@
 /// 4. The executor selects the matching command and gives it parsed values,
 ///    trailing arguments, and global context established by hooks.
 ///
-/// See `docs/api.md` for the complete input syntax, rendered help, and
+/// See `README.md` for the complete input syntax, rendered help, and
 /// production and test setup guidance.
 library;
 
