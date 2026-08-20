@@ -20,7 +20,10 @@ Then make a `lib/main.dart` file and call the executor! With a name description.
 import 'package:mamba/mamba.dart';
 
 void main(List<String> args) {
-  final executor = Executor('git', "A tool that's used for managing the distribution of code");
+  final executor = ExecutorFactory(
+    'git',
+    "A tool that's used for managing the distribution of code",
+  ).create();
   executor.execute(args);
 }
 ```
@@ -65,13 +68,13 @@ Then you register in into the `Executor`.
 import 'package:mamba/mamba.dart';
 
 void main(List<String> args) {
-  final executor = Executor(
+  final executor = ExecutorFactory(
     'git', 
     "A tool that's used for managing the distribution of code",
     commands: [
       Commit(),
     ],
-  );
+  ).create();
   executor.execute(args);
 }
 ```

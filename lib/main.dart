@@ -1,5 +1,7 @@
 import 'package:mamba/executor.dart';
 
+var executor = ExecutorFactory("mamba", "This is the Manba CLI ").create();
+
 Future<void> main(List<String> args) async {
-  Executor("mamba", "This is the Manba CLI ").execute(args);
+  executor.execute(args);
 }
