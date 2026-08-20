@@ -23,28 +23,28 @@ final class _MambaCommandNotFoundException extends MambaException {
       );
 }
 
-sealed class ExecutionResult {
-  const ExecutionResult();
+sealed class MambaExecutionResult {
+  const MambaExecutionResult();
 }
 
-final class SuccessResult extends ExecutionResult {
+final class MambaSuccessResult extends MambaExecutionResult {
   final String output;
-  const SuccessResult(this.output);
+  const MambaSuccessResult(this.output);
 }
 
-final class FailureResult extends ExecutionResult {
+final class MambaFailureResult extends MambaExecutionResult {
   final MambaException exception;
-  const FailureResult(this.exception);
+  const MambaFailureResult(this.exception);
 }
 
-abstract interface class Executor<ReturnType> {
+abstract interface class MambaExecutor<ReturnType> {
   Future<ReturnType> execute(List<String> args);
 }
 
-final class ExecutorFactory {
+final class Executor {
   static final List<Flag> _defaultFlags = [
     BooleanFlag(
-      name: 'dryRun',
+      name: 'dry-run',
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag(
@@ -76,7 +76,7 @@ final class ExecutorFactory {
 
   final HelpFormatter? helpFormatter;
 
-  ExecutorFactory(
+  Executor(
     this.name,
     this.shortDescription, {
     this.longDescription,
@@ -93,13 +93,14 @@ final class ExecutorFactory {
          defaultSubCommandPath,
        );
 
-  Executor<ExecutionResult> fake() => _Executor(
+  MambaExecutor<MambaExecutionResult> fake() => _Executor(
     this,
-    (output) => SuccessResult(output),
-    (exception) => FailureResult(exception),
+    (output) => MambaSuccessResult(output),
+    (exception) => MambaFailureResult(exception),
   );
 
-  Executor<void> create() => _Executor(this, stdout.writeln, stderr.writeln);
+  MambaExecutor<void> create() =>
+      _Executor(this, stdout.writeln, stderr.writeln);
 
   static List<String>? _copyDefaultSubCommandPath(
     String registryName,
@@ -131,7 +132,7 @@ final class ExecutorFactory {
   }
 }
 
-final class _Executor<ReturnType> implements Executor<ReturnType> {
+final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
   final HelpFormatter _helpFormatter;
 
   final CommandRegistry _registry;
@@ -145,7 +146,7 @@ final class _Executor<ReturnType> implements Executor<ReturnType> {
   final ReturnType Function(dynamic) writeOut;
   final ReturnType Function(dynamic) writeErr;
 
-  _Executor(ExecutorFactory factory, this.writeOut, this.writeErr)
+  _Executor(Executor factory, this.writeOut, this.writeErr)
     : _helpFormatter = factory.helpFormatter ?? MambaHelpFormatter(),
       _context = factory.context ?? MambaContext(),
       _defaultSubCommandPath = factory.defaultSubCommandPath,
@@ -154,7 +155,7 @@ final class _Executor<ReturnType> implements Executor<ReturnType> {
         factory.shortDescription,
         longDescription: factory.longDescription,
         accessors: factory.accessors,
-        flags: [...ExecutorFactory._defaultFlags, ...?factory.flags],
+        flags: [...Executor._defaultFlags, ...?factory.flags],
         options: factory.options,
         pairedOptions: factory.pairedOptions,
         commands: factory.commands,
@@ -167,7 +168,7 @@ final class _Executor<ReturnType> implements Executor<ReturnType> {
     var persistentHookRunners = const Iterable<HookRunner>.empty();
     MambaReadContext? context;
     ParsedPositionals? parsedPositionals;
-    ParsedSingleOptions? options;
+    late ParsedSingleOptions options;
     try {
       if (_requestsHelp(args)) {
         return writeOut(_helpFormatter.format(_registryForArguments(args)));
@@ -211,15 +212,13 @@ final class _Executor<ReturnType> implements Executor<ReturnType> {
       if (hookRunner != null && context != null) {
         await hookRunner.postRun(context);
       }
-      if (options != null) {
-        for (final persistentHookRunner
-            in persistentHookRunners.toList().reversed) {
-          await persistentHookRunner.postPersistentRun(
-            _context,
-            parsedPositionals,
-            options,
-          );
-        }
+      for (final persistentHookRunner
+          in persistentHookRunners.toList().reversed) {
+        await persistentHookRunner.postPersistentRun(
+          _context,
+          parsedPositionals,
+          options,
+        );
       }
     }
   }
