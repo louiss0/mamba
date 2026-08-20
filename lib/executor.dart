@@ -149,7 +149,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
   @override
   Future<ReturnType> execute(List<String> args) async {
     HookRunner? hookRunner;
-    var persistentHookRunners = const Iterable<HookRunner>.empty();
+    var persistentHookRunners = const Iterable<PersistentHookRunner>.empty();
     MambaReadContext? context;
     ParsedPositionals? parsedPositionals;
     late ParsedSingleOptions options;
@@ -174,9 +174,11 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       final commandPathCommands = _commandsForPath(commandPath);
       final command = commandPathCommands.lastOrNull;
 
-      persistentHookRunners = commandPathCommands.whereType<HookRunner>();
+      persistentHookRunners = commandPathCommands
+          .whereType<PersistentHookRunner>();
       hookRunner = command is HookRunner ? command : null;
       context = MambaReadContext(_context);
+      parsedPositionals = positionals;
       options = (
         stringOptions: inputs.stringOptions,
         intOptions: inputs.intOptions,
@@ -187,7 +189,6 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       }
       if (hookRunner != null) {
         final standardInput = await _readStandardInput();
-        parsedPositionals = positionals;
         hookRunner.preRun(standardInput, context, positionals, options);
       }
       final output = await command!.run(positionals, inputs, trailingArguments);
@@ -201,10 +202,13 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         await hookRunner.postRun(context);
       }
 
-      Future.forEach(
+      await Future.forEach(
         persistentHookRunners.toList().reversed,
-        (hookRunner) async =>
-            hookRunner.postPersistentRun(_context, parsedPositionals, options),
+        (persistentHookRunner) => persistentHookRunner.postPersistentRun(
+          _context,
+          parsedPositionals,
+          options,
+        ),
       );
     }
   }

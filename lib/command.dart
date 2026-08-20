@@ -587,25 +587,24 @@ final class ProcessedStandardInput {
 /// Gives Commands the power to run functions before and After the run function
 /// The user is expected to make use of `preRun()` It's the input processor
 mixin HookRunner on Command {
-  // Hook output is an executor integration concern, not unit-test behavior.
-  // coverage:ignore-start
-  /// Runs before every command run
-  void prePersistentRun(
-    MambaContext context,
-    ParsedPositionals positionals,
-    ParsedSingleOptions options,
-  );
-
   /// Runs before the selected command
   void preRun(
     ProcessedStandardInput? input,
     MambaReadContext context,
     ParsedPositionals positionals,
     ParsedSingleOptions options,
-  ) {}
+  );
 
   /// Runs after the selected command
   FutureOr<void> postRun(MambaReadContext context) {}
+}
+
+mixin PersistentHookRunner on GroupCommand {
+  void prePersistentRun(
+    MambaContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  );
 
   /// Runs after every command run
   FutureOr<void> postPersistentRun(
@@ -613,6 +612,4 @@ mixin HookRunner on Command {
     ParsedPositionals positionals,
     ParsedSingleOptions options,
   ) {}
-
-  // coverage:ignore-end
 }
