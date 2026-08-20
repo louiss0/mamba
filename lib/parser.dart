@@ -2,15 +2,27 @@ import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
 
+/// Reports an invocation that does not match a registered command surface.
 class MambaParseException extends MambaException {
   MambaParseException(super.message);
 }
 
+/// Validates command-line tokens against a [CommandRegistry].
+///
+/// It accepts command paths, long and short options, bundled flags, negatable
+/// boolean flags, dotted accessors, positionals, and trailing arguments after
+/// `--`. It returns the selected path and typed input maps without executing a
+/// command.
 class Parser {
   Parser(this._registry);
 
   final CommandRegistry _registry;
 
+  /// Parses [args] into a command path, positional map, typed inputs, and
+  /// arguments after `--`.
+  ///
+  /// Throws [MambaParseException] when names, values, required inputs, paired
+  /// groups, or positional layout do not satisfy the registry.
   (
     List<String> command,
     Map<String, String>? positionals,

@@ -4,6 +4,10 @@ import 'dart:convert';
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
 
+/// A named value that a [Command] can register for an invocation.
+///
+/// Every input has a long name and an optional human-readable description used
+/// by help formatters.
 sealed class NamedInput {
   const NamedInput({required this.name, required this.description});
 
@@ -11,6 +15,11 @@ sealed class NamedInput {
   final String? description;
 }
 
+/// A regex-validated value registered in a command's positional sequence.
+///
+/// Register it in `mandatoryPositionals` or `discretionaryPositionals`; the
+/// parser stores its complete-token match in [ParsedPositionals], and help
+/// renders it as required or optional usage respectively.
 class Positional extends NamedInput {
   Positional(String name, {super.description, RegExp? regex})
     : regex = regex ?? RegExp(r'\S+'),
@@ -19,6 +28,10 @@ class Positional extends NamedInput {
   final RegExp regex;
 }
 
+/// A valueless named input registered in a command's flag collection.
+///
+/// Flags have optional one-letter aliases. Hidden flags remain parseable but
+/// are omitted from the Flags help section.
 sealed class Flag extends NamedInput {
   const Flag({
     required this.short,
@@ -31,6 +44,10 @@ sealed class Flag extends NamedInput {
   final bool hidden;
 }
 
+/// A flag that registers a boolean value, default, and optional negated form.
+///
+/// The parser accepts its long name, short alias, and short bundles; a
+/// negatable flag also accepts `--no-name`. Help lists visible flags in Flags.
 final class BooleanFlag extends Flag {
   BooleanFlag({
     super.short,
@@ -45,6 +62,10 @@ final class BooleanFlag extends Flag {
   final bool negatable;
 }
 
+/// A flag whose registered value is incremented for every occurrence.
+///
+/// The parser accepts long, short, and bundled-short forms and returns its
+/// count. Help lists visible count flags in Flags.
 final class CountFlag extends Flag {
   const CountFlag({
     super.short,
@@ -54,6 +75,10 @@ final class CountFlag extends Flag {
   });
 }
 
+/// A value-taking input registered in a command's option collection.
+///
+/// Options accept long and optional short forms. Required options must be
+/// supplied; hidden options are not rendered in the Options help section.
 sealed class Option extends NamedInput {
   const Option({
     required this.short,
@@ -68,7 +93,11 @@ sealed class Option extends NamedInput {
   final bool hidden;
 }
 
-/// An option with members that form either a required-together group or variant.
+/// A primary option registered with companion members as a group or variant.
+///
+/// The primary and [options] use ordinary option syntax. The parser requires
+/// all members together unless [variant] is true, when it permits only one;
+/// help joins the members with ` & ` or ` | ` respectively.
 sealed class PairedOption extends Option {
   PairedOption({
     required List<PairOption> options,
@@ -83,6 +112,7 @@ sealed class PairedOption extends Option {
   final bool variant;
 }
 
+/// A regex-validated string primary in a paired option registration.
 final class PairedStringOption extends PairedOption {
   PairedStringOption({
     required super.name,
@@ -97,6 +127,7 @@ final class PairedStringOption extends PairedOption {
   final RegExp regex;
 }
 
+/// An integer primary in a paired option registration.
 final class PairedIntOption extends PairedOption {
   PairedIntOption({
     required super.name,
@@ -108,6 +139,7 @@ final class PairedIntOption extends PairedOption {
   });
 }
 
+/// A double primary in a paired option registration.
 final class PairedDoubleOption extends PairedOption {
   PairedDoubleOption({
     required super.name,
@@ -119,6 +151,7 @@ final class PairedDoubleOption extends PairedOption {
   });
 }
 
+/// An enum-choice primary in a paired option registration.
 final class PairedChoiceOption<T extends Enum> extends PairedOption {
   PairedChoiceOption({
     required this.choices,
@@ -135,6 +168,7 @@ final class PairedChoiceOption<T extends Enum> extends PairedOption {
   final T? defaultValue;
 }
 
+/// A paired primary that accumulates each supplied value into a typed list.
 sealed class RepeatablePairedOption extends PairedOption {
   RepeatablePairedOption({
     required super.name,
@@ -146,6 +180,7 @@ sealed class RepeatablePairedOption extends PairedOption {
   });
 }
 
+/// A repeatable string primary in a paired option registration.
 final class RepeatablePairedStringOption extends RepeatablePairedOption {
   RepeatablePairedStringOption({
     required super.name,
@@ -160,6 +195,7 @@ final class RepeatablePairedStringOption extends RepeatablePairedOption {
   final RegExp regex;
 }
 
+/// A repeatable integer primary in a paired option registration.
 final class RepeatablePairedIntOption extends RepeatablePairedOption {
   RepeatablePairedIntOption({
     required super.name,
@@ -171,6 +207,7 @@ final class RepeatablePairedIntOption extends RepeatablePairedOption {
   });
 }
 
+/// A repeatable double primary in a paired option registration.
 final class RepeatablePairedDoubleOption extends RepeatablePairedOption {
   RepeatablePairedDoubleOption({
     required super.name,
@@ -182,10 +219,11 @@ final class RepeatablePairedDoubleOption extends RepeatablePairedOption {
   });
 }
 
-/// A member of a [PairedOption] group or variant.
+/// A companion value registered as a member of a [PairedOption].
 ///
-/// Pair members always inherit their requiredness from their primary option and
-/// therefore do not expose a `required` constructor parameter.
+/// Pair members inherit group requiredness and variant behavior from their
+/// primary option. The parser stores their values in the same typed maps as
+/// ordinary options, and help renders them within the group's expression.
 sealed class PairOption extends NamedInput {
   final String? short;
   const PairOption({
@@ -195,6 +233,7 @@ sealed class PairOption extends NamedInput {
   });
 }
 
+/// A regex-validated string companion in a paired option registration.
 final class PairStringOption extends PairOption {
   PairStringOption({
     required super.name,
@@ -206,14 +245,17 @@ final class PairStringOption extends PairOption {
   final RegExp regex;
 }
 
+/// An integer companion in a paired option registration.
 final class PairIntOption extends PairOption {
   const PairIntOption({required super.name, super.short, super.description});
 }
 
+/// A double companion in a paired option registration.
 final class PairDoubleOption extends PairOption {
   const PairDoubleOption({required super.name, super.short, super.description});
 }
 
+/// An enum-choice companion in a paired option registration.
 final class PairChoiceOption<T extends Enum> extends PairOption {
   const PairChoiceOption({
     required this.choices,
@@ -227,6 +269,7 @@ final class PairChoiceOption<T extends Enum> extends PairOption {
   final T? defaultValue;
 }
 
+/// A paired companion that accumulates each supplied value into a typed list.
 sealed class RepeatablePairOption extends PairOption {
   const RepeatablePairOption({
     required super.name,
@@ -235,6 +278,7 @@ sealed class RepeatablePairOption extends PairOption {
   });
 }
 
+/// A repeatable string companion in a paired option registration.
 final class RepeatablePairStringOption extends RepeatablePairOption {
   RepeatablePairStringOption({
     required super.name,
@@ -246,6 +290,7 @@ final class RepeatablePairStringOption extends RepeatablePairOption {
   final RegExp regex;
 }
 
+/// A repeatable integer companion in a paired option registration.
 final class RepeatablePairIntOption extends RepeatablePairOption {
   const RepeatablePairIntOption({
     required super.name,
@@ -254,6 +299,7 @@ final class RepeatablePairIntOption extends RepeatablePairOption {
   });
 }
 
+/// A repeatable double companion in a paired option registration.
 final class RepeatablePairDoubleOption extends RepeatablePairOption {
   const RepeatablePairDoubleOption({
     required super.name,
@@ -262,6 +308,7 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption {
   });
 }
 
+/// A non-repeatable option that stores one typed value by name.
 sealed class SingleOption extends Option {
   const SingleOption({
     required super.short,
@@ -272,6 +319,7 @@ sealed class SingleOption extends Option {
   });
 }
 
+/// A single string option validated by [regex].
 final class StringOption extends SingleOption {
   const StringOption({
     required super.name,
@@ -285,6 +333,7 @@ final class StringOption extends SingleOption {
   final RegExp regex;
 }
 
+/// A single option that accepts a signed decimal integer.
 final class IntOption extends SingleOption {
   const IntOption({
     required super.name,
@@ -295,6 +344,7 @@ final class IntOption extends SingleOption {
   });
 }
 
+/// A single option that accepts a signed decimal number.
 final class DoubleOption extends SingleOption {
   const DoubleOption({
     required super.name,
@@ -305,6 +355,10 @@ final class DoubleOption extends SingleOption {
   });
 }
 
+/// A single option that accepts one registered enum-member name.
+///
+/// The parser stores the selected member name and supplies [defaultValue] when
+/// the option is omitted.
 final class ChoiceOption<T extends Enum> extends SingleOption {
   const ChoiceOption({
     this.defaultValue,
@@ -320,6 +374,7 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
   final T? defaultValue;
 }
 
+/// An option that accumulates every supplied value into a typed list.
 sealed class RepeatableOption extends Option {
   const RepeatableOption({
     required super.name,
@@ -330,6 +385,7 @@ sealed class RepeatableOption extends Option {
   });
 }
 
+/// A repeatable string option validated by [regex].
 final class RepeatableStringOption extends RepeatableOption {
   RepeatableStringOption({
     required super.name,
@@ -343,6 +399,7 @@ final class RepeatableStringOption extends RepeatableOption {
   final RegExp regex;
 }
 
+/// A repeatable option that accepts signed decimal integers.
 final class RepeatableIntOption extends RepeatableOption {
   const RepeatableIntOption({
     required super.name,
@@ -353,6 +410,7 @@ final class RepeatableIntOption extends RepeatableOption {
   });
 }
 
+/// A repeatable option that accepts signed decimal numbers.
 final class RepeatableDoubleOption extends RepeatableOption {
   const RepeatableDoubleOption({
     required super.name,
@@ -363,14 +421,24 @@ final class RepeatableDoubleOption extends RepeatableOption {
   });
 }
 
+/// A named leaf or object registered for dotted accessor syntax.
+///
+/// Accessors are parsed from long dotted paths and returned in the nested
+/// `accessors` map of [ParsedNamedInputs]. Visible leaves appear in Accessor
+/// flags help.
 sealed class AccessorOption extends NamedInput {
   const AccessorOption({required super.name, super.description});
 }
 
+/// A value-taking leaf in an accessor registration tree.
 sealed class AccessorPrimitiveOption extends AccessorOption {
   const AccessorPrimitiveOption({required super.name, super.description});
 }
 
+/// An object node that groups nested [AccessorOption] registrations.
+///
+/// Its name forms one dotted-path segment. A hidden list hides every descendant
+/// from help while preserving the complete accessor path for parsing.
 final class AccessorListOption extends AccessorOption {
   AccessorListOption({
     required super.name,
@@ -383,6 +451,7 @@ final class AccessorListOption extends AccessorOption {
   final List<AccessorOption> options;
 }
 
+/// A regex-validated string leaf in a dotted accessor path.
 final class AccessorStringOption extends AccessorPrimitiveOption {
   AccessorStringOption({required super.name, super.description, RegExp? regex})
     : _regExp = regex ?? RegExp(r'\S+');
@@ -391,18 +460,24 @@ final class AccessorStringOption extends AccessorPrimitiveOption {
   RegExp get regex => _regExp;
 }
 
+/// An integer leaf in a dotted accessor path.
 final class AccessorIntOption extends AccessorPrimitiveOption {
   AccessorIntOption({required super.name, super.description});
 
   RegExp get regex => RegExp(r'\d+');
 }
 
+/// A double leaf in a dotted accessor path.
 final class AccessorDoubleOption extends AccessorPrimitiveOption {
   AccessorDoubleOption({required super.name, super.description});
 
   RegExp get regex => RegExp(r'\d+\.\d+');
 }
 
+/// An enum-choice leaf in a dotted accessor path.
+///
+/// The parser stores the selected member name and merges [defaultValue] when it
+/// is omitted.
 final class AccessorChoiceOption<T extends Enum>
     extends AccessorPrimitiveOption {
   AccessorChoiceOption({
@@ -429,17 +504,21 @@ typedef ParsedNamedInputs = ({
   Map<String, dynamic>? accessors,
 });
 
+/// The non-repeated ordinary options available to hook callbacks.
 typedef ParsedSingleOptions = ({
   Map<String, String>? stringOptions,
   Map<String, int>? intOptions,
   Map<String, double>? doubleOptions,
 });
 
+/// Positional values keyed by their registered names, or `null` when absent.
 typedef ParsedPositionals = Map<String, String>?;
 
-/// The Blueprint for any class that wants to be a command
-/// The name and short description must be provided
-/// If the short description is
+/// A declarative command definition and its executable behavior.
+///
+/// Subclasses register positionals, flags, options, paired options, and
+/// accessors through this constructor, then provide [name], [shortDescription],
+/// and [run]. The executor gives [run] the values validated by the parser.
 abstract class Command {
   final String? longDescription;
   final List<Positional>? mandatoryPositionals;
@@ -462,6 +541,9 @@ abstract class Command {
   String get name;
   String get shortDescription;
 
+  /// Runs this command with parser-validated values and trailing arguments.
+  ///
+  /// The returned text is delivered to the executor's output environment.
   FutureOr<String> run(
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
@@ -469,8 +551,11 @@ abstract class Command {
   );
 }
 
-/// This type of command is allowed to select it's subcommands to run
-/// This type of commands should only use it's sub command runner in `run`
+/// A command that registers children and can run one by a relative path.
+///
+/// Group commands contribute nested command registries. Their inherited flags
+/// and options are published to descendants, and [defaultSubCommandPath] can
+/// select a child when no explicit child is supplied.
 abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
   final List<Flag>? inheritedFlags;
@@ -506,6 +591,7 @@ abstract class GroupCommand extends Command {
   @override
   String get shortDescription;
 
+  /// Runs the descendant addressed by a non-empty relative [path].
   FutureOr<String> runChildCommand(
     List<String> path,
     ParsedPositionals positionals,
@@ -571,8 +657,10 @@ abstract class GroupCommand extends Command {
   }
 }
 
-/// Is used for allowing the user to process standard input
-/// It's automatically sent bytes from standard input
+/// Standard input captured for a selected command's pre-run hook.
+///
+/// The executor provides this only when standard input is piped. Consumers can
+/// interpret the captured bytes as character, UTF-8, or JSON data.
 final class ProcessedStandardInput {
   final List<int> bytes;
   ProcessedStandardInput(this.bytes);
@@ -584,10 +672,12 @@ final class ProcessedStandardInput {
   dynamic get json => jsonDecode(utf8Text);
 }
 
-/// Gives Commands the power to run functions before and After the run function
-/// The user is expected to make use of `preRun()` It's the input processor
+/// Adds hooks around the selected command's [Command.run] invocation.
+///
+/// [preRun] receives piped standard input, a read-only context, positionals,
+/// and non-repeated ordinary options. [postRun] runs after the command.
 mixin HookRunner on Command {
-  /// Runs before the selected command
+  /// Runs before the selected command.
   void preRun(
     ProcessedStandardInput? input,
     MambaReadContext context,
@@ -595,18 +685,24 @@ mixin HookRunner on Command {
     ParsedSingleOptions options,
   );
 
-  /// Runs after the selected command
+  /// Runs after the selected command.
   FutureOr<void> postRun(MambaReadContext context) {}
 }
 
+/// Adds hooks around a descendant execution while retaining mutable context.
+///
+/// A group's persistent pre-hook runs before its selected descendant, and its
+/// post-hook runs afterward in reverse group-path order. Context mutations are
+/// visible to descendant commands and hooks.
 mixin PersistentHookRunner on GroupCommand {
+  /// Runs before a selected descendant command.
   void prePersistentRun(
     MambaContext context,
     ParsedPositionals positionals,
     ParsedSingleOptions options,
   );
 
-  /// Runs after every command run
+  /// Runs after a selected descendant command.
   FutureOr<void> postPersistentRun(
     MambaContext context,
     ParsedPositionals positionals,

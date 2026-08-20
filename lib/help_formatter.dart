@@ -3,6 +3,10 @@ import 'package:chalkdart/chalkstrings.dart';
 import 'command.dart';
 import 'registry.dart';
 
+/// An ANSI-styled fragment that a help formatter can compose safely.
+///
+/// The base type rejects unstyled content so delimiter wrappers cannot be
+/// confused with an unformatted command grammar.
 abstract class FormattedString {
   final String string;
   FormattedString(String string) : string = _parse(string);
@@ -20,6 +24,7 @@ abstract class FormattedString {
   }
 }
 
+/// A styled help fragment enclosed in required angle brackets.
 final class RequiredString extends FormattedString {
   RequiredString(String string) : super('< ${_parse(string)} >');
 
@@ -32,6 +37,7 @@ final class RequiredString extends FormattedString {
   }
 }
 
+/// A styled help fragment enclosed in optional square brackets.
 final class OptionalString extends FormattedString {
   OptionalString(String string) : super('[ ${_parse(string)} ]');
 
@@ -56,14 +62,21 @@ final class OrString extends FormattedString {
     : super._([primaryMember, ...alternativeMembers].join(' | '));
 }
 
+/// A bright-green title for a help section.
 final class SectionTitleString extends FormattedString {
   SectionTitleString(String string) : super(string.brightGreen);
 }
 
+/// A bright-yellow description for a help entry.
 final class EntryDescriptionString extends FormattedString {
   EntryDescriptionString(String string) : super(string.brightYellow);
 }
 
+/// The customization boundary for rendering a [CommandRegistry] as help text.
+///
+/// Implement [format] to render a registry and [formatLongDescription] to
+/// control its long-description block. The other methods construct the styled
+/// grammar fragments used by [MambaHelpFormatter].
 abstract class HelpFormatter {
   RequiredString formatIntoRequiredString(String string) =>
       RequiredString(string.red);
@@ -87,12 +100,18 @@ abstract class HelpFormatter {
     Iterable<String> pairMembers,
   ) => PairString(primaryMember, pairMembers);
 
+  /// Writes a registry long description into [buffer].
   void formatLongDescription(StringBuffer buffer, String longDescription);
 
+  /// Renders all visible help for [registry].
   String format(CommandRegistry registry);
 }
 
 /// Renders a [CommandRegistry] as ANSI-styled command-line help text.
+///
+/// The output contains usage, an optional long description, and non-empty
+/// Flags, Accessor flags, Options, and Commands sections. Hidden inputs are
+/// accepted by Mamba but omitted from this formatter's output.
 final class MambaHelpFormatter extends HelpFormatter {
   @override
   void formatLongDescription(StringBuffer buffer, String longDescription) {

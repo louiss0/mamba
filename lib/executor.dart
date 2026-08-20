@@ -7,24 +7,34 @@ import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 
+/// The observable result produced by an executor created with [Executor.fake].
 sealed class MambaExecutionResult {
   const MambaExecutionResult();
 }
 
+/// Captures command output produced by a successful fake execution.
 final class MambaSuccessResult extends MambaExecutionResult {
   final String output;
   const MambaSuccessResult(this.output);
 }
 
+/// Captures a Mamba exception produced by a failed fake execution.
 final class MambaFailureResult extends MambaExecutionResult {
   final MambaException exception;
   const MambaFailureResult(this.exception);
 }
 
+/// Executes an argument list and delivers its result through an environment.
 abstract interface class MambaExecutor<ReturnType> {
+  /// Selects, validates, and runs the command addressed by [args].
   Future<ReturnType> execute(List<String> args);
 }
 
+/// Defines a root command surface and creates its execution environment.
+///
+/// Create one instance at the application's composition root. It owns the root
+/// metadata, global inputs, command tree, context, and help formatter used to
+/// construct each executor.
 final class Executor {
   static final List<Flag> _defaultFlags = [
     BooleanFlag(
@@ -77,12 +87,20 @@ final class Executor {
          defaultSubCommandPath,
        );
 
+  /// Creates an executor for tests that returns success or failure values.
+  ///
+  /// Call this in one shared test-support file and import the resulting fake
+  /// into test files. Unlike [create], it does not write to process streams.
   MambaExecutor<MambaExecutionResult> fake() => _Executor(
     this,
     (output) => MambaSuccessResult(output),
     (exception) => MambaFailureResult(exception),
   );
 
+  /// Creates the production executor that writes output and failures to stdio.
+  ///
+  /// Call this where the executable is built, then pass command-line arguments
+  /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
   MambaExecutor<void> create() =>
       _Executor(this, stdout.writeln, stderr.writeln);
 

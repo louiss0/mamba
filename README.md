@@ -4,6 +4,10 @@
 [![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
 A CLI Framework that that makes commands define their accepted inputs using fields.
+
+For the complete API reference, accepted syntax, help output, and production and
+test executor setup, see [the API guide](docs/api.md).
+
 There are two kinds of commands! `Command` and `GroupCommand`. 
 A _command_ is a class that defines a subcommand.
 A _group command_ is a sub command that allows nested subcommands.
@@ -20,7 +24,7 @@ Then make a `lib/main.dart` file and call the executor! With a name description.
 import 'package:mamba/mamba.dart';
 
 void main(List<String> args) {
-  final executor = ExecutorFactory(
+  final executor = Executor(
     'git',
     "A tool that's used for managing the distribution of code",
   ).create();
@@ -68,7 +72,7 @@ Then you register in into the `Executor`.
 import 'package:mamba/mamba.dart';
 
 void main(List<String> args) {
-  final executor = ExecutorFactory(
+  final executor = Executor(
     'git', 
     "A tool that's used for managing the distribution of code",
     commands: [
@@ -132,7 +136,7 @@ What you do is get the value you know will be stored in the map!
   }
 ```
 
-To allow a command to take an optional positional argument! Register `optionalPositionals`
+To allow a command to take an optional positional argument! Register `discretionaryPositionals`
 
 ```dart
 class Branch extends Command {
@@ -143,7 +147,7 @@ class Branch extends Command {
     String get shortDescription => "List, create, or delete branches";
 
   Command(): super(
-    optionalPositionals: [
+    discretionaryPositionals: [
       Positional("branch"),
     ],
   );

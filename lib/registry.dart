@@ -2,6 +2,7 @@ import 'package:mamba/command.dart';
 
 import 'errors.dart';
 
+/// Reports a command name that is not a child of the selected command path.
 final class MambaCommandNotFoundException extends MambaException {
   MambaCommandNotFoundException(
     String name,
@@ -13,6 +14,12 @@ final class MambaCommandNotFoundException extends MambaException {
       );
 }
 
+/// A validated, name-indexed view of one command and its descendants.
+///
+/// A registry separates each input kind into its own map so callers can look up
+/// a definition by name while preserving its input semantics. Group registries
+/// recursively organize children and carry explicitly inherited flags and
+/// options to descendants; local same-name definitions take precedence.
 final class CommandRegistry {
   static final BooleanFlag _helpFlag = BooleanFlag(
     name: 'help',
@@ -52,6 +59,11 @@ final class CommandRegistry {
   final Map<String, AccessorOption>? accessors;
   final List<CommandRegistry>? commandRegistries;
 
+  /// Builds and validates a root registry from a list-defined command surface.
+  ///
+  /// The factory indexes inputs by name, reserves the built-in help flag, and
+  /// creates child registries for [commands]. It rejects ambiguous names,
+  /// aliases, positional definitions, and invalid input definitions.
   factory CommandRegistry.create(
     String name,
     String shortDescription, {
@@ -177,6 +189,7 @@ final class CommandRegistry {
     );
   }
 
+  /// Whether [args] request built-in help before an end-of-options separator.
   bool requestsHelp(List<String> args) {
     for (final argument in args) {
       if (argument == '--') return false;
@@ -185,6 +198,10 @@ final class CommandRegistry {
     return false;
   }
 
+  /// Returns the deepest registered command named by [args].
+  ///
+  /// Registered flags and the root name do not advance the command path. Help
+  /// and the end-of-options separator stop traversal.
   CommandRegistry registryForArguments(List<String> args) {
     var registry = this;
     var offset = 0;
@@ -215,6 +232,10 @@ final class CommandRegistry {
     return registry;
   }
 
+  /// Whether [token] is a registered boolean, count, or built-in help flag.
+  ///
+  /// The check recognizes long names, valid negated boolean names, short names,
+  /// and bundles of short flags.
   bool isRegisteredFlagToken(String token) {
     if (token.startsWith('--') && token.length > 2) {
       final name = token.substring(2).split('=').first;
