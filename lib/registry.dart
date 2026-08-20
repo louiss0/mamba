@@ -171,7 +171,7 @@ final class CommandRegistry {
   }
 
   static final RegExp _keyboardSymbol = RegExp(r'[^A-Za-z0-9_-]');
-  static final RegExp _namedInputName = RegExp(r'^[A-Za-z][A-Za-z0-9]*$');
+  static final RegExp _namedInputName = RegExp(r'^[A-Za-z][A-Za-z0-9-]*$');
   static final RegExp _shortInputName = RegExp(r'^[A-Za-z]$');
   static final RegExp _number = RegExp(r'\d');
 
@@ -257,7 +257,7 @@ final class CommandRegistry {
       }
       if (!_namedInputName.hasMatch(input.name)) {
         throw MambaRegistryError(
-          '$inputKind names must be alphanumeric and start with a letter',
+          '$inputKind names must use letters, numbers, or hyphens and start with a letter',
         );
       }
       final short = switch (input) {

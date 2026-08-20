@@ -255,44 +255,46 @@ void main() {
       expect(() => CommandRegistry.create('tool', 'x' * 149), returnsNormally);
     });
 
-    test(
-      'accepts alphanumeric option and flag names starting with a letter',
-      () {
-        final registry = CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          flags: [BooleanFlag(name: 'verbose2', short: 'v')],
-          options: [IntOption(name: 'retry2', short: 'r')],
+    test('accepts letter-led alphanumeric and hyphenated input names', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: [
+          BooleanFlag(name: 'verbose2', short: 'v'),
+          BooleanFlag(name: 'dry-run'),
+        ],
+        options: [
+          IntOption(name: 'retry2', short: 'r'),
+          IntOption(name: 'back-off'),
+        ],
+      );
+
+      expect(registry.boolFlags, contains('verbose2'));
+      expect(registry.boolFlags, contains('dry-run'));
+      expect(registry.singleOptions, contains('retry2'));
+      expect(registry.singleOptions, contains('back-off'));
+    });
+
+    test('rejects input names outside the letter-led supported form', () {
+      for (final name in ['2fast', 'dry_run', 'verbose!']) {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: [BooleanFlag(name: name)],
+          ),
+          throwsA(isA<MambaRegistryError>()),
         );
-
-        expect(registry.boolFlags, contains('verbose2'));
-        expect(registry.singleOptions, contains('retry2'));
-      },
-    );
-
-    test(
-      'rejects option and flag names that are not letter-led alphanumeric',
-      () {
-        for (final name in ['2fast', 'dry-run', 'dry_run', 'verbose!']) {
-          expect(
-            () => CommandRegistry.create(
-              'tool',
-              'Tool command.',
-              flags: [BooleanFlag(name: name)],
-            ),
-            throwsA(isA<MambaRegistryError>()),
-          );
-          expect(
-            () => CommandRegistry.create(
-              'tool',
-              'Tool command.',
-              options: [IntOption(name: name)],
-            ),
-            throwsA(isA<MambaRegistryError>()),
-          );
-        }
-      },
-    );
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            options: [IntOption(name: name)],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      }
+    });
 
     test('rejects non-letter short aliases', () {
       expect(
