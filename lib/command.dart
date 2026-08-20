@@ -602,23 +602,17 @@ mixin HookRunner on Command {
     MambaReadContext context,
     ParsedPositionals positionals,
     ParsedSingleOptions options,
-  ) {
-    print("The selected ${super.name} will run");
-  }
+  ) {}
 
   /// Runs after the selected command
-  FutureOr<void> postRun(MambaReadContext context) {
-    print("The selected ${super.name} has ran");
-  }
+  FutureOr<void> postRun(MambaReadContext context) {}
 
   /// Runs after every command run
   FutureOr<void> postPersistentRun(
     MambaContext context,
     ParsedPositionals positionals,
     ParsedSingleOptions options,
-  ) {
-    print("This command ${super.name} was used");
-  }
+  ) {}
 
   // coverage:ignore-end
 }
