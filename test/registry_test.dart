@@ -876,6 +876,132 @@ void main() {
           }),
         );
       });
+
+      group("maps paired options properly", () {
+        test("maps dependent options", () {
+          final registry = CommandRegistry.create(
+            'aws',
+            'Manage Amazon Web Services.',
+            commands: [
+              TestCommand(
+                'put-object',
+                'Add an object to an Amazon S3 bucket.',
+                pairedOptions: [
+                  PairedStringOption(
+                    name: 'sse-customer-algorithm',
+                    description: 'The customer encryption algorithm.',
+                    options: [
+                      PairStringOption(
+                        name: 'sse-customer-key',
+                        description: 'The customer encryption key.',
+                      ),
+                      PairStringOption(
+                        name: 'sse-customer-key-md5',
+                        description: 'The MD5 digest of the customer key.',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          expect(
+            registry.toMap(),
+            equals({
+              'name': 'aws',
+              'description': 'Manage Amazon Web Services.',
+              'commands': {
+                'put-object': {
+                  'description': 'Add an object to an Amazon S3 bucket.',
+                  'options': {
+                    'sse-customer-algorithm': {
+                      'short': null,
+                      'required': false,
+                      'hidden': false,
+                      'description': 'The customer encryption algorithm.',
+                    },
+                    'sse-customer-key': {
+                      'short': null,
+                      'required': false,
+                      'hidden': false,
+                      'description': 'The customer encryption key.',
+                    },
+                    'sse-customer-key-md5': {
+                      'short': null,
+                      'required': false,
+                      'hidden': false,
+                      'description': 'The MD5 digest of the customer key.',
+                    },
+                  },
+                },
+              },
+            }),
+          );
+        });
+
+        test("maps independent options correctly", () {
+          final registry = CommandRegistry.create(
+            'git',
+            'Track and manage source code.',
+            commands: [
+              TestGroupCommand('worktree', [
+                TestCommand(
+                  'add',
+                  'Create a linked working tree.',
+                  pairedOptions: [
+                    PairedStringOption(
+                      name: 'new-branch',
+                      short: 'b',
+                      description: 'Create a new branch.',
+                      variant: true,
+                      options: [
+                        PairStringOption(
+                          name: 'force-new-branch',
+                          short: 'B',
+                          description: 'Create or reset a branch.',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ], 'Manage linked working trees.'),
+            ],
+          );
+
+          expect(
+            registry.toMap(),
+            equals({
+              'name': 'git',
+              'description': 'Track and manage source code.',
+              'commands': {
+                'worktree': {
+                  'description': 'Manage linked working trees.',
+                  'commands': {
+                    'add': {
+                      'description': 'Create a linked working tree.',
+                      'options': {
+                        'new-branch': {
+                          'short': 'b',
+                          'required': false,
+                          'hidden': false,
+                          'description': 'Create a new branch.',
+                        },
+                        'force-new-branch': {
+                          'short': 'B',
+                          'required': false,
+                          'hidden': false,
+                          'description': 'Create or reset a branch.',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            }),
+          );
+        });
+      });
     });
 
     test('indexes list-defined inputs by their names', () {
