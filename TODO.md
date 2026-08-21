@@ -10,3 +10,9 @@ I need you to do the following tasks!
 Commit the changes that are related to task 2 and three.
 Commit the tests related to task one only If there's a test that doesn't cover something!
 If so then make suggestions!
+
+## Follow-up test coverage
+
+4. Add `CommandRegistry.toMap()` tests for `ChoiceOption` and `PairedChoiceOption`, including defaults and variants.
+5. Add `CommandRegistry.toMap()` tests for paired integer/double options and repeatable paired options.
+6. Decide whether aliases and hidden inputs should be included in exported registry maps, then add coverage for that behavior.
