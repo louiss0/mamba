@@ -168,7 +168,59 @@ void main() {
         );
       });
 
-      test("", () {});
+      test("Adds commands recursively", () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand('sub', 'Sub command.'),
+            TestGroupCommand('dg1', [
+              TestGroupCommand('dg2', [
+                TestGroupCommand('dg3', [
+                  TestGroupCommand('dg4', [
+                    TestGroupCommand('dg5', [
+                      TestCommand('sub', 'Sub command.'),
+                    ], ''),
+                  ], ''),
+                ], ''),
+              ], ''),
+            ], ''),
+          ],
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': 'tool',
+            'description': "Tool command",
+            'commands': {
+              'sub': {'description', "Sub command"},
+              'dg1': {
+                'commands': {
+                  'dg2': {
+                    'commands': {
+                      'dg3': {
+                        'commands': {
+                          'dg4': {
+                            'commands': {
+                              'dg5': {
+                                'description': 'dg5',
+                                'commands': {
+                                  'sub': {'description': 'Sub command'},
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }),
+        );
+      });
     });
 
     test('indexes list-defined inputs by their names', () {
