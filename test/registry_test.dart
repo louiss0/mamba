@@ -11,7 +11,7 @@ void main() {
   group('CommandRegistry', () {
     group("toMap", () {
       test("makes the map based on the inputs ", () {
-        final color = BooleanFlag(name: 'color');
+        final color = BooleanFlag(name: 'color', negatable: true);
         final verbose = CountFlag(name: 'verbose');
         final name = StringOption(name: 'name', regex: RegExp(r'\S+'));
         final tag = RepeatableStringOption(name: 'tag');
@@ -79,94 +79,93 @@ void main() {
         );
       });
 
-      test("When a long description is added it's added to the description", () {
-        final registry = CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          longDescription: "This is a tool meant to be used to make ",
-        );
+      test(
+        "When a long description is added it's added to the description",
+        () {
+          final registry = CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            longDescription: "This is a tool meant to be used to make ",
+          );
 
-        expect(
-          registry.toMap(),
-          equals({
-            'name': 'tool',
-            'description':
-                'Tool command.\n\nThis is a tool meant to be used to make ',
-          }),
-        );
+          expect(
+            registry.toMap(),
+            equals({
+              'name': 'tool',
+              'description':
+                  'Tool command.\n\nThis is a tool meant to be used to make ',
+            }),
+          );
+        },
+      );
 
-        test(
-          "When a command is added it's added to a commands prop that's a map",
-          () {
-            final registry = CommandRegistry.create(
-              'git',
-              'Save snapshots of your code and be able to send them anywhere',
-              commands: [
-                TestCommand('add', 'Add a file to the staging area'),
-                TestCommand('commit', 'Take a snapshot of your code'),
-                TestGroupCommand(
-                  "worktree",
-                  [
-                    TestCommand(
-                      'add',
-                      'Make a new work tree',
-                      mandatoryPositionals: [
-                        Positional(
-                          'path',
-                          description: 'The path to the work tree',
-                        ),
-                      ],
-                      discretionaryPositionals: [
-                        Positional(
-                          "commit-ish",
-                          description:
-                              "Choosse a commit to use to scaffold the worktree",
-                        ),
-                      ],
+      test(
+        "When a command is added it's added to a commands prop that's a map",
+        () {
+          final registry = CommandRegistry.create(
+            'git',
+            'Save snapshots of your code and be able to send them anywhere',
+            commands: [
+              TestCommand('add', 'Add a file to the staging area'),
+              TestCommand('commit', 'Take a snapshot of your code'),
+              TestGroupCommand("worktree", [
+                TestCommand(
+                  'add',
+                  'Make a new work tree',
+                  mandatoryPositionals: [
+                    Positional(
+                      'path',
+                      description: 'The path to the work tree',
                     ),
-                    TestCommand('commit', 'Take a snapshot of your code'),
                   ],
-                  "Place your code in separate repo that can be merged",
+                  discretionaryPositionals: [
+                    Positional(
+                      "commit-ish",
+                      description:
+                          "Choosse a commit to use to scaffold the worktree",
+                    ),
+                  ],
                 ),
-              ],
-            );
+                TestCommand('commit', 'Take a snapshot of your code'),
+              ], "Place your code in separate repo that can be merged"),
+            ],
+          );
 
-            expect(
-              registry.toMap(),
-              equals({
-                'name': 'git',
-                'description':
-                    'Save snapshots of your code and be able to send them anywhere',
-                'commands': {
-                  'add': {'description': 'Add a file to the staging area'},
-                  'commit': {'description': 'Take a snapshot of your code'},
-                  'worktree': {
-                    'description':
-                        'Place your code in separate repo that can be merged',
-                    'commands': {
-                      'add': {
-                        'description': 'Make a new work tree',
-                        'positionals': {
-                          'path': {
-                            'required': true,
-                            'description': 'The path to the work tree',
-                          },
-                          'commit-ish': {
-                            'required': false,
-                            'description':
-                                "Choosse a commit to use to scaffold the worktree",
-                          },
+          expect(
+            registry.toMap(),
+            equals({
+              'name': 'git',
+              'description':
+                  'Save snapshots of your code and be able to send them anywhere',
+              'commands': {
+                'add': {'description': 'Add a file to the staging area'},
+                'commit': {'description': 'Take a snapshot of your code'},
+                'worktree': {
+                  'description':
+                      'Place your code in separate repo that can be merged',
+                  'commands': {
+                    'add': {
+                      'description': 'Make a new work tree',
+                      'positionals': {
+                        'path': {
+                          'required': true,
+                          'description': 'The path to the work tree',
+                        },
+                        'commit-ish': {
+                          'required': false,
+                          'description':
+                              "Choosse a commit to use to scaffold the worktree",
                         },
                       },
-                      'commit': {'description': 'Take a snapshot of your code'},
                     },
+                    'commit': {'description': 'Take a snapshot of your code'},
                   },
                 },
-              }),
-            );
-          },
-        );
-      });
+              },
+            }),
+          );
+        },
+      );
 
       test("Adds commands recursively", () {
         final registry = CommandRegistry.create(
@@ -174,17 +173,17 @@ void main() {
           'Tool command.',
           commands: [
             TestCommand('sub', 'Sub command.'),
-            TestGroupCommand('dg1', [
-              TestGroupCommand('dg2', [
-                TestGroupCommand('dg3', [
-                  TestGroupCommand('dg4', [
-                    TestGroupCommand('dg5', [
+            TestGroupCommand('one', [
+              TestGroupCommand('two', [
+                TestGroupCommand('three', [
+                  TestGroupCommand('four', [
+                    TestGroupCommand('five', [
                       TestCommand('sub', 'Sub command.'),
-                    ], ''),
-                  ], ''),
-                ], ''),
-              ], ''),
-            ], ''),
+                    ], 'Group five.'),
+                  ], 'Group four.'),
+                ], 'Group three.'),
+              ], 'Group two.'),
+            ], 'Group one.'),
           ],
         );
 
@@ -192,21 +191,25 @@ void main() {
           registry.toMap(),
           equals({
             'name': 'tool',
-            'description': "Tool command",
+            'description': 'Tool command.',
             'commands': {
-              'sub': {'description', "Sub command"},
-              'dg1': {
+              'sub': {'description': 'Sub command.'},
+              'one': {
+                'description': 'Group one.',
                 'commands': {
-                  'dg2': {
+                  'two': {
+                    'description': 'Group two.',
                     'commands': {
-                      'dg3': {
+                      'three': {
+                        'description': 'Group three.',
                         'commands': {
-                          'dg4': {
+                          'four': {
+                            'description': 'Group four.',
                             'commands': {
-                              'dg5': {
-                                'description': 'dg5',
+                              'five': {
+                                'description': 'Group five.',
                                 'commands': {
-                                  'sub': {'description': 'Sub command'},
+                                  'sub': {'description': 'Sub command.'},
                                 },
                               },
                             },
@@ -1011,7 +1014,10 @@ void main() {
       final tag = RepeatableStringOption(name: 'tag');
       final source = Positional('source');
       final target = Positional('target');
-      final profile = AccessorStringOption(name: 'profile');
+      final profile = AccessorListOption(
+        name: 'user',
+        options: [AccessorStringOption(name: 'profile')],
+      );
 
       final registry = CommandRegistry.create(
         'tool',
@@ -1030,7 +1036,7 @@ void main() {
       expect(registry.repeatedOptions, {'tag': tag});
       expect(registry.mandatoryPositionals, {'source': source});
       expect(registry.discretionaryPositionals, {'target': target});
-      expect(registry.accessors, {'profile': profile});
+      expect(registry.accessors, {'user': profile});
     });
 
     test('indexes paired options by their group name', () {
@@ -1136,13 +1142,7 @@ void main() {
 
       final config = registry.commandRegistries!.single;
       expect(config.name, 'config');
-      expect(
-        (config.accessors!['server']! as AccessorListOption)
-            .options
-            .single
-            .name,
-        'port',
-      );
+      expect(config.accessors!['server']!.options.single.name, 'port');
     });
 
     test('reserves the built-in help flag name and alias', () {
@@ -1372,7 +1372,12 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          accessors: [AccessorStringOption(name: 'profile')],
+          accessors: [
+            AccessorListOption(
+              name: 'profile',
+              options: [AccessorStringOption(name: 'value')],
+            ),
+          ],
           flags: [BooleanFlag(name: 'profile')],
         ),
         throwsA(isA<MambaException>()),
@@ -1381,7 +1386,12 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          accessors: [AccessorStringOption(name: 'profile')],
+          accessors: [
+            AccessorListOption(
+              name: 'profile',
+              options: [AccessorStringOption(name: 'value')],
+            ),
+          ],
           options: [StringOption(name: 'profile', regex: RegExp(r'.+'))],
         ),
         throwsA(isA<MambaException>()),

@@ -9,7 +9,7 @@ enum Mode { auto, always }
 Parser parser({
   List<Flag>? flags,
   List<Option>? options,
-  List<AccessorOption>? accessors,
+  List<AccessorListOption>? accessors,
   List<PairedOption>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
@@ -176,7 +176,12 @@ void main() {
     test('accepts accessor lists at the root and at nested paths', () {
       final subject = parser(
         accessors: [
-          AccessorStringOption(name: 'profile', regex: RegExp(r'^ada$')),
+          AccessorListOption(
+            name: 'profile',
+            options: [
+              AccessorStringOption(regex: RegExp(r'^ada$'), name: 'value'),
+            ],
+          ),
           AccessorListOption(
             name: 'remote',
             options: [
@@ -190,14 +195,14 @@ void main() {
       );
 
       final inputs = subject.parse([
-        '--profile',
+        '--profile.value',
         'ada',
         '--remote.origin.url',
         'https://example.com',
       ]).$3;
 
       expect(inputs.accessors, {
-        'profile': 'ada',
+        'profile': {'value': 'ada'},
         'remote': {
           'origin': {'url': 'https://example.com'},
         },
@@ -210,7 +215,12 @@ void main() {
         'Tool command.',
         flags: [BooleanFlag(name: 'verbose')],
         options: [StringOption(name: 'name', regex: RegExp(r'\S+'))],
-        accessors: [AccessorStringOption(name: 'profile')],
+        accessors: [
+          AccessorListOption(
+            name: 'profile',
+            options: [AccessorStringOption(name: 'value')],
+          ),
+        ],
         mandatoryPositionals: [Positional('source')],
       );
 
@@ -633,7 +643,12 @@ void main() {
               ),
             ],
             accessors: [
-              AccessorChoiceOption(name: 'profile', choices: Mode.values),
+              AccessorListOption(
+                name: 'profile',
+                options: [
+                  AccessorChoiceOption(name: 'value', choices: Mode.values),
+                ],
+              ),
             ],
           ).parse([
             '--mode',
@@ -642,7 +657,7 @@ void main() {
             'auto',
             '--secondary',
             'always',
-            '--profile',
+            '--profile.value',
             'auto',
           ]).$3;
 
@@ -651,7 +666,9 @@ void main() {
         'primary': 'auto',
         'secondary': 'always',
       });
-      expect(inputs.accessors, {'profile': 'auto'});
+      expect(inputs.accessors, {
+        'profile': {'value': 'auto'},
+      });
     });
 
     test('merges nested accessor defaults with explicit values', () {
