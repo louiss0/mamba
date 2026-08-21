@@ -225,7 +225,7 @@ void main() {
       test("Map's accessors properly", () {
         final registry = CommandRegistry.create(
           'git',
-          'Configures Git.',
+          'Create a new Git repository.',
           commands: [
             TestCommand(
               'config',
@@ -287,7 +287,7 @@ void main() {
           map,
           equals({
             'name': 'git',
-            'description': "",
+            'description': 'Create a new Git repository.',
             'commands': {
               'config': {
                 'description': 'Configure Git.',
@@ -306,6 +306,302 @@ void main() {
                       'pushurl': 'The push URL of a remote repository.',
                       'fetch': 'The default set of refspecs for fetch.',
                     },
+                  },
+                },
+              },
+            },
+          }),
+        );
+      });
+
+      test('maps options properly', () {
+        final registry = CommandRegistry.create(
+          'curl',
+          'Do HTTP Requests',
+          options: [
+            StringOption(
+              name: 'url',
+              short: 'u',
+              description: 'URL(s) to work with.',
+              required: true,
+              regex: RegExp(r'\S+'),
+            ),
+            IntOption(
+              name: 'retry',
+              description: 'Retry on transient problems.',
+            ),
+            DoubleOption(
+              name: 'max-time',
+              short: 'm',
+              description: 'Maximum time allowed for a transfer.',
+            ),
+            RepeatableStringOption(
+              name: 'header',
+              short: 'H',
+              description: 'Pass custom headers to the server.',
+            ),
+            RepeatableStringOption(
+              name: 'data',
+              short: 'd',
+              description: 'HTTP POST data.',
+            ),
+          ],
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': 'curl',
+            'description': 'Do HTTP Requests',
+            'options': {
+              'url': {
+                'short': 'u',
+                'required': true,
+                'hidden': false,
+                'description': 'URL(s) to work with.',
+              },
+              'retry': {
+                'short': null,
+                'required': false,
+                'hidden': false,
+                'description': 'Retry on transient problems.',
+              },
+              'max-time': {
+                'short': 'm',
+                'required': false,
+                'hidden': false,
+                'description': 'Maximum time allowed for a transfer.',
+              },
+              'header': {
+                'short': 'H',
+                'required': false,
+                'hidden': false,
+                'description': 'Pass custom headers to the server.',
+                'repeatable': true,
+              },
+              'data': {
+                'short': 'd',
+                'required': false,
+                'hidden': false,
+                'description': 'HTTP POST data.',
+                'repeatable': true,
+              },
+            },
+          }),
+        );
+      });
+
+      test("maps flags properly", () {
+        final registry = CommandRegistry.create(
+          'rsync',
+          'Synchronize files and directories.',
+          flags: [
+            CountFlag(
+              name: 'verbose',
+              short: 'v',
+              description: 'Increase verbosity.',
+            ),
+            CountFlag(
+              name: 'quiet',
+              short: 'q',
+              description: 'Suppress non-error messages.',
+            ),
+            BooleanFlag(
+              name: 'dry-run',
+              short: 'n',
+              description: 'Perform a trial run with no changes made.',
+            ),
+            BooleanFlag(
+              name: 'archive',
+              short: 'a',
+              description: 'Enable archive mode.',
+            ),
+          ],
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': 'rsync',
+            'description': 'Synchronize files and directories.',
+            'flags': {
+              'verbose': {
+                'short': 'v',
+                'hidden': false,
+                'description': 'Increase verbosity.',
+              },
+              'quiet': {
+                'short': 'q',
+                'hidden': false,
+                'description': 'Suppress non-error messages.',
+              },
+              'dry-run': {
+                'short': 'n',
+                'default': false,
+                'negatable': false,
+                'hidden': false,
+                'description': 'Perform a trial run with no changes made.',
+              },
+              'archive': {
+                'short': 'a',
+                'default': false,
+                'negatable': false,
+                'hidden': false,
+                'description': 'Enable archive mode.',
+              },
+            },
+          }),
+        );
+      });
+
+      test("maps positionals properly", () {
+        final registry = CommandRegistry.create(
+          'docker',
+          'Manage containers.',
+          commands: [
+            TestCommand(
+              'run',
+              'Create and run a new container from an image.',
+              mandatoryPositionals: [
+                Positional('image', description: 'The image to run.'),
+              ],
+              discretionaryPositionals: [
+                Positional('command', description: 'The command to run.'),
+                Positional(
+                  'arguments',
+                  description: 'Arguments for the command.',
+                ),
+              ],
+            ),
+            TestCommand(
+              'exec',
+              'Execute a command in a running container.',
+              mandatoryPositionals: [
+                Positional('container', description: 'The running container.'),
+                Positional('command', description: 'The command to execute.'),
+              ],
+              discretionaryPositionals: [
+                Positional(
+                  'arguments',
+                  description: 'Arguments for the command.',
+                ),
+              ],
+            ),
+            TestCommand(
+              'cp',
+              'Copy files between a container and the local filesystem.',
+              mandatoryPositionals: [
+                Positional('source-path', description: 'The source path.'),
+                Positional(
+                  'destination-path',
+                  description: 'The destination path.',
+                ),
+              ],
+            ),
+            TestCommand(
+              'rename',
+              'Rename a container.',
+              mandatoryPositionals: [
+                Positional(
+                  'container',
+                  description: 'The container to rename.',
+                ),
+                Positional('new-name', description: 'The new container name.'),
+              ],
+            ),
+            TestCommand(
+              'commit',
+              "Create a new image from a container's changes.",
+              mandatoryPositionals: [
+                Positional(
+                  'container',
+                  description: 'The container to commit.',
+                ),
+              ],
+              discretionaryPositionals: [
+                Positional('repository', description: 'The target repository.'),
+              ],
+            ),
+          ],
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': 'docker',
+            'description': 'Manage containers.',
+            'commands': {
+              'run': {
+                'description': 'Create and run a new container from an image.',
+                'positionals': {
+                  'image': {
+                    'required': true,
+                    'description': 'The image to run.',
+                  },
+                  'command': {
+                    'required': false,
+                    'description': 'The command to run.',
+                  },
+                  'arguments': {
+                    'required': false,
+                    'description': 'Arguments for the command.',
+                  },
+                },
+              },
+              'exec': {
+                'description': 'Execute a command in a running container.',
+                'positionals': {
+                  'container': {
+                    'required': true,
+                    'description': 'The running container.',
+                  },
+                  'command': {
+                    'required': true,
+                    'description': 'The command to execute.',
+                  },
+                  'arguments': {
+                    'required': false,
+                    'description': 'Arguments for the command.',
+                  },
+                },
+              },
+              'cp': {
+                'description':
+                    'Copy files between a container and the local filesystem.',
+                'positionals': {
+                  'source-path': {
+                    'required': true,
+                    'description': 'The source path.',
+                  },
+                  'destination-path': {
+                    'required': true,
+                    'description': 'The destination path.',
+                  },
+                },
+              },
+              'rename': {
+                'description': 'Rename a container.',
+                'positionals': {
+                  'container': {
+                    'required': true,
+                    'description': 'The container to rename.',
+                  },
+                  'new-name': {
+                    'required': true,
+                    'description': 'The new container name.',
+                  },
+                },
+              },
+              'commit': {
+                'description': "Create a new image from a container's changes.",
+                'positionals': {
+                  'container': {
+                    'required': true,
+                    'description': 'The container to commit.',
+                  },
+                  'repository': {
+                    'required': false,
+                    'description': 'The target repository.',
                   },
                 },
               },
