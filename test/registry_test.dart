@@ -221,6 +221,98 @@ void main() {
           }),
         );
       });
+
+      test("Map's accessors properly", () {
+        final registry = CommandRegistry.create(
+          'git',
+          'Configures Git.',
+          commands: [
+            TestCommand(
+              'config',
+              'Configure Git.',
+              accessors: [
+                AccessorListOption(
+                  name: 'branch',
+                  options: [
+                    AccessorListOption(
+                      name: 'main',
+                      options: [
+                        AccessorStringOption(
+                          name: 'remote',
+                          description: 'The remote to fetch from or push to.',
+                        ),
+                        AccessorStringOption(
+                          name: 'merge',
+                          description: 'The upstream branch to merge.',
+                        ),
+                        AccessorStringOption(
+                          name: 'rebase',
+                          description:
+                              'Whether to rebase instead of merge when pulling.',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                AccessorListOption(
+                  name: 'remote',
+                  options: [
+                    AccessorListOption(
+                      name: 'origin',
+                      options: [
+                        AccessorStringOption(
+                          name: 'url',
+                          description: 'The URL of a remote repository.',
+                        ),
+                        AccessorStringOption(
+                          name: 'pushurl',
+                          description: 'The push URL of a remote repository.',
+                        ),
+                        AccessorStringOption(
+                          name: 'fetch',
+                          description: 'The default set of refspecs for fetch.',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+
+        final map = registry.toMap();
+
+        expect(
+          map,
+          equals({
+            'name': 'git',
+            'description': "",
+            'commands': {
+              'config': {
+                'description': 'Configure Git.',
+                'accessors': {
+                  'branch': {
+                    'main': {
+                      'remote': 'The remote to fetch from or push to.',
+                      'merge': 'The upstream branch to merge.',
+                      'rebase':
+                          'Whether to rebase instead of merge when pulling.',
+                    },
+                  },
+                  'remote': {
+                    'origin': {
+                      'url': 'The URL of a remote repository.',
+                      'pushurl': 'The push URL of a remote repository.',
+                      'fetch': 'The default set of refspecs for fetch.',
+                    },
+                  },
+                },
+              },
+            },
+          }),
+        );
+      });
     });
 
     test('indexes list-defined inputs by their names', () {
