@@ -38,7 +38,6 @@ final class CommandRegistry {
     this.singleOptions,
     this.repeatedOptions,
     this.pairedOptions,
-    this.pairOptions,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
     this.accessors,
@@ -57,10 +56,9 @@ final class CommandRegistry {
   final Map<String, SingleOption>? singleOptions;
   final Map<String, RepeatableOption>? repeatedOptions;
   final Map<String, PairedOption>? pairedOptions;
-  final Map<String, PairOption>? pairOptions;
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
-  final Map<String, AccessorOption>? accessors;
+  final Map<String, AccessorListOption>? accessors;
   final List<CommandRegistry>? commandRegistries;
 
   /// Builds and validates a root registry from a list-defined command surface.
@@ -77,7 +75,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,
-    List<AccessorOption>? accessors,
+    List<AccessorListOption>? accessors,
     List<Command>? commands,
   }) {
     _validateDefinition(
@@ -109,14 +107,11 @@ final class CommandRegistry {
         options?.whereType<RepeatableOption>(),
       ),
       pairedOptions: _indexByName<PairedOption>(pairedOptions),
-      pairOptions: _indexByName<PairOption>(
-        pairedOptions?.expand((pairedOption) => pairedOption.options),
-      ),
       mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
       discretionaryPositionals: _indexByName<Positional>(
         discretionaryPositionals,
       ),
-      accessors: _indexByName<AccessorOption>(accessors),
+      accessors: _indexByName<AccessorListOption>(accessors),
       commandRegistries: commands
           ?.map((command) => _fromCommand(command, parentPath: [name]))
           .toList(),
@@ -181,16 +176,13 @@ final class CommandRegistry {
         ordinaryOptions?.whereType<RepeatableOption>(),
       ),
       pairedOptions: _indexByName<PairedOption>(pairedOptions),
-      pairOptions: _indexByName<PairOption>(
-        pairedOptions?.expand((pairedOption) => pairedOption.options),
-      ),
       mandatoryPositionals: _indexByName<Positional>(
         command.mandatoryPositionals,
       ),
       discretionaryPositionals: _indexByName<Positional>(
         command.discretionaryPositionals,
       ),
-      accessors: _indexByName<AccessorOption>(command.accessors),
+      accessors: _indexByName<AccessorListOption>(command.accessors),
       commandRegistries: childCommands
           ?.map(
             (child) => _fromCommand(
@@ -204,8 +196,171 @@ final class CommandRegistry {
     );
   }
 
-  Map<String, Object> toMap() {
-    return {};
+  /// Exports this registry as a serializable command description.
+  ///
+  /// Child registries omit their own names because the parent command map uses
+  /// each child name as its key.
+  Map<String, dynamic> toMap({bool includeName = true}) {
+    final description = longDescription == null
+        ? shortDescription
+        : '$shortDescription\n\n$longDescription';
+    final map = <String, dynamic>{
+      if (includeName) 'name': name,
+      'description': description,
+    };
+
+    final registeredBooleanFlags = boolFlags;
+    final registeredCountFlags = countFlags;
+    if (registeredBooleanFlags != null || registeredCountFlags != null) {
+      map['flags'] = {
+        for (final flag
+            in registeredBooleanFlags?.values ?? const <BooleanFlag>[])
+          flag.name: _mapBooleanFlag(flag),
+        for (final flag in registeredCountFlags?.values ?? const <CountFlag>[])
+          flag.name: _mapCountFlag(flag),
+      };
+    }
+
+    final registeredSingleOptions = singleOptions;
+    final registeredRepeatedOptions = repeatedOptions;
+    final registeredPairedOptions = pairedOptions;
+    if (registeredSingleOptions != null ||
+        registeredRepeatedOptions != null ||
+        registeredPairedOptions != null) {
+      map['options'] = {
+        for (final option
+            in registeredSingleOptions?.values ?? const <SingleOption>[])
+          option.name: _mapOption(option),
+        for (final option
+            in registeredRepeatedOptions?.values ?? const <RepeatableOption>[])
+          option.name: _mapOption(option),
+        for (final pairedOption
+            in registeredPairedOptions?.values ?? const <PairedOption>[])
+          pairedOption.name: _mapOption(pairedOption),
+        for (final pairOption
+            in registeredPairedOptions?.values.expand(
+                  (option) => option.options,
+                ) ??
+                const <PairOption>[])
+          pairOption.name: _mapOption(pairOption),
+      };
+    }
+
+    final registeredMandatoryPositionals = mandatoryPositionals;
+    final registeredDiscretionaryPositionals = discretionaryPositionals;
+    if (registeredMandatoryPositionals != null ||
+        registeredDiscretionaryPositionals != null) {
+      map['positionals'] = {
+        for (final positional
+            in registeredMandatoryPositionals?.values ?? const <Positional>[])
+          positional.name: _mapPositional(positional.name, positional, true),
+        for (final positional
+            in registeredDiscretionaryPositionals?.values ??
+                const <Positional>[])
+          positional.name: _mapPositional(positional.name, positional, false),
+      };
+    }
+
+    final registeredAccessors = accessors;
+    if (registeredAccessors != null) {
+      map['accessors'] = {
+        for (final entry in registeredAccessors.entries)
+          entry.key: _mapAccessorList(entry.value),
+      };
+    }
+
+    final registeredCommands = commandRegistries;
+    if (registeredCommands != null) {
+      map['commands'] = {
+        for (final command in registeredCommands)
+          command.name: command.toMap(includeName: false),
+      };
+    }
+    return map;
+  }
+
+  static Map<String, dynamic> _mapBooleanFlag(BooleanFlag flag) => {
+    'short': flag.short,
+    'default': flag.defaultValue,
+    'negatable': flag.negatable,
+    'hidden': flag.hidden,
+    'description': flag.description,
+  };
+
+  static Map<String, dynamic> _mapCountFlag(CountFlag flag) => {
+    if (flag.short != null) 'short': flag.short,
+    'hidden': flag.hidden,
+    'description': flag.description,
+  };
+
+  static Map<String, dynamic> _mapOption(NamedInput input) {
+    final (
+      name,
+      short,
+      required,
+      hidden,
+      description,
+      repeatable,
+    ) = switch (input) {
+      Option(
+        name: final name,
+        short: final short,
+        required: final required,
+        hidden: final hidden,
+        description: final description,
+      ) =>
+        (
+          name,
+          short,
+          required,
+          hidden,
+          description,
+          input is RepeatableOption || input is RepeatablePairedOption,
+        ),
+      PairOption(
+        name: final name,
+        short: final short,
+        description: final description,
+      ) =>
+        (name, short, false, false, description, input is RepeatablePairOption),
+      _ => throw ArgumentError('Expected an option input'),
+    };
+    return {
+      'short': short,
+      'required': required,
+      'hidden': hidden,
+      'description': description,
+      if (repeatable) 'repeatable': true,
+    };
+  }
+
+  static Map<String, dynamic> _mapPositional(
+    String name,
+    Positional positional,
+    bool required,
+  ) => {'required': required, 'description': positional.description};
+
+  static Object _mapAccessorList(
+    AccessorListOption accessor, {
+    bool root = true,
+  }) {
+    final nestedLists = accessor.options.whereType<AccessorListOption>();
+    if (root && nestedLists.isEmpty) {
+      return {
+        'description': accessor.description,
+        'options': {
+          for (final option in accessor.options)
+            option.name: {'description': option.description},
+        },
+      };
+    }
+    return {
+      for (final option in accessor.options)
+        option.name: switch (option) {
+          AccessorListOption() => _mapAccessorList(option, root: false),
+          AccessorPrimitiveOption() => option.description,
+        },
+    };
   }
 
   /// Whether [args] request built-in help before an end-of-options separator.
@@ -319,7 +474,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,
-    List<AccessorOption>? accessors,
+    List<AccessorListOption>? accessors,
     List<Command>? commands,
     List<String> commandPath,
   ) {
@@ -449,7 +604,7 @@ final class CommandRegistry {
     );
   }
 
-  static void _validateAccessors(List<AccessorOption>? accessors) {
+  static void _validateAccessors(List<AccessorListOption>? accessors) {
     if (accessors != null) _validateAccessorLevel(accessors, 'accessor');
   }
 
@@ -487,7 +642,7 @@ final class CommandRegistry {
   }
 
   static void _validateDuplicates(
-    List<AccessorOption>? accessors,
+    List<AccessorListOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,

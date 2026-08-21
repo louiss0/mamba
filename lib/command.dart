@@ -530,7 +530,11 @@ abstract class Command {
   final List<Flag>? flags;
   final List<Option>? options;
   final List<PairedOption>? pairedOptions;
-  final List<AccessorOption>? accessors;
+
+  /// Top-level accessor groups registered for this command.
+  ///
+  /// Leaf accessors are declared inside each [AccessorListOption].
+  final List<AccessorListOption>? accessors;
 
   Command({
     this.longDescription,

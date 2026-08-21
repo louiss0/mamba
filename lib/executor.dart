@@ -54,7 +54,7 @@ final class Executor {
 
   final String? longDescription;
 
-  final List<AccessorOption>? accessors;
+  final List<AccessorListOption>? accessors;
 
   final List<Flag>? flags;
 

@@ -187,11 +187,9 @@ class Parser {
               option is PairedStringOption || option is PairedChoiceOption,
         ) ??
         false;
-    final hasPairOptions =
-        registry.pairOptions?.values.any(
-          (option) => option is PairStringOption || option is PairChoiceOption,
-        ) ??
-        false;
+    final hasPairOptions = _registeredPairOptions(
+      registry,
+    ).any((option) => option is PairStringOption || option is PairChoiceOption);
     return hasSingleOptions || hasPairedOptions || hasPairOptions;
   }
 
@@ -202,19 +200,17 @@ class Parser {
                     (option) => option is PairedIntOption,
                   ) ==
                   true ||
-              registry.pairOptions?.values.any(
-                    (option) => option is PairIntOption,
-                  ) ==
-                  true)) ||
+              _registeredPairOptions(
+                registry,
+              ).any((option) => option is PairIntOption))) ||
       (T == DoubleOption &&
           (registry.pairedOptions?.values.any(
                     (option) => option is PairedDoubleOption,
                   ) ==
                   true ||
-              registry.pairOptions?.values.any(
-                    (option) => option is PairDoubleOption,
-                  ) ==
-                  true));
+              _registeredPairOptions(
+                registry,
+              ).any((option) => option is PairDoubleOption)));
 
   bool _hasRepeatedOptionType<T extends RepeatableOption>(
     CommandRegistry registry,
@@ -225,28 +221,25 @@ class Parser {
                     (option) => option is RepeatablePairedStringOption,
                   ) ==
                   true ||
-              registry.pairOptions?.values.any(
-                    (option) => option is RepeatablePairStringOption,
-                  ) ==
-                  true)) ||
+              _registeredPairOptions(
+                registry,
+              ).any((option) => option is RepeatablePairStringOption))) ||
       (T == RepeatableIntOption &&
           (registry.pairedOptions?.values.any(
                     (option) => option is RepeatablePairedIntOption,
                   ) ==
                   true ||
-              registry.pairOptions?.values.any(
-                    (option) => option is RepeatablePairIntOption,
-                  ) ==
-                  true)) ||
+              _registeredPairOptions(
+                registry,
+              ).any((option) => option is RepeatablePairIntOption))) ||
       (T == RepeatableDoubleOption &&
           (registry.pairedOptions?.values.any(
                     (option) => option is RepeatablePairedDoubleOption,
                   ) ==
                   true ||
-              registry.pairOptions?.values.any(
-                    (option) => option is RepeatablePairDoubleOption,
-                  ) ==
-                  true));
+              _registeredPairOptions(
+                registry,
+              ).any((option) => option is RepeatablePairDoubleOption)));
 
   List<String> _findCommand(List<String> args) {
     final command = <String>[];
@@ -328,23 +321,27 @@ class Parser {
     return registry;
   }
 
-  NamedInput? _findOption(CommandRegistry registry, String name) =>
-      registry.singleOptions?[name] ??
-      registry.repeatedOptions?[name] ??
-      registry.pairedOptions?[name] ??
-      registry.pairOptions?[name] ??
-      registry.singleOptions?.values
-          .where((option) => option.short == name)
-          .firstOrNull ??
-      registry.repeatedOptions?.values
-          .where((option) => option.short == name)
-          .firstOrNull ??
-      registry.pairedOptions?.values
-          .where((option) => option.short == name)
-          .firstOrNull ??
-      registry.pairOptions?.values
-          .where((option) => option.short == name)
-          .firstOrNull;
+  NamedInput? _findOption(CommandRegistry registry, String name) {
+    final pairOptions = _registeredPairOptions(registry);
+    return registry.singleOptions?[name] ??
+        registry.repeatedOptions?[name] ??
+        registry.pairedOptions?[name] ??
+        pairOptions.where((option) => option.name == name).firstOrNull ??
+        registry.singleOptions?.values
+            .where((option) => option.short == name)
+            .firstOrNull ??
+        registry.repeatedOptions?.values
+            .where((option) => option.short == name)
+            .firstOrNull ??
+        registry.pairedOptions?.values
+            .where((option) => option.short == name)
+            .firstOrNull ??
+        pairOptions.where((option) => option.short == name).firstOrNull;
+  }
+
+  Iterable<PairOption> _registeredPairOptions(CommandRegistry registry) =>
+      registry.pairedOptions?.values.expand((option) => option.options) ??
+      const <PairOption>[];
 
   (String, String?) _splitLongOption(String token) {
     final separatorIndex = token.indexOf('=');
@@ -622,7 +619,8 @@ class Parser {
     Map<String, dynamic> values,
   ) {
     for (final entry
-        in (registry.accessors ?? const <String, AccessorOption>{}).entries) {
+        in (registry.accessors ?? const <String, AccessorListOption>{})
+            .entries) {
       final defaults = _accessorChoiceDefaults(entry.value);
       if (defaults != null) {
         values[entry.key] = _mergeAccessorDefaults(defaults, values[entry.key]);
