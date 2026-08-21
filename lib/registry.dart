@@ -204,6 +204,10 @@ final class CommandRegistry {
     );
   }
 
+  Map<String, Object> toMap() {
+    return {};
+  }
+
   /// Whether [args] request built-in help before an end-of-options separator.
   bool requestsHelp(List<String> args) {
     for (final argument in args) {

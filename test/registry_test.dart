@@ -9,6 +9,168 @@ enum VariantChoice { one }
 
 void main() {
   group('CommandRegistry', () {
+    group("toMap", () {
+      test("makes the map based on the inputs ", () {
+        final color = BooleanFlag(name: 'color');
+        final verbose = CountFlag(name: 'verbose');
+        final name = StringOption(name: 'name', regex: RegExp(r'\S+'));
+        final tag = RepeatableStringOption(name: 'tag');
+        final source = Positional('source');
+        final target = Positional('target');
+
+        final profile = AccessorListOption(
+          name: 'user',
+          options: [AccessorStringOption(name: 'profile')],
+        );
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [color, verbose],
+          options: [name, tag],
+          accessors: [profile],
+          mandatoryPositionals: [source],
+          discretionaryPositionals: [target],
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': "tool",
+            'description': "Tool command.",
+            'flags': {
+              'color': {
+                'short': null,
+                'default': false,
+                'negatable': true,
+                'hidden': false,
+                "description": null,
+              },
+              'verbose': {'hidden': false, "description": null},
+            },
+            'options': {
+              'name': {
+                'short': null,
+                'required': false,
+                'hidden': false,
+                "description": null,
+              },
+              'tag': {
+                'short': null,
+                'required': false,
+                'hidden': false,
+                "description": null,
+                'repeatable': true,
+              },
+            },
+            'positionals': {
+              'source': {'required': true, "description": null},
+              'target': {'required': false, "description": null},
+            },
+            'accessors': {
+              'user': {
+                'description': null,
+                'options': {
+                  'profile': {'description': null},
+                },
+              },
+            },
+          }),
+        );
+      });
+
+      test("When a long description is added it's added to the description", () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          longDescription: "This is a tool meant to be used to make ",
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': 'tool',
+            'description':
+                'Tool command.\n\nThis is a tool meant to be used to make ',
+          }),
+        );
+
+        test(
+          "When a command is added it's added to a commands prop that's a map",
+          () {
+            final registry = CommandRegistry.create(
+              'git',
+              'Save snapshots of your code and be able to send them anywhere',
+              commands: [
+                TestCommand('add', 'Add a file to the staging area'),
+                TestCommand('commit', 'Take a snapshot of your code'),
+                TestGroupCommand(
+                  "worktree",
+                  [
+                    TestCommand(
+                      'add',
+                      'Make a new work tree',
+                      mandatoryPositionals: [
+                        Positional(
+                          'path',
+                          description: 'The path to the work tree',
+                        ),
+                      ],
+                      discretionaryPositionals: [
+                        Positional(
+                          "commit-ish",
+                          description:
+                              "Choosse a commit to use to scaffold the worktree",
+                        ),
+                      ],
+                    ),
+                    TestCommand('commit', 'Take a snapshot of your code'),
+                  ],
+                  "Place your code in separate repo that can be merged",
+                ),
+              ],
+            );
+
+            expect(
+              registry.toMap(),
+              equals({
+                'name': 'git',
+                'description':
+                    'Save snapshots of your code and be able to send them anywhere',
+                'commands': {
+                  'add': {'description': 'Add a file to the staging area'},
+                  'commit': {'description': 'Take a snapshot of your code'},
+                  'worktree': {
+                    'description':
+                        'Place your code in separate repo that can be merged',
+                    'commands': {
+                      'add': {
+                        'description': 'Make a new work tree',
+                        'positionals': {
+                          'path': {
+                            'required': true,
+                            'description': 'The path to the work tree',
+                          },
+                          'commit-ish': {
+                            'required': false,
+                            'description':
+                                "Choosse a commit to use to scaffold the worktree",
+                          },
+                        },
+                      },
+                      'commit': {'description': 'Take a snapshot of your code'},
+                    },
+                  },
+                },
+              }),
+            );
+          },
+        );
+      });
+
+      test("", () {});
+    });
+
     test('indexes list-defined inputs by their names', () {
       final color = BooleanFlag(name: 'color');
       final verbose = CountFlag(name: 'verbose');
