@@ -609,6 +609,273 @@ void main() {
           }),
         );
       });
+
+      test("maps nested commands with flags and options correctly", () {
+        final registry = CommandRegistry.create(
+          'git',
+          'Track and manage source code.',
+          commands: [
+            TestGroupCommand('remote', [
+              TestCommand(
+                'add',
+                'Add a tracked repository.',
+                mandatoryPositionals: [
+                  Positional('name', description: 'The remote name.'),
+                  Positional('url', description: 'The remote URL.'),
+                ],
+                flags: [
+                  BooleanFlag(
+                    name: 'fetch',
+                    short: 'f',
+                    description: 'Fetch the remote after adding it.',
+                  ),
+                  BooleanFlag(
+                    name: 'tags',
+                    description: 'Import every tag from the remote.',
+                    negatable: true,
+                  ),
+                ],
+                options: [
+                  RepeatableStringOption(
+                    name: 'track',
+                    short: 't',
+                    description: 'A branch to track.',
+                  ),
+                  StringOption(
+                    name: 'master',
+                    short: 'm',
+                    description: 'The remote default branch.',
+                    regex: RegExp(r'\S+'),
+                  ),
+                  StringOption(
+                    name: 'mirror',
+                    description: 'The mirror direction.',
+                    regex: RegExp(r'\S+'),
+                  ),
+                ],
+              ),
+            ], 'Manage tracked repositories.'),
+            TestGroupCommand('worktree', [
+              TestCommand(
+                'add',
+                'Create a linked working tree.',
+                mandatoryPositionals: [
+                  Positional('path', description: 'The worktree path.'),
+                ],
+                discretionaryPositionals: [
+                  Positional(
+                    'commit-ish',
+                    description: 'The revision to check out.',
+                  ),
+                ],
+                flags: [
+                  CountFlag(
+                    name: 'force',
+                    short: 'f',
+                    description: 'Override worktree safety checks.',
+                  ),
+                  BooleanFlag(
+                    name: 'detach',
+                    short: 'd',
+                    description: 'Detach HEAD in the new worktree.',
+                  ),
+                ],
+                options: [
+                  StringOption(
+                    name: 'new-branch',
+                    short: 'b',
+                    description: 'The branch to create.',
+                    regex: RegExp(r'\S+'),
+                  ),
+                  StringOption(
+                    name: 'reason',
+                    description: 'Why the worktree is locked.',
+                    regex: RegExp(r'\S+'),
+                  ),
+                ],
+              ),
+            ], 'Manage linked working trees.'),
+            TestGroupCommand('stash', [
+              TestCommand(
+                'push',
+                'Stash changes in the working directory.',
+                discretionaryPositionals: [
+                  Positional('pathspec', description: 'A path to stash.'),
+                ],
+                flags: [
+                  BooleanFlag(
+                    name: 'patch',
+                    short: 'p',
+                    description: 'Select changes interactively.',
+                  ),
+                  BooleanFlag(
+                    name: 'include-untracked',
+                    short: 'u',
+                    description: 'Include untracked files.',
+                  ),
+                ],
+                options: [
+                  StringOption(
+                    name: 'message',
+                    short: 'm',
+                    description: 'The stash message.',
+                    regex: RegExp(r'\S+'),
+                  ),
+                ],
+              ),
+            ], 'Stash working directory changes.'),
+          ],
+        );
+
+        expect(
+          registry.toMap(),
+          equals({
+            'name': 'git',
+            'description': 'Track and manage source code.',
+            'commands': {
+              'remote': {
+                'description': 'Manage tracked repositories.',
+                'commands': {
+                  'add': {
+                    'description': 'Add a tracked repository.',
+                    'flags': {
+                      'fetch': {
+                        'short': 'f',
+                        'default': false,
+                        'negatable': false,
+                        'hidden': false,
+                        'description': 'Fetch the remote after adding it.',
+                      },
+                      'tags': {
+                        'short': null,
+                        'default': false,
+                        'negatable': true,
+                        'hidden': false,
+                        'description': 'Import every tag from the remote.',
+                      },
+                    },
+                    'options': {
+                      'track': {
+                        'short': 't',
+                        'required': false,
+                        'hidden': false,
+                        'description': 'A branch to track.',
+                        'repeatable': true,
+                      },
+                      'master': {
+                        'short': 'm',
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The remote default branch.',
+                      },
+                      'mirror': {
+                        'short': null,
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The mirror direction.',
+                      },
+                    },
+                    'positionals': {
+                      'name': {
+                        'required': true,
+                        'description': 'The remote name.',
+                      },
+                      'url': {
+                        'required': true,
+                        'description': 'The remote URL.',
+                      },
+                    },
+                  },
+                },
+              },
+              'worktree': {
+                'description': 'Manage linked working trees.',
+                'commands': {
+                  'add': {
+                    'description': 'Create a linked working tree.',
+                    'flags': {
+                      'force': {
+                        'short': 'f',
+                        'hidden': false,
+                        'description': 'Override worktree safety checks.',
+                      },
+                      'detach': {
+                        'short': 'd',
+                        'default': false,
+                        'negatable': false,
+                        'hidden': false,
+                        'description': 'Detach HEAD in the new worktree.',
+                      },
+                    },
+                    'options': {
+                      'new-branch': {
+                        'short': 'b',
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The branch to create.',
+                      },
+                      'reason': {
+                        'short': null,
+                        'required': false,
+                        'hidden': false,
+                        'description': 'Why the worktree is locked.',
+                      },
+                    },
+                    'positionals': {
+                      'path': {
+                        'required': true,
+                        'description': 'The worktree path.',
+                      },
+                      'commit-ish': {
+                        'required': false,
+                        'description': 'The revision to check out.',
+                      },
+                    },
+                  },
+                },
+              },
+              'stash': {
+                'description': 'Stash working directory changes.',
+                'commands': {
+                  'push': {
+                    'description': 'Stash changes in the working directory.',
+                    'flags': {
+                      'patch': {
+                        'short': 'p',
+                        'default': false,
+                        'negatable': false,
+                        'hidden': false,
+                        'description': 'Select changes interactively.',
+                      },
+                      'include-untracked': {
+                        'short': 'u',
+                        'default': false,
+                        'negatable': false,
+                        'hidden': false,
+                        'description': 'Include untracked files.',
+                      },
+                    },
+                    'options': {
+                      'message': {
+                        'short': 'm',
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The stash message.',
+                      },
+                    },
+                    'positionals': {
+                      'pathspec': {
+                        'required': false,
+                        'description': 'A path to stash.',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }),
+        );
+      });
     });
 
     test('indexes list-defined inputs by their names', () {
