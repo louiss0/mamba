@@ -14,46 +14,55 @@ typedef RegistryMetadata = ({
   String name,
   String description,
   List<String>? aliases,
-  Map<String, dynamic>? flags,
-  Map<String, dynamic>? options,
-  Map<String, dynamic>? positionals,
-  Map<String, dynamic>? accessors,
+  List<NamedExpectation>? flags,
+  List<NamedExpectation>? options,
+  List<NamedExpectation>? positionals,
+  List<NamedExpectation>? accessors,
 });
 
+/// One named entry: its [name] key plus the [expectation] compared against
+/// the exported metadata for that key.
+typedef NamedExpectation = ({String name, Map<String, dynamic> expectation});
+
 /// Builds the expected map for a registry level from its [metadata] and an
-/// optional [commands] map whose values are recursive
-/// [buildRegistryExpectation] results.
+/// optional [commands] list whose records recurse through this builder.
 Map<String, dynamic> buildRegistryExpectation(
   RegistryMetadata metadata, {
-  Map<String, Map<String, dynamic>>? commands,
+  List<NamedExpectation>? commands,
 }) => {
   'name': metadata.name,
   'description': metadata.description,
   if (metadata.aliases case final aliases?) 'aliases': aliases,
-  if (metadata.flags case final flags?) 'flags': flags,
-  if (metadata.options case final options?) 'options': options,
-  if (metadata.positionals case final positionals?) 'positionals': positionals,
-  if (metadata.accessors case final accessors?) 'accessors': accessors,
-  if (commands != null)
-    'commands': {
-      for (final entry in commands.entries)
-        entry.key: _addCommandName(entry.key, entry.value),
-    },
+  if (metadata.flags case final flags?) 'flags': _namesToMaps(flags),
+  if (metadata.options case final options?) 'options': _namesToMaps(options),
+  if (metadata.positionals case final positionals?)
+    'positionals': _namesToMaps(positionals),
+  if (metadata.accessors case final accessors?)
+    'accessors': _namesToMaps(accessors),
+  if (commands != null) 'commands': _namesToMaps(commands, addNames: true),
 };
 
-Map<String, dynamic> _addCommandName(
+Map<String, dynamic> _namesToMaps(
+  List<NamedExpectation> entries, {
+  bool addNames = false,
+}) => {
+  for (final entry in entries)
+    entry.name: addNames
+        ? _namedCopy(entry.name, entry.expectation)
+        : entry.expectation,
+};
+
+Map<String, dynamic> _namedCopy(
   String name,
-  Map<String, dynamic> command,
+  Map<String, dynamic> expectation,
 ) => {
-  ...command,
+  ...expectation,
   'name': name,
-  if (command['commands'] case final nestedCommands?)
-    'commands': _addCommandNames(nestedCommands as Map<String, dynamic>),
-};
-
-Map<String, dynamic> _addCommandNames(Map<String, dynamic> commands) => {
-  for (final entry in commands.entries)
-    entry.key: _addCommandName(entry.key, entry.value as Map<String, dynamic>),
+  if (expectation['commands'] case final nestedCommands?)
+    'commands': _namesToMaps([
+      for (final entry in (nestedCommands as Map<String, dynamic>).entries)
+        (name: entry.key, expectation: entry.value as Map<String, dynamic>),
+    ], addNames: true),
 };
 
 void main() {
@@ -89,46 +98,67 @@ void main() {
               name: 'tool',
               description: 'Tool command.',
 
-              flags: {
-                'color': {
-                  'short': null,
-                  'default': false,
-                  'negatable': true,
-                  'hidden': false,
-                  "description": null,
-                },
-                'verbose': {'hidden': false, "description": null},
-              },
-
-              options: {
-                'name': {
-                  'short': null,
-                  'required': false,
-                  'hidden': false,
-                  "description": null,
-                },
-                'tag': {
-                  'short': null,
-                  'required': false,
-                  'hidden': false,
-                  "description": null,
-                  'repeatable': true,
-                },
-              },
-
-              positionals: {
-                'source': {'required': true, "description": null},
-                'target': {'required': false, "description": null},
-              },
-
-              accessors: {
-                'user': {
-                  'description': null,
-                  'options': {
-                    'profile': {'description': null},
+              flags: [
+                (
+                  name: 'color',
+                  expectation: {
+                    'short': null,
+                    'default': false,
+                    'negatable': true,
+                    'hidden': false,
+                    "description": null,
                   },
-                },
-              },
+                ),
+                (
+                  name: 'verbose',
+                  expectation: {'hidden': false, "description": null},
+                ),
+              ],
+
+              options: [
+                (
+                  name: 'name',
+                  expectation: {
+                    'short': null,
+                    'required': false,
+                    'hidden': false,
+                    "description": null,
+                  },
+                ),
+                (
+                  name: 'tag',
+                  expectation: {
+                    'short': null,
+                    'required': false,
+                    'hidden': false,
+                    "description": null,
+                    'repeatable': true,
+                  },
+                ),
+              ],
+
+              positionals: [
+                (
+                  name: 'source',
+                  expectation: {'required': true, "description": null},
+                ),
+                (
+                  name: 'target',
+                  expectation: {'required': false, "description": null},
+                ),
+              ],
+
+              accessors: [
+                (
+                  name: 'user',
+                  expectation: {
+                    'description': null,
+                    'options': {
+                      'profile': {'description': null},
+                    },
+                  },
+                ),
+              ],
               aliases: null,
             )),
           ),
@@ -209,31 +239,46 @@ void main() {
                   accessors: null,
                 ),
 
-                commands: {
-                  'add': {'description': 'Add a file to the staging area'},
-                  'commit': {'description': 'Take a snapshot of your code'},
-                  'worktree': {
-                    'description':
-                        'Place your code in separate repo that can be merged',
-                    'commands': {
-                      'add': {
-                        'description': 'Make a new work tree',
-                        'positionals': {
-                          'path': {
-                            'required': true,
-                            'description': 'The path to the work tree',
-                          },
-                          'commit-ish': {
-                            'required': false,
-                            'description':
-                                "Choosse a commit to use to scaffold the worktree",
+                commands: [
+                  (
+                    name: 'add',
+                    expectation: {
+                      'description': 'Add a file to the staging area',
+                    },
+                  ),
+                  (
+                    name: 'commit',
+                    expectation: {
+                      'description': 'Take a snapshot of your code',
+                    },
+                  ),
+                  (
+                    name: 'worktree',
+                    expectation: {
+                      'description':
+                          'Place your code in separate repo that can be merged',
+                      'commands': {
+                        'add': {
+                          'description': 'Make a new work tree',
+                          'positionals': {
+                            'path': {
+                              'required': true,
+                              'description': 'The path to the work tree',
+                            },
+                            'commit-ish': {
+                              'required': false,
+                              'description':
+                                  "Choosse a commit to use to scaffold the worktree",
+                            },
                           },
                         },
+                        'commit': {
+                          'description': 'Take a snapshot of your code',
+                        },
                       },
-                      'commit': {'description': 'Take a snapshot of your code'},
                     },
-                  },
-                },
+                  ),
+                ],
               ),
             ),
           );
@@ -274,24 +319,27 @@ void main() {
                 accessors: null,
               ),
 
-              commands: {
-                'sub': {'description': 'Sub command.'},
-                'one': {
-                  'description': 'Group one.',
-                  'commands': {
-                    'two': {
-                      'description': 'Group two.',
-                      'commands': {
-                        'three': {
-                          'description': 'Group three.',
-                          'commands': {
-                            'four': {
-                              'description': 'Group four.',
-                              'commands': {
-                                'five': {
-                                  'description': 'Group five.',
-                                  'commands': {
-                                    'sub': {'description': 'Sub command.'},
+              commands: [
+                (name: 'sub', expectation: {'description': 'Sub command.'}),
+                (
+                  name: 'one',
+                  expectation: {
+                    'description': 'Group one.',
+                    'commands': {
+                      'two': {
+                        'description': 'Group two.',
+                        'commands': {
+                          'three': {
+                            'description': 'Group three.',
+                            'commands': {
+                              'four': {
+                                'description': 'Group four.',
+                                'commands': {
+                                  'five': {
+                                    'description': 'Group five.',
+                                    'commands': {
+                                      'sub': {'description': 'Sub command.'},
+                                    },
                                   },
                                 },
                               },
@@ -301,8 +349,8 @@ void main() {
                       },
                     },
                   },
-                },
-              },
+                ),
+              ],
             ),
           ),
         );
@@ -383,28 +431,31 @@ void main() {
                 accessors: null,
               ),
 
-              commands: {
-                'config': {
-                  'description': 'Configure Git.',
-                  'accessors': {
-                    'branch': {
-                      'main': {
-                        'remote': 'The remote to fetch from or push to.',
-                        'merge': 'The upstream branch to merge.',
-                        'rebase':
-                            'Whether to rebase instead of merge when pulling.',
+              commands: [
+                (
+                  name: 'config',
+                  expectation: {
+                    'description': 'Configure Git.',
+                    'accessors': {
+                      'branch': {
+                        'main': {
+                          'remote': 'The remote to fetch from or push to.',
+                          'merge': 'The upstream branch to merge.',
+                          'rebase':
+                              'Whether to rebase instead of merge when pulling.',
+                        },
                       },
-                    },
-                    'remote': {
-                      'origin': {
-                        'url': 'The URL of a remote repository.',
-                        'pushurl': 'The push URL of a remote repository.',
-                        'fetch': 'The default set of refspecs for fetch.',
+                      'remote': {
+                        'origin': {
+                          'url': 'The URL of a remote repository.',
+                          'pushurl': 'The push URL of a remote repository.',
+                          'fetch': 'The default set of refspecs for fetch.',
+                        },
                       },
                     },
                   },
-                },
-              },
+                ),
+              ],
             ),
           ),
         );
@@ -448,40 +499,55 @@ void main() {
               name: 'curl',
               description: 'Do HTTP Requests',
 
-              options: {
-                'url': {
-                  'short': 'u',
-                  'required': true,
-                  'hidden': false,
-                  'description': 'URL(s) to work with.',
-                },
-                'retry': {
-                  'short': null,
-                  'required': false,
-                  'hidden': false,
-                  'description': 'Retry on transient problems.',
-                },
-                'max-time': {
-                  'short': 'm',
-                  'required': false,
-                  'hidden': false,
-                  'description': 'Maximum time allowed for a transfer.',
-                },
-                'header': {
-                  'short': 'H',
-                  'required': false,
-                  'hidden': false,
-                  'description': 'Pass custom headers to the server.',
-                  'repeatable': true,
-                },
-                'data': {
-                  'short': 'd',
-                  'required': false,
-                  'hidden': false,
-                  'description': 'HTTP POST data.',
-                  'repeatable': true,
-                },
-              },
+              options: [
+                (
+                  name: 'url',
+                  expectation: {
+                    'short': 'u',
+                    'required': true,
+                    'hidden': false,
+                    'description': 'URL(s) to work with.',
+                  },
+                ),
+                (
+                  name: 'retry',
+                  expectation: {
+                    'short': null,
+                    'required': false,
+                    'hidden': false,
+                    'description': 'Retry on transient problems.',
+                  },
+                ),
+                (
+                  name: 'max-time',
+                  expectation: {
+                    'short': 'm',
+                    'required': false,
+                    'hidden': false,
+                    'description': 'Maximum time allowed for a transfer.',
+                  },
+                ),
+                (
+                  name: 'header',
+                  expectation: {
+                    'short': 'H',
+                    'required': false,
+                    'hidden': false,
+                    'description': 'Pass custom headers to the server.',
+                    'repeatable': true,
+                  },
+                ),
+                (
+                  name: 'data',
+                  expectation: {
+                    'short': 'd',
+                    'required': false,
+                    'hidden': false,
+                    'description': 'HTTP POST data.',
+                    'repeatable': true,
+                  },
+                ),
+              ],
               aliases: null,
               flags: null,
               positionals: null,
@@ -526,32 +592,44 @@ void main() {
               name: 'rsync',
               description: 'Synchronize files and directories.',
 
-              flags: {
-                'verbose': {
-                  'short': 'v',
-                  'hidden': false,
-                  'description': 'Increase verbosity.',
-                },
-                'quiet': {
-                  'short': 'q',
-                  'hidden': false,
-                  'description': 'Suppress non-error messages.',
-                },
-                'dry-run': {
-                  'short': 'n',
-                  'default': false,
-                  'negatable': false,
-                  'hidden': false,
-                  'description': 'Perform a trial run with no changes made.',
-                },
-                'archive': {
-                  'short': 'a',
-                  'default': false,
-                  'negatable': false,
-                  'hidden': false,
-                  'description': 'Enable archive mode.',
-                },
-              },
+              flags: [
+                (
+                  name: 'verbose',
+                  expectation: {
+                    'short': 'v',
+                    'hidden': false,
+                    'description': 'Increase verbosity.',
+                  },
+                ),
+                (
+                  name: 'quiet',
+                  expectation: {
+                    'short': 'q',
+                    'hidden': false,
+                    'description': 'Suppress non-error messages.',
+                  },
+                ),
+                (
+                  name: 'dry-run',
+                  expectation: {
+                    'short': 'n',
+                    'default': false,
+                    'negatable': false,
+                    'hidden': false,
+                    'description': 'Perform a trial run with no changes made.',
+                  },
+                ),
+                (
+                  name: 'archive',
+                  expectation: {
+                    'short': 'a',
+                    'default': false,
+                    'negatable': false,
+                    'hidden': false,
+                    'description': 'Enable archive mode.',
+                  },
+                ),
+              ],
               aliases: null,
               options: null,
               positionals: null,
@@ -646,84 +724,99 @@ void main() {
                 accessors: null,
               ),
 
-              commands: {
-                'run': {
-                  'description':
-                      'Create and run a new container from an image.',
-                  'positionals': {
-                    'image': {
-                      'required': true,
-                      'description': 'The image to run.',
-                    },
-                    'command': {
-                      'required': false,
-                      'description': 'The command to run.',
-                    },
-                    'arguments': {
-                      'required': false,
-                      'description': 'Arguments for the command.',
-                    },
-                  },
-                },
-                'exec': {
-                  'description': 'Execute a command in a running container.',
-                  'positionals': {
-                    'container': {
-                      'required': true,
-                      'description': 'The running container.',
-                    },
-                    'command': {
-                      'required': true,
-                      'description': 'The command to execute.',
-                    },
-                    'arguments': {
-                      'required': false,
-                      'description': 'Arguments for the command.',
+              commands: [
+                (
+                  name: 'run',
+                  expectation: {
+                    'description':
+                        'Create and run a new container from an image.',
+                    'positionals': {
+                      'image': {
+                        'required': true,
+                        'description': 'The image to run.',
+                      },
+                      'command': {
+                        'required': false,
+                        'description': 'The command to run.',
+                      },
+                      'arguments': {
+                        'required': false,
+                        'description': 'Arguments for the command.',
+                      },
                     },
                   },
-                },
-                'cp': {
-                  'description':
-                      'Copy files between a container and the local filesystem.',
-                  'positionals': {
-                    'source-path': {
-                      'required': true,
-                      'description': 'The source path.',
-                    },
-                    'destination-path': {
-                      'required': true,
-                      'description': 'The destination path.',
-                    },
-                  },
-                },
-                'rename': {
-                  'description': 'Rename a container.',
-                  'positionals': {
-                    'container': {
-                      'required': true,
-                      'description': 'The container to rename.',
-                    },
-                    'new-name': {
-                      'required': true,
-                      'description': 'The new container name.',
+                ),
+                (
+                  name: 'exec',
+                  expectation: {
+                    'description': 'Execute a command in a running container.',
+                    'positionals': {
+                      'container': {
+                        'required': true,
+                        'description': 'The running container.',
+                      },
+                      'command': {
+                        'required': true,
+                        'description': 'The command to execute.',
+                      },
+                      'arguments': {
+                        'required': false,
+                        'description': 'Arguments for the command.',
+                      },
                     },
                   },
-                },
-                'commit': {
-                  'description':
-                      "Create a new image from a container's changes.",
-                  'positionals': {
-                    'container': {
-                      'required': true,
-                      'description': 'The container to commit.',
-                    },
-                    'repository': {
-                      'required': false,
-                      'description': 'The target repository.',
+                ),
+                (
+                  name: 'cp',
+                  expectation: {
+                    'description':
+                        'Copy files between a container and the local filesystem.',
+                    'positionals': {
+                      'source-path': {
+                        'required': true,
+                        'description': 'The source path.',
+                      },
+                      'destination-path': {
+                        'required': true,
+                        'description': 'The destination path.',
+                      },
                     },
                   },
-                },
-              },
+                ),
+                (
+                  name: 'rename',
+                  expectation: {
+                    'description': 'Rename a container.',
+                    'positionals': {
+                      'container': {
+                        'required': true,
+                        'description': 'The container to rename.',
+                      },
+                      'new-name': {
+                        'required': true,
+                        'description': 'The new container name.',
+                      },
+                    },
+                  },
+                ),
+                (
+                  name: 'commit',
+                  expectation: {
+                    'description':
+                        "Create a new image from a container's changes.",
+                    'positionals': {
+                      'container': {
+                        'required': true,
+                        'description': 'The container to commit.',
+                      },
+                      'repository': {
+                        'required': false,
+                        'description': 'The target repository.',
+                      },
+                    },
+                  },
+                ),
+              ],
             ),
           ),
         );
@@ -860,147 +953,157 @@ void main() {
                 accessors: null,
               ),
 
-              commands: {
-                'remote': {
-                  'description': 'Manage tracked repositories.',
-                  'commands': {
-                    'add': {
-                      'description': 'Add a tracked repository.',
-                      'flags': {
-                        'fetch': {
-                          'short': 'f',
-                          'default': false,
-                          'negatable': false,
-                          'hidden': false,
-                          'description': 'Fetch the remote after adding it.',
+              commands: [
+                (
+                  name: 'remote',
+                  expectation: {
+                    'description': 'Manage tracked repositories.',
+                    'commands': {
+                      'add': {
+                        'description': 'Add a tracked repository.',
+                        'flags': {
+                          'fetch': {
+                            'short': 'f',
+                            'default': false,
+                            'negatable': false,
+                            'hidden': false,
+                            'description': 'Fetch the remote after adding it.',
+                          },
+                          'tags': {
+                            'short': null,
+                            'default': false,
+                            'negatable': true,
+                            'hidden': false,
+                            'description': 'Import every tag from the remote.',
+                          },
                         },
-                        'tags': {
-                          'short': null,
-                          'default': false,
-                          'negatable': true,
-                          'hidden': false,
-                          'description': 'Import every tag from the remote.',
+                        'options': {
+                          'track': {
+                            'short': 't',
+                            'required': false,
+                            'hidden': false,
+                            'description': 'A branch to track.',
+                            'repeatable': true,
+                          },
+                          'master': {
+                            'short': 'm',
+                            'required': false,
+                            'hidden': false,
+                            'description': 'The remote default branch.',
+                          },
+                          'mirror': {
+                            'short': null,
+                            'required': false,
+                            'hidden': false,
+                            'description': 'The mirror direction.',
+                          },
                         },
-                      },
-                      'options': {
-                        'track': {
-                          'short': 't',
-                          'required': false,
-                          'hidden': false,
-                          'description': 'A branch to track.',
-                          'repeatable': true,
-                        },
-                        'master': {
-                          'short': 'm',
-                          'required': false,
-                          'hidden': false,
-                          'description': 'The remote default branch.',
-                        },
-                        'mirror': {
-                          'short': null,
-                          'required': false,
-                          'hidden': false,
-                          'description': 'The mirror direction.',
-                        },
-                      },
-                      'positionals': {
-                        'name': {
-                          'required': true,
-                          'description': 'The remote name.',
-                        },
-                        'url': {
-                          'required': true,
-                          'description': 'The remote URL.',
-                        },
-                      },
-                    },
-                  },
-                },
-                'worktree': {
-                  'description': 'Manage linked working trees.',
-                  'commands': {
-                    'add': {
-                      'description': 'Create a linked working tree.',
-                      'flags': {
-                        'force': {
-                          'short': 'f',
-                          'hidden': false,
-                          'description': 'Override worktree safety checks.',
-                        },
-                        'detach': {
-                          'short': 'd',
-                          'default': false,
-                          'negatable': false,
-                          'hidden': false,
-                          'description': 'Detach HEAD in the new worktree.',
-                        },
-                      },
-                      'options': {
-                        'new-branch': {
-                          'short': 'b',
-                          'required': false,
-                          'hidden': false,
-                          'description': 'The branch to create.',
-                        },
-                        'reason': {
-                          'short': null,
-                          'required': false,
-                          'hidden': false,
-                          'description': 'Why the worktree is locked.',
-                        },
-                      },
-                      'positionals': {
-                        'path': {
-                          'required': true,
-                          'description': 'The worktree path.',
-                        },
-                        'commit-ish': {
-                          'required': false,
-                          'description': 'The revision to check out.',
+                        'positionals': {
+                          'name': {
+                            'required': true,
+                            'description': 'The remote name.',
+                          },
+                          'url': {
+                            'required': true,
+                            'description': 'The remote URL.',
+                          },
                         },
                       },
                     },
                   },
-                },
-                'stash': {
-                  'description': 'Stash working directory changes.',
-                  'commands': {
-                    'push': {
-                      'description': 'Stash changes in the working directory.',
-                      'flags': {
-                        'patch': {
-                          'short': 'p',
-                          'default': false,
-                          'negatable': false,
-                          'hidden': false,
-                          'description': 'Select changes interactively.',
+                ),
+                (
+                  name: 'worktree',
+                  expectation: {
+                    'description': 'Manage linked working trees.',
+                    'commands': {
+                      'add': {
+                        'description': 'Create a linked working tree.',
+                        'flags': {
+                          'force': {
+                            'short': 'f',
+                            'hidden': false,
+                            'description': 'Override worktree safety checks.',
+                          },
+                          'detach': {
+                            'short': 'd',
+                            'default': false,
+                            'negatable': false,
+                            'hidden': false,
+                            'description': 'Detach HEAD in the new worktree.',
+                          },
                         },
-                        'include-untracked': {
-                          'short': 'u',
-                          'default': false,
-                          'negatable': false,
-                          'hidden': false,
-                          'description': 'Include untracked files.',
+                        'options': {
+                          'new-branch': {
+                            'short': 'b',
+                            'required': false,
+                            'hidden': false,
+                            'description': 'The branch to create.',
+                          },
+                          'reason': {
+                            'short': null,
+                            'required': false,
+                            'hidden': false,
+                            'description': 'Why the worktree is locked.',
+                          },
                         },
-                      },
-                      'options': {
-                        'message': {
-                          'short': 'm',
-                          'required': false,
-                          'hidden': false,
-                          'description': 'The stash message.',
-                        },
-                      },
-                      'positionals': {
-                        'pathspec': {
-                          'required': false,
-                          'description': 'A path to stash.',
+                        'positionals': {
+                          'path': {
+                            'required': true,
+                            'description': 'The worktree path.',
+                          },
+                          'commit-ish': {
+                            'required': false,
+                            'description': 'The revision to check out.',
+                          },
                         },
                       },
                     },
                   },
-                },
-              },
+                ),
+                (
+                  name: 'stash',
+                  expectation: {
+                    'description': 'Stash working directory changes.',
+                    'commands': {
+                      'push': {
+                        'description':
+                            'Stash changes in the working directory.',
+                        'flags': {
+                          'patch': {
+                            'short': 'p',
+                            'default': false,
+                            'negatable': false,
+                            'hidden': false,
+                            'description': 'Select changes interactively.',
+                          },
+                          'include-untracked': {
+                            'short': 'u',
+                            'default': false,
+                            'negatable': false,
+                            'hidden': false,
+                            'description': 'Include untracked files.',
+                          },
+                        },
+                        'options': {
+                          'message': {
+                            'short': 'm',
+                            'required': false,
+                            'hidden': false,
+                            'description': 'The stash message.',
+                          },
+                        },
+                        'positionals': {
+                          'pathspec': {
+                            'required': false,
+                            'description': 'A path to stash.',
+                          },
+                        },
+                      },
+                    },
+                  },
+                ),
+              ],
             ),
           ),
         );
@@ -1049,31 +1152,34 @@ void main() {
                   accessors: null,
                 ),
 
-                commands: {
-                  'put-object': {
-                    'description': 'Add an object to an Amazon S3 bucket.',
-                    'options': {
-                      'sse-customer-algorithm': {
-                        'short': null,
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The customer encryption algorithm.',
-                      },
-                      'sse-customer-key': {
-                        'short': null,
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The customer encryption key.',
-                      },
-                      'sse-customer-key-md5': {
-                        'short': null,
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The MD5 digest of the customer key.',
+                commands: [
+                  (
+                    name: 'put-object',
+                    expectation: {
+                      'description': 'Add an object to an Amazon S3 bucket.',
+                      'options': {
+                        'sse-customer-algorithm': {
+                          'short': null,
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The customer encryption algorithm.',
+                        },
+                        'sse-customer-key': {
+                          'short': null,
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The customer encryption key.',
+                        },
+                        'sse-customer-key-md5': {
+                          'short': null,
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The MD5 digest of the customer key.',
+                        },
                       },
                     },
-                  },
-                },
+                  ),
+                ],
               ),
             ),
           );
@@ -1122,31 +1228,34 @@ void main() {
                   accessors: null,
                 ),
 
-                commands: {
-                  'worktree': {
-                    'description': 'Manage linked working trees.',
-                    'commands': {
-                      'add': {
-                        'description': 'Create a linked working tree.',
-                        'options': {
-                          'new-branch': {
-                            'short': 'b',
-                            'required': false,
-                            'hidden': false,
-                            'description': 'Create a new branch.',
-                            'variant': true,
-                          },
-                          'force-new-branch': {
-                            'short': 'B',
-                            'required': false,
-                            'hidden': false,
-                            'description': 'Create or reset a branch.',
+                commands: [
+                  (
+                    name: 'worktree',
+                    expectation: {
+                      'description': 'Manage linked working trees.',
+                      'commands': {
+                        'add': {
+                          'description': 'Create a linked working tree.',
+                          'options': {
+                            'new-branch': {
+                              'short': 'b',
+                              'required': false,
+                              'hidden': false,
+                              'description': 'Create a new branch.',
+                              'variant': true,
+                            },
+                            'force-new-branch': {
+                              'short': 'B',
+                              'required': false,
+                              'hidden': false,
+                              'description': 'Create or reset a branch.',
+                            },
                           },
                         },
                       },
                     },
-                  },
-                },
+                  ),
+                ],
               ),
             ),
           );
