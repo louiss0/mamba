@@ -289,6 +289,24 @@ void main() {
       });
     });
 
+    test('caps a repeated choice positional between individual ones', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          RepeatedChoicePositional<Mode>(
+            'modes',
+            choices: Mode.values,
+            maxCount: 2,
+          ),
+          Positional('label'),
+        ],
+      ).parse(['auto', 'always', 'final']).$2;
+
+      expect(inputs, {
+        'modes': ['auto', 'always'],
+        'label': 'final',
+      });
+    });
+
     test('prioritizes mandatory positionals over discretionary ones', () {
       final inputs = parser(
         discretionaryPositionals: [Positional('target')],
