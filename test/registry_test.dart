@@ -7,6 +7,8 @@ import 'fixtures.dart';
 
 enum VariantChoice { one }
 
+enum DeploymentFormat { yaml, json }
+
 void main() {
   group('CommandRegistry', () {
     group("toMap", () {
@@ -989,6 +991,7 @@ void main() {
                           'required': false,
                           'hidden': false,
                           'description': 'Create a new branch.',
+                          'variant': true,
                         },
                         'force-new-branch': {
                           'short': 'B',
@@ -1000,6 +1003,170 @@ void main() {
                     },
                   },
                 },
+              },
+            }),
+          );
+        });
+
+        test(
+          'maps choice options and paired variants for a deployment CLI',
+          () {
+            final registry = CommandRegistry.create(
+              'deploy',
+              'Deploy an application.',
+              options: [
+                ChoiceOption<DeploymentFormat>(
+                  name: 'format',
+                  choices: DeploymentFormat.values,
+                  defaultValue: DeploymentFormat.json,
+                ),
+              ],
+              pairedOptions: [
+                PairedChoiceOption<DeploymentFormat>(
+                  name: 'manifest',
+                  choices: DeploymentFormat.values,
+                  defaultValue: DeploymentFormat.yaml,
+                  variant: true,
+                  options: [
+                    PairChoiceOption<DeploymentFormat>(
+                      name: 'manifest-file',
+                      choices: DeploymentFormat.values,
+                      defaultValue: DeploymentFormat.json,
+                    ),
+                  ],
+                ),
+              ],
+            );
+
+            expect(
+              registry.toMap()['options'],
+              equals({
+                'format': {
+                  'short': null,
+                  'required': false,
+                  'hidden': false,
+                  'description': null,
+                  'choices': ['yaml', 'json'],
+                  'default': 'json',
+                },
+                'manifest': {
+                  'short': null,
+                  'required': false,
+                  'hidden': false,
+                  'description': null,
+                  'variant': true,
+                  'choices': ['yaml', 'json'],
+                  'default': 'yaml',
+                },
+                'manifest-file': {
+                  'short': null,
+                  'required': false,
+                  'hidden': false,
+                  'description': null,
+                  'choices': ['yaml', 'json'],
+                  'default': 'json',
+                },
+              }),
+            );
+          },
+        );
+
+        test('maps numeric and repeatable paired options for a backup CLI', () {
+          final registry = CommandRegistry.create(
+            'backup',
+            'Back up a workspace.',
+            pairedOptions: [
+              PairedIntOption(
+                name: 'chunk-size',
+                options: [PairDoubleOption(name: 'compression-level')],
+              ),
+              PairedDoubleOption(
+                name: 'timeout',
+                options: [PairIntOption(name: 'attempts')],
+              ),
+              RepeatablePairedStringOption(
+                name: 'include',
+                options: [RepeatablePairStringOption(name: 'include-from')],
+              ),
+              RepeatablePairedIntOption(
+                name: 'shard',
+                options: [RepeatablePairIntOption(name: 'shard-count')],
+              ),
+              RepeatablePairedDoubleOption(
+                name: 'rate',
+                options: [RepeatablePairDoubleOption(name: 'rate-limit')],
+              ),
+            ],
+          );
+
+          final options = registry.toMap()['options'] as Map<String, dynamic>;
+
+          expect(options['chunk-size']['repeatable'], isNull);
+          expect(options['compression-level']['repeatable'], isNull);
+          expect(options['timeout']['repeatable'], isNull);
+          expect(options['attempts']['repeatable'], isNull);
+          for (final name in [
+            'include',
+            'include-from',
+            'shard',
+            'shard-count',
+            'rate',
+            'rate-limit',
+          ]) {
+            expect(options[name]['repeatable'], isTrue, reason: name);
+          }
+        });
+
+        test('exports command aliases and hidden inputs for a release CLI', () {
+          final registry = CommandRegistry.create(
+            'release',
+            'Publish a release.',
+            flags: [BooleanFlag(name: 'dry-run', hidden: true)],
+            options: [
+              StringOption(name: 'token', hidden: true, regex: RegExp(r'\S+')),
+            ],
+            accessors: [
+              AccessorListOption(
+                name: 'internal',
+                hidden: true,
+                options: [AccessorStringOption(name: 'trace-id')],
+              ),
+            ],
+            commands: [
+              TestCommand('publish', 'Publish the release.', aliases: ['push']),
+            ],
+          );
+
+          expect(
+            registry.toMap(),
+            containsPair('aliases', {'push': 'publish'}),
+          );
+          expect(
+            registry.toMap()['flags'],
+            containsPair('dry-run', {
+              'short': null,
+              'default': false,
+              'negatable': false,
+              'hidden': true,
+              'description': null,
+            }),
+          );
+          expect(
+            registry.toMap()['options'],
+            containsPair('token', {
+              'short': null,
+              'required': false,
+              'hidden': true,
+              'description': null,
+            }),
+          );
+          expect(
+            registry.toMap()['accessors'],
+            containsPair('internal', {
+              'hidden': true,
+              'description': null,
+              'options': {
+                'trace-id': {'description': null},
               },
             }),
           );

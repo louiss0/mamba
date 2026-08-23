@@ -207,6 +207,7 @@ final class CommandRegistry {
     final map = <String, dynamic>{
       if (includeName) 'name': name,
       'description': description,
+      if (aliases?.isNotEmpty == true) 'aliases': aliases,
     };
 
     final registeredBooleanFlags = boolFlags;
@@ -301,6 +302,8 @@ final class CommandRegistry {
       hidden,
       description,
       repeatable,
+      variant,
+      choiceData,
     ) = switch (input) {
       Option(
         name: final name,
@@ -316,13 +319,44 @@ final class CommandRegistry {
           hidden,
           description,
           input is RepeatableOption || input is RepeatablePairedOption,
+          input is PairedOption && input.variant,
+          switch (input) {
+            ChoiceOption(choices: final choices, defaultValue: final value) ||
+            PairedChoiceOption(
+              choices: final choices,
+              defaultValue: final value,
+            ) => {
+              'choices': choices.map((choice) => choice.name).toList(),
+              if (value != null) 'default': value.name,
+            },
+            _ => const <String, dynamic>{},
+          },
         ),
       PairOption(
         name: final name,
         short: final short,
         description: final description,
       ) =>
-        (name, short, false, false, description, input is RepeatablePairOption),
+        (
+          name,
+          short,
+          false,
+          false,
+          description,
+          input is RepeatablePairOption,
+          false,
+          switch (input) {
+            PairChoiceOption(
+              choices: final choices,
+              defaultValue: final value,
+            ) =>
+              {
+                'choices': choices.map((choice) => choice.name).toList(),
+                if (value != null) 'default': value.name,
+              },
+            _ => const <String, dynamic>{},
+          },
+        ),
       _ => throw ArgumentError('Expected an option input'),
     };
     return {
@@ -331,6 +365,8 @@ final class CommandRegistry {
       'hidden': hidden,
       'description': description,
       if (repeatable) 'repeatable': true,
+      if (variant) 'variant': true,
+      ...choiceData,
     };
   }
 
@@ -347,6 +383,7 @@ final class CommandRegistry {
     final nestedLists = accessor.options.whereType<AccessorListOption>();
     if (root && nestedLists.isEmpty) {
       return {
+        if (accessor.hidden) 'hidden': true,
         'description': accessor.description,
         'options': {
           for (final option in accessor.options)
@@ -355,6 +392,7 @@ final class CommandRegistry {
       };
     }
     return {
+      if (accessor.hidden) 'hidden': true,
       for (final option in accessor.options)
         option.name: switch (option) {
           AccessorListOption() => _mapAccessorList(option, root: false),
