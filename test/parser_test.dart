@@ -37,28 +37,28 @@ void main() {
     test('returns separate, typed maps for every input category', () {
       final subject = parser(
         flags: [
-          BooleanFlag(name: 'color', negatable: true),
-          CountFlag(name: 'verbose', short: 'v'),
+          BooleanFlag('color', negatable: true),
+          CountFlag('verbose', short: 'v'),
         ],
         options: [
-          StringOption(name: 'name', regex: RegExp(r'^Ada$')),
-          IntOption(name: 'retries'),
-          DoubleOption(name: 'ratio'),
+          StringOption('name', regex: RegExp(r'^Ada$')),
+          IntOption('retries'),
+          DoubleOption('ratio'),
           ChoiceOption<Mode>(
-            name: 'mode',
+            'mode',
             choices: Mode.values,
             defaultValue: Mode.auto,
           ),
-          RepeatableStringOption(name: 'tag', regex: RegExp(r'^\w+$')),
-          RepeatableIntOption(name: 'port'),
-          RepeatableDoubleOption(name: 'weight'),
+          RepeatableStringOption('tag', regex: RegExp(r'^\w+$')),
+          RepeatableIntOption('port'),
+          RepeatableDoubleOption('weight'),
         ],
         accessors: [
           AccessorListOption(
-            name: 'server',
+            'server',
             options: [
-              AccessorIntOption(name: 'port'),
-              AccessorDoubleOption(name: 'timeout'),
+              AccessorIntOption('port'),
+              AccessorDoubleOption('timeout'),
             ],
           ),
         ],
@@ -131,7 +131,7 @@ void main() {
       final inputs = parser(
         options: [
           ChoiceOption<Mode>(
-            name: 'mode',
+            'mode',
             choices: Mode.values,
             defaultValue: Mode.auto,
           ),
@@ -143,10 +143,7 @@ void main() {
 
     test('adds Boolean defaults only to Boolean flag maps', () {
       final inputs = parser(
-        flags: [
-          BooleanFlag(name: 'color', defaultValue: true),
-          CountFlag(name: 'verbose'),
-        ],
+        flags: [BooleanFlag('color', defaultValue: true), CountFlag('verbose')],
       ).parse([]).$3;
 
       expect(inputs.boolFlags, {'color': true});
@@ -198,15 +195,18 @@ void main() {
       );
     });
 
-    test('collects available values for a discretionary repeated positional', () {
-      final inputs = parser(
-        discretionaryPositionals: [RepeatedPositional('files')],
-      ).parse(['a.txt', 'b.txt']).$2;
+    test(
+      'collects available values for a discretionary repeated positional',
+      () {
+        final inputs = parser(
+          discretionaryPositionals: [RepeatedPositional('files')],
+        ).parse(['a.txt', 'b.txt']).$2;
 
-      expect(inputs, {
-        'files': ['a.txt', 'b.txt'],
-      });
-    });
+        expect(inputs, {
+          'files': ['a.txt', 'b.txt'],
+        });
+      },
+    );
 
     test('omits a discretionary repeated positional without values', () {
       final inputs = parser(
@@ -242,19 +242,22 @@ void main() {
       });
     });
 
-    test('fills individual positionals before a trailing repeated positional', () {
-      final inputs = parser(
-        mandatoryPositionals: [
-          Positional('source'),
-          RepeatedPositional('files'),
-        ],
-      ).parse(['in', 'a.txt', 'b.txt']).$2;
+    test(
+      'fills individual positionals before a trailing repeated positional',
+      () {
+        final inputs = parser(
+          mandatoryPositionals: [
+            Positional('source'),
+            RepeatedPositional('files'),
+          ],
+        ).parse(['in', 'a.txt', 'b.txt']).$2;
 
-      expect(inputs, {
-        'source': 'in',
-        'files': ['a.txt', 'b.txt'],
-      });
-    });
+        expect(inputs, {
+          'source': 'in',
+          'files': ['a.txt', 'b.txt'],
+        });
+      },
+    );
 
     test('collects only the remaining values after individual positionals', () {
       final inputs = parser(
@@ -319,16 +322,19 @@ void main() {
       });
     });
 
-    test('leaves a discretionary single unfilled after a greedy repeated one', () {
-      final inputs = parser(
-        mandatoryPositionals: [RepeatedPositional('files')],
-        discretionaryPositionals: [Positional('target')],
-      ).parse(['a.txt', 'b.txt']).$2;
+    test(
+      'leaves a discretionary single unfilled after a greedy repeated one',
+      () {
+        final inputs = parser(
+          mandatoryPositionals: [RepeatedPositional('files')],
+          discretionaryPositionals: [Positional('target')],
+        ).parse(['a.txt', 'b.txt']).$2;
 
-      expect(inputs, {
-        'files': ['a.txt', 'b.txt'],
-      });
-    });
+        expect(inputs, {
+          'files': ['a.txt', 'b.txt'],
+        });
+      },
+    );
 
     test('reports leftover values beyond every registered positional', () {
       final subject = parser(
@@ -381,7 +387,10 @@ void main() {
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3']).$2;
 
-      expect(inputs, {'source': 'in', 'files': ['f0', 'f1', 'f2', 'f3']});
+      expect(inputs, {
+        'source': 'in',
+        'files': ['f0', 'f1', 'f2', 'f3'],
+      });
     });
   });
 
@@ -432,18 +441,20 @@ void main() {
   });
 
   group('Mandatory and discretionary repeated placement together', () {
-    test('splits values between a capped mandatory and an open discretionary',
-        () {
-      final inputs = parser(
-        mandatoryPositionals: [RepeatedPositional('kept', maxCount: 4)],
-        discretionaryPositionals: [RepeatedPositional('extra', maxCount: 8)],
-      ).parse(List.generate(9, (index) => 'v$index')).$2;
+    test(
+      'splits values between a capped mandatory and an open discretionary',
+      () {
+        final inputs = parser(
+          mandatoryPositionals: [RepeatedPositional('kept', maxCount: 4)],
+          discretionaryPositionals: [RepeatedPositional('extra', maxCount: 8)],
+        ).parse(List.generate(9, (index) => 'v$index')).$2;
 
-      expect(inputs, {
-        'kept': ['v0', 'v1', 'v2', 'v3'],
-        'extra': ['v4', 'v5', 'v6', 'v7', 'v8'],
-      });
-    });
+        expect(inputs, {
+          'kept': ['v0', 'v1', 'v2', 'v3'],
+          'extra': ['v4', 'v5', 'v6', 'v7', 'v8'],
+        });
+      },
+    );
 
     test('fills singles around repeated positionals across both lists', () {
       final inputs = parser(
@@ -455,17 +466,7 @@ void main() {
           Positional('target'),
           RepeatedPositional('more', maxCount: 6),
         ],
-      ).parse([
-        'in',
-        'k0',
-        'k1',
-        'k2',
-        'out',
-        'm0',
-        'm1',
-        'm2',
-        'm3',
-      ]).$2;
+      ).parse(['in', 'k0', 'k1', 'k2', 'out', 'm0', 'm1', 'm2', 'm3']).$2;
 
       expect(inputs, {
         'source': 'in',
@@ -475,18 +476,20 @@ void main() {
       });
     });
 
-    test('caps both lists when fewer values arrive than the combined counts',
-        () {
-      final inputs = parser(
-        mandatoryPositionals: [RepeatedPositional('kept', maxCount: 3)],
-        discretionaryPositionals: [RepeatedPositional('extra', maxCount: 12)],
-      ).parse(['k0', 'k1', 'k2', 'e0', 'e1']).$2;
+    test(
+      'caps both lists when fewer values arrive than the combined counts',
+      () {
+        final inputs = parser(
+          mandatoryPositionals: [RepeatedPositional('kept', maxCount: 3)],
+          discretionaryPositionals: [RepeatedPositional('extra', maxCount: 12)],
+        ).parse(['k0', 'k1', 'k2', 'e0', 'e1']).$2;
 
-      expect(inputs, {
-        'kept': ['k0', 'k1', 'k2'],
-        'extra': ['e0', 'e1'],
-      });
-    });
+        expect(inputs, {
+          'kept': ['k0', 'k1', 'k2'],
+          'extra': ['e0', 'e1'],
+        });
+      },
+    );
   });
 
   group('Parser definitions', () {
@@ -494,17 +497,15 @@ void main() {
       final subject = parser(
         accessors: [
           AccessorListOption(
-            name: 'profile',
-            options: [
-              AccessorStringOption(regex: RegExp(r'^ada$'), name: 'value'),
-            ],
+            'profile',
+            options: [AccessorStringOption('value', regex: RegExp(r'^ada$'))],
           ),
           AccessorListOption(
-            name: 'remote',
+            'remote',
             options: [
               AccessorListOption(
-                name: 'origin',
-                options: [AccessorStringOption(name: 'url')],
+                'origin',
+                options: [AccessorStringOption('url')],
               ),
             ],
           ),
@@ -530,12 +531,12 @@ void main() {
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
-        flags: [BooleanFlag(name: 'verbose')],
-        options: [StringOption(name: 'name', regex: RegExp(r'\S+'))],
+        flags: [BooleanFlag('verbose')],
+        options: [StringOption('name', regex: RegExp(r'\S+'))],
         accessors: [
           AccessorListOption(
-            name: 'profile',
-            options: [AccessorStringOption(name: 'value')],
+            'profile',
+            options: [AccessorStringOption('value')],
           ),
         ],
         mandatoryPositionals: [Positional('source')],
@@ -555,16 +556,13 @@ void main() {
       final subject = parser(
         pairedOptions: [
           PairedStringOption(
-            name: 'firstName',
-            options: [PairStringOption(name: 'lastName')],
+            'firstName',
+            options: [PairStringOption('lastName')],
           ),
-          PairedIntOption(
-            name: 'minimum',
-            options: [PairIntOption(name: 'maximum')],
-          ),
+          PairedIntOption('minimum', options: [PairIntOption('maximum')]),
           PairedDoubleOption(
-            name: 'minimumRatio',
-            options: [PairDoubleOption(name: 'maximumRatio')],
+            'minimumRatio',
+            options: [PairDoubleOption('maximumRatio')],
           ),
         ],
       );
@@ -596,16 +594,16 @@ void main() {
       final subject = parser(
         pairedOptions: [
           RepeatablePairedStringOption(
-            name: 'name',
-            options: [RepeatablePairStringOption(name: 'value')],
+            'name',
+            options: [RepeatablePairStringOption('value')],
           ),
           RepeatablePairedIntOption(
-            name: 'minimum',
-            options: [RepeatablePairIntOption(name: 'maximum')],
+            'minimum',
+            options: [RepeatablePairIntOption('maximum')],
           ),
           RepeatablePairedDoubleOption(
-            name: 'minimumWeight',
-            options: [RepeatablePairDoubleOption(name: 'maximumWeight')],
+            'minimumWeight',
+            options: [RepeatablePairDoubleOption('maximumWeight')],
           ),
         ],
       );
@@ -655,8 +653,8 @@ void main() {
       final subject = parser(
         pairedOptions: [
           RepeatablePairedStringOption(
-            name: 'name',
-            options: [RepeatablePairStringOption(name: 'value')],
+            'name',
+            options: [RepeatablePairStringOption('value')],
           ),
         ],
       );
@@ -672,28 +670,22 @@ void main() {
     final pairCases = [
       (
         description: 'string and int options',
-        group: PairedStringOption(
-          name: 'host',
-          options: [PairIntOption(name: 'port')],
-        ),
+        group: PairedStringOption('host', options: [PairIntOption('port')]),
         arguments: ['--host', 'localhost', '--port', '8080'],
         missingArguments: ['--host', 'localhost'],
       ),
       (
         description: 'string and double options',
         group: PairedStringOption(
-          name: 'label',
-          options: [PairDoubleOption(name: 'value')],
+          'label',
+          options: [PairDoubleOption('value')],
         ),
         arguments: ['--label', 'warning', '--value', '0.8'],
         missingArguments: ['--value', '0.8'],
       ),
       (
         description: 'int and double options',
-        group: PairedIntOption(
-          name: 'retries',
-          options: [PairDoubleOption(name: 'delay')],
-        ),
+        group: PairedIntOption('retries', options: [PairDoubleOption('delay')]),
         arguments: ['--retries', '3', '--delay', '1.5'],
         missingArguments: ['--retries', '3'],
       ),
@@ -719,9 +711,9 @@ void main() {
       final subject = parser(
         pairedOptions: [
           PairedStringOption(
-            name: 'token',
+            'token',
             variant: true,
-            options: [PairStringOption(name: 'apiKey')],
+            options: [PairStringOption('apiKey')],
           ),
         ],
       );
@@ -733,9 +725,9 @@ void main() {
       final subject = parser(
         pairedOptions: [
           PairedStringOption(
-            name: 'token',
+            'token',
             variant: true,
-            options: [PairStringOption(name: 'apiKey')],
+            options: [PairStringOption('apiKey')],
           ),
         ],
       );
@@ -747,9 +739,9 @@ void main() {
       final subject = parser(
         pairedOptions: [
           RepeatablePairedStringOption(
-            name: 'tag',
+            'tag',
             variant: true,
-            options: [RepeatablePairStringOption(name: 'label')],
+            options: [RepeatablePairStringOption('label')],
           ),
         ],
       );
@@ -761,10 +753,10 @@ void main() {
       final subject = parser(
         pairedOptions: [
           PairedStringOption(
-            name: 'token',
+            'token',
             required: true,
             variant: true,
-            options: [PairStringOption(name: 'apiKey')],
+            options: [PairStringOption('apiKey')],
           ),
         ],
       );
@@ -777,8 +769,8 @@ void main() {
     test('parses root-qualified commands around inherited inputs', () {
       final config = _ParserGroupCommand(
         'config',
-        inheritedFlags: [BooleanFlag(name: 'verbose', short: 'v')],
-        inheritedOptions: [IntOption(name: 'retries')],
+        inheritedFlags: [BooleanFlag('verbose', short: 'v')],
+        inheritedOptions: [IntOption('retries')],
         [_ParserCommand('get')],
       );
       final subject = Parser(
@@ -828,7 +820,7 @@ void main() {
             commands: [
               _ParserGroupCommand(
                 'config',
-                inheritedOptions: [IntOption(name: 'retries')],
+                inheritedOptions: [IntOption('retries')],
                 [_ParserCommand('get')],
               ),
             ],
@@ -850,7 +842,7 @@ void main() {
           commands: [
             _ParserGroupCommand(
               'config',
-              inheritedFlags: [BooleanFlag(name: 'color', negatable: true)],
+              inheritedFlags: [BooleanFlag('color', negatable: true)],
               [_ParserCommand('get')],
             ),
           ],
@@ -868,9 +860,9 @@ void main() {
     test('parses short aliases for every ordinary option category', () {
       final inputs = parser(
         options: [
-          StringOption(name: 'name', short: 'n', regex: RegExp(r'.+')),
-          IntOption(name: 'count', short: 'c'),
-          DoubleOption(name: 'ratio', short: 'r'),
+          StringOption('name', short: 'n', regex: RegExp(r'.+')),
+          IntOption('count', short: 'c'),
+          DoubleOption('ratio', short: 'r'),
         ],
       ).parse(['-n', 'Ada', '-c', '2', '-r', '1.5']).$3;
 
@@ -881,7 +873,7 @@ void main() {
 
     test('keeps equals signs after the first inline separator', () {
       final inputs = parser(
-        options: [StringOption(name: 'query', regex: RegExp(r'.+'))],
+        options: [StringOption('query', regex: RegExp(r'.+'))],
       ).parse(['--query=a=b']).$3;
 
       expect(inputs.stringOptions, {'query': 'a=b'});
@@ -889,12 +881,9 @@ void main() {
 
     test('rejects values attached to flags and unknown accessor paths', () {
       final subject = parser(
-        flags: [BooleanFlag(name: 'color')],
+        flags: [BooleanFlag('color')],
         accessors: [
-          AccessorListOption(
-            name: 'server',
-            options: [AccessorIntOption(name: 'port')],
-          ),
+          AccessorListOption('server', options: [AccessorIntOption('port')]),
         ],
       );
 
@@ -904,7 +893,7 @@ void main() {
     });
 
     test('rejects missing option values', () {
-      final subject = parser(options: [IntOption(name: 'count')]);
+      final subject = parser(options: [IntOption('count')]);
 
       expectParseError(subject, ['--count']);
       expectParseError(subject, ['--count', '--other']);
@@ -913,8 +902,8 @@ void main() {
     test('parses count bundles and rejects unknown short members', () {
       final subject = parser(
         flags: [
-          CountFlag(name: 'verbose', short: 'v'),
-          BooleanFlag(name: 'quiet', short: 'q'),
+          CountFlag('verbose', short: 'v'),
+          BooleanFlag('quiet', short: 'q'),
         ],
       );
 
@@ -924,7 +913,7 @@ void main() {
 
     test('increments repeated long count flags', () {
       final inputs = parser(
-        flags: [CountFlag(name: 'verbose', short: 'v')],
+        flags: [CountFlag('verbose', short: 'v')],
       ).parse(['--verbose', '--verbose']).$3;
 
       expect(inputs.countFlags, {'verbose': 2});
@@ -934,9 +923,9 @@ void main() {
       final inputs = parser(
         pairedOptions: [
           PairedIntOption(
-            name: 'minimum',
+            'minimum',
             short: 'm',
-            options: [PairIntOption(name: 'maximum', short: 'x')],
+            options: [PairIntOption('maximum', short: 'x')],
           ),
         ],
       ).parse(['-m', '-2', '-x', '-1']).$3;
@@ -949,22 +938,18 @@ void main() {
     test('parses ordinary, paired, pair-member, and accessor choices', () {
       final inputs =
           parser(
-            options: [ChoiceOption(name: 'mode', choices: Mode.values)],
+            options: [ChoiceOption('mode', choices: Mode.values)],
             pairedOptions: [
               PairedChoiceOption(
-                name: 'primary',
+                'primary',
                 choices: Mode.values,
-                options: [
-                  PairChoiceOption(name: 'secondary', choices: Mode.values),
-                ],
+                options: [PairChoiceOption('secondary', choices: Mode.values)],
               ),
             ],
             accessors: [
               AccessorListOption(
-                name: 'profile',
-                options: [
-                  AccessorChoiceOption(name: 'value', choices: Mode.values),
-                ],
+                'profile',
+                options: [AccessorChoiceOption('value', choices: Mode.values)],
               ),
             ],
           ).parse([
@@ -992,22 +977,22 @@ void main() {
       final inputs = parser(
         accessors: [
           AccessorListOption(
-            name: 'server',
+            'server',
             options: [
               AccessorChoiceOption(
-                name: 'mode',
+                'mode',
                 choices: Mode.values,
                 defaultValue: Mode.auto,
               ),
               AccessorListOption(
-                name: 'tls',
+                'tls',
                 options: [
                   AccessorChoiceOption(
-                    name: 'mode',
+                    'mode',
                     choices: Mode.values,
                     defaultValue: Mode.always,
                   ),
-                  AccessorStringOption(name: 'certificate'),
+                  AccessorStringOption('certificate'),
                 ],
               ),
             ],
@@ -1025,9 +1010,7 @@ void main() {
 
     test('rejects invalid choice values', () {
       expectParseError(
-        parser(
-          options: [ChoiceOption(name: 'mode', choices: Mode.values)],
-        ),
+        parser(options: [ChoiceOption('mode', choices: Mode.values)]),
         ['--mode', 'never'],
       );
     });
@@ -1037,10 +1020,10 @@ void main() {
     test('rejects invalid values and missing required options', () {
       final subject = parser(
         options: [
-          StringOption(name: 'word', required: true, regex: RegExp(r'^word$')),
-          IntOption(name: 'integer'),
-          DoubleOption(name: 'decimal'),
-          RepeatableIntOption(name: 'numbers'),
+          StringOption('word', required: true, regex: RegExp(r'^word$')),
+          IntOption('integer'),
+          DoubleOption('decimal'),
+          RepeatableIntOption('numbers'),
         ],
       );
 
@@ -1055,7 +1038,7 @@ void main() {
       'rejects unknown inputs, invalid negation, and excess positionals',
       () {
         final subject = parser(
-          flags: [BooleanFlag(name: 'plain')],
+          flags: [BooleanFlag('plain')],
           mandatoryPositionals: [Positional('source')],
         );
 
@@ -1067,11 +1050,11 @@ void main() {
 
     test('validates every required ordinary option type', () {
       final cases = <Option>[
-        IntOption(name: 'integer', required: true),
-        DoubleOption(name: 'decimal', required: true),
-        RepeatableStringOption(name: 'words', required: true),
-        RepeatableIntOption(name: 'integers', required: true),
-        RepeatableDoubleOption(name: 'decimals', required: true),
+        IntOption('integer', required: true),
+        DoubleOption('decimal', required: true),
+        RepeatableStringOption('words', required: true),
+        RepeatableIntOption('integers', required: true),
+        RepeatableDoubleOption('decimals', required: true),
       ];
 
       for (final option in cases) {
@@ -1082,8 +1065,8 @@ void main() {
     test('accepts negative numbers as inline and separate option values', () {
       final subject = parser(
         options: [
-          IntOption(name: 'integer', short: 'i'),
-          DoubleOption(name: 'decimal', short: 'd'),
+          IntOption('integer', short: 'i'),
+          DoubleOption('decimal', short: 'd'),
         ],
       );
 

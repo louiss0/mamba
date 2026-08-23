@@ -48,16 +48,16 @@ void main() {
   group('CommandRegistry', () {
     group("toMap", () {
       test("makes the map based on the inputs ", () {
-        final color = BooleanFlag(name: 'color', negatable: true);
-        final verbose = CountFlag(name: 'verbose');
-        final name = StringOption(name: 'name', regex: RegExp(r'\S+'));
-        final tag = RepeatableStringOption(name: 'tag');
+        final color = BooleanFlag('color', negatable: true);
+        final verbose = CountFlag('verbose');
+        final name = StringOption('name', regex: RegExp(r'\S+'));
+        final tag = RepeatableStringOption('tag');
         final source = Positional('source');
         final target = Positional('target');
 
         final profile = AccessorListOption(
-          name: 'user',
-          options: [AccessorStringOption(name: 'profile')],
+          'user',
+          options: [AccessorStringOption('profile')],
         );
 
         final registry = CommandRegistry.create(
@@ -278,21 +278,21 @@ void main() {
               'Configure Git.',
               accessors: [
                 AccessorListOption(
-                  name: 'branch',
+                  'branch',
                   options: [
                     AccessorListOption(
-                      name: 'main',
+                      'main',
                       options: [
                         AccessorStringOption(
-                          name: 'remote',
+                          'remote',
                           description: 'The remote to fetch from or push to.',
                         ),
                         AccessorStringOption(
-                          name: 'merge',
+                          'merge',
                           description: 'The upstream branch to merge.',
                         ),
                         AccessorStringOption(
-                          name: 'rebase',
+                          'rebase',
                           description:
                               'Whether to rebase instead of merge when pulling.',
                         ),
@@ -301,21 +301,21 @@ void main() {
                   ],
                 ),
                 AccessorListOption(
-                  name: 'remote',
+                  'remote',
                   options: [
                     AccessorListOption(
-                      name: 'origin',
+                      'origin',
                       options: [
                         AccessorStringOption(
-                          name: 'url',
+                          'url',
                           description: 'The URL of a remote repository.',
                         ),
                         AccessorStringOption(
-                          name: 'pushurl',
+                          'pushurl',
                           description: 'The push URL of a remote repository.',
                         ),
                         AccessorStringOption(
-                          name: 'fetch',
+                          'fetch',
                           description: 'The default set of refspecs for fetch.',
                         ),
                       ],
@@ -368,28 +368,25 @@ void main() {
           'Do HTTP Requests',
           options: [
             StringOption(
-              name: 'url',
+              'url',
               short: 'u',
               description: 'URL(s) to work with.',
               required: true,
               regex: RegExp(r'\S+'),
             ),
-            IntOption(
-              name: 'retry',
-              description: 'Retry on transient problems.',
-            ),
+            IntOption('retry', description: 'Retry on transient problems.'),
             DoubleOption(
-              name: 'max-time',
+              'max-time',
               short: 'm',
               description: 'Maximum time allowed for a transfer.',
             ),
             RepeatableStringOption(
-              name: 'header',
+              'header',
               short: 'H',
               description: 'Pass custom headers to the server.',
             ),
             RepeatableStringOption(
-              name: 'data',
+              'data',
               short: 'd',
               description: 'HTTP POST data.',
             ),
@@ -447,22 +444,22 @@ void main() {
           'Synchronize files and directories.',
           flags: [
             CountFlag(
-              name: 'verbose',
+              'verbose',
               short: 'v',
               description: 'Increase verbosity.',
             ),
             CountFlag(
-              name: 'quiet',
+              'quiet',
               short: 'q',
               description: 'Suppress non-error messages.',
             ),
             BooleanFlag(
-              name: 'dry-run',
+              'dry-run',
               short: 'n',
               description: 'Perform a trial run with no changes made.',
             ),
             BooleanFlag(
-              name: 'archive',
+              'archive',
               short: 'a',
               description: 'Enable archive mode.',
             ),
@@ -681,30 +678,30 @@ void main() {
                 ],
                 flags: [
                   BooleanFlag(
-                    name: 'fetch',
+                    'fetch',
                     short: 'f',
                     description: 'Fetch the remote after adding it.',
                   ),
                   BooleanFlag(
-                    name: 'tags',
+                    'tags',
                     description: 'Import every tag from the remote.',
                     negatable: true,
                   ),
                 ],
                 options: [
                   RepeatableStringOption(
-                    name: 'track',
+                    'track',
                     short: 't',
                     description: 'A branch to track.',
                   ),
                   StringOption(
-                    name: 'master',
+                    'master',
                     short: 'm',
                     description: 'The remote default branch.',
                     regex: RegExp(r'\S+'),
                   ),
                   StringOption(
-                    name: 'mirror',
+                    'mirror',
                     description: 'The mirror direction.',
                     regex: RegExp(r'\S+'),
                   ),
@@ -726,25 +723,25 @@ void main() {
                 ],
                 flags: [
                   CountFlag(
-                    name: 'force',
+                    'force',
                     short: 'f',
                     description: 'Override worktree safety checks.',
                   ),
                   BooleanFlag(
-                    name: 'detach',
+                    'detach',
                     short: 'd',
                     description: 'Detach HEAD in the new worktree.',
                   ),
                 ],
                 options: [
                   StringOption(
-                    name: 'new-branch',
+                    'new-branch',
                     short: 'b',
                     description: 'The branch to create.',
                     regex: RegExp(r'\S+'),
                   ),
                   StringOption(
-                    name: 'reason',
+                    'reason',
                     description: 'Why the worktree is locked.',
                     regex: RegExp(r'\S+'),
                   ),
@@ -760,19 +757,19 @@ void main() {
                 ],
                 flags: [
                   BooleanFlag(
-                    name: 'patch',
+                    'patch',
                     short: 'p',
                     description: 'Select changes interactively.',
                   ),
                   BooleanFlag(
-                    name: 'include-untracked',
+                    'include-untracked',
                     short: 'u',
                     description: 'Include untracked files.',
                   ),
                 ],
                 options: [
                   StringOption(
-                    name: 'message',
+                    'message',
                     short: 'm',
                     description: 'The stash message.',
                     regex: RegExp(r'\S+'),
@@ -946,15 +943,15 @@ void main() {
                 'Add an object to an Amazon S3 bucket.',
                 pairedOptions: [
                   PairedStringOption(
-                    name: 'sse-customer-algorithm',
+                    'sse-customer-algorithm',
                     description: 'The customer encryption algorithm.',
                     options: [
                       PairStringOption(
-                        name: 'sse-customer-key',
+                        'sse-customer-key',
                         description: 'The customer encryption key.',
                       ),
                       PairStringOption(
-                        name: 'sse-customer-key-md5',
+                        'sse-customer-key-md5',
                         description: 'The MD5 digest of the customer key.',
                       ),
                     ],
@@ -1011,13 +1008,13 @@ void main() {
                   'Create a linked working tree.',
                   pairedOptions: [
                     PairedStringOption(
-                      name: 'new-branch',
+                      'new-branch',
                       short: 'b',
                       description: 'Create a new branch.',
                       variant: true,
                       options: [
                         PairStringOption(
-                          name: 'force-new-branch',
+                          'force-new-branch',
                           short: 'B',
                           description: 'Create or reset a branch.',
                         ),
@@ -1073,20 +1070,20 @@ void main() {
               'Deploy an application.',
               options: [
                 ChoiceOption<DeploymentFormat>(
-                  name: 'format',
+                  'format',
                   choices: DeploymentFormat.values,
                   defaultValue: DeploymentFormat.json,
                 ),
               ],
               pairedOptions: [
                 PairedChoiceOption<DeploymentFormat>(
-                  name: 'manifest',
+                  'manifest',
                   choices: DeploymentFormat.values,
                   defaultValue: DeploymentFormat.yaml,
                   variant: true,
                   options: [
                     PairChoiceOption<DeploymentFormat>(
-                      name: 'manifest-file',
+                      'manifest-file',
                       choices: DeploymentFormat.values,
                       defaultValue: DeploymentFormat.json,
                     ),
@@ -1134,24 +1131,24 @@ void main() {
             'Back up a workspace.',
             pairedOptions: [
               PairedIntOption(
-                name: 'chunk-size',
-                options: [PairDoubleOption(name: 'compression-level')],
+                'chunk-size',
+                options: [PairDoubleOption('compression-level')],
               ),
               PairedDoubleOption(
-                name: 'timeout',
-                options: [PairIntOption(name: 'attempts')],
+                'timeout',
+                options: [PairIntOption('attempts')],
               ),
               RepeatablePairedStringOption(
-                name: 'include',
-                options: [RepeatablePairStringOption(name: 'include-from')],
+                'include',
+                options: [RepeatablePairStringOption('include-from')],
               ),
               RepeatablePairedIntOption(
-                name: 'shard',
-                options: [RepeatablePairIntOption(name: 'shard-count')],
+                'shard',
+                options: [RepeatablePairIntOption('shard-count')],
               ),
               RepeatablePairedDoubleOption(
-                name: 'rate',
-                options: [RepeatablePairDoubleOption(name: 'rate-limit')],
+                'rate',
+                options: [RepeatablePairDoubleOption('rate-limit')],
               ),
             ],
           );
@@ -1178,15 +1175,15 @@ void main() {
           final registry = CommandRegistry.create(
             'release',
             'Publish a release.',
-            flags: [BooleanFlag(name: 'dry-run', hidden: true)],
+            flags: [BooleanFlag('dry-run', hidden: true)],
             options: [
-              StringOption(name: 'token', hidden: true, regex: RegExp(r'\S+')),
+              StringOption('token', hidden: true, regex: RegExp(r'\S+')),
             ],
             accessors: [
               AccessorListOption(
-                name: 'internal',
+                'internal',
                 hidden: true,
-                options: [AccessorStringOption(name: 'trace-id')],
+                options: [AccessorStringOption('trace-id')],
               ),
             ],
             commands: [
@@ -1222,15 +1219,15 @@ void main() {
     });
 
     test('indexes list-defined inputs by their names', () {
-      final color = BooleanFlag(name: 'color');
-      final verbose = CountFlag(name: 'verbose');
-      final name = StringOption(name: 'name', regex: RegExp(r'\S+'));
-      final tag = RepeatableStringOption(name: 'tag');
+      final color = BooleanFlag('color');
+      final verbose = CountFlag('verbose');
+      final name = StringOption('name', regex: RegExp(r'\S+'));
+      final tag = RepeatableStringOption('tag');
       final source = Positional('source');
       final target = Positional('target');
       final profile = AccessorListOption(
-        name: 'user',
-        options: [AccessorStringOption(name: 'profile')],
+        'user',
+        options: [AccessorStringOption('profile')],
       );
 
       final registry = CommandRegistry.create(
@@ -1255,8 +1252,8 @@ void main() {
 
     test('indexes paired options by their group name', () {
       final credentials = PairedStringOption(
-        name: 'username',
-        options: [PairStringOption(name: 'password')],
+        'username',
+        options: [PairStringOption('password')],
       );
 
       final registry = CommandRegistry.create(
@@ -1270,8 +1267,8 @@ void main() {
 
     test('defaults paired options to grouping', () {
       final credentials = PairedStringOption(
-        name: 'username',
-        options: [PairStringOption(name: 'password')],
+        'username',
+        options: [PairStringOption('password')],
       );
 
       expect(credentials.variant, isFalse);
@@ -1280,45 +1277,45 @@ void main() {
     test('supports variants for every paired option type', () {
       final variants = <PairedOption>[
         PairedStringOption(
-          name: 'string',
+          'string',
           variant: true,
-          options: [PairStringOption(name: 'stringPair')],
+          options: [PairStringOption('stringPair')],
         ),
         PairedIntOption(
-          name: 'int',
+          'int',
           variant: true,
-          options: [PairIntOption(name: 'intPair')],
+          options: [PairIntOption('intPair')],
         ),
         PairedDoubleOption(
-          name: 'double',
+          'double',
           variant: true,
-          options: [PairDoubleOption(name: 'doublePair')],
+          options: [PairDoubleOption('doublePair')],
         ),
         PairedChoiceOption<VariantChoice>(
-          name: 'choice',
+          'choice',
           choices: VariantChoice.values,
           variant: true,
           options: [
             PairChoiceOption<VariantChoice>(
-              name: 'choicePair',
+              'choicePair',
               choices: VariantChoice.values,
             ),
           ],
         ),
         RepeatablePairedStringOption(
-          name: 'repeatedString',
+          'repeatedString',
           variant: true,
-          options: [RepeatablePairStringOption(name: 'repeatedStringPair')],
+          options: [RepeatablePairStringOption('repeatedStringPair')],
         ),
         RepeatablePairedIntOption(
-          name: 'repeatedInt',
+          'repeatedInt',
           variant: true,
-          options: [RepeatablePairIntOption(name: 'repeatedIntPair')],
+          options: [RepeatablePairIntOption('repeatedIntPair')],
         ),
         RepeatablePairedDoubleOption(
-          name: 'repeatedDouble',
+          'repeatedDouble',
           variant: true,
-          options: [RepeatablePairDoubleOption(name: 'repeatedDoublePair')],
+          options: [RepeatablePairDoubleOption('repeatedDoublePair')],
         ),
       ];
 
@@ -1330,7 +1327,7 @@ void main() {
         () => CommandRegistry.create(
           'login',
           'Authenticate a user.',
-          pairedOptions: [PairedStringOption(name: 'username', options: [])],
+          pairedOptions: [PairedStringOption('username', options: [])],
         ),
         throwsA(isA<MambaException>()),
       );
@@ -1346,8 +1343,8 @@ void main() {
             'Configure the tool.',
             accessors: [
               AccessorListOption(
-                name: 'server',
-                options: [AccessorIntOption(name: 'port')],
+                'server',
+                options: [AccessorIntOption('port')],
               ),
             ],
           ),
@@ -1364,7 +1361,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [BooleanFlag(name: 'help')],
+          flags: [BooleanFlag('help')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1372,7 +1369,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [BooleanFlag(name: 'custom', short: 'h')],
+          flags: [BooleanFlag('custom', short: 'h')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1382,7 +1379,7 @@ void main() {
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
-        flags: [CountFlag(name: 'verbose', short: 'v')],
+        flags: [CountFlag('verbose', short: 'v')],
         commands: [TestGroupCommand('config', [], 'Configure the tool.')],
       );
 
@@ -1395,10 +1392,10 @@ void main() {
     });
 
     test('group commands publish explicit inputs to descendants', () {
-      final inheritedFlag = BooleanFlag(name: 'color');
-      final inheritedOption = IntOption(name: 'retries');
-      final localFlag = BooleanFlag(name: 'color', description: 'child');
-      final localOption = IntOption(name: 'retries', description: 'child');
+      final inheritedFlag = BooleanFlag('color');
+      final inheritedOption = IntOption('retries');
+      final localFlag = BooleanFlag('color', description: 'child');
+      final localOption = IntOption('retries', description: 'child');
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
@@ -1437,8 +1434,8 @@ void main() {
             'config',
             [TestCommand('get', 'Get configuration.')],
             'Configure.',
-            flags: [BooleanFlag(name: 'color')],
-            options: [IntOption(name: 'retries')],
+            flags: [BooleanFlag('color')],
+            options: [IntOption('retries')],
           ),
         ],
       );
@@ -1486,12 +1483,12 @@ void main() {
         'tool',
         'Tool command.',
         flags: [
-          BooleanFlag(name: 'verbose2', short: 'v'),
-          BooleanFlag(name: 'dry-run'),
+          BooleanFlag('verbose2', short: 'v'),
+          BooleanFlag('dry-run'),
         ],
         options: [
-          IntOption(name: 'retry2', short: 'r'),
-          IntOption(name: 'back-off'),
+          IntOption('retry2', short: 'r'),
+          IntOption('back-off'),
         ],
       );
 
@@ -1507,7 +1504,7 @@ void main() {
           () => CommandRegistry.create(
             'tool',
             'Tool command.',
-            flags: [BooleanFlag(name: name)],
+            flags: [BooleanFlag(name)],
           ),
           throwsA(isA<MambaRegistryError>()),
         );
@@ -1515,7 +1512,7 @@ void main() {
           () => CommandRegistry.create(
             'tool',
             'Tool command.',
-            options: [IntOption(name: name)],
+            options: [IntOption(name)],
           ),
           throwsA(isA<MambaRegistryError>()),
         );
@@ -1527,7 +1524,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [BooleanFlag(name: 'verbose', short: '2')],
+          flags: [BooleanFlag('verbose', short: '2')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1535,7 +1532,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          options: [IntOption(name: 'retry', short: '-')],
+          options: [IntOption('retry', short: '-')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1546,7 +1543,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          options: [StringOption(name: 'bad!', regex: RegExp(r'.+'))],
+          options: [StringOption('bad!', regex: RegExp(r'.+'))],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1567,11 +1564,11 @@ void main() {
           'Tool command.',
           accessors: [
             AccessorListOption(
-              name: 'server',
+              'server',
               options: [
                 AccessorListOption(
-                  name: 'authentication',
-                  options: [AccessorStringOption(name: 'help')],
+                  'authentication',
+                  options: [AccessorStringOption('help')],
                 ),
               ],
             ),
@@ -1588,11 +1585,11 @@ void main() {
           'Tool command.',
           accessors: [
             AccessorListOption(
-              name: 'profile',
-              options: [AccessorStringOption(name: 'value')],
+              'profile',
+              options: [AccessorStringOption('value')],
             ),
           ],
-          flags: [BooleanFlag(name: 'profile')],
+          flags: [BooleanFlag('profile')],
         ),
         throwsA(isA<MambaException>()),
       );
@@ -1602,11 +1599,11 @@ void main() {
           'Tool command.',
           accessors: [
             AccessorListOption(
-              name: 'profile',
-              options: [AccessorStringOption(name: 'value')],
+              'profile',
+              options: [AccessorStringOption('value')],
             ),
           ],
-          options: [StringOption(name: 'profile', regex: RegExp(r'.+'))],
+          options: [StringOption('profile', regex: RegExp(r'.+'))],
         ),
         throwsA(isA<MambaException>()),
       );
@@ -1652,8 +1649,8 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [BooleanFlag(name: 'verbose')],
-          options: [IntOption(name: 'verbose')],
+          flags: [BooleanFlag('verbose')],
+          options: [IntOption('verbose')],
         ),
         throwsA(isA<MambaException>()),
       );
@@ -1664,8 +1661,8 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [BooleanFlag(name: 'verbose', short: 'v')],
-          options: [IntOption(name: 'version', short: 'v')],
+          flags: [BooleanFlag('verbose', short: 'v')],
+          options: [IntOption('version', short: 'v')],
         ),
         throwsA(isA<MambaException>()),
       );
@@ -1680,10 +1677,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [
-            BooleanFlag(name: 'verbose'),
-            BooleanFlag(name: 'verbose'),
-          ],
+          flags: [BooleanFlag('verbose'), BooleanFlag('verbose')],
         ),
         throwsA(isA<MambaException>()),
       );
@@ -1692,8 +1686,8 @@ void main() {
           'tool',
           'Tool command.',
           options: [
-            StringOption(name: 'name', regex: RegExp(r'\S+')),
-            RepeatableStringOption(name: 'name'),
+            StringOption('name', regex: RegExp(r'\S+')),
+            RepeatableStringOption('name'),
           ],
         ),
         throwsA(isA<MambaException>()),
@@ -1704,10 +1698,10 @@ void main() {
           'Tool command.',
           accessors: [
             AccessorListOption(
-              name: 'remote',
+              'remote',
               options: [
-                AccessorStringOption(name: 'url'),
-                AccessorStringOption(name: 'url'),
+                AccessorStringOption('url'),
+                AccessorStringOption('url'),
               ],
             ),
           ],

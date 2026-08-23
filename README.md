@@ -149,12 +149,12 @@ final class Commit extends Command {
     : super(
         flags: [
           BooleanFlag(
-            name: 'interactive',
+            'interactive',
             short: 'i',
             description: 'Select changes interactively.',
           ),
           CountFlag(
-            name: 'verbose',
+            'verbose',
             short: 'v',
             description: 'Increase output verbosity.',
           ),
@@ -210,20 +210,20 @@ final class Commit extends Command {
     : super(
         options: [
           StringOption(
-            name: 'message',
+            'message',
             short: 'm',
             description: 'Commit message.',
             regex: RegExp(r'.+'),
             required: true,
           ),
           ChoiceOption<FixupMode>(
-            name: 'fixup',
+            'fixup',
             description: 'How to update the previous commit.',
             choices: FixupMode.values,
             defaultValue: FixupMode.amend,
           ),
           RepeatableStringOption(
-            name: 'pathspec',
+            'pathspec',
             description: 'Limit the commit to a path.',
           ),
         ],
@@ -274,21 +274,21 @@ descriptions are joined with `; `.
 enum Format { json, text }
 
 final credentials = PairedStringOption(
-  name: 'username',
+  'username',
   description: 'Account name.',
   options: [
-    PairStringOption(name: 'password', description: 'Account password.'),
+    PairStringOption('password', description: 'Account password.'),
   ],
 );
 
 final outputFormat = PairedChoiceOption<Format>(
-  name: 'json',
+  'json',
   description: 'Produce JSON.',
   choices: Format.values,
   variant: true,
   options: [
     PairChoiceOption<Format>(
-      name: 'text',
+      'text',
       description: 'Produce text.',
       choices: Format.values,
     ),
@@ -319,15 +319,15 @@ final class Serve extends Command {
     : super(
         accessors: [
           AccessorListOption(
-            name: 'database',
+            'database',
             description: 'Database connection settings.',
             options: [
               AccessorStringOption(
-                name: 'host',
+                'host',
                 description: 'Database host.',
               ),
               AccessorIntOption(
-                name: 'port',
+                'port',
                 description: 'Database port.',
               ),
             ],
@@ -374,7 +374,7 @@ final class Remote extends GroupCommand {
         [RemoteAdd(), RemoteRemove()],
         inheritedFlags: [
           BooleanFlag(
-            name: 'verbose',
+            'verbose',
             short: 'v',
             description: 'Show detailed output.',
           ),

@@ -22,7 +22,7 @@ final class MambaCommandNotFoundException extends MambaException {
 /// options to descendants; local same-name definitions take precedence.
 final class CommandRegistry {
   static final BooleanFlag _helpFlag = BooleanFlag(
-    name: 'help',
+    'help',
     short: 'h',
     description: 'Show this help message.',
   );

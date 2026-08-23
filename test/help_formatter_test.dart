@@ -12,7 +12,7 @@ final _hiddenInputRegistry = CommandRegistry.create(
   'Tool command.',
   options: [
     StringOption(
-      name: 'secret',
+      'secret',
       description: 'Internal value.',
       regex: RegExp(r'\S+'),
       hidden: true,
@@ -95,7 +95,7 @@ void main() {
       (
         type: 'boolean flag',
         flag: BooleanFlag(
-          name: 'debug',
+          'debug',
           description: 'Enable debugging.',
           hidden: true,
         ),
@@ -103,7 +103,7 @@ void main() {
       (
         type: 'count flag',
         flag: CountFlag(
-          name: 'verbose',
+          'verbose',
           description: 'Increase verbosity.',
           hidden: true,
         ),
@@ -127,7 +127,7 @@ void main() {
       (
         type: 'string option',
         option: StringOption(
-          name: 'token',
+          'token',
           description: 'Authentication token.',
           regex: RegExp(r'\S+'),
           hidden: true,
@@ -135,16 +135,12 @@ void main() {
       ),
       (
         type: 'integer option',
-        option: IntOption(
-          name: 'retries',
-          description: 'Retry count.',
-          hidden: true,
-        ),
+        option: IntOption('retries', description: 'Retry count.', hidden: true),
       ),
       (
         type: 'double option',
         option: DoubleOption(
-          name: 'ratio',
+          'ratio',
           description: 'Sampling ratio.',
           hidden: true,
         ),
@@ -152,7 +148,7 @@ void main() {
       (
         type: 'choice option',
         option: ChoiceOption(
-          name: 'format',
+          'format',
           description: 'Output format.',
           choices: _OutputFormat.values,
           hidden: true,
@@ -178,10 +174,10 @@ void main() {
           (
             type: 'accessor list option',
             accessor: AccessorListOption(
-              name: 'credentials',
+              'credentials',
               description: 'Internal credentials.',
               hidden: true,
-              options: [AccessorStringOption(name: 'token')],
+              options: [AccessorStringOption('token')],
             ),
           ),
         ]) {
@@ -203,7 +199,7 @@ void main() {
       (
         type: 'repeatable string option',
         option: RepeatableStringOption(
-          name: 'header',
+          'header',
           description: 'Additional header.',
           hidden: true,
         ),
@@ -211,7 +207,7 @@ void main() {
       (
         type: 'repeatable integer option',
         option: RepeatableIntOption(
-          name: 'port',
+          'port',
           description: 'Additional port.',
           hidden: true,
         ),
@@ -219,7 +215,7 @@ void main() {
       (
         type: 'repeatable double option',
         option: RepeatableDoubleOption(
-          name: 'weight',
+          'weight',
           description: 'Additional weight.',
           hidden: true,
         ),
@@ -249,27 +245,27 @@ void main() {
           'Manage platform deployments.',
           accessors: [
             AccessorListOption(
-              name: 'deployment',
+              'deployment',
               hidden: hiddenList == 'deployment',
               options: [
                 AccessorListOption(
-                  name: 'runtime',
+                  'runtime',
                   hidden: hiddenList == 'runtime',
                   options: [
                     AccessorListOption(
-                      name: 'network',
+                      'network',
                       hidden: hiddenList == 'network',
                       options: [
                         AccessorListOption(
-                          name: 'tls',
+                          'tls',
                           hidden: hiddenList == 'tls',
                           options: [
                             AccessorListOption(
-                              name: 'client',
+                              'client',
                               hidden: hiddenList == 'client',
                               options: [
                                 AccessorStringOption(
-                                  name: 'certificate',
+                                  'certificate',
                                   description: 'mTLS client certificate.',
                                 ),
                               ],
@@ -325,15 +321,11 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           PairedStringOption(
-            name: 'username',
+            'username',
             short: 'u',
             description: 'Username',
             options: [
-              PairStringOption(
-                name: 'password',
-                short: 'p',
-                description: 'Password',
-              ),
+              PairStringOption('password', short: 'p', description: 'Password'),
             ],
           ),
         ],
@@ -353,10 +345,10 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           PairedStringOption(
-            name: 'token',
+            'token',
             variant: true,
             description: 'Token',
-            options: [PairStringOption(name: 'apiKey', description: 'API key')],
+            options: [PairStringOption('apiKey', description: 'API key')],
           ),
         ],
       );
@@ -370,7 +362,7 @@ void main() {
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
-        options: [IntOption(name: 'count', required: true)],
+        options: [IntOption('count', required: true)],
       );
 
       final help = _withoutAnsi(MambaHelpFormatter().format(registry));
@@ -382,11 +374,11 @@ void main() {
       final registry = CommandRegistry.create(
         'login',
         'Authenticate a user.',
-        options: [StringOption(name: 'region', regex: RegExp(r'\S+'))],
+        options: [StringOption('region', regex: RegExp(r'\S+'))],
         pairedOptions: [
           PairedStringOption(
-            name: 'username',
-            options: [PairStringOption(name: 'password')],
+            'username',
+            options: [PairStringOption('password')],
           ),
         ],
       );
@@ -404,11 +396,11 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           PairedStringOption(
-            name: 'username',
+            'username',
             description: 'Username',
             options: [
-              PairStringOption(name: 'password'),
-              PairStringOption(name: 'tenant', description: 'Tenant'),
+              PairStringOption('password'),
+              PairStringOption('tenant', description: 'Tenant'),
             ],
           ),
         ],
@@ -428,14 +420,11 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           PairedStringOption(
-            name: 'clientId',
+            'clientId',
             required: true,
             description: 'Client ID',
             options: [
-              PairStringOption(
-                name: 'clientSecret',
-                description: 'Client secret',
-              ),
+              PairStringOption('clientSecret', description: 'Client secret'),
             ],
           ),
         ],
@@ -455,12 +444,10 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           RepeatablePairedStringOption(
-            name: 'header',
+            'header',
             short: 'H',
             description: 'Header',
-            options: [
-              PairStringOption(name: 'requestId', description: 'Request ID'),
-            ],
+            options: [PairStringOption('requestId', description: 'Request ID')],
           ),
         ],
       );
@@ -479,11 +466,11 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           PairedStringOption(
-            name: 'session',
+            'session',
             description: 'Session',
             options: [
               RepeatablePairStringOption(
-                name: 'header',
+                'header',
                 short: 'H',
                 description: 'Header',
               ),
@@ -506,10 +493,10 @@ void main() {
         'Authenticate a user.',
         pairedOptions: [
           RepeatablePairedIntOption(
-            name: 'port',
+            'port',
             description: 'Port',
             options: [
-              RepeatablePairDoubleOption(name: 'weight', description: 'Weight'),
+              RepeatablePairDoubleOption('weight', description: 'Weight'),
             ],
           ),
         ],
@@ -542,16 +529,13 @@ void main() {
         'curl',
         'Transfer data.',
         longDescription: 'A compact HTTP client.',
-        flags: [BooleanFlag(name: 'verbose', short: 'v')],
+        flags: [BooleanFlag('verbose', short: 'v')],
         options: [
-          StringOption(name: 'output', short: 'o', regex: RegExp(r'\S+')),
-          RepeatableStringOption(name: 'header', short: 'H'),
+          StringOption('output', short: 'o', regex: RegExp(r'\S+')),
+          RepeatableStringOption('header', short: 'H'),
         ],
         accessors: [
-          AccessorListOption(
-            name: 'tls',
-            options: [AccessorStringOption(name: 'cert')],
-          ),
+          AccessorListOption('tls', options: [AccessorStringOption('cert')]),
         ],
         mandatoryPositionals: [Positional('url')],
         discretionaryPositionals: [Positional('output')],

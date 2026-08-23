@@ -38,14 +38,10 @@ abstract interface class MambaExecutor<ReturnType> {
 final class Executor {
   static final List<Flag> _defaultFlags = [
     BooleanFlag(
-      name: 'dry-run',
+      'dry-run',
       description: 'Show what would happen without changing anything.',
     ),
-    CountFlag(
-      name: 'verbose',
-      short: 'v',
-      description: 'Increase output verbosity.',
-    ),
+    CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
   ];
 
   final String name;

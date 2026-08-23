@@ -171,8 +171,8 @@ void main() {
 
   group('Input definitions', () {
     test('accessor numeric regexes describe their accepted shapes', () {
-      expect(AccessorIntOption(name: 'port').regex.hasMatch('80'), isTrue);
-      expect(AccessorDoubleOption(name: 'ratio').regex.hasMatch('1.5'), isTrue);
+      expect(AccessorIntOption('port').regex.hasMatch('80'), isTrue);
+      expect(AccessorDoubleOption('ratio').regex.hasMatch('1.5'), isTrue);
     });
   });
 
