@@ -172,6 +172,158 @@ void main() {
     });
   });
 
+  group('Repeated positionals alone', () {
+    test('collects every value of a mandatory repeated positional', () {
+      final inputs = parser(
+        mandatoryPositionals: [RepeatedPositional('files')],
+      ).parse(['a.txt', 'b.txt', 'c.txt']).$2;
+
+      expect(inputs, {
+        'files': ['a.txt', 'b.txt', 'c.txt'],
+      });
+    });
+
+    test('stops collecting a mandatory repeated positional at maxCount', () {
+      final subject = parser(
+        mandatoryPositionals: [RepeatedPositional('files', maxCount: 2)],
+      );
+
+      expectParseError(subject, ['a.txt', 'b.txt', 'c.txt']);
+    });
+
+    test('requires at least one value for a mandatory repeated positional', () {
+      expectParseError(
+        parser(mandatoryPositionals: [RepeatedPositional('files')]),
+        [],
+      );
+    });
+
+    test('collects available values for a discretionary repeated positional', () {
+      final inputs = parser(
+        discretionaryPositionals: [RepeatedPositional('files')],
+      ).parse(['a.txt', 'b.txt']).$2;
+
+      expect(inputs, {
+        'files': ['a.txt', 'b.txt'],
+      });
+    });
+
+    test('omits a discretionary repeated positional without values', () {
+      final inputs = parser(
+        discretionaryPositionals: [RepeatedPositional('files')],
+      ).parse([]).$2;
+
+      expect(inputs, isNull);
+    });
+
+    test('rejects values that do not match the repeated positional regex', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          RepeatedPositional('files', regExp: RegExp(r'^\\w+\\.txt$')),
+        ],
+      );
+
+      expectParseError(subject, ['a.txt', 'notes.md']);
+    });
+  });
+
+  group('Repeated positionals with individual positionals', () {
+    test('fills a leading repeated positional before later positionals', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          RepeatedPositional('files', maxCount: 2),
+          Positional('destination'),
+        ],
+      ).parse(['a.txt', 'b.txt', 'out']).$2;
+
+      expect(inputs, {
+        'files': ['a.txt', 'b.txt'],
+        'destination': 'out',
+      });
+    });
+
+    test('fills individual positionals before a trailing repeated positional', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files'),
+        ],
+      ).parse(['in', 'a.txt', 'b.txt']).$2;
+
+      expect(inputs, {
+        'source': 'in',
+        'files': ['a.txt', 'b.txt'],
+      });
+    });
+
+    test('collects only the remaining values after individual positionals', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          Positional('first'),
+          Positional('second'),
+          RepeatedPositional('files'),
+        ],
+        discretionaryPositionals: [RepeatedPositional('more')],
+      ).parse(['one', 'two', 'a.txt', 'b.txt', 'c.txt']).$2;
+
+      expect(inputs, {
+        'first': 'one',
+        'second': 'two',
+        'files': ['a.txt', 'b.txt', 'c.txt'],
+      });
+    });
+
+    test('respects maxCount before handing values to later positionals', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files', maxCount: 1),
+          Positional('destination'),
+        ],
+      ).parse(['in', 'a.txt', 'out']).$2;
+
+      expect(inputs, {
+        'source': 'in',
+        'files': ['a.txt'],
+        'destination': 'out',
+      });
+    });
+
+    test('prioritizes mandatory positionals over discretionary ones', () {
+      final inputs = parser(
+        discretionaryPositionals: [Positional('target')],
+        mandatoryPositionals: [RepeatedPositional('files', maxCount: 1)],
+      ).parse(['a.txt', 'out']).$2;
+
+      expect(inputs, {
+        'files': ['a.txt'],
+        'target': 'out',
+      });
+    });
+
+    test('leaves a discretionary single unfilled after a greedy repeated one', () {
+      final inputs = parser(
+        mandatoryPositionals: [RepeatedPositional('files')],
+        discretionaryPositionals: [Positional('target')],
+      ).parse(['a.txt', 'b.txt']).$2;
+
+      expect(inputs, {
+        'files': ['a.txt', 'b.txt'],
+      });
+    });
+
+    test('reports leftover values beyond every registered positional', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files', maxCount: 1),
+        ],
+      );
+
+      expectParseError(subject, ['in', 'a.txt', 'out', 'extra']);
+    });
+  });
+
   group('Parser definitions', () {
     test('accepts accessor lists at the root and at nested paths', () {
       final subject = parser(

@@ -25,7 +25,7 @@ class Parser {
   /// groups, or positional layout do not satisfy the registry.
   (
     List<String> command,
-    Map<String, String>? positionals,
+    Map<String, dynamic>? positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
   )
@@ -778,7 +778,7 @@ class Parser {
     // coverage:ignore-end
   };
 
-  Map<String, String>? _parsePositionals(
+  Map<String, dynamic>? _parsePositionals(
     CommandRegistry registry,
     List<String> values,
   ) {
@@ -787,27 +787,56 @@ class Parser {
     final discretionary =
         registry.discretionaryPositionals?.values.toList() ??
         const <Positional>[];
-    final parsed = <String, String>{};
+    final parsed = <String, dynamic>{};
     var index = 0;
 
-    for (final positional in mandatory) {
-      if (index >= values.length ||
-          !_matchesEntirely(positional.regex, values[index])) {
-        throw MambaParseException(
-          'The ${positional.name} is required at $index after this command',
-        );
+    // Values are consumed strictly in registration order, so a repeated
+    // positional greedily takes up to its maxCount before later positionals
+    // are filled.
+    void fill(List<Positional> registered, {required bool isMandatory}) {
+      for (final positional in registered) {
+        final maxCount = switch (positional) {
+          RepeatedPositional() => positional.maxCount,
+          RepeatedChoicePositional() => positional.maxCount,
+          _ => null,
+        };
+        if (maxCount != null) {
+          final collected = <String>[];
+          while (index < values.length &&
+              collected.length < maxCount &&
+              _matchesEntirely(positional.regex, values[index])) {
+            collected.add(values[index++]);
+          }
+          if (collected.isEmpty && isMandatory) {
+            throw MambaParseException(
+              'The ${positional.name} is required at $index after this command',
+            );
+          }
+          if (collected.isNotEmpty) {
+            parsed[positional.name] = collected;
+          }
+        } else if (index < values.length) {
+          if (!_matchesEntirely(positional.regex, values[index])) {
+            if (!isMandatory) {
+              throw ArgumentError(
+                'Invalid value for positional ${positional.name} at $index after the command',
+              );
+            }
+            throw MambaParseException(
+              'The ${positional.name} is required at $index after this command',
+            );
+          }
+          parsed[positional.name] = values[index++];
+        } else if (isMandatory) {
+          throw MambaParseException(
+            'The ${positional.name} is required at $index after this command',
+          );
+        }
       }
-      parsed[positional.name] = values[index++];
     }
-    for (final positional in discretionary) {
-      if (index >= values.length) break;
-      if (!_matchesEntirely(positional.regex, values[index])) {
-        throw ArgumentError(
-          'Invalid value for positional ${positional.name} at $index after the command',
-        );
-      }
-      parsed[positional.name] = values[index++];
-    }
+
+    fill(mandatory, isMandatory: true);
+    fill(discretionary, isMandatory: false);
     if (index != values.length) {
       throw MambaParseException(
         "This term isn't a registered command positional",

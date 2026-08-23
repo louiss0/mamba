@@ -35,7 +35,7 @@ class TestCommand extends Command {
 
   @override
   String run(
-    Map<String, String>? positionals,
+    ParsedPositionals positionals,
     ParsedNamedInputs input,
     List<String> trailingArguments,
   ) => '';

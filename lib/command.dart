@@ -40,10 +40,10 @@ final class NormalPositional extends Positional {
   final RegExp regExp;
 
   NormalPositional(
-    String name,
-    String? description, {
+    String name, {
+    String? description,
     RegExp? regExp,
-  }) : regExp = regExp ?? RegExp(r"\S+"),
+  }) : regExp = regExp ?? Positional.anyToken,
        super(name, description: description);
 
   @override
@@ -54,9 +54,9 @@ final class ChoicePositional<T extends Enum> extends Positional {
   final List<T> choices;
   final T? defaultValue;
   ChoicePositional(
-    String name,
+    String name, {
     String? description,
-    this.choices, {
+    required this.choices,
     this.defaultValue,
   }) : super(name, description: description);
 
@@ -67,23 +67,28 @@ final class ChoicePositional<T extends Enum> extends Positional {
 final class RepeatedPositional extends NormalPositional {
   final int maxCount;
   RepeatedPositional(
-    String name,
-    String? description, {
+    String name, {
+    String? description,
     RegExp? regExp,
     this.maxCount = 10,
-  }) : super(name, description, regExp: regExp);
+  }) : super(name, description: description, regExp: regExp);
 }
 
 final class RepeatedChoicePositional<T extends Enum>
     extends ChoicePositional<T> {
   final int maxCount;
   RepeatedChoicePositional(
-    String name,
+    String name, {
     String? description,
-    List<T> choices, {
+    required List<T> choices,
     T? defaultValue,
     this.maxCount = 10,
-  }) : super(name, description, choices, defaultValue: defaultValue);
+  }) : super(
+         name,
+         description: description,
+         choices: choices,
+         defaultValue: defaultValue,
+       );
 }
 
 /// A valueless named input registered in a command's flag collection.
@@ -573,8 +578,9 @@ typedef ParsedSingleOptions = ({
   Map<String, double>? doubleOptions,
 });
 
-/// Positional values keyed by their registered names, or `null` when absent.
-typedef ParsedPositionals = Map<String, String>?;
+/// Positional values keyed by their registered names: a `String` for single
+/// positionals or a `List<String>` for repeated ones, or `null` when absent.
+typedef ParsedPositionals = Map<String, dynamic>?;
 
 /// A declarative command definition and its executable behavior.
 ///
