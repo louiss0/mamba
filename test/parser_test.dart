@@ -170,22 +170,22 @@ void main() {
   });
 
   group('Repeated positionals alone', () {
-    test('collects every value of a mandatory repeated positional', () {
+    test('collects up to two values with the default maxCount of one', () {
       final inputs = parser(
         mandatoryPositionals: [RepeatedPositional('files')],
-      ).parse(['a.txt', 'b.txt', 'c.txt']).$2;
+      ).parse(['a.txt', 'b.txt']).$2;
 
       expect(inputs, {
-        'files': ['a.txt', 'b.txt', 'c.txt'],
+        'files': ['a.txt', 'b.txt'],
       });
     });
 
-    test('stops collecting a mandatory repeated positional at maxCount', () {
+    test('stops collecting a mandatory repeated positional after its repeats', () {
       final subject = parser(
         mandatoryPositionals: [RepeatedPositional('files', maxCount: 2)],
       );
 
-      expectParseError(subject, ['a.txt', 'b.txt', 'c.txt']);
+      expectParseError(subject, ['a.txt', 'b.txt', 'c.txt', 'd.txt']);
     });
 
     test('requires at least one value for a mandatory repeated positional', () {
@@ -234,10 +234,10 @@ void main() {
           RepeatedPositional('files', maxCount: 2),
           Positional('destination'),
         ],
-      ).parse(['a.txt', 'b.txt', 'out']).$2;
+      ).parse(['a.txt', 'b.txt', 'c.txt', 'out']).$2;
 
       expect(inputs, {
-        'files': ['a.txt', 'b.txt'],
+        'files': ['a.txt', 'b.txt', 'c.txt'],
         'destination': 'out',
       });
     });
@@ -272,7 +272,8 @@ void main() {
       expect(inputs, {
         'first': 'one',
         'second': 'two',
-        'files': ['a.txt', 'b.txt', 'c.txt'],
+        'files': ['a.txt', 'b.txt'],
+        'more': ['c.txt'],
       });
     });
 
@@ -283,11 +284,11 @@ void main() {
           RepeatedPositional('files', maxCount: 1),
           Positional('destination'),
         ],
-      ).parse(['in', 'a.txt', 'out']).$2;
+      ).parse(['in', 'a.txt', 'mid', 'out']).$2;
 
       expect(inputs, {
         'source': 'in',
-        'files': ['a.txt'],
+        'files': ['a.txt', 'mid'],
         'destination': 'out',
       });
     });
@@ -302,10 +303,10 @@ void main() {
           ),
           Positional('label'),
         ],
-      ).parse(['auto', 'always', 'final']).$2;
+      ).parse(['auto', 'always', 'small', 'final']).$2;
 
       expect(inputs, {
-        'modes': ['auto', 'always'],
+        'modes': ['auto', 'always', 'small'],
         'label': 'final',
       });
     });
@@ -317,8 +318,7 @@ void main() {
       ).parse(['a.txt', 'out']).$2;
 
       expect(inputs, {
-        'files': ['a.txt'],
-        'target': 'out',
+        'files': ['a.txt', 'out'],
       });
     });
 
@@ -355,10 +355,10 @@ void main() {
           RepeatedPositional('files', maxCount: 2),
           Positional('target'),
         ],
-      ).parse(['f0', 'f1', 'out']).$2;
+      ).parse(['f0', 'f1', 'f2', 'out']).$2;
 
       expect(inputs, {
-        'files': ['f0', 'f1'],
+        'files': ['f0', 'f1', 'f2'],
         'target': 'out',
       });
     });
@@ -370,11 +370,11 @@ void main() {
           RepeatedPositional('files', maxCount: 3),
           Positional('target'),
         ],
-      ).parse(['in', 'f0', 'f1', 'f2', 'out']).$2;
+      ).parse(['in', 'f0', 'f1', 'f2', 'f3', 'out']).$2;
 
       expect(inputs, {
         'source': 'in',
-        'files': ['f0', 'f1', 'f2'],
+        'files': ['f0', 'f1', 'f2', 'f3'],
         'target': 'out',
       });
     });
@@ -401,10 +401,10 @@ void main() {
           RepeatedPositional('files', maxCount: 12),
           Positional('target'),
         ],
-      ).parse([...List.generate(12, (index) => 'f$index'), 'out']).$2;
+      ).parse([...List.generate(13, (index) => 'f$index'), 'out']).$2;
 
       expect(inputs, {
-        'files': List.generate(12, (index) => 'f$index'),
+        'files': List.generate(13, (index) => 'f$index'),
         'target': 'out',
       });
     });
@@ -416,11 +416,11 @@ void main() {
           RepeatedPositional('files', maxCount: 7),
           Positional('target'),
         ],
-      ).parse(['in', ...List.generate(7, (index) => 'f$index'), 'out']).$2;
+      ).parse(['in', ...List.generate(8, (index) => 'f$index'), 'out']).$2;
 
       expect(inputs, {
         'source': 'in',
-        'files': List.generate(7, (index) => 'f$index'),
+        'files': List.generate(8, (index) => 'f$index'),
         'target': 'out',
       });
     });
@@ -447,11 +447,11 @@ void main() {
         final inputs = parser(
           mandatoryPositionals: [RepeatedPositional('kept', maxCount: 4)],
           discretionaryPositionals: [RepeatedPositional('extra', maxCount: 8)],
-        ).parse(List.generate(9, (index) => 'v$index')).$2;
+        ).parse(List.generate(10, (index) => 'v$index')).$2;
 
         expect(inputs, {
-          'kept': ['v0', 'v1', 'v2', 'v3'],
-          'extra': ['v4', 'v5', 'v6', 'v7', 'v8'],
+          'kept': ['v0', 'v1', 'v2', 'v3', 'v4'],
+          'extra': ['v5', 'v6', 'v7', 'v8', 'v9'],
         });
       },
     );
@@ -466,11 +466,22 @@ void main() {
           Positional('target'),
           RepeatedPositional('more', maxCount: 6),
         ],
-      ).parse(['in', 'k0', 'k1', 'k2', 'out', 'm0', 'm1', 'm2', 'm3']).$2;
+      ).parse([
+        'in',
+        'k0',
+        'k1',
+        'k2',
+        'k3',
+        'out',
+        'm0',
+        'm1',
+        'm2',
+        'm3',
+      ]).$2;
 
       expect(inputs, {
         'source': 'in',
-        'kept': ['k0', 'k1', 'k2'],
+        'kept': ['k0', 'k1', 'k2', 'k3'],
         'target': 'out',
         'more': ['m0', 'm1', 'm2', 'm3'],
       });
@@ -482,10 +493,10 @@ void main() {
         final inputs = parser(
           mandatoryPositionals: [RepeatedPositional('kept', maxCount: 3)],
           discretionaryPositionals: [RepeatedPositional('extra', maxCount: 12)],
-        ).parse(['k0', 'k1', 'k2', 'e0', 'e1']).$2;
+        ).parse(['k0', 'k1', 'k2', 'k3', 'e0', 'e1']).$2;
 
         expect(inputs, {
-          'kept': ['k0', 'k1', 'k2'],
+          'kept': ['k0', 'k1', 'k2', 'k3'],
           'extra': ['e0', 'e1'],
         });
       },

@@ -59,24 +59,28 @@ final class ChoicePositional<T extends Enum> extends Positional {
 }
 
 final class RepeatedPositional extends NormalPositional {
+  /// Maximum number of repetitions; accepts one value per repetition plus the
+  /// original, so the default of 1 collects up to two values.
   final int maxCount;
   RepeatedPositional(
     String name, {
     String? description,
     RegExp? regExp,
-    this.maxCount = 10,
+    this.maxCount = 1,
   }) : super(name, description: description, regExp: regExp);
 }
 
 final class RepeatedChoicePositional<T extends Enum>
     extends ChoicePositional<T> {
+  /// Maximum number of repetitions; accepts one value per repetition plus the
+  /// original, so the default of 1 collects up to two values.
   final int maxCount;
   RepeatedChoicePositional(
     String name, {
     String? description,
     required List<T> choices,
     T? defaultValue,
-    this.maxCount = 10,
+    this.maxCount = 1,
   }) : super(
          name,
          description: description,

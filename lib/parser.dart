@@ -791,7 +791,8 @@ class Parser {
     var index = 0;
 
     // Values are consumed strictly in registration order, so a repeated
-    // positional greedily takes up to its maxCount before later positionals
+    // positional greedily takes up to maxCount + 1 values before later
+    // positionals
     // are filled.
     void fill(List<Positional> registered, {required bool isMandatory}) {
       for (final positional in registered) {
@@ -800,10 +801,12 @@ class Parser {
           RepeatedChoicePositional() => positional.maxCount,
           _ => null,
         };
+        // A repeated positional accepts one value per repetition plus the
+        // original, so a maxCount of 1 collects up to two values.
         if (maxCount != null) {
           final collected = <String>[];
           while (index < values.length &&
-              collected.length < maxCount &&
+              collected.length <= maxCount &&
               _matchesEntirely(positional.regex, values[index])) {
             collected.add(values[index++]);
           }
