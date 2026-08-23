@@ -100,7 +100,8 @@ assigns positional tokens in declaration order. Each expression must match the
 whole token. Missing mandatory values, invalid discretionary values, and extra
 values are errors. Values are returned by name in `ParsedPositionals`, a record
 with a `singles` map for `Positional` values and a `repeated` map holding the
-collected lists of `RepeatedPositional` and `RepeatedChoicePositional`.
+collected lists of `RepeatedStringPositional` and `RepeatedChoicePositional`,
+the two concrete `RepeatedPositional` kinds.
 
 **Help.** Mandatory names appear as red `< name >`; discretionary names appear
 as dim `[ name ]` in the usage line.

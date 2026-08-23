@@ -58,35 +58,51 @@ final class ChoicePositional<T extends Enum> extends Positional {
   RegExp get regex => Positional.anyToken;
 }
 
-final class RepeatedPositional extends NormalPositional {
+/// A positional that collects several tokens, one per repetition plus the
+/// original.
+///
+/// The maximum number of repetitions defaults to 1, so a repeated positional
+/// accepts up to two values unless raised. The parser gathers its values into
+/// the `repeated` map of [ParsedPositionals].
+sealed class RepeatedPositional extends Positional {
   /// Maximum number of repetitions; accepts one value per repetition plus the
   /// original, so the default of 1 collects up to two values.
   final int maxCount;
-  RepeatedPositional(
+
+  RepeatedPositional(String name, {String? description, this.maxCount = 1})
+    : super(name, description: description);
+}
+
+final class RepeatedStringPositional extends RepeatedPositional {
+  final RegExp regExp;
+
+  RepeatedStringPositional(
     String name, {
     String? description,
     RegExp? regExp,
-    this.maxCount = 1,
-  }) : super(name, description: description, regExp: regExp);
+    super.maxCount = 1,
+  }) : regExp = regExp ?? Positional.anyToken,
+       super(name, description: description);
+
+  @override
+  RegExp get regex => regExp;
 }
 
 final class RepeatedChoicePositional<T extends Enum>
-    extends ChoicePositional<T> {
-  /// Maximum number of repetitions; accepts one value per repetition plus the
-  /// original, so the default of 1 collects up to two values.
-  final int maxCount;
+    extends RepeatedPositional {
+  final List<T> choices;
+  final T? defaultValue;
+
   RepeatedChoicePositional(
     String name, {
     String? description,
-    required List<T> choices,
-    T? defaultValue,
-    this.maxCount = 1,
-  }) : super(
-         name,
-         description: description,
-         choices: choices,
-         defaultValue: defaultValue,
-       );
+    required this.choices,
+    this.defaultValue,
+    super.maxCount = 1,
+  }) : super(name, description: description);
+
+  @override
+  RegExp get regex => Positional.anyToken;
 }
 
 /// A valueless named input registered in a command's flag collection.

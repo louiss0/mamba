@@ -799,7 +799,6 @@ class Parser {
       for (final positional in registered) {
         final maxCount = switch (positional) {
           RepeatedPositional() => positional.maxCount,
-          RepeatedChoicePositional() => positional.maxCount,
           _ => null,
         };
         // A repeated positional accepts one value per repetition plus the
