@@ -9,7 +9,7 @@ import 'package:mamba/errors.dart';
 /// Every input has a long name and an optional human-readable description used
 /// by help formatters.
 sealed class NamedInput {
-  const NamedInput({required this.name, required this.description});
+  const NamedInput(this.name, this.description);
 
   final String name;
   final String? description;
@@ -21,11 +21,69 @@ sealed class NamedInput {
 /// parser stores its complete-token match in [ParsedPositionals], and help
 /// renders it as required or optional usage respectively.
 class Positional extends NamedInput {
-  Positional(String name, {super.description, RegExp? regex})
-    : regex = regex ?? RegExp(r'\S+'),
-      super(name: name);
+  static final RegExp anyToken = RegExp(r"\S+");
 
-  final RegExp regex;
+  Positional(
+    String name, {
+    String? description,
+    RegExp? regex,
+  }) : _regExp = regex ?? anyToken,
+       super(name, description);
+
+  final RegExp _regExp;
+
+  /// Pattern every supplied token must match entirely.
+  RegExp get regex => _regExp;
+}
+
+final class NormalPositional extends Positional {
+  final RegExp regExp;
+
+  NormalPositional(
+    String name,
+    String? description, {
+    RegExp? regExp,
+  }) : regExp = regExp ?? RegExp(r"\S+"),
+       super(name, description: description);
+
+  @override
+  RegExp get regex => regExp;
+}
+
+final class ChoicePositional<T extends Enum> extends Positional {
+  final List<T> choices;
+  final T? defaultValue;
+  ChoicePositional(
+    String name,
+    String? description,
+    this.choices, {
+    this.defaultValue,
+  }) : super(name, description: description);
+
+  @override
+  RegExp get regex => Positional.anyToken;
+}
+
+final class RepeatedPositional extends NormalPositional {
+  final int maxCount;
+  RepeatedPositional(
+    String name,
+    String? description, {
+    RegExp? regExp,
+    this.maxCount = 10,
+  }) : super(name, description, regExp: regExp);
+}
+
+final class RepeatedChoicePositional<T extends Enum>
+    extends ChoicePositional<T> {
+  final int maxCount;
+  RepeatedChoicePositional(
+    String name,
+    String? description,
+    List<T> choices, {
+    T? defaultValue,
+    this.maxCount = 10,
+  }) : super(name, description, choices, defaultValue: defaultValue);
 }
 
 /// A valueless named input registered in a command's flag collection.
@@ -33,12 +91,12 @@ class Positional extends NamedInput {
 /// Flags have optional one-letter aliases. Hidden flags remain parseable but
 /// are omitted from the Flags help section.
 sealed class Flag extends NamedInput {
-  const Flag({
+  const Flag(
+    String name,
+    String? description, {
     required this.short,
-    required super.name,
-    required super.description,
     this.hidden = false,
-  });
+  }) : super(name, description);
 
   final String? short;
   final bool hidden;
@@ -51,12 +109,12 @@ sealed class Flag extends NamedInput {
 final class BooleanFlag extends Flag {
   BooleanFlag({
     super.short,
-    required super.name,
-    super.description,
+    required String name,
+    String? description,
     super.hidden,
     this.defaultValue = false,
     this.negatable = false,
-  });
+  }) : super(name, description);
 
   final bool defaultValue;
   final bool negatable;
@@ -69,10 +127,10 @@ final class BooleanFlag extends Flag {
 final class CountFlag extends Flag {
   const CountFlag({
     super.short,
-    required super.name,
-    super.description,
+    required String name,
+    String? description,
     super.hidden,
-  });
+  }) : super(name, description);
 }
 
 /// A value-taking input registered in a command's option collection.
@@ -80,13 +138,13 @@ final class CountFlag extends Flag {
 /// Options accept long and optional short forms. Required options must be
 /// supplied; hidden options are not rendered in the Options help section.
 sealed class Option extends NamedInput {
-  const Option({
+  const Option(
+    String name,
+    String? description, {
     required this.short,
-    required super.name,
-    required super.description,
     this.required = false,
     this.hidden = false,
-  });
+  }) : super(name, description);
 
   final String? short;
   final bool required;
@@ -100,13 +158,14 @@ sealed class Option extends NamedInput {
 /// help joins the members with ` & ` or ` | ` respectively.
 sealed class PairedOption extends Option {
   PairedOption({
+    required String name,
+    String? description,
     required List<PairOption> options,
     required super.short,
-    required super.name,
-    required super.description,
     super.required,
     this.variant = false,
-  }) : options = List.unmodifiable(options);
+  }) : options = List.unmodifiable(options),
+       super(name, description);
 
   final List<PairOption> options;
   final bool variant;
@@ -116,10 +175,10 @@ sealed class PairedOption extends Option {
 final class PairedStringOption extends PairedOption {
   PairedStringOption({
     required super.name,
+    super.description,
     required super.options,
     RegExp? regex,
     super.short,
-    super.description,
     super.required = false,
     super.variant,
   }) : regex = regex ?? RegExp(r'\S+');
@@ -131,9 +190,9 @@ final class PairedStringOption extends PairedOption {
 final class PairedIntOption extends PairedOption {
   PairedIntOption({
     required super.name,
+    super.description,
     required super.options,
     super.short,
-    super.description,
     super.required,
     super.variant,
   });
@@ -143,9 +202,9 @@ final class PairedIntOption extends PairedOption {
 final class PairedDoubleOption extends PairedOption {
   PairedDoubleOption({
     required super.name,
+    super.description,
     required super.options,
     super.short,
-    super.description,
     super.required,
     super.variant,
   });
@@ -154,12 +213,12 @@ final class PairedDoubleOption extends PairedOption {
 /// An enum-choice primary in a paired option registration.
 final class PairedChoiceOption<T extends Enum> extends PairedOption {
   PairedChoiceOption({
+    required super.name,
+    super.description,
     required this.choices,
     required super.options,
     this.defaultValue,
-    required super.name,
     super.short,
-    super.description,
     super.required,
     super.variant,
   });
@@ -172,9 +231,9 @@ final class PairedChoiceOption<T extends Enum> extends PairedOption {
 sealed class RepeatablePairedOption extends PairedOption {
   RepeatablePairedOption({
     required super.name,
+    super.description,
     required super.options,
     super.short,
-    super.description,
     super.required = false,
     super.variant = false,
   });
@@ -184,10 +243,10 @@ sealed class RepeatablePairedOption extends PairedOption {
 final class RepeatablePairedStringOption extends RepeatablePairedOption {
   RepeatablePairedStringOption({
     required super.name,
+    super.description,
     required super.options,
     RegExp? regex,
     super.short,
-    super.description,
     super.required = false,
     super.variant = false,
   }) : regex = regex ?? RegExp(r'\S+');
@@ -199,9 +258,9 @@ final class RepeatablePairedStringOption extends RepeatablePairedOption {
 final class RepeatablePairedIntOption extends RepeatablePairedOption {
   RepeatablePairedIntOption({
     required super.name,
+    super.description,
     required super.options,
     super.short,
-    super.description,
     super.required,
     super.variant,
   });
@@ -211,9 +270,9 @@ final class RepeatablePairedIntOption extends RepeatablePairedOption {
 final class RepeatablePairedDoubleOption extends RepeatablePairedOption {
   RepeatablePairedDoubleOption({
     required super.name,
+    super.description,
     required super.options,
     super.short,
-    super.description,
     super.required,
     super.variant,
   });
@@ -227,19 +286,21 @@ final class RepeatablePairedDoubleOption extends RepeatablePairedOption {
 sealed class PairOption extends NamedInput {
   final String? short;
   const PairOption({
+    required String name,
+    String? description,
     required this.short,
-    required super.name,
-    required super.description,
-  });
+  }) : super(name, description);
 }
+
+/// A regex-validated string companion in a paired option registration.
 
 /// A regex-validated string companion in a paired option registration.
 final class PairStringOption extends PairOption {
   PairStringOption({
     required super.name,
+    super.description,
     RegExp? regex,
     super.short,
-    super.description,
   }) : regex = regex ?? RegExp(r'\S+');
 
   final RegExp regex;
@@ -311,12 +372,12 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption {
 /// A non-repeatable option that stores one typed value by name.
 sealed class SingleOption extends Option {
   const SingleOption({
+    required String name,
+    required String? description,
     required super.short,
-    required super.name,
-    required super.description,
     super.required,
     super.hidden,
-  });
+  }) : super(name, description);
 }
 
 /// A single string option validated by [regex].
@@ -377,12 +438,12 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
 /// An option that accumulates every supplied value into a typed list.
 sealed class RepeatableOption extends Option {
   const RepeatableOption({
-    required super.name,
+    required String name,
     required super.required,
     super.short,
-    super.description,
+    String? description,
     super.hidden,
-  });
+  }) : super(name, description);
 }
 
 /// A repeatable string option validated by [regex].
@@ -427,7 +488,8 @@ final class RepeatableDoubleOption extends RepeatableOption {
 /// `accessors` map of [ParsedNamedInputs]. Visible leaves appear in Accessor
 /// flags help.
 sealed class AccessorOption extends NamedInput {
-  const AccessorOption({required super.name, super.description});
+  const AccessorOption({required String name, String? description})
+    : super(name, description);
 }
 
 /// A value-taking leaf in an accessor registration tree.
