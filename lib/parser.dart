@@ -25,7 +25,7 @@ class Parser {
   /// groups, or positional layout do not satisfy the registry.
   (
     List<String> command,
-    Map<String, dynamic>? positionals,
+    ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
   )
@@ -778,7 +778,7 @@ class Parser {
     // coverage:ignore-end
   };
 
-  Map<String, dynamic>? _parsePositionals(
+  ParsedPositionals _parsePositionals(
     CommandRegistry registry,
     List<String> values,
   ) {
@@ -787,7 +787,8 @@ class Parser {
     final discretionary =
         registry.discretionaryPositionals?.values.toList() ??
         const <Positional>[];
-    final parsed = <String, dynamic>{};
+    final singles = <String, String>{};
+    final repeated = <String, List<String>>{};
     var index = 0;
 
     // Values are consumed strictly in registration order, so a repeated
@@ -816,7 +817,7 @@ class Parser {
             );
           }
           if (collected.isNotEmpty) {
-            parsed[positional.name] = collected;
+            repeated[positional.name] = collected;
           }
         } else if (index < values.length) {
           if (!_matchesEntirely(positional.regex, values[index])) {
@@ -829,7 +830,7 @@ class Parser {
               'The ${positional.name} is required at $index after this command',
             );
           }
-          parsed[positional.name] = values[index++];
+          singles[positional.name] = values[index++];
         } else if (isMandatory) {
           throw MambaParseException(
             'The ${positional.name} is required at $index after this command',
@@ -845,7 +846,10 @@ class Parser {
         "This term isn't a registered command positional",
       );
     }
-    return parsed.isEmpty ? null : parsed;
+    return (
+      singles: singles.isEmpty ? null : singles,
+      repeated: repeated.isEmpty ? null : repeated,
+    );
   }
 
   bool _isAccessor(String path, CommandRegistry registry) =>

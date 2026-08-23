@@ -26,17 +26,22 @@ class TestGroupCommand extends GroupCommand {
   FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
   ) {
-    return runChildCommand(commandPath, null, (
-      accessors: null,
-      boolFlags: null,
-      countFlags: null,
-      doubleOptions: null,
-      intOptions: null,
-      repeatedDoubleOptions: null,
-      repeatedIntOptions: null,
-      repeatedStringOptions: null,
-      stringOptions: null,
-    ), []);
+    return runChildCommand(
+      commandPath,
+      (singles: null, repeated: null),
+      (
+        accessors: null,
+        boolFlags: null,
+        countFlags: null,
+        doubleOptions: null,
+        intOptions: null,
+        repeatedDoubleOptions: null,
+        repeatedIntOptions: null,
+        repeatedStringOptions: null,
+        stringOptions: null,
+      ),
+      [],
+    );
   }
 }
 
@@ -70,6 +75,7 @@ void main() {
     stringOptions: null,
   );
   registerFallbackValue(emptyInputs);
+  registerFallbackValue((singles: null, repeated: null));
 
   group("GroupCommand", () {
     final stashPush = TestCommand("push");
@@ -112,7 +118,7 @@ void main() {
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
-      await git.run(null, emptyInputs, []);
+      await git.run((singles: null, repeated: null), emptyInputs, []);
 
       verify(() => stashPop.run(any(), any(), any())).called(1);
     });
@@ -154,7 +160,14 @@ void main() {
     });
 
     test('returns empty output when no default child is configured', () async {
-      expect(await groupCommand.run(null, emptyInputs, []), isEmpty);
+      expect(
+        await groupCommand.run(
+          (singles: null, repeated: null),
+          emptyInputs,
+          [],
+        ),
+        isEmpty,
+      );
     });
 
     test('rejects empty segments in default paths', () {

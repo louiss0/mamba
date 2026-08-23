@@ -575,9 +575,14 @@ typedef ParsedSingleOptions = ({
   Map<String, double>? doubleOptions,
 });
 
-/// Positional values keyed by their registered names: a `String` for single
-/// positionals or a `List<String>` for repeated ones, or `null` when absent.
-typedef ParsedPositionals = Map<String, dynamic>?;
+/// Positional values keyed by their registered name and split by kind:
+/// single positionals hold one string while repeated positionals hold every
+/// collected value. Each map is `null` when no such positional is registered
+/// or supplied.
+typedef ParsedPositionals = ({
+  Map<String, String>? singles,
+  Map<String, List<String>>? repeated,
+});
 
 /// A declarative command definition and its executable behavior.
 ///

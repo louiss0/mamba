@@ -165,7 +165,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     HookRunner? hookRunner;
     var persistentHookRunners = const Iterable<PersistentHookRunner>.empty();
     MambaReadContext? context;
-    ParsedPositionals? parsedPositionals;
+    ParsedPositionals parsedPositionals = (singles: null, repeated: null);
     late ParsedSingleOptions options;
     try {
       if (_registry.requestsHelp(args)) {

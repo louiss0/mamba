@@ -108,7 +108,10 @@ void main() {
       expect(inputs.accessors, {
         'server': {'port': 8080, 'timeout': 2.5},
       });
-      expect(result.$2, {'source': 'input.txt', 'target': 'output.txt'});
+      expect(result.$2.singles, {
+        'source': 'input.txt',
+        'target': 'output.txt',
+      });
     });
 
     test('returns nullable maps according to registered content', () {
@@ -124,7 +127,8 @@ void main() {
       expect(inputs.repeatedIntOptions, isNull);
       expect(inputs.repeatedDoubleOptions, isNull);
       expect(inputs.accessors, isNull);
-      expect(result.$2, isNull);
+      expect(result.$2.singles, isNull);
+      expect(result.$2.repeated, isNull);
     });
 
     test('returns choice options in the string option map', () {
@@ -153,7 +157,8 @@ void main() {
     test('collects arguments after -- separately from inputs', () {
       final result = parser().parse(['--', '--unknown', '-x']);
 
-      expect(result.$2, isNull);
+      expect(result.$2.singles, isNull);
+      expect(result.$2.repeated, isNull);
       expect(result.$1, isEmpty);
       expect(result.$3.accessors, isNull);
       expect(result.$4, ['--unknown', '-x']);
@@ -164,7 +169,7 @@ void main() {
         mandatoryPositionals: [Positional('source')],
       ).parse(['source', '--', '--unknown', 'extra']);
 
-      expect(result.$2, {'source': 'source'});
+      expect(result.$2.singles, {'source': 'source'});
       expect(result.$4, ['--unknown', 'extra']);
     });
   });
@@ -175,18 +180,22 @@ void main() {
         mandatoryPositionals: [RepeatedPositional('files')],
       ).parse(['a.txt', 'b.txt']).$2;
 
-      expect(inputs, {
+      expect(inputs.singles, isNull);
+      expect(inputs.repeated, {
         'files': ['a.txt', 'b.txt'],
       });
     });
 
-    test('stops collecting a mandatory repeated positional after its repeats', () {
-      final subject = parser(
-        mandatoryPositionals: [RepeatedPositional('files', maxCount: 2)],
-      );
+    test(
+      'stops collecting a mandatory repeated positional after its repeats',
+      () {
+        final subject = parser(
+          mandatoryPositionals: [RepeatedPositional('files', maxCount: 2)],
+        );
 
-      expectParseError(subject, ['a.txt', 'b.txt', 'c.txt', 'd.txt']);
-    });
+        expectParseError(subject, ['a.txt', 'b.txt', 'c.txt', 'd.txt']);
+      },
+    );
 
     test('requires at least one value for a mandatory repeated positional', () {
       expectParseError(
@@ -202,7 +211,7 @@ void main() {
           discretionaryPositionals: [RepeatedPositional('files')],
         ).parse(['a.txt', 'b.txt']).$2;
 
-        expect(inputs, {
+        expect(inputs.repeated, {
           'files': ['a.txt', 'b.txt'],
         });
       },
@@ -213,7 +222,8 @@ void main() {
         discretionaryPositionals: [RepeatedPositional('files')],
       ).parse([]).$2;
 
-      expect(inputs, isNull);
+      expect(inputs.singles, isNull);
+      expect(inputs.repeated, isNull);
     });
 
     test('rejects values that do not match the repeated positional regex', () {
@@ -236,9 +246,9 @@ void main() {
         ],
       ).parse(['a.txt', 'b.txt', 'c.txt', 'out']).$2;
 
-      expect(inputs, {
+      expect(inputs.singles, {'destination': 'out'});
+      expect(inputs.repeated, {
         'files': ['a.txt', 'b.txt', 'c.txt'],
-        'destination': 'out',
       });
     });
 
@@ -252,8 +262,8 @@ void main() {
           ],
         ).parse(['in', 'a.txt', 'b.txt']).$2;
 
-        expect(inputs, {
-          'source': 'in',
+        expect(inputs.singles, {'source': 'in'});
+        expect(inputs.repeated, {
           'files': ['a.txt', 'b.txt'],
         });
       },
@@ -269,9 +279,8 @@ void main() {
         discretionaryPositionals: [RepeatedPositional('more')],
       ).parse(['one', 'two', 'a.txt', 'b.txt', 'c.txt']).$2;
 
-      expect(inputs, {
-        'first': 'one',
-        'second': 'two',
+      expect(inputs.singles, {'first': 'one', 'second': 'two'});
+      expect(inputs.repeated, {
         'files': ['a.txt', 'b.txt'],
         'more': ['c.txt'],
       });
@@ -286,10 +295,9 @@ void main() {
         ],
       ).parse(['in', 'a.txt', 'mid', 'out']).$2;
 
-      expect(inputs, {
-        'source': 'in',
+      expect(inputs.singles, {'source': 'in', 'destination': 'out'});
+      expect(inputs.repeated, {
         'files': ['a.txt', 'mid'],
-        'destination': 'out',
       });
     });
 
@@ -305,9 +313,9 @@ void main() {
         ],
       ).parse(['auto', 'always', 'small', 'final']).$2;
 
-      expect(inputs, {
+      expect(inputs.singles, {'label': 'final'});
+      expect(inputs.repeated, {
         'modes': ['auto', 'always', 'small'],
-        'label': 'final',
       });
     });
 
@@ -317,7 +325,8 @@ void main() {
         mandatoryPositionals: [RepeatedPositional('files', maxCount: 1)],
       ).parse(['a.txt', 'out']).$2;
 
-      expect(inputs, {
+      expect(inputs.singles, isNull);
+      expect(inputs.repeated, {
         'files': ['a.txt', 'out'],
       });
     });
@@ -330,7 +339,8 @@ void main() {
           discretionaryPositionals: [Positional('target')],
         ).parse(['a.txt', 'b.txt']).$2;
 
-        expect(inputs, {
+        expect(inputs.singles, isNull);
+        expect(inputs.repeated, {
           'files': ['a.txt', 'b.txt'],
         });
       },
@@ -357,9 +367,9 @@ void main() {
         ],
       ).parse(['f0', 'f1', 'f2', 'out']).$2;
 
-      expect(inputs, {
+      expect(inputs.singles, {'target': 'out'});
+      expect(inputs.repeated, {
         'files': ['f0', 'f1', 'f2'],
-        'target': 'out',
       });
     });
 
@@ -372,10 +382,9 @@ void main() {
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3', 'out']).$2;
 
-      expect(inputs, {
-        'source': 'in',
+      expect(inputs.singles, {'source': 'in', 'target': 'out'});
+      expect(inputs.repeated, {
         'files': ['f0', 'f1', 'f2', 'f3'],
-        'target': 'out',
       });
     });
 
@@ -387,8 +396,8 @@ void main() {
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3']).$2;
 
-      expect(inputs, {
-        'source': 'in',
+      expect(inputs.singles, {'source': 'in'});
+      expect(inputs.repeated, {
         'files': ['f0', 'f1', 'f2', 'f3'],
       });
     });
@@ -403,9 +412,9 @@ void main() {
         ],
       ).parse([...List.generate(13, (index) => 'f$index'), 'out']).$2;
 
-      expect(inputs, {
+      expect(inputs.singles, {'target': 'out'});
+      expect(inputs.repeated, {
         'files': List.generate(13, (index) => 'f$index'),
-        'target': 'out',
       });
     });
 
@@ -418,10 +427,9 @@ void main() {
         ],
       ).parse(['in', ...List.generate(8, (index) => 'f$index'), 'out']).$2;
 
-      expect(inputs, {
-        'source': 'in',
+      expect(inputs.singles, {'source': 'in', 'target': 'out'});
+      expect(inputs.repeated, {
         'files': List.generate(8, (index) => 'f$index'),
-        'target': 'out',
       });
     });
 
@@ -433,8 +441,8 @@ void main() {
         ],
       ).parse(['in', ...List.generate(5, (index) => 'f$index')]).$2;
 
-      expect(inputs, {
-        'source': 'in',
+      expect(inputs.singles, {'source': 'in'});
+      expect(inputs.repeated, {
         'files': List.generate(5, (index) => 'f$index'),
       });
     });
@@ -449,7 +457,8 @@ void main() {
           discretionaryPositionals: [RepeatedPositional('extra', maxCount: 8)],
         ).parse(List.generate(10, (index) => 'v$index')).$2;
 
-        expect(inputs, {
+        expect(inputs.singles, isNull);
+        expect(inputs.repeated, {
           'kept': ['v0', 'v1', 'v2', 'v3', 'v4'],
           'extra': ['v5', 'v6', 'v7', 'v8', 'v9'],
         });
@@ -466,23 +475,11 @@ void main() {
           Positional('target'),
           RepeatedPositional('more', maxCount: 6),
         ],
-      ).parse([
-        'in',
-        'k0',
-        'k1',
-        'k2',
-        'k3',
-        'out',
-        'm0',
-        'm1',
-        'm2',
-        'm3',
-      ]).$2;
+      ).parse(['in', 'k0', 'k1', 'k2', 'k3', 'out', 'm0', 'm1', 'm2', 'm3']).$2;
 
-      expect(inputs, {
-        'source': 'in',
+      expect(inputs.singles, {'source': 'in', 'target': 'out'});
+      expect(inputs.repeated, {
         'kept': ['k0', 'k1', 'k2', 'k3'],
-        'target': 'out',
         'more': ['m0', 'm1', 'm2', 'm3'],
       });
     });
@@ -495,7 +492,8 @@ void main() {
           discretionaryPositionals: [RepeatedPositional('extra', maxCount: 12)],
         ).parse(['k0', 'k1', 'k2', 'k3', 'e0', 'e1']).$2;
 
-        expect(inputs, {
+        expect(inputs.singles, isNull);
+        expect(inputs.repeated, {
           'kept': ['k0', 'k1', 'k2', 'k3'],
           'extra': ['e0', 'e1'],
         });
