@@ -9,29 +9,36 @@ enum VariantChoice { one }
 
 enum DeploymentFormat { yaml, json }
 
-Map<String, dynamic> buildRegistryExpectation(
+/// Metadata describing one expected registry level.
+typedef RegistryMetadata = ({
   String name,
-  String description, {
+  String description,
   List<String>? aliases,
   Map<String, dynamic>? flags,
   Map<String, dynamic>? options,
   Map<String, dynamic>? positionals,
   Map<String, dynamic>? accessors,
-  Map<String, dynamic>? commands,
-}) => {
-  'name': name,
-  'description': description,
-  ...?(aliases == null ? null : {'aliases': aliases}),
-  ...?(flags == null ? null : {'flags': flags}),
-  ...?(options == null ? null : {'options': options}),
-  ...?(positionals == null ? null : {'positionals': positionals}),
-  ...?(accessors == null ? null : {'accessors': accessors}),
-  ...?(commands == null ? null : {'commands': _addCommandNames(commands)}),
-};
+});
 
-Map<String, dynamic> _addCommandNames(Map<String, dynamic> commands) => {
-  for (final entry in commands.entries)
-    entry.key: _addCommandName(entry.key, entry.value as Map<String, dynamic>),
+/// Builds the expected map for a registry level from its [metadata] and an
+/// optional [commands] map whose values are recursive
+/// [buildRegistryExpectation] results.
+Map<String, dynamic> buildRegistryExpectation(
+  RegistryMetadata metadata, {
+  Map<String, Map<String, dynamic>>? commands,
+}) => {
+  'name': metadata.name,
+  'description': metadata.description,
+  if (metadata.aliases case final aliases?) 'aliases': aliases,
+  if (metadata.flags case final flags?) 'flags': flags,
+  if (metadata.options case final options?) 'options': options,
+  if (metadata.positionals case final positionals?) 'positionals': positionals,
+  if (metadata.accessors case final accessors?) 'accessors': accessors,
+  if (commands != null)
+    'commands': {
+      for (final entry in commands.entries)
+        entry.key: _addCommandName(entry.key, entry.value),
+    },
 };
 
 Map<String, dynamic> _addCommandName(
@@ -42,6 +49,11 @@ Map<String, dynamic> _addCommandName(
   'name': name,
   if (command['commands'] case final nestedCommands?)
     'commands': _addCommandNames(nestedCommands as Map<String, dynamic>),
+};
+
+Map<String, dynamic> _addCommandNames(Map<String, dynamic> commands) => {
+  for (final entry in commands.entries)
+    entry.key: _addCommandName(entry.key, entry.value as Map<String, dynamic>),
 };
 
 void main() {
@@ -73,9 +85,10 @@ void main() {
         expect(
           registry.toMap(),
           equals(
-            buildRegistryExpectation(
-              'tool',
-              'Tool command.',
+            buildRegistryExpectation((
+              name: 'tool',
+              description: 'Tool command.',
+
               flags: {
                 'color': {
                   'short': null,
@@ -86,6 +99,7 @@ void main() {
                 },
                 'verbose': {'hidden': false, "description": null},
               },
+
               options: {
                 'name': {
                   'short': null,
@@ -101,10 +115,12 @@ void main() {
                   'repeatable': true,
                 },
               },
+
               positionals: {
                 'source': {'required': true, "description": null},
                 'target': {'required': false, "description": null},
               },
+
               accessors: {
                 'user': {
                   'description': null,
@@ -113,7 +129,8 @@ void main() {
                   },
                 },
               },
-            ),
+              aliases: null,
+            )),
           ),
         );
       });
@@ -130,10 +147,16 @@ void main() {
           expect(
             registry.toMap(),
             equals(
-              buildRegistryExpectation(
-                'tool',
-                'Tool command.\n\nThis is a tool meant to be used to make ',
-              ),
+              buildRegistryExpectation((
+                name: 'tool',
+                description:
+                    'Tool command.\n\nThis is a tool meant to be used to make ',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+              )),
             ),
           );
         },
@@ -175,8 +198,17 @@ void main() {
             registry.toMap(),
             equals(
               buildRegistryExpectation(
-                'git',
-                'Save snapshots of your code and be able to send them anywhere',
+                (
+                  name: 'git',
+                  description:
+                      'Save snapshots of your code and be able to send them anywhere',
+                  aliases: null,
+                  flags: null,
+                  options: null,
+                  positionals: null,
+                  accessors: null,
+                ),
+
                 commands: {
                   'add': {'description': 'Add a file to the staging area'},
                   'commit': {'description': 'Take a snapshot of your code'},
@@ -232,8 +264,16 @@ void main() {
           registry.toMap(),
           equals(
             buildRegistryExpectation(
-              'tool',
-              'Tool command.',
+              (
+                name: 'tool',
+                description: 'Tool command.',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+              ),
+
               commands: {
                 'sub': {'description': 'Sub command.'},
                 'one': {
@@ -333,8 +373,16 @@ void main() {
           map,
           equals(
             buildRegistryExpectation(
-              'git',
-              'Create a new Git repository.',
+              (
+                name: 'git',
+                description: 'Create a new Git repository.',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+              ),
+
               commands: {
                 'config': {
                   'description': 'Configure Git.',
@@ -396,9 +444,10 @@ void main() {
         expect(
           registry.toMap(),
           equals(
-            buildRegistryExpectation(
-              'curl',
-              'Do HTTP Requests',
+            buildRegistryExpectation((
+              name: 'curl',
+              description: 'Do HTTP Requests',
+
               options: {
                 'url': {
                   'short': 'u',
@@ -433,7 +482,11 @@ void main() {
                   'repeatable': true,
                 },
               },
-            ),
+              aliases: null,
+              flags: null,
+              positionals: null,
+              accessors: null,
+            )),
           ),
         );
       });
@@ -469,9 +522,10 @@ void main() {
         expect(
           registry.toMap(),
           equals(
-            buildRegistryExpectation(
-              'rsync',
-              'Synchronize files and directories.',
+            buildRegistryExpectation((
+              name: 'rsync',
+              description: 'Synchronize files and directories.',
+
               flags: {
                 'verbose': {
                   'short': 'v',
@@ -498,7 +552,11 @@ void main() {
                   'description': 'Enable archive mode.',
                 },
               },
-            ),
+              aliases: null,
+              options: null,
+              positionals: null,
+              accessors: null,
+            )),
           ),
         );
       });
@@ -578,8 +636,16 @@ void main() {
           registry.toMap(),
           equals(
             buildRegistryExpectation(
-              'docker',
-              'Manage containers.',
+              (
+                name: 'docker',
+                description: 'Manage containers.',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+              ),
+
               commands: {
                 'run': {
                   'description':
@@ -784,8 +850,16 @@ void main() {
           registry.toMap(),
           equals(
             buildRegistryExpectation(
-              'git',
-              'Track and manage source code.',
+              (
+                name: 'git',
+                description: 'Track and manage source code.',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+              ),
+
               commands: {
                 'remote': {
                   'description': 'Manage tracked repositories.',
@@ -965,8 +1039,16 @@ void main() {
             registry.toMap(),
             equals(
               buildRegistryExpectation(
-                'aws',
-                'Manage Amazon Web Services.',
+                (
+                  name: 'aws',
+                  description: 'Manage Amazon Web Services.',
+                  aliases: null,
+                  flags: null,
+                  options: null,
+                  positionals: null,
+                  accessors: null,
+                ),
+
                 commands: {
                   'put-object': {
                     'description': 'Add an object to an Amazon S3 bucket.',
@@ -1030,8 +1112,16 @@ void main() {
             registry.toMap(),
             equals(
               buildRegistryExpectation(
-                'git',
-                'Track and manage source code.',
+                (
+                  name: 'git',
+                  description: 'Track and manage source code.',
+                  aliases: null,
+                  flags: null,
+                  options: null,
+                  positionals: null,
+                  accessors: null,
+                ),
+
                 commands: {
                   'worktree': {
                     'description': 'Manage linked working trees.',
