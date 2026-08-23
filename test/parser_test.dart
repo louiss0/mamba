@@ -342,6 +342,153 @@ void main() {
     });
   });
 
+  group('Mandatory repeated positional placement', () {
+    test('collects at the start until maxCount two is filled', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          RepeatedPositional('files', maxCount: 2),
+          Positional('target'),
+        ],
+      ).parse(['f0', 'f1', 'out']).$2;
+
+      expect(inputs, {
+        'files': ['f0', 'f1'],
+        'target': 'out',
+      });
+    });
+
+    test('collects in the middle until maxCount three is filled', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files', maxCount: 3),
+          Positional('target'),
+        ],
+      ).parse(['in', 'f0', 'f1', 'f2', 'out']).$2;
+
+      expect(inputs, {
+        'source': 'in',
+        'files': ['f0', 'f1', 'f2'],
+        'target': 'out',
+      });
+    });
+
+    test('collects at the end until maxCount four is filled', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files', maxCount: 4),
+        ],
+      ).parse(['in', 'f0', 'f1', 'f2', 'f3']).$2;
+
+      expect(inputs, {'source': 'in', 'files': ['f0', 'f1', 'f2', 'f3']});
+    });
+  });
+
+  group('Discretionary repeated positional placement', () {
+    test('collects at the start until maxCount twelve is filled', () {
+      final inputs = parser(
+        discretionaryPositionals: [
+          RepeatedPositional('files', maxCount: 12),
+          Positional('target'),
+        ],
+      ).parse([...List.generate(12, (index) => 'f$index'), 'out']).$2;
+
+      expect(inputs, {
+        'files': List.generate(12, (index) => 'f$index'),
+        'target': 'out',
+      });
+    });
+
+    test('collects in the middle until maxCount seven is filled', () {
+      final inputs = parser(
+        discretionaryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files', maxCount: 7),
+          Positional('target'),
+        ],
+      ).parse(['in', ...List.generate(7, (index) => 'f$index'), 'out']).$2;
+
+      expect(inputs, {
+        'source': 'in',
+        'files': List.generate(7, (index) => 'f$index'),
+        'target': 'out',
+      });
+    });
+
+    test('collects at the end until maxCount five is filled', () {
+      final inputs = parser(
+        discretionaryPositionals: [
+          Positional('source'),
+          RepeatedPositional('files', maxCount: 5),
+        ],
+      ).parse(['in', ...List.generate(5, (index) => 'f$index')]).$2;
+
+      expect(inputs, {
+        'source': 'in',
+        'files': List.generate(5, (index) => 'f$index'),
+      });
+    });
+  });
+
+  group('Mandatory and discretionary repeated placement together', () {
+    test('splits values between a capped mandatory and an open discretionary',
+        () {
+      final inputs = parser(
+        mandatoryPositionals: [RepeatedPositional('kept', maxCount: 4)],
+        discretionaryPositionals: [RepeatedPositional('extra', maxCount: 8)],
+      ).parse(List.generate(9, (index) => 'v$index')).$2;
+
+      expect(inputs, {
+        'kept': ['v0', 'v1', 'v2', 'v3'],
+        'extra': ['v4', 'v5', 'v6', 'v7', 'v8'],
+      });
+    });
+
+    test('fills singles around repeated positionals across both lists', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          Positional('source'),
+          RepeatedPositional('kept', maxCount: 3),
+        ],
+        discretionaryPositionals: [
+          Positional('target'),
+          RepeatedPositional('more', maxCount: 6),
+        ],
+      ).parse([
+        'in',
+        'k0',
+        'k1',
+        'k2',
+        'out',
+        'm0',
+        'm1',
+        'm2',
+        'm3',
+      ]).$2;
+
+      expect(inputs, {
+        'source': 'in',
+        'kept': ['k0', 'k1', 'k2'],
+        'target': 'out',
+        'more': ['m0', 'm1', 'm2', 'm3'],
+      });
+    });
+
+    test('caps both lists when fewer values arrive than the combined counts',
+        () {
+      final inputs = parser(
+        mandatoryPositionals: [RepeatedPositional('kept', maxCount: 3)],
+        discretionaryPositionals: [RepeatedPositional('extra', maxCount: 12)],
+      ).parse(['k0', 'k1', 'k2', 'e0', 'e1']).$2;
+
+      expect(inputs, {
+        'kept': ['k0', 'k1', 'k2'],
+        'extra': ['e0', 'e1'],
+      });
+    });
+  });
+
   group('Parser definitions', () {
     test('accepts accessor lists at the root and at nested paths', () {
       final subject = parser(
