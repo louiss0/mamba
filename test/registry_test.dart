@@ -12,7 +12,7 @@ enum DeploymentFormat { yaml, json }
 Map<String, dynamic> buildRegistryExpectation(
   String name,
   String description, {
-  Map<String, String>? aliases,
+  List<String>? aliases,
   Map<String, dynamic>? flags,
   Map<String, dynamic>? options,
   Map<String, dynamic>? positionals,
@@ -1196,7 +1196,7 @@ void main() {
 
           final exported = registry.toMap();
 
-          expect(exported['aliases'], {'push': 'publish'});
+          expect(exported['commands']['publish']['aliases'], ['push']);
           expect(exported['flags']['dry-run'], {
             'short': null,
             'default': false,

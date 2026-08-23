@@ -33,6 +33,7 @@ final class CommandRegistry {
     required this.helpFlag,
     this.longDescription,
     this.aliases,
+    this.commandAliases,
     this.boolFlags,
     this.countFlags,
     this.singleOptions,
@@ -51,6 +52,9 @@ final class CommandRegistry {
 
   /// Maps each registered child alias to that child's canonical name.
   final Map<String, String>? aliases;
+
+  /// Alternative names used to select this command among its siblings.
+  final List<String>? commandAliases;
   final Map<String, CountFlag>? countFlags;
   final Map<String, BooleanFlag>? boolFlags;
   final Map<String, SingleOption>? singleOptions;
@@ -163,6 +167,7 @@ final class CommandRegistry {
       helpFlag: _helpFlag,
       longDescription: command.longDescription,
       aliases: _indexAliases(childCommands),
+      commandAliases: command.aliases,
       boolFlags: _indexByName<BooleanFlag>(
         registeredFlags?.whereType<BooleanFlag>(),
       ),
@@ -206,7 +211,7 @@ final class CommandRegistry {
     final map = <String, dynamic>{
       'name': name,
       'description': description,
-      if (aliases?.isNotEmpty == true) 'aliases': aliases,
+      if (commandAliases != null) 'aliases': commandAliases,
     };
 
     final registeredBooleanFlags = boolFlags;
@@ -272,8 +277,7 @@ final class CommandRegistry {
     final registeredCommands = commandRegistries;
     if (registeredCommands != null) {
       map['commands'] = {
-        for (final command in registeredCommands)
-          command.name: command.toMap(),
+        for (final command in registeredCommands) command.name: command.toMap(),
       };
     }
     return map;
