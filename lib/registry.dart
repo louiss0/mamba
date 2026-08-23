@@ -198,14 +198,13 @@ final class CommandRegistry {
 
   /// Exports this registry as a serializable command description.
   ///
-  /// Child registries omit their own names because the parent command map uses
-  /// each child name as its key.
-  Map<String, dynamic> toMap({bool includeName = true}) {
+  /// Includes every registry name so exported command trees are self-contained.
+  Map<String, dynamic> toMap() {
     final description = longDescription == null
         ? shortDescription
         : '$shortDescription\n\n$longDescription';
     final map = <String, dynamic>{
-      if (includeName) 'name': name,
+      'name': name,
       'description': description,
       if (aliases?.isNotEmpty == true) 'aliases': aliases,
     };
@@ -274,7 +273,7 @@ final class CommandRegistry {
     if (registeredCommands != null) {
       map['commands'] = {
         for (final command in registeredCommands)
-          command.name: command.toMap(includeName: false),
+          command.name: command.toMap(),
       };
     }
     return map;

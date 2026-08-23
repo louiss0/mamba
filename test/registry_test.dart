@@ -9,6 +9,41 @@ enum VariantChoice { one }
 
 enum DeploymentFormat { yaml, json }
 
+Map<String, dynamic> buildRegistryExpectation(
+  String name,
+  String description, {
+  Map<String, String>? aliases,
+  Map<String, dynamic>? flags,
+  Map<String, dynamic>? options,
+  Map<String, dynamic>? positionals,
+  Map<String, dynamic>? accessors,
+  Map<String, dynamic>? commands,
+}) => {
+  'name': name,
+  'description': description,
+  ...?(aliases == null ? null : {'aliases': aliases}),
+  ...?(flags == null ? null : {'flags': flags}),
+  ...?(options == null ? null : {'options': options}),
+  ...?(positionals == null ? null : {'positionals': positionals}),
+  ...?(accessors == null ? null : {'accessors': accessors}),
+  ...?(commands == null ? null : {'commands': _addCommandNames(commands)}),
+};
+
+Map<String, dynamic> _addCommandNames(Map<String, dynamic> commands) => {
+  for (final entry in commands.entries)
+    entry.key: _addCommandName(entry.key, entry.value as Map<String, dynamic>),
+};
+
+Map<String, dynamic> _addCommandName(
+  String name,
+  Map<String, dynamic> command,
+) => {
+  ...command,
+  'name': name,
+  if (command['commands'] case final nestedCommands?)
+    'commands': _addCommandNames(nestedCommands as Map<String, dynamic>),
+};
+
 void main() {
   group('CommandRegistry', () {
     group("toMap", () {
@@ -37,47 +72,49 @@ void main() {
 
         expect(
           registry.toMap(),
-          equals({
-            'name': "tool",
-            'description': "Tool command.",
-            'flags': {
-              'color': {
-                'short': null,
-                'default': false,
-                'negatable': true,
-                'hidden': false,
-                "description": null,
+          equals(
+            buildRegistryExpectation(
+              'tool',
+              'Tool command.',
+              flags: {
+                'color': {
+                  'short': null,
+                  'default': false,
+                  'negatable': true,
+                  'hidden': false,
+                  "description": null,
+                },
+                'verbose': {'hidden': false, "description": null},
               },
-              'verbose': {'hidden': false, "description": null},
-            },
-            'options': {
-              'name': {
-                'short': null,
-                'required': false,
-                'hidden': false,
-                "description": null,
-              },
-              'tag': {
-                'short': null,
-                'required': false,
-                'hidden': false,
-                "description": null,
-                'repeatable': true,
-              },
-            },
-            'positionals': {
-              'source': {'required': true, "description": null},
-              'target': {'required': false, "description": null},
-            },
-            'accessors': {
-              'user': {
-                'description': null,
-                'options': {
-                  'profile': {'description': null},
+              options: {
+                'name': {
+                  'short': null,
+                  'required': false,
+                  'hidden': false,
+                  "description": null,
+                },
+                'tag': {
+                  'short': null,
+                  'required': false,
+                  'hidden': false,
+                  "description": null,
+                  'repeatable': true,
                 },
               },
-            },
-          }),
+              positionals: {
+                'source': {'required': true, "description": null},
+                'target': {'required': false, "description": null},
+              },
+              accessors: {
+                'user': {
+                  'description': null,
+                  'options': {
+                    'profile': {'description': null},
+                  },
+                },
+              },
+            ),
+          ),
         );
       });
 
@@ -92,11 +129,12 @@ void main() {
 
           expect(
             registry.toMap(),
-            equals({
-              'name': 'tool',
-              'description':
-                  'Tool command.\n\nThis is a tool meant to be used to make ',
-            }),
+            equals(
+              buildRegistryExpectation(
+                'tool',
+                'Tool command.\n\nThis is a tool meant to be used to make ',
+              ),
+            ),
           );
         },
       );
@@ -135,36 +173,37 @@ void main() {
 
           expect(
             registry.toMap(),
-            equals({
-              'name': 'git',
-              'description':
-                  'Save snapshots of your code and be able to send them anywhere',
-              'commands': {
-                'add': {'description': 'Add a file to the staging area'},
-                'commit': {'description': 'Take a snapshot of your code'},
-                'worktree': {
-                  'description':
-                      'Place your code in separate repo that can be merged',
-                  'commands': {
-                    'add': {
-                      'description': 'Make a new work tree',
-                      'positionals': {
-                        'path': {
-                          'required': true,
-                          'description': 'The path to the work tree',
-                        },
-                        'commit-ish': {
-                          'required': false,
-                          'description':
-                              "Choosse a commit to use to scaffold the worktree",
+            equals(
+              buildRegistryExpectation(
+                'git',
+                'Save snapshots of your code and be able to send them anywhere',
+                commands: {
+                  'add': {'description': 'Add a file to the staging area'},
+                  'commit': {'description': 'Take a snapshot of your code'},
+                  'worktree': {
+                    'description':
+                        'Place your code in separate repo that can be merged',
+                    'commands': {
+                      'add': {
+                        'description': 'Make a new work tree',
+                        'positionals': {
+                          'path': {
+                            'required': true,
+                            'description': 'The path to the work tree',
+                          },
+                          'commit-ish': {
+                            'required': false,
+                            'description':
+                                "Choosse a commit to use to scaffold the worktree",
+                          },
                         },
                       },
+                      'commit': {'description': 'Take a snapshot of your code'},
                     },
-                    'commit': {'description': 'Take a snapshot of your code'},
                   },
                 },
-              },
-            }),
+              ),
+            ),
           );
         },
       );
@@ -191,27 +230,29 @@ void main() {
 
         expect(
           registry.toMap(),
-          equals({
-            'name': 'tool',
-            'description': 'Tool command.',
-            'commands': {
-              'sub': {'description': 'Sub command.'},
-              'one': {
-                'description': 'Group one.',
-                'commands': {
-                  'two': {
-                    'description': 'Group two.',
-                    'commands': {
-                      'three': {
-                        'description': 'Group three.',
-                        'commands': {
-                          'four': {
-                            'description': 'Group four.',
-                            'commands': {
-                              'five': {
-                                'description': 'Group five.',
-                                'commands': {
-                                  'sub': {'description': 'Sub command.'},
+          equals(
+            buildRegistryExpectation(
+              'tool',
+              'Tool command.',
+              commands: {
+                'sub': {'description': 'Sub command.'},
+                'one': {
+                  'description': 'Group one.',
+                  'commands': {
+                    'two': {
+                      'description': 'Group two.',
+                      'commands': {
+                        'three': {
+                          'description': 'Group three.',
+                          'commands': {
+                            'four': {
+                              'description': 'Group four.',
+                              'commands': {
+                                'five': {
+                                  'description': 'Group five.',
+                                  'commands': {
+                                    'sub': {'description': 'Sub command.'},
+                                  },
                                 },
                               },
                             },
@@ -222,8 +263,8 @@ void main() {
                   },
                 },
               },
-            },
-          }),
+            ),
+          ),
         );
       });
 
@@ -290,32 +331,34 @@ void main() {
 
         expect(
           map,
-          equals({
-            'name': 'git',
-            'description': 'Create a new Git repository.',
-            'commands': {
-              'config': {
-                'description': 'Configure Git.',
-                'accessors': {
-                  'branch': {
-                    'main': {
-                      'remote': 'The remote to fetch from or push to.',
-                      'merge': 'The upstream branch to merge.',
-                      'rebase':
-                          'Whether to rebase instead of merge when pulling.',
+          equals(
+            buildRegistryExpectation(
+              'git',
+              'Create a new Git repository.',
+              commands: {
+                'config': {
+                  'description': 'Configure Git.',
+                  'accessors': {
+                    'branch': {
+                      'main': {
+                        'remote': 'The remote to fetch from or push to.',
+                        'merge': 'The upstream branch to merge.',
+                        'rebase':
+                            'Whether to rebase instead of merge when pulling.',
+                      },
                     },
-                  },
-                  'remote': {
-                    'origin': {
-                      'url': 'The URL of a remote repository.',
-                      'pushurl': 'The push URL of a remote repository.',
-                      'fetch': 'The default set of refspecs for fetch.',
+                    'remote': {
+                      'origin': {
+                        'url': 'The URL of a remote repository.',
+                        'pushurl': 'The push URL of a remote repository.',
+                        'fetch': 'The default set of refspecs for fetch.',
+                      },
                     },
                   },
                 },
               },
-            },
-          }),
+            ),
+          ),
         );
       });
 
@@ -355,44 +398,46 @@ void main() {
 
         expect(
           registry.toMap(),
-          equals({
-            'name': 'curl',
-            'description': 'Do HTTP Requests',
-            'options': {
-              'url': {
-                'short': 'u',
-                'required': true,
-                'hidden': false,
-                'description': 'URL(s) to work with.',
+          equals(
+            buildRegistryExpectation(
+              'curl',
+              'Do HTTP Requests',
+              options: {
+                'url': {
+                  'short': 'u',
+                  'required': true,
+                  'hidden': false,
+                  'description': 'URL(s) to work with.',
+                },
+                'retry': {
+                  'short': null,
+                  'required': false,
+                  'hidden': false,
+                  'description': 'Retry on transient problems.',
+                },
+                'max-time': {
+                  'short': 'm',
+                  'required': false,
+                  'hidden': false,
+                  'description': 'Maximum time allowed for a transfer.',
+                },
+                'header': {
+                  'short': 'H',
+                  'required': false,
+                  'hidden': false,
+                  'description': 'Pass custom headers to the server.',
+                  'repeatable': true,
+                },
+                'data': {
+                  'short': 'd',
+                  'required': false,
+                  'hidden': false,
+                  'description': 'HTTP POST data.',
+                  'repeatable': true,
+                },
               },
-              'retry': {
-                'short': null,
-                'required': false,
-                'hidden': false,
-                'description': 'Retry on transient problems.',
-              },
-              'max-time': {
-                'short': 'm',
-                'required': false,
-                'hidden': false,
-                'description': 'Maximum time allowed for a transfer.',
-              },
-              'header': {
-                'short': 'H',
-                'required': false,
-                'hidden': false,
-                'description': 'Pass custom headers to the server.',
-                'repeatable': true,
-              },
-              'data': {
-                'short': 'd',
-                'required': false,
-                'hidden': false,
-                'description': 'HTTP POST data.',
-                'repeatable': true,
-              },
-            },
-          }),
+            ),
+          ),
         );
       });
 
@@ -426,36 +471,38 @@ void main() {
 
         expect(
           registry.toMap(),
-          equals({
-            'name': 'rsync',
-            'description': 'Synchronize files and directories.',
-            'flags': {
-              'verbose': {
-                'short': 'v',
-                'hidden': false,
-                'description': 'Increase verbosity.',
+          equals(
+            buildRegistryExpectation(
+              'rsync',
+              'Synchronize files and directories.',
+              flags: {
+                'verbose': {
+                  'short': 'v',
+                  'hidden': false,
+                  'description': 'Increase verbosity.',
+                },
+                'quiet': {
+                  'short': 'q',
+                  'hidden': false,
+                  'description': 'Suppress non-error messages.',
+                },
+                'dry-run': {
+                  'short': 'n',
+                  'default': false,
+                  'negatable': false,
+                  'hidden': false,
+                  'description': 'Perform a trial run with no changes made.',
+                },
+                'archive': {
+                  'short': 'a',
+                  'default': false,
+                  'negatable': false,
+                  'hidden': false,
+                  'description': 'Enable archive mode.',
+                },
               },
-              'quiet': {
-                'short': 'q',
-                'hidden': false,
-                'description': 'Suppress non-error messages.',
-              },
-              'dry-run': {
-                'short': 'n',
-                'default': false,
-                'negatable': false,
-                'hidden': false,
-                'description': 'Perform a trial run with no changes made.',
-              },
-              'archive': {
-                'short': 'a',
-                'default': false,
-                'negatable': false,
-                'hidden': false,
-                'description': 'Enable archive mode.',
-              },
-            },
-          }),
+            ),
+          ),
         );
       });
 
@@ -532,86 +579,90 @@ void main() {
 
         expect(
           registry.toMap(),
-          equals({
-            'name': 'docker',
-            'description': 'Manage containers.',
-            'commands': {
-              'run': {
-                'description': 'Create and run a new container from an image.',
-                'positionals': {
-                  'image': {
-                    'required': true,
-                    'description': 'The image to run.',
+          equals(
+            buildRegistryExpectation(
+              'docker',
+              'Manage containers.',
+              commands: {
+                'run': {
+                  'description':
+                      'Create and run a new container from an image.',
+                  'positionals': {
+                    'image': {
+                      'required': true,
+                      'description': 'The image to run.',
+                    },
+                    'command': {
+                      'required': false,
+                      'description': 'The command to run.',
+                    },
+                    'arguments': {
+                      'required': false,
+                      'description': 'Arguments for the command.',
+                    },
                   },
-                  'command': {
-                    'required': false,
-                    'description': 'The command to run.',
+                },
+                'exec': {
+                  'description': 'Execute a command in a running container.',
+                  'positionals': {
+                    'container': {
+                      'required': true,
+                      'description': 'The running container.',
+                    },
+                    'command': {
+                      'required': true,
+                      'description': 'The command to execute.',
+                    },
+                    'arguments': {
+                      'required': false,
+                      'description': 'Arguments for the command.',
+                    },
                   },
-                  'arguments': {
-                    'required': false,
-                    'description': 'Arguments for the command.',
+                },
+                'cp': {
+                  'description':
+                      'Copy files between a container and the local filesystem.',
+                  'positionals': {
+                    'source-path': {
+                      'required': true,
+                      'description': 'The source path.',
+                    },
+                    'destination-path': {
+                      'required': true,
+                      'description': 'The destination path.',
+                    },
+                  },
+                },
+                'rename': {
+                  'description': 'Rename a container.',
+                  'positionals': {
+                    'container': {
+                      'required': true,
+                      'description': 'The container to rename.',
+                    },
+                    'new-name': {
+                      'required': true,
+                      'description': 'The new container name.',
+                    },
+                  },
+                },
+                'commit': {
+                  'description':
+                      "Create a new image from a container's changes.",
+                  'positionals': {
+                    'container': {
+                      'required': true,
+                      'description': 'The container to commit.',
+                    },
+                    'repository': {
+                      'required': false,
+                      'description': 'The target repository.',
+                    },
                   },
                 },
               },
-              'exec': {
-                'description': 'Execute a command in a running container.',
-                'positionals': {
-                  'container': {
-                    'required': true,
-                    'description': 'The running container.',
-                  },
-                  'command': {
-                    'required': true,
-                    'description': 'The command to execute.',
-                  },
-                  'arguments': {
-                    'required': false,
-                    'description': 'Arguments for the command.',
-                  },
-                },
-              },
-              'cp': {
-                'description':
-                    'Copy files between a container and the local filesystem.',
-                'positionals': {
-                  'source-path': {
-                    'required': true,
-                    'description': 'The source path.',
-                  },
-                  'destination-path': {
-                    'required': true,
-                    'description': 'The destination path.',
-                  },
-                },
-              },
-              'rename': {
-                'description': 'Rename a container.',
-                'positionals': {
-                  'container': {
-                    'required': true,
-                    'description': 'The container to rename.',
-                  },
-                  'new-name': {
-                    'required': true,
-                    'description': 'The new container name.',
-                  },
-                },
-              },
-              'commit': {
-                'description': "Create a new image from a container's changes.",
-                'positionals': {
-                  'container': {
-                    'required': true,
-                    'description': 'The container to commit.',
-                  },
-                  'repository': {
-                    'required': false,
-                    'description': 'The target repository.',
-                  },
-                },
-              },
-            },
-          }),
+            ),
+          ),
         );
       });
 
@@ -734,151 +785,153 @@ void main() {
 
         expect(
           registry.toMap(),
-          equals({
-            'name': 'git',
-            'description': 'Track and manage source code.',
-            'commands': {
-              'remote': {
-                'description': 'Manage tracked repositories.',
-                'commands': {
-                  'add': {
-                    'description': 'Add a tracked repository.',
-                    'flags': {
-                      'fetch': {
-                        'short': 'f',
-                        'default': false,
-                        'negatable': false,
-                        'hidden': false,
-                        'description': 'Fetch the remote after adding it.',
+          equals(
+            buildRegistryExpectation(
+              'git',
+              'Track and manage source code.',
+              commands: {
+                'remote': {
+                  'description': 'Manage tracked repositories.',
+                  'commands': {
+                    'add': {
+                      'description': 'Add a tracked repository.',
+                      'flags': {
+                        'fetch': {
+                          'short': 'f',
+                          'default': false,
+                          'negatable': false,
+                          'hidden': false,
+                          'description': 'Fetch the remote after adding it.',
+                        },
+                        'tags': {
+                          'short': null,
+                          'default': false,
+                          'negatable': true,
+                          'hidden': false,
+                          'description': 'Import every tag from the remote.',
+                        },
                       },
-                      'tags': {
-                        'short': null,
-                        'default': false,
-                        'negatable': true,
-                        'hidden': false,
-                        'description': 'Import every tag from the remote.',
+                      'options': {
+                        'track': {
+                          'short': 't',
+                          'required': false,
+                          'hidden': false,
+                          'description': 'A branch to track.',
+                          'repeatable': true,
+                        },
+                        'master': {
+                          'short': 'm',
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The remote default branch.',
+                        },
+                        'mirror': {
+                          'short': null,
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The mirror direction.',
+                        },
+                      },
+                      'positionals': {
+                        'name': {
+                          'required': true,
+                          'description': 'The remote name.',
+                        },
+                        'url': {
+                          'required': true,
+                          'description': 'The remote URL.',
+                        },
                       },
                     },
-                    'options': {
-                      'track': {
-                        'short': 't',
-                        'required': false,
-                        'hidden': false,
-                        'description': 'A branch to track.',
-                        'repeatable': true,
+                  },
+                },
+                'worktree': {
+                  'description': 'Manage linked working trees.',
+                  'commands': {
+                    'add': {
+                      'description': 'Create a linked working tree.',
+                      'flags': {
+                        'force': {
+                          'short': 'f',
+                          'hidden': false,
+                          'description': 'Override worktree safety checks.',
+                        },
+                        'detach': {
+                          'short': 'd',
+                          'default': false,
+                          'negatable': false,
+                          'hidden': false,
+                          'description': 'Detach HEAD in the new worktree.',
+                        },
                       },
-                      'master': {
-                        'short': 'm',
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The remote default branch.',
+                      'options': {
+                        'new-branch': {
+                          'short': 'b',
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The branch to create.',
+                        },
+                        'reason': {
+                          'short': null,
+                          'required': false,
+                          'hidden': false,
+                          'description': 'Why the worktree is locked.',
+                        },
                       },
-                      'mirror': {
-                        'short': null,
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The mirror direction.',
+                      'positionals': {
+                        'path': {
+                          'required': true,
+                          'description': 'The worktree path.',
+                        },
+                        'commit-ish': {
+                          'required': false,
+                          'description': 'The revision to check out.',
+                        },
                       },
                     },
-                    'positionals': {
-                      'name': {
-                        'required': true,
-                        'description': 'The remote name.',
+                  },
+                },
+                'stash': {
+                  'description': 'Stash working directory changes.',
+                  'commands': {
+                    'push': {
+                      'description': 'Stash changes in the working directory.',
+                      'flags': {
+                        'patch': {
+                          'short': 'p',
+                          'default': false,
+                          'negatable': false,
+                          'hidden': false,
+                          'description': 'Select changes interactively.',
+                        },
+                        'include-untracked': {
+                          'short': 'u',
+                          'default': false,
+                          'negatable': false,
+                          'hidden': false,
+                          'description': 'Include untracked files.',
+                        },
                       },
-                      'url': {
-                        'required': true,
-                        'description': 'The remote URL.',
+                      'options': {
+                        'message': {
+                          'short': 'm',
+                          'required': false,
+                          'hidden': false,
+                          'description': 'The stash message.',
+                        },
+                      },
+                      'positionals': {
+                        'pathspec': {
+                          'required': false,
+                          'description': 'A path to stash.',
+                        },
                       },
                     },
                   },
                 },
               },
-              'worktree': {
-                'description': 'Manage linked working trees.',
-                'commands': {
-                  'add': {
-                    'description': 'Create a linked working tree.',
-                    'flags': {
-                      'force': {
-                        'short': 'f',
-                        'hidden': false,
-                        'description': 'Override worktree safety checks.',
-                      },
-                      'detach': {
-                        'short': 'd',
-                        'default': false,
-                        'negatable': false,
-                        'hidden': false,
-                        'description': 'Detach HEAD in the new worktree.',
-                      },
-                    },
-                    'options': {
-                      'new-branch': {
-                        'short': 'b',
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The branch to create.',
-                      },
-                      'reason': {
-                        'short': null,
-                        'required': false,
-                        'hidden': false,
-                        'description': 'Why the worktree is locked.',
-                      },
-                    },
-                    'positionals': {
-                      'path': {
-                        'required': true,
-                        'description': 'The worktree path.',
-                      },
-                      'commit-ish': {
-                        'required': false,
-                        'description': 'The revision to check out.',
-                      },
-                    },
-                  },
-                },
-              },
-              'stash': {
-                'description': 'Stash working directory changes.',
-                'commands': {
-                  'push': {
-                    'description': 'Stash changes in the working directory.',
-                    'flags': {
-                      'patch': {
-                        'short': 'p',
-                        'default': false,
-                        'negatable': false,
-                        'hidden': false,
-                        'description': 'Select changes interactively.',
-                      },
-                      'include-untracked': {
-                        'short': 'u',
-                        'default': false,
-                        'negatable': false,
-                        'hidden': false,
-                        'description': 'Include untracked files.',
-                      },
-                    },
-                    'options': {
-                      'message': {
-                        'short': 'm',
-                        'required': false,
-                        'hidden': false,
-                        'description': 'The stash message.',
-                      },
-                    },
-                    'positionals': {
-                      'pathspec': {
-                        'required': false,
-                        'description': 'A path to stash.',
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          }),
+            ),
+          ),
         );
       });
 
@@ -913,35 +966,37 @@ void main() {
 
           expect(
             registry.toMap(),
-            equals({
-              'name': 'aws',
-              'description': 'Manage Amazon Web Services.',
-              'commands': {
-                'put-object': {
-                  'description': 'Add an object to an Amazon S3 bucket.',
-                  'options': {
-                    'sse-customer-algorithm': {
-                      'short': null,
-                      'required': false,
-                      'hidden': false,
-                      'description': 'The customer encryption algorithm.',
-                    },
-                    'sse-customer-key': {
-                      'short': null,
-                      'required': false,
-                      'hidden': false,
-                      'description': 'The customer encryption key.',
-                    },
-                    'sse-customer-key-md5': {
-                      'short': null,
-                      'required': false,
-                      'hidden': false,
-                      'description': 'The MD5 digest of the customer key.',
+            equals(
+              buildRegistryExpectation(
+                'aws',
+                'Manage Amazon Web Services.',
+                commands: {
+                  'put-object': {
+                    'description': 'Add an object to an Amazon S3 bucket.',
+                    'options': {
+                      'sse-customer-algorithm': {
+                        'short': null,
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The customer encryption algorithm.',
+                      },
+                      'sse-customer-key': {
+                        'short': null,
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The customer encryption key.',
+                      },
+                      'sse-customer-key-md5': {
+                        'short': null,
+                        'required': false,
+                        'hidden': false,
+                        'description': 'The MD5 digest of the customer key.',
+                      },
                     },
                   },
                 },
-              },
-            }),
+              ),
+            ),
           );
         });
 
@@ -976,35 +1031,37 @@ void main() {
 
           expect(
             registry.toMap(),
-            equals({
-              'name': 'git',
-              'description': 'Track and manage source code.',
-              'commands': {
-                'worktree': {
-                  'description': 'Manage linked working trees.',
-                  'commands': {
-                    'add': {
-                      'description': 'Create a linked working tree.',
-                      'options': {
-                        'new-branch': {
-                          'short': 'b',
-                          'required': false,
-                          'hidden': false,
-                          'description': 'Create a new branch.',
-                          'variant': true,
-                        },
-                        'force-new-branch': {
-                          'short': 'B',
-                          'required': false,
-                          'hidden': false,
-                          'description': 'Create or reset a branch.',
+            equals(
+              buildRegistryExpectation(
+                'git',
+                'Track and manage source code.',
+                commands: {
+                  'worktree': {
+                    'description': 'Manage linked working trees.',
+                    'commands': {
+                      'add': {
+                        'description': 'Create a linked working tree.',
+                        'options': {
+                          'new-branch': {
+                            'short': 'b',
+                            'required': false,
+                            'hidden': false,
+                            'description': 'Create a new branch.',
+                            'variant': true,
+                          },
+                          'force-new-branch': {
+                            'short': 'B',
+                            'required': false,
+                            'hidden': false,
+                            'description': 'Create or reset a branch.',
+                          },
                         },
                       },
                     },
                   },
                 },
-              },
-            }),
+              ),
+            ),
           );
         });
 
