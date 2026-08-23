@@ -1137,39 +1137,29 @@ void main() {
             ],
           );
 
-          expect(
-            registry.toMap(),
-            containsPair('aliases', {'push': 'publish'}),
-          );
-          expect(
-            registry.toMap()['flags'],
-            containsPair('dry-run', {
-              'short': null,
-              'default': false,
-              'negatable': false,
-              'hidden': true,
-              'description': null,
-            }),
-          );
-          expect(
-            registry.toMap()['options'],
-            containsPair('token', {
-              'short': null,
-              'required': false,
-              'hidden': true,
-              'description': null,
-            }),
-          );
-          expect(
-            registry.toMap()['accessors'],
-            containsPair('internal', {
-              'hidden': true,
-              'description': null,
-              'options': {
-                'trace-id': {'description': null},
-              },
-            }),
-          );
+          final exported = registry.toMap();
+
+          expect(exported['aliases'], {'push': 'publish'});
+          expect(exported['flags']['dry-run'], {
+            'short': null,
+            'default': false,
+            'negatable': false,
+            'hidden': true,
+            'description': null,
+          });
+          expect(exported['options']['token'], {
+            'short': null,
+            'required': false,
+            'hidden': true,
+            'description': null,
+          });
+          expect(exported['accessors']['internal'], {
+            'hidden': true,
+            'description': null,
+            'options': {
+              'trace-id': {'description': null},
+            },
+          });
         });
       });
     });
