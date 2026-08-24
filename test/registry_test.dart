@@ -26,38 +26,38 @@ Map<String, dynamic> buildRegistryExpectation(
   List<NamedExpectation>? positionals,
   List<NamedExpectation>? accessors,
   List<NamedExpectation>? commands,
-}) => {
-  'name': name,
-  'description': description,
-  'aliases': ?aliases,
-  if (flags case final flags?) 'flags': _namesToMaps(flags),
-  if (options case final options?) 'options': _namesToMaps(options),
-  if (positionals case final positionals?)
-    'positionals': _namesToMaps(positionals),
-  if (accessors case final accessors?) 'accessors': _namesToMaps(accessors),
-  if (commands != null) 'commands': _namesToMaps(commands, addNames: true),
-};
+}) {
+  late Map<String, dynamic> Function(String, Map<String, dynamic>) namedCopy;
+  late Map<String, dynamic> Function(List<NamedExpectation>, {bool addNames})
+  namesToMaps;
 
-Map<String, dynamic> _namesToMaps(
-  List<NamedExpectation> entries, {
-  bool addNames = false,
-}) => {
-  for (final entry in entries)
-    entry.$1: addNames ? _namedCopy(entry.$1, entry.$2) : entry.$2,
-};
+  namedCopy = (String name, Map<String, dynamic> expectation) => {
+    ...expectation,
+    'name': name,
+    if (expectation['commands'] case final nestedCommands?)
+      'commands': namesToMaps([
+        for (final entry in (nestedCommands as Map<String, dynamic>).entries)
+          (entry.key, entry.value as Map<String, dynamic>),
+      ], addNames: true),
+  };
 
-Map<String, dynamic> _namedCopy(
-  String name,
-  Map<String, dynamic> expectation,
-) => {
-  ...expectation,
-  'name': name,
-  if (expectation['commands'] case final nestedCommands?)
-    'commands': _namesToMaps([
-      for (final entry in (nestedCommands as Map<String, dynamic>).entries)
-        (entry.key, entry.value as Map<String, dynamic>),
-    ], addNames: true),
-};
+  namesToMaps = (List<NamedExpectation> entries, {bool addNames = false}) => {
+    for (final entry in entries)
+      entry.$1: addNames ? namedCopy(entry.$1, entry.$2) : entry.$2,
+  };
+
+  return {
+    'name': name,
+    'description': description,
+    'aliases': ?aliases,
+    if (flags case final flags?) 'flags': namesToMaps(flags),
+    if (options case final options?) 'options': namesToMaps(options),
+    if (positionals case final positionals?)
+      'positionals': namesToMaps(positionals),
+    if (accessors case final accessors?) 'accessors': namesToMaps(accessors),
+    if (commands != null) 'commands': namesToMaps(commands, addNames: true),
+  };
+}
 
 void main() {
   group('CommandRegistry', () {
