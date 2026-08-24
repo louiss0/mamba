@@ -13,6 +13,7 @@ Parser parser({
   List<PairedOption>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
+  Variadic? variadic,
   List<Command>? commands,
 }) => Parser(
   CommandRegistry.create(
@@ -24,6 +25,7 @@ Parser parser({
     pairedOptions: pairedOptions,
     mandatoryPositionals: mandatoryPositionals,
     discretionaryPositionals: discretionaryPositionals,
+    variadic: variadic,
     commands: commands,
   ),
 );
@@ -1125,6 +1127,182 @@ void main() {
       );
 
       expectParseError(subject, ['Ada']);
+    });
+  });
+
+  group('Parses Variadics correctly', () {
+    test('sends every argument into the variadic array', () {
+      final subject = parser(variadic: NormalVariadic('extra'));
+
+      final result = subject.parse(['one', 'two', 'three']);
+
+      expect(result.$2.variadic, {
+        'extra': ['one', 'two', 'three'],
+      });
+      expect(result.$2.singles, isNull);
+      expect(result.$2.repeated, isNull);
+    });
+
+    test('leaves the variadic map empty without arguments', () {
+      final result = parser(variadic: NormalVariadic('extra')).parse([]);
+
+      expect(result.$2.variadic, isNull);
+    });
+
+    test('matches every NormalVariadic value against its regex', () {
+      final subject = parser(
+        variadic: NormalVariadic('ids', regExp: RegExp(r'^\d+$')),
+      );
+
+      final result = subject.parse(['12', '34', '56']);
+
+      expect(result.$2.variadic, {
+        'ids': ['12', '34', '56'],
+      });
+    });
+
+    test('reports the exact failing index for a NormalVariadic value', () {
+      final subject = parser(
+        variadic: NormalVariadic('ids', regExp: RegExp(r'^\d+$')),
+      );
+
+      expect(
+        () => subject.parse(['12', 'oops', '56']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains('index 1'), contains('ids')),
+          ),
+        ),
+      );
+    });
+
+    test('accepts only enum member names for a ChoiceVariadic', () {
+      final subject = parser(
+        variadic: ChoiceVariadic<Mode>(
+          'modes',
+          choices: Mode.values,
+          defaultValue: Mode.auto,
+        ),
+      );
+
+      final result = subject.parse(['auto', 'always', 'auto']);
+
+      expect(result.$2.variadic, {
+        'modes': ['auto', 'always', 'auto'],
+      });
+    });
+
+    test('reports the exact failing index for a ChoiceVariadic value', () {
+      final subject = parser(
+        variadic: ChoiceVariadic<Mode>('modes', choices: Mode.values),
+      );
+
+      expect(
+        () => subject.parse(['auto', 'always', 'never']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains('index 2'), contains('modes')),
+          ),
+        ),
+      );
+    });
+
+    test('absorbs values only after mandatory positionals take theirs', () {
+      final subject = parser(
+        mandatoryPositionals: [Positional('source')],
+        variadic: NormalVariadic('extra'),
+      );
+
+      final result = subject.parse(['input.txt', 'one', 'two']);
+
+      expect(result.$2.singles, {'source': 'input.txt'});
+      expect(result.$2.variadic, {
+        'extra': ['one', 'two'],
+      });
+    });
+
+    test('absorbs values only after discretionary positionals take theirs', () {
+      final subject = parser(
+        discretionaryPositionals: [Positional('target')],
+        variadic: NormalVariadic('extra'),
+      );
+
+      final result = subject.parse(['output.txt', 'one', 'two']);
+
+      expect(result.$2.singles, {'target': 'output.txt'});
+      expect(result.$2.variadic, {
+        'extra': ['one', 'two'],
+      });
+    });
+
+    test('absorbs leftovers after Mandatory, Repeated, Mandatory', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          Positional('first'),
+          RepeatedStringPositional('files'),
+          Positional('last'),
+        ],
+        variadic: NormalVariadic('extra'),
+      );
+
+      final result = subject.parse(['a', 'f1', 'f2', 'b', 'v1', 'v2']);
+
+      expect(result.$2.singles, {'first': 'a', 'last': 'b'});
+      expect(result.$2.repeated, {
+        'files': ['f1', 'f2'],
+      });
+      expect(result.$2.variadic, {
+        'extra': ['v1', 'v2'],
+      });
+    });
+
+    test('absorbs leftovers after Mandatory, Repeated, Discretionary', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          Positional('first'),
+          RepeatedStringPositional('files'),
+        ],
+        discretionaryPositionals: [Positional('target')],
+        variadic: NormalVariadic('extra'),
+      );
+
+      final result = subject.parse(['a', 'f1', 'f2', 't', 'v1', 'v2']);
+
+      expect(result.$2.singles, {'first': 'a', 'target': 't'});
+      expect(result.$2.repeated, {
+        'files': ['f1', 'f2'],
+      });
+      expect(result.$2.variadic, {
+        'extra': ['v1', 'v2'],
+      });
+    });
+
+    test('absorbs leftovers after Mandatory, Discretionary, Repeated', () {
+      final subject = parser(
+        mandatoryPositionals: [Positional('first')],
+        discretionaryPositionals: [RepeatedStringPositional('more')],
+        variadic: NormalVariadic('extra'),
+      );
+
+      final result = subject.parse(['a', 'm1', 'm2', 'v1', 'v2']);
+
+      expect(result.$2.singles, {'first': 'a'});
+      expect(result.$2.repeated, {
+        'more': ['m1', 'm2'],
+      });
+      expect(result.$2.variadic, {
+        'extra': ['v1', 'v2'],
+      });
+    });
+
+    test('rejects leftover values when no variadic is registered', () {
+      final subject = parser(mandatoryPositionals: [Positional('source')]);
+
+      expectParseError(subject, ['source', 'extra']);
     });
   });
 }
