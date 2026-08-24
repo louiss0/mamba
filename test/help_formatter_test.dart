@@ -22,16 +22,15 @@ final _hiddenInputRegistry = CommandRegistry.create(
 
 void main() {
   group('Formatted strings', () {
-    test('requires ANSI styling and valid delimiters', () {
+    test('renders required strings without delimiters', () {
       expect(() => RequiredString('value'), throwsFormatException);
-      expect(() => RequiredString('< value >'.red), throwsFormatException);
-      expect(RequiredString('value'.red).string, contains('value'));
+      expect(RequiredString('value'.red).string, 'value'.red);
     });
 
-    test('rejects optional delimiters after removing ANSI styling', () {
+    test('renders optional strings in compact square brackets', () {
       expect(() => OptionalString('[value]'.red), throwsFormatException);
       expect(() => OptionalString('value]'.red), throwsFormatException);
-      expect(OptionalString('value'.red).string, contains('value'));
+      expect(OptionalString('value'.red).string, '[${'value'.red}]');
     });
   });
 
@@ -63,7 +62,7 @@ void main() {
 
   group('OrDSL', () {
     test('joins a primary member with alternative members', () {
-      expect(OrString('--token', ['--apiKey']).string, '--token | --apiKey');
+      expect(OrString('--token', ['--apiKey']).string, '--token|--apiKey');
     });
 
     test('preserves ANSI-styled members', () {
@@ -72,7 +71,7 @@ void main() {
 
       expect(
         OrString(primaryMember, [alternativeMember]).string,
-        '$primaryMember | $alternativeMember',
+        '$primaryMember|$alternativeMember',
       );
     });
 
@@ -339,9 +338,7 @@ void main() {
 
           expect(
             help,
-            startsWith(
-              'tool < auto | always > < auto | always x3 > [ files x2 ]',
-            ),
+            startsWith('tool auto|always (auto|always){1,3} [files{1,2}]'),
           );
         },
       );
@@ -357,7 +354,7 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool < source > [ target ] [ extra ... ]'));
+        expect(help, startsWith('tool source [target] [extra*]'));
       });
 
       test('renders choice names for a choice variadic', () {
@@ -372,8 +369,75 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool [ json | yaml ... ]'));
+        expect(help, startsWith('tool [(json|yaml)*]'));
       });
+    });
+
+    test('renders flags and value-taking options with literal tokens', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: [BooleanFlag('verbose', short: 'v')],
+        options: [
+          StringOption('config-file', short: 'c', regex: RegExp(r'\S+')),
+          RepeatableStringOption('tag', short: 't'),
+        ],
+      );
+
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+      expect(help, contains('[-v|--verbose]'));
+      expect(help, contains('[-c|--config-file CONFIG_FILE]'));
+      expect(help, contains('[(-t|--tag TAG)+]'));
+    });
+
+    test('renders choices for every choice-valued help entry', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        options: [
+          ChoiceOption<_OutputFormat>(
+            'format',
+            short: 'f',
+            choices: _OutputFormat.values,
+          ),
+        ],
+        pairedOptions: [
+          PairedChoiceOption<_OutputFormat>(
+            'primary-format',
+            choices: _OutputFormat.values,
+            options: [
+              PairChoiceOption<_OutputFormat>(
+                'fallback-format',
+                choices: _OutputFormat.values,
+              ),
+            ],
+          ),
+        ],
+        accessors: [
+          AccessorListOption(
+            'output',
+            options: [
+              AccessorChoiceOption<_OutputFormat>(
+                'format',
+                choices: _OutputFormat.values,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+      expect(help, contains('[-f|--format (json|yaml)]'));
+      expect(
+        help,
+        contains(
+          '[--primary-format (json|yaml) & '
+          '--fallback-format (json|yaml)]',
+        ),
+      );
+      expect(help, contains('[--output.format (json|yaml)]'));
     });
 
     test('renders optional paired options as one PairDSL expression', () {
@@ -396,7 +460,10 @@ void main() {
 
       expect(
         help,
-        contains('[ --username | -u & --password | -p ] Username; Password'),
+        contains(
+          '[-u|--username USERNAME & -p|--password PASSWORD] '
+          'Username; Password',
+        ),
       );
     });
 
@@ -416,7 +483,7 @@ void main() {
 
       final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-      expect(help, contains('[ --token | --apiKey ] Token; API key'));
+      expect(help, contains('[--token TOKEN|--apiKey API_KEY] Token; API key'));
     });
 
     test('renders required ordinary options with required grammar', () {
@@ -428,7 +495,7 @@ void main() {
 
       final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-      expect(help, contains('< count >'));
+      expect(help, contains('--count COUNT'));
     });
 
     test('renders paired groups after ordinary options', () {
@@ -446,9 +513,12 @@ void main() {
 
       final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-      expect(help, contains('[ region ]'));
+      expect(help, contains('[--region REGION]'));
       expect(help, contains('--username'));
-      expect(help.indexOf('[ region ]'), lessThan(help.indexOf('--username')));
+      expect(
+        help.indexOf('[--region REGION]'),
+        lessThan(help.indexOf('--username')),
+      );
     });
 
     test('keeps empty description slots for paired members', () {
@@ -471,7 +541,10 @@ void main() {
 
       expect(
         help,
-        contains('[ --username & --password & --tenant ] Username; ; Tenant'),
+        contains(
+          '[--username USERNAME & --password PASSWORD & --tenant TENANT] '
+          'Username; ; Tenant',
+        ),
       );
     });
 
@@ -495,7 +568,10 @@ void main() {
 
       expect(
         help,
-        contains('< --clientId & --clientSecret > Client ID; Client secret'),
+        contains(
+          '--clientId CLIENT_ID & --clientSecret CLIENT_SECRET '
+          'Client ID; Client secret',
+        ),
       );
     });
 
@@ -517,7 +593,10 @@ void main() {
 
       expect(
         help,
-        contains('[ ...--header | -H & --requestId ] Header; Request ID'),
+        contains(
+          '[(-H|--header HEADER)+ & --requestId REQUEST_ID] '
+          'Header; Request ID',
+        ),
       );
     });
 
@@ -544,7 +623,7 @@ void main() {
 
       expect(
         help,
-        contains('[ --session & ...--header | -H ] Session; Header'),
+        contains('[--session SESSION & (-H|--header HEADER)+] Session; Header'),
       );
     });
 
@@ -565,7 +644,10 @@ void main() {
 
       final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-      expect(help, contains('[ ...--port & ...--weight ] Port; Weight'));
+      expect(
+        help,
+        contains('[(--port PORT)+ & (--weight WEIGHT)+] Port; Weight'),
+      );
     });
 
     test('renders child commands with their descriptions', () {

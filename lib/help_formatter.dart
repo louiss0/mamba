@@ -17,29 +17,21 @@ abstract class FormattedString {
   static String _parse(String string) {
     if (!_ansiColorRegex.hasMatch(string)) {
       throw FormatException(
-        'Formatted strings must not contain SGR (Select Graphic Rendition)',
+        'Formatted strings must contain SGR (Select Graphic Rendition)',
       );
     }
     return string;
   }
 }
 
-/// A styled help fragment enclosed in required angle brackets.
+/// A styled help fragment that must be supplied.
 final class RequiredString extends FormattedString {
-  RequiredString(String string) : super('< ${_parse(string)} >');
-
-  static String _parse(String string) {
-    final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
-    if (unformatted.contains('<') || unformatted.contains('>')) {
-      throw FormatException('Required strings must not contain < or >');
-    }
-    return string;
-  }
+  RequiredString(super.string);
 }
 
 /// A styled help fragment enclosed in optional square brackets.
 final class OptionalString extends FormattedString {
-  OptionalString(String string) : super('[ ${_parse(string)} ]');
+  OptionalString(String string) : super('[${_parse(string)}]');
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -59,7 +51,7 @@ final class PairString extends FormattedString {
 /// Joins a primary help member with mutually exclusive alternatives.
 final class OrString extends FormattedString {
   OrString(String primaryMember, Iterable<String> alternativeMembers)
-    : super._([primaryMember, ...alternativeMembers].join(' | '));
+    : super._([primaryMember, ...alternativeMembers].join('|'));
 }
 
 /// A bright-green title for a help section.
@@ -129,8 +121,11 @@ final class MambaHelpFormatter extends HelpFormatter {
       ...?registry.discretionaryPositionals?.values.map(_optionalPositional),
       if (registry.variadic case final variadic?) _variadic(variadic),
     ];
+    final positionalExpression = positionals
+        .map((positional) => positional.string)
+        .join(' ');
     final commandLine =
-        '${registry.name}${positionals.isEmpty ? '' : ' ${positionals.map((positional) => positional.string).join(' ')}'}';
+        '${registry.name}${positionals.isEmpty ? '' : ' $positionalExpression'}';
 
     buffer.writeln("$commandLine  '${registry.shortDescription}'");
 
@@ -187,24 +182,25 @@ final class MambaHelpFormatter extends HelpFormatter {
 
   OptionalString _variadic(Variadic variadic) => formatIntoOptionalString(
     '${switch (variadic) {
-      ChoiceVariadic(:final choices) => _choiceExpression(choices),
+      ChoiceVariadic(:final choices) => '(${_choiceExpression(choices)})',
       NormalVariadic() => variadic.name,
-    }} ...',
+    }}*',
   );
 
   String _positionalExpression(Positional positional) {
     final name = switch (positional) {
-      ChoicePositional(:final choices) ||
-      RepeatedChoicePositional(:final choices) => _choiceExpression(choices),
+      RepeatedChoicePositional(:final choices) =>
+        '(${_choiceExpression(choices)})',
+      ChoicePositional(:final choices) => _choiceExpression(choices),
       _ => positional.name,
     };
     return positional is RepeatedPositional
-        ? '$name x${positional.times + 1}'
+        ? '$name{1,${positional.times + 1}}'
         : name;
   }
 
   String _choiceExpression(Iterable<Enum> choices) =>
-      choices.map((choice) => choice.name).join(' | ');
+      choices.map((choice) => choice.name).join('|');
 
   String _flag(Flag flag) => _entry(
     name: flag.name,
@@ -219,6 +215,11 @@ final class MambaHelpFormatter extends HelpFormatter {
     description: option.description,
     required: option.required,
     repeatable: option is RepeatableOption,
+    takesValue: true,
+    choices: switch (option) {
+      ChoiceOption(:final choices) => choices,
+      _ => null,
+    },
   );
 
   String _pairedOption(PairedOption option) {
@@ -241,13 +242,21 @@ final class MambaHelpFormatter extends HelpFormatter {
   }
 
   String _pairedMember(NamedInput option) {
-    final longName = '--${option.name}';
     final short = switch (option) {
       Option(short: final short) || PairOption(short: final short) => short,
       _ => null,
     };
-    final displayName = short == null ? longName : '$longName | -$short'.bold;
-    return _isRepeatablePairMember(option) ? '...$displayName' : displayName;
+    final choices = switch (option) {
+      PairedChoiceOption(:final choices) ||
+      PairChoiceOption(:final choices) => choices,
+      _ => null,
+    };
+    final expression = _valueTakingInput(
+      option.name,
+      short: short,
+      choices: choices,
+    );
+    return _isRepeatablePairMember(option) ? '($expression)+' : expression;
   }
 
   bool _isRepeatablePairMember(NamedInput option) => switch (option) {
@@ -285,24 +294,60 @@ final class MambaHelpFormatter extends HelpFormatter {
     }
   }
 
-  String _accessorEntry(String name, AccessorOption option) =>
-      _entry(name: name, description: option.description, required: false);
+  String _accessorEntry(String name, AccessorOption option) => _entry(
+    name: name,
+    description: option.description,
+    required: false,
+    takesValue: true,
+    choices: switch (option) {
+      AccessorChoiceOption(:final choices) => choices,
+      _ => null,
+    },
+  );
 
   String _entry({
     required String name,
     required String? description,
     required bool required,
     bool repeatable = false,
+    bool takesValue = false,
+    Iterable<Enum>? choices,
     String? short,
   }) {
-    final displayName = short == null ? name : '$name |  $short'.bold;
-    final repeatableName = repeatable ? '...$displayName' : displayName;
+    final expression = takesValue
+        ? _valueTakingInput(name, short: short, choices: choices)
+        : _namedInput(name, short: short);
+    final repeatedExpression = repeatable ? '($expression)+' : expression;
     final grammar = required
-        ? formatIntoRequiredString(repeatableName)
-        : formatIntoOptionalString(repeatableName);
+        ? formatIntoRequiredString(repeatedExpression)
+        : formatIntoOptionalString(repeatedExpression);
 
     return '${grammar.string} ${formatIntoEntryDescription(description ?? '').string}';
   }
+
+  String _valueTakingInput(
+    String name, {
+    String? short,
+    Iterable<Enum>? choices,
+  }) {
+    final value = choices == null
+        ? _valuePlaceholder(name)
+        : '(${_choiceExpression(choices)})';
+    return '${_namedInput(name, short: short)} $value';
+  }
+
+  String _namedInput(String name, {String? short}) {
+    final long = '--$name';
+    return short == null ? long : '-$short|$long';
+  }
+
+  String _valuePlaceholder(String name) => name
+      .replaceAllMapped(
+        RegExp(r'([a-z0-9])([A-Z])'),
+        (match) => '${match[1]}_${match[2]}',
+      )
+      .replaceAll(RegExp(r'[-.]'), '_')
+      .toUpperCase();
 
   void _writeSection(
     StringBuffer buffer,

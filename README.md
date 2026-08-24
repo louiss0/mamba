@@ -103,8 +103,10 @@ with a `singles` map for `Positional` values and a `repeated` map holding the
 collected lists of `RepeatedStringPositional` and `RepeatedChoicePositional`,
 the two concrete `RepeatedPositional` kinds.
 
-**Help.** Mandatory names appear as red `< name >`; discretionary names appear
-as dim `[ name ]` in the usage line.
+**Help.** Mandatory names appear as bare red operands; discretionary names use
+compact dim brackets such as `[target]`. Choice members are joined with `|`,
+bounded repetitions use `{1,N}`, and a variadic uses `*` in the final
+positional slot.
 
 ```dart
 final class Switch extends Command {
@@ -200,10 +202,11 @@ their enum-member names. Repeated values append to typed lists; ordinary
 options retain the last value. Missing required options and invalid values are
 errors; omitted choices receive their default when configured.
 
-**Help.** Visible entries appear in **Options**. Required entries use red angle
-brackets, optional entries use dim square brackets, and repeated entries begin
-with `...`. The formatter prints each registered name, its short alias when
-present, and its yellow description.
+**Help.** Visible entries appear in **Options**. Required entries are bare and
+red; optional entries use dim square brackets. The formatter prints literal
+long and short tokens followed by an uppercase value placeholder, such as
+`[-m|--message MESSAGE]`. Choices replace the placeholder with `(one|other)`,
+and repeatable option occurrences use a trailing `+`.
 
 ```dart
 enum FixupMode { amend, reword }
@@ -269,9 +272,9 @@ A variant permits at most one member and a required variant needs one. Values
 are returned in the same typed maps as ordinary and repeated options.
 
 **Help.** A paired registration appears once in **Options**. Grouped members
-join with ` & ` and variants with ` | `. Required groups use angle brackets,
-optional groups use square brackets, repeatable members have `...`, and member
-descriptions are joined with `; `.
+join with ` & ` and variants with `|`. Required groups are bare, optional
+groups use compact square brackets, repeatable members use a grouped `+`
+quantifier, and member descriptions are joined with `; `.
 
 ```dart
 enum Format { json, text }
@@ -443,9 +446,10 @@ long description surrounded by dashed lines, and non-empty **Flags**,
 accepted but are omitted from this output.
 
 `FormattedString` and its subclasses protect styled help fragments.
-`RequiredString` and `OptionalString` reject their own delimiters; `PairString`
-and `OrString` express grouped and alternative syntax. Custom formatters
-implement `format` and `formatLongDescription` and can reuse these helpers.
+`RequiredString` leaves required syntax bare, `OptionalString` supplies compact
+square brackets, and `PairString` and `OrString` express grouped and alternative
+syntax. Custom formatters implement `format` and `formatLongDescription` and
+can reuse these helpers.
 
 ## Hooks and context
 
