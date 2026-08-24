@@ -12,16 +12,20 @@ class TestGroupCommand extends GroupCommand {
   @override
   String get shortDescription => "This is a test command";
 
-  TestGroupCommand(this.name, super.commands, {super.defaultSubCommandPath})
-    : super(
-        longDescription: '',
-        mandatoryPositionals: null,
-        discretionaryPositionals: null,
-        flags: null,
-        options: null,
-        pairedOptions: null,
-        accessors: null,
-      );
+  TestGroupCommand(
+    this.name,
+    super.commands, {
+    super.defaultSubCommandPath,
+    super.variadic,
+  }) : super(
+         longDescription: '',
+         mandatoryPositionals: null,
+         discretionaryPositionals: null,
+         flags: null,
+         options: null,
+         pairedOptions: null,
+         accessors: null,
+       );
 
   FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
@@ -50,6 +54,25 @@ class TestCommand extends Mock implements Command {
   final String name;
 
   TestCommand(this.name);
+}
+
+enum OutputFormat { yaml, json }
+
+final class _VariadicCommand extends Command {
+  _VariadicCommand({super.variadic});
+
+  @override
+  String get name => 'tool';
+
+  @override
+  String get shortDescription => 'A test command.';
+
+  @override
+  FutureOr<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs input,
+    List<String> trailingArguments,
+  ) => '';
 }
 
 class TestChildGroupCommand extends Mock implements GroupCommand {
@@ -190,6 +213,43 @@ void main() {
     test('accessor numeric regexes describe their accepted shapes', () {
       expect(AccessorIntOption('port').regex.hasMatch('80'), isTrue);
       expect(AccessorDoubleOption('ratio').regex.hasMatch('1.5'), isTrue);
+    });
+  });
+
+  group('Variadic', () {
+    test('defaults the variadic field to absent', () {
+      expect(_VariadicCommand().variadic, isNull);
+    });
+
+    test('registers a NormalVariadic under variadic', () {
+      final extra = NormalVariadic('extra');
+
+      expect(_VariadicCommand(variadic: extra).variadic, same(extra));
+    });
+
+    test('registers a ChoiceVariadic under variadic', () {
+      final formats = ChoiceVariadic<OutputFormat>(
+        'formats',
+        choices: OutputFormat.values,
+        defaultValue: OutputFormat.yaml,
+      );
+
+      final command = _VariadicCommand(variadic: formats);
+
+      expect(command.variadic, same(formats));
+    });
+
+    test('forwards the variadic through group commands', () {
+      final formats = ChoiceVariadic<OutputFormat>(
+        'formats',
+        choices: OutputFormat.values,
+      );
+
+      final group = TestGroupCommand('git', [
+        TestCommand('stash'),
+      ], variadic: formats);
+
+      expect(group.variadic, same(formats));
     });
   });
 

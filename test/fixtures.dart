@@ -10,6 +10,7 @@ class TestGroupCommand extends GroupCommand {
     super.inheritedOptions,
     super.flags,
     super.options,
+    super.variadic,
   });
 
   @override
@@ -27,6 +28,7 @@ class TestCommand extends Command {
     super.aliases,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
+    super.variadic,
     super.flags,
     super.options,
     super.pairedOptions,
