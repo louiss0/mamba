@@ -660,6 +660,9 @@ abstract class Command {
   final List<String>? aliases;
   final List<Positional>? mandatoryPositionals;
   final List<Positional>? discretionaryPositionals;
+
+  /// Input absorbing every positional token left after all positionals fill.
+  final Variadic? variadic;
   final List<Flag>? flags;
   final List<Option>? options;
   final List<PairedOption>? pairedOptions;
@@ -674,6 +677,7 @@ abstract class Command {
     this.aliases,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
+    this.variadic,
     this.flags,
     this.options,
     this.pairedOptions,
@@ -713,6 +717,7 @@ abstract class GroupCommand extends Command {
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
+    super.variadic,
     super.flags,
     super.options,
     super.pairedOptions,
