@@ -1735,6 +1735,95 @@ void main() {
       expect(registry.accessors, {'user': profile});
     });
 
+    group('Variadic', () {
+      test('holds the variadic input under variadic', () {
+        final extra = NormalVariadic('extra');
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: extra,
+        );
+
+        expect(registry.variadic, same(extra));
+      });
+
+      test('holds a nested command variadic under its registry', () {
+        final formats = ChoiceVariadic<DeploymentFormat>(
+          'formats',
+          choices: DeploymentFormat.values,
+          defaultValue: DeploymentFormat.yaml,
+        );
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [TestCommand('run', 'Run the tool.', variadic: formats)],
+        );
+
+        expect(registry.variadic, isNull);
+        expect(registry.commandRegistries!.single.variadic, same(formats));
+      });
+
+      test('exports the variadic input as variadic in toMap', () {
+        final extra = NormalVariadic(
+          'extra',
+          description: 'Everything that follows.',
+        );
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: extra,
+        );
+
+        expect(registry.toMap()['variadic'], {
+          'description': 'Everything that follows.',
+        });
+      });
+
+      test('exports choice variadic members and defaults in toMap', () {
+        final formats = ChoiceVariadic<DeploymentFormat>(
+          'formats',
+          description: 'Output formats.',
+          choices: DeploymentFormat.values,
+          defaultValue: DeploymentFormat.yaml,
+        );
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: formats,
+        );
+
+        expect(registry.toMap()['variadic'], {
+          'description': 'Output formats.',
+          'choices': ['yaml', 'json'],
+          'default': 'yaml',
+        });
+      });
+
+      test('rejects invalid and colliding variadic names', () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            variadic: NormalVariadic('bad!'),
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            mandatoryPositionals: [Positional('extra')],
+            variadic: NormalVariadic('extra'),
+          ),
+          throwsA(isA<MambaException>()),
+        );
+      });
+    });
+
     test('indexes paired options by their group name', () {
       final credentials = PairedStringOption(
         'username',
