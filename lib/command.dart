@@ -66,9 +66,9 @@ final class ChoicePositional<T extends Enum> extends Positional {
 sealed class RepeatedPositional extends Positional {
   /// Maximum number of repetitions; accepts one value per repetition plus the
   /// original, so the default of 1 collects up to two values.
-  final int maxCount;
+  final int times;
 
-  RepeatedPositional(super.name, {super.description, this.maxCount = 1});
+  RepeatedPositional(super.name, {super.description, this.times = 1});
 }
 
 final class RepeatedStringPositional extends RepeatedPositional {
@@ -78,7 +78,7 @@ final class RepeatedStringPositional extends RepeatedPositional {
     super.name, {
     super.description,
     RegExp? regExp,
-    super.maxCount = 1,
+    super.times = 1,
   }) : regExp = regExp ?? Positional.anyToken;
 
   @override
@@ -95,7 +95,7 @@ final class RepeatedChoicePositional<T extends Enum>
     super.description,
     required this.choices,
     this.defaultValue,
-    super.maxCount = 1,
+    super.times = 1,
   });
 
   @override

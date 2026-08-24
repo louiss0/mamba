@@ -798,7 +798,7 @@ class Parser {
     void fill(List<Positional> registered, {required bool isMandatory}) {
       for (final positional in registered) {
         final maxCount = switch (positional) {
-          RepeatedPositional() => positional.maxCount,
+          RepeatedPositional() => positional.times,
           _ => null,
         };
         // A repeated positional accepts one value per repetition plus the

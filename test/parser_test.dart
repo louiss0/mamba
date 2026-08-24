@@ -190,9 +190,7 @@ void main() {
       'stops collecting a mandatory repeated positional after its repeats',
       () {
         final subject = parser(
-          mandatoryPositionals: [
-            RepeatedStringPositional('files', maxCount: 2),
-          ],
+          mandatoryPositionals: [RepeatedStringPositional('files', times: 2)],
         );
 
         expectParseError(subject, ['a.txt', 'b.txt', 'c.txt', 'd.txt']);
@@ -243,7 +241,7 @@ void main() {
     test('fills a leading repeated positional before later positionals', () {
       final inputs = parser(
         mandatoryPositionals: [
-          RepeatedStringPositional('files', maxCount: 2),
+          RepeatedStringPositional('files', times: 2),
           Positional('destination'),
         ],
       ).parse(['a.txt', 'b.txt', 'c.txt', 'out']).$2;
@@ -292,7 +290,7 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('files', maxCount: 1),
+          RepeatedStringPositional('files', times: 1),
           Positional('destination'),
         ],
       ).parse(['in', 'a.txt', 'mid', 'out']).$2;
@@ -309,7 +307,7 @@ void main() {
           RepeatedChoicePositional<Mode>(
             'modes',
             choices: Mode.values,
-            maxCount: 2,
+            times: 2,
           ),
           Positional('label'),
         ],
@@ -324,7 +322,7 @@ void main() {
     test('prioritizes mandatory positionals over discretionary ones', () {
       final inputs = parser(
         discretionaryPositionals: [Positional('target')],
-        mandatoryPositionals: [RepeatedStringPositional('files', maxCount: 1)],
+        mandatoryPositionals: [RepeatedStringPositional('files', times: 1)],
       ).parse(['a.txt', 'out']).$2;
 
       expect(inputs.singles, isNull);
@@ -352,7 +350,7 @@ void main() {
       final subject = parser(
         mandatoryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('files', maxCount: 1),
+          RepeatedStringPositional('files', times: 1),
         ],
       );
 
@@ -364,7 +362,7 @@ void main() {
     test('collects at the start until maxCount two is filled', () {
       final inputs = parser(
         mandatoryPositionals: [
-          RepeatedStringPositional('files', maxCount: 2),
+          RepeatedStringPositional('files', times: 2),
           Positional('target'),
         ],
       ).parse(['f0', 'f1', 'f2', 'out']).$2;
@@ -379,7 +377,7 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('files', maxCount: 3),
+          RepeatedStringPositional('files', times: 3),
           Positional('target'),
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3', 'out']).$2;
@@ -394,7 +392,7 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('files', maxCount: 4),
+          RepeatedStringPositional('files', times: 4),
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3']).$2;
 
@@ -409,7 +407,7 @@ void main() {
     test('collects at the start until maxCount twelve is filled', () {
       final inputs = parser(
         discretionaryPositionals: [
-          RepeatedStringPositional('files', maxCount: 12),
+          RepeatedStringPositional('files', times: 12),
           Positional('target'),
         ],
       ).parse([...List.generate(13, (index) => 'f$index'), 'out']).$2;
@@ -424,7 +422,7 @@ void main() {
       final inputs = parser(
         discretionaryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('files', maxCount: 7),
+          RepeatedStringPositional('files', times: 7),
           Positional('target'),
         ],
       ).parse(['in', ...List.generate(8, (index) => 'f$index'), 'out']).$2;
@@ -439,7 +437,7 @@ void main() {
       final inputs = parser(
         discretionaryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('files', maxCount: 5),
+          RepeatedStringPositional('files', times: 5),
         ],
       ).parse(['in', ...List.generate(5, (index) => 'f$index')]).$2;
 
@@ -455,9 +453,9 @@ void main() {
       'splits values between a capped mandatory and an open discretionary',
       () {
         final inputs = parser(
-          mandatoryPositionals: [RepeatedStringPositional('kept', maxCount: 4)],
+          mandatoryPositionals: [RepeatedStringPositional('kept', times: 4)],
           discretionaryPositionals: [
-            RepeatedStringPositional('extra', maxCount: 8),
+            RepeatedStringPositional('extra', times: 8),
           ],
         ).parse(List.generate(10, (index) => 'v$index')).$2;
 
@@ -473,11 +471,11 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           Positional('source'),
-          RepeatedStringPositional('kept', maxCount: 3),
+          RepeatedStringPositional('kept', times: 3),
         ],
         discretionaryPositionals: [
           Positional('target'),
-          RepeatedStringPositional('more', maxCount: 6),
+          RepeatedStringPositional('more', times: 6),
         ],
       ).parse(['in', 'k0', 'k1', 'k2', 'k3', 'out', 'm0', 'm1', 'm2', 'm3']).$2;
 
@@ -492,9 +490,9 @@ void main() {
       'caps both lists when fewer values arrive than the combined counts',
       () {
         final inputs = parser(
-          mandatoryPositionals: [RepeatedStringPositional('kept', maxCount: 3)],
+          mandatoryPositionals: [RepeatedStringPositional('kept', times: 3)],
           discretionaryPositionals: [
-            RepeatedStringPositional('extra', maxCount: 12),
+            RepeatedStringPositional('extra', times: 12),
           ],
         ).parse(['k0', 'k1', 'k2', 'k3', 'e0', 'e1']).$2;
 
