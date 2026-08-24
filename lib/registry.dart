@@ -41,6 +41,7 @@ final class CommandRegistry {
     this.pairedOptions,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
+    this.variadic,
     this.accessors,
     this.commandRegistries,
   });
@@ -62,6 +63,9 @@ final class CommandRegistry {
   final Map<String, PairedOption>? pairedOptions;
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
+
+  /// Input absorbing every positional token left after all positionals fill.
+  final Variadic? variadic;
   final Map<String, AccessorListOption>? accessors;
   final List<CommandRegistry>? commandRegistries;
 
@@ -76,6 +80,7 @@ final class CommandRegistry {
     String? longDescription,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
+    Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,
@@ -88,6 +93,7 @@ final class CommandRegistry {
       null,
       mandatoryPositionals,
       discretionaryPositionals,
+      variadic,
       flags,
       options,
       pairedOptions,
@@ -115,6 +121,7 @@ final class CommandRegistry {
       discretionaryPositionals: _indexByName<Positional>(
         discretionaryPositionals,
       ),
+      variadic: variadic,
       accessors: _indexByName<AccessorListOption>(accessors),
       commandRegistries: commands
           ?.map((command) => _fromCommand(command, parentPath: [name]))
@@ -153,6 +160,7 @@ final class CommandRegistry {
       command.aliases,
       command.mandatoryPositionals,
       command.discretionaryPositionals,
+      command.variadic,
       registeredFlags,
       ordinaryOptions,
       pairedOptions,
@@ -187,6 +195,7 @@ final class CommandRegistry {
       discretionaryPositionals: _indexByName<Positional>(
         command.discretionaryPositionals,
       ),
+      variadic: command.variadic,
       accessors: _indexByName<AccessorListOption>(command.accessors),
       commandRegistries: childCommands
           ?.map(
@@ -264,6 +273,11 @@ final class CommandRegistry {
                 const <Positional>[])
           positional.name: _mapPositional(positional.name, positional, false),
       };
+    }
+
+    final registeredVariadic = variadic;
+    if (registeredVariadic != null) {
+      map['variadic'] = _mapVariadic(registeredVariadic);
     }
 
     final registeredAccessors = accessors;
@@ -378,6 +392,17 @@ final class CommandRegistry {
     Positional positional,
     bool required,
   ) => {'required': required, 'description': positional.description};
+
+  static Map<String, dynamic> _mapVariadic(
+    Variadic variadic,
+  ) => switch (variadic) {
+    ChoiceVariadic(:final description, :final choices, :final defaultValue) => {
+      'description': description,
+      'choices': choices.map((choice) => choice.name).toList(),
+      'default': ?defaultValue?.name,
+    },
+    NormalVariadic(:final description) => {'description': description},
+  };
 
   static Object _mapAccessorList(
     AccessorListOption accessor, {
@@ -512,6 +537,7 @@ final class CommandRegistry {
     List<String>? aliases,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
+    Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOption>? pairedOptions,
@@ -527,6 +553,7 @@ final class CommandRegistry {
     _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(mandatoryPositionals, discretionaryPositionals);
+    _validateVariadic(variadic, mandatoryPositionals, discretionaryPositionals);
     _validateDuplicates(
       accessors,
       flags,
@@ -537,6 +564,24 @@ final class CommandRegistry {
       commands,
       commandPath,
     );
+  }
+
+  static void _validateVariadic(
+    Variadic? variadic,
+    List<Positional>? mandatory,
+    List<Positional>? discretionary,
+  ) {
+    if (variadic == null) return;
+    _validatePositionalName(variadic.name);
+    final positionalNames = [
+      ...?mandatory,
+      ...?discretionary,
+    ].map((positional) => positional.name);
+    if (positionalNames.contains(variadic.name)) {
+      throw MambaException(
+        "A variadic can't have the same name as a positional: ${variadic.name}",
+      );
+    }
   }
 
   static void _validateAliases(
