@@ -23,9 +23,10 @@ typedef RegistryMetadata = (
   List<NamedExpectation>? accessors,
 });
 
-/// One named entry: its [name] key plus the [expectation] compared against
-/// the exported metadata for that key.
-typedef NamedExpectation = ({String name, Object expectation});
+/// One named entry: its [name] as the first positional field feeding the
+/// built map's key, followed by the expected props compared against the
+/// exported metadata for that key.
+typedef NamedExpectation = (String name, Map<String, dynamic> props);
 
 /// Builds the expected map for a registry level from its [metadata] and an
 /// optional [commands] list whose records recurse through this builder.
@@ -50,9 +51,7 @@ Map<String, dynamic> _namesToMaps(
   bool addNames = false,
 }) => {
   for (final entry in entries)
-    entry.name: addNames
-        ? _namedCopy(entry.name, entry.expectation as Map<String, dynamic>)
-        : entry.expectation,
+    entry.$1: addNames ? _namedCopy(entry.$1, entry.$2) : entry.$2,
 };
 
 Map<String, dynamic> _namedCopy(
@@ -64,7 +63,7 @@ Map<String, dynamic> _namedCopy(
   if (expectation['commands'] case final nestedCommands?)
     'commands': _namesToMaps([
       for (final entry in (nestedCommands as Map<String, dynamic>).entries)
-        (name: entry.key, expectation: entry.value as Map<String, dynamic>),
+        (entry.key, entry.value as Map<String, dynamic>),
     ], addNames: true),
 };
 
@@ -103,8 +102,8 @@ void main() {
 
               flags: [
                 (
-                  name: 'color',
-                  expectation: {
+                  'color',
+                  {
                     'short': null,
                     'default': false,
                     'negatable': true,
@@ -112,16 +111,13 @@ void main() {
                     "description": null,
                   },
                 ),
-                (
-                  name: 'verbose',
-                  expectation: {'hidden': false, "description": null},
-                ),
+                ('verbose', {'hidden': false, "description": null}),
               ],
 
               options: [
                 (
-                  name: 'name',
-                  expectation: {
+                  'name',
+                  {
                     'short': null,
                     'required': false,
                     'hidden': false,
@@ -129,8 +125,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'tag',
-                  expectation: {
+                  'tag',
+                  {
                     'short': null,
                     'required': false,
                     'hidden': false,
@@ -141,20 +137,14 @@ void main() {
               ],
 
               positionals: [
-                (
-                  name: 'source',
-                  expectation: {'required': true, "description": null},
-                ),
-                (
-                  name: 'target',
-                  expectation: {'required': false, "description": null},
-                ),
+                ('source', {'required': true, "description": null}),
+                ('target', {'required': false, "description": null}),
               ],
 
               accessors: [
                 (
-                  name: 'user',
-                  expectation: {
+                  'user',
+                  {
                     'description': null,
                     'options': {
                       'profile': {'description': null},
@@ -243,21 +233,11 @@ void main() {
                 ),
 
                 commands: [
+                  ('add', {'description': 'Add a file to the staging area'}),
+                  ('commit', {'description': 'Take a snapshot of your code'}),
                   (
-                    name: 'add',
-                    expectation: {
-                      'description': 'Add a file to the staging area',
-                    },
-                  ),
-                  (
-                    name: 'commit',
-                    expectation: {
-                      'description': 'Take a snapshot of your code',
-                    },
-                  ),
-                  (
-                    name: 'worktree',
-                    expectation: {
+                    'worktree',
+                    {
                       'description':
                           'Place your code in separate repo that can be merged',
                       'commands': {
@@ -323,10 +303,10 @@ void main() {
               ),
 
               commands: [
-                (name: 'sub', expectation: {'description': 'Sub command.'}),
+                ('sub', {'description': 'Sub command.'}),
                 (
-                  name: 'one',
-                  expectation: {
+                  'one',
+                  {
                     'description': 'Group one.',
                     'commands': {
                       'two': {
@@ -436,8 +416,8 @@ void main() {
 
               commands: [
                 (
-                  name: 'config',
-                  expectation: {
+                  'config',
+                  {
                     'description': 'Configure Git.',
                     'accessors': {
                       'branch': {
@@ -504,8 +484,8 @@ void main() {
 
               options: [
                 (
-                  name: 'url',
-                  expectation: {
+                  'url',
+                  {
                     'short': 'u',
                     'required': true,
                     'hidden': false,
@@ -513,8 +493,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'retry',
-                  expectation: {
+                  'retry',
+                  {
                     'short': null,
                     'required': false,
                     'hidden': false,
@@ -522,8 +502,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'max-time',
-                  expectation: {
+                  'max-time',
+                  {
                     'short': 'm',
                     'required': false,
                     'hidden': false,
@@ -531,8 +511,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'header',
-                  expectation: {
+                  'header',
+                  {
                     'short': 'H',
                     'required': false,
                     'hidden': false,
@@ -541,8 +521,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'data',
-                  expectation: {
+                  'data',
+                  {
                     'short': 'd',
                     'required': false,
                     'hidden': false,
@@ -597,24 +577,24 @@ void main() {
 
               flags: [
                 (
-                  name: 'verbose',
-                  expectation: {
+                  'verbose',
+                  {
                     'short': 'v',
                     'hidden': false,
                     'description': 'Increase verbosity.',
                   },
                 ),
                 (
-                  name: 'quiet',
-                  expectation: {
+                  'quiet',
+                  {
                     'short': 'q',
                     'hidden': false,
                     'description': 'Suppress non-error messages.',
                   },
                 ),
                 (
-                  name: 'dry-run',
-                  expectation: {
+                  'dry-run',
+                  {
                     'short': 'n',
                     'default': false,
                     'negatable': false,
@@ -623,8 +603,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'archive',
-                  expectation: {
+                  'archive',
+                  {
                     'short': 'a',
                     'default': false,
                     'negatable': false,
@@ -729,8 +709,8 @@ void main() {
 
               commands: [
                 (
-                  name: 'run',
-                  expectation: {
+                  'run',
+                  {
                     'description':
                         'Create and run a new container from an image.',
                     'positionals': {
@@ -750,8 +730,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'exec',
-                  expectation: {
+                  'exec',
+                  {
                     'description': 'Execute a command in a running container.',
                     'positionals': {
                       'container': {
@@ -770,8 +750,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'cp',
-                  expectation: {
+                  'cp',
+                  {
                     'description':
                         'Copy files between a container and the local filesystem.',
                     'positionals': {
@@ -787,8 +767,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'rename',
-                  expectation: {
+                  'rename',
+                  {
                     'description': 'Rename a container.',
                     'positionals': {
                       'container': {
@@ -803,8 +783,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'commit',
-                  expectation: {
+                  'commit',
+                  {
                     'description':
                         "Create a new image from a container's changes.",
                     'positionals': {
@@ -958,8 +938,8 @@ void main() {
 
               commands: [
                 (
-                  name: 'remote',
-                  expectation: {
+                  'remote',
+                  {
                     'description': 'Manage tracked repositories.',
                     'commands': {
                       'add': {
@@ -1016,8 +996,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'worktree',
-                  expectation: {
+                  'worktree',
+                  {
                     'description': 'Manage linked working trees.',
                     'commands': {
                       'add': {
@@ -1065,8 +1045,8 @@ void main() {
                   },
                 ),
                 (
-                  name: 'stash',
-                  expectation: {
+                  'stash',
+                  {
                     'description': 'Stash working directory changes.',
                     'commands': {
                       'push': {
@@ -1157,8 +1137,8 @@ void main() {
 
                 commands: [
                   (
-                    name: 'put-object',
-                    expectation: {
+                    'put-object',
+                    {
                       'description': 'Add an object to an Amazon S3 bucket.',
                       'options': {
                         'sse-customer-algorithm': {
@@ -1233,8 +1213,8 @@ void main() {
 
                 commands: [
                   (
-                    name: 'worktree',
-                    expectation: {
+                    'worktree',
+                    {
                       'description': 'Manage linked working trees.',
                       'commands': {
                         'add': {
