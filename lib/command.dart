@@ -15,24 +15,60 @@ sealed class NamedInput {
   final String? description;
 }
 
+/// Validates candidate values against a pattern that must match entirely.
+///
+/// Inputs expose their pattern through [regex]; the shared [matchesEntirely]
+/// check keeps whole-token validation identical for every regex input.
+mixin RegExpValidated {
+  /// Pattern every validated value must match entirely.
+  RegExp get regex;
+
+  /// Whether [value] is a complete match of [regex].
+  bool matchesEntirely(String value) {
+    final match = regex.firstMatch(value);
+    return match != null && match.start == 0 && match.end == value.length;
+  }
+}
+
+/// Validates candidate values against registered enum-member names.
+///
+/// Inputs expose their members through [choices]; the shared [isValidChoice]
+/// check keeps choice validation identical for every choice input.
+mixin ChoiceValidated<T extends Enum> {
+  /// Members every validated value must name.
+  List<T> get choices;
+
+  /// Whether [value] names one of the [choices].
+  bool isValidChoice(String value) =>
+      choices.any((choice) => choice.name == value);
+}
+
 /// A regex-validated value registered in a command's positional sequence.
 ///
 /// Register it in `mandatoryPositionals` or `discretionaryPositionals`; the
 /// parser stores its complete-token match in [ParsedPositionals], and help
 /// renders it as required or optional usage respectively.
-sealed class Positional extends NamedInput {
-  Positional(String name, {required String? description})
-    : super(name, description);
+class Positional extends NamedInput with RegExpValidated {
+  static final RegExp anyToken = RegExp(r"\S+");
+
+  Positional(String name, {String? description, RegExp? regex})
+    : _regExp = regex ?? anyToken,
+      super(name, description);
+
+  final RegExp _regExp;
+
+  @override
+  RegExp get regex => _regExp;
 }
 
 final class NormalPositional extends Positional {
-  final RegExp regExp;
-
   NormalPositional(super.name, {super.description, RegExp? regExp})
-    : regExp = regExp ?? RegExp(r"\S+");
+    : super(regex: regExp);
 }
 
-final class ChoicePositional<T extends Enum> extends Positional {
+final class ChoicePositional<T extends Enum> extends Positional
+    with ChoiceValidated<T> {
+  @override
   final List<T> choices;
   final T? defaultValue;
   ChoicePositional(
@@ -43,18 +79,28 @@ final class ChoicePositional<T extends Enum> extends Positional {
   });
 }
 
+/// Every remaining positional value registered after all positionals fill.
+///
+/// Register it in `variadic`; the parser validates each absorbed token once
+/// mandatory and discretionary positionals have taken theirs, then stores the
+/// collected values in the `variadic` map of [ParsedPositionals].
 sealed class Variadic extends NamedInput {
   const Variadic(String name, {String? description}) : super(name, description);
 }
 
-final class NormalVariadic extends Variadic {
+final class NormalVariadic extends Variadic with RegExpValidated {
   final RegExp regExp;
 
   NormalVariadic(super.name, {super.description, RegExp? regExp})
-    : regExp = regExp ?? RegExp(r"\S+");
+    : regExp = regExp ?? Positional.anyToken;
+
+  @override
+  RegExp get regex => regExp;
 }
 
-final class ChoiceVariadic<T extends Enum> extends Variadic {
+final class ChoiceVariadic<T extends Enum> extends Variadic
+    with ChoiceValidated<T> {
+  @override
   final List<T> choices;
   final T? defaultValue;
   const ChoiceVariadic(
@@ -76,25 +122,26 @@ sealed class RepeatedPositional extends Positional {
   /// original, so the default of 1 collects up to two values.
   final int times;
 
-  RepeatedPositional(super.name, {super.description, this.times = 1});
+  RepeatedPositional(
+    super.name, {
+    super.description,
+    super.regex,
+    this.times = 1,
+  });
 }
 
 final class RepeatedStringPositional extends RepeatedPositional {
-  final RegExp regExp;
-
   RepeatedStringPositional(
     super.name, {
     super.description,
     RegExp? regExp,
     super.times = 1,
-  }) : regExp = regExp ?? Positional.anyToken;
-
-  @override
-  RegExp get regex => regExp;
+  }) : super(regex: regExp);
 }
 
-final class RepeatedChoicePositional<T extends Enum>
-    extends RepeatedPositional {
+final class RepeatedChoicePositional<T extends Enum> extends RepeatedPositional
+    with ChoiceValidated<T> {
+  @override
   final List<T> choices;
   final T? defaultValue;
 
@@ -105,9 +152,6 @@ final class RepeatedChoicePositional<T extends Enum>
     this.defaultValue,
     super.times = 1,
   });
-
-  @override
-  RegExp get regex => Positional.anyToken;
 }
 
 /// A valueless named input registered in a command's flag collection.
@@ -190,7 +234,7 @@ sealed class PairedOption extends Option {
 }
 
 /// A regex-validated string primary in a paired option registration.
-final class PairedStringOption extends PairedOption {
+final class PairedStringOption extends PairedOption with RegExpValidated {
   PairedStringOption(
     super.name, {
     required super.options,
@@ -201,6 +245,7 @@ final class PairedStringOption extends PairedOption {
     super.variant,
   }) : regex = regex ?? RegExp(r'\S+');
 
+  @override
   final RegExp regex;
 }
 
@@ -229,7 +274,8 @@ final class PairedDoubleOption extends PairedOption {
 }
 
 /// An enum-choice primary in a paired option registration.
-final class PairedChoiceOption<T extends Enum> extends PairedOption {
+final class PairedChoiceOption<T extends Enum> extends PairedOption
+    with ChoiceValidated<T> {
   PairedChoiceOption(
     super.name, {
     required this.choices,
@@ -241,6 +287,7 @@ final class PairedChoiceOption<T extends Enum> extends PairedOption {
     super.variant,
   });
 
+  @override
   final List<T> choices;
   final T? defaultValue;
 }
@@ -258,7 +305,8 @@ sealed class RepeatablePairedOption extends PairedOption {
 }
 
 /// A repeatable string primary in a paired option registration.
-final class RepeatablePairedStringOption extends RepeatablePairedOption {
+final class RepeatablePairedStringOption extends RepeatablePairedOption
+    with RegExpValidated {
   RepeatablePairedStringOption(
     super.name, {
     required super.options,
@@ -269,6 +317,7 @@ final class RepeatablePairedStringOption extends RepeatablePairedOption {
     super.variant = false,
   }) : regex = regex ?? RegExp(r'\S+');
 
+  @override
   final RegExp regex;
 }
 
@@ -310,10 +359,11 @@ sealed class PairOption extends NamedInput {
 /// A regex-validated string companion in a paired option registration.
 
 /// A regex-validated string companion in a paired option registration.
-final class PairStringOption extends PairOption {
+final class PairStringOption extends PairOption with RegExpValidated {
   PairStringOption(super.name, {RegExp? regex, super.short, super.description})
     : regex = regex ?? RegExp(r'\S+');
 
+  @override
   final RegExp regex;
 }
 
@@ -328,7 +378,8 @@ final class PairDoubleOption extends PairOption {
 }
 
 /// An enum-choice companion in a paired option registration.
-final class PairChoiceOption<T extends Enum> extends PairOption {
+final class PairChoiceOption<T extends Enum> extends PairOption
+    with ChoiceValidated<T> {
   const PairChoiceOption(
     super.name, {
     required this.choices,
@@ -337,6 +388,7 @@ final class PairChoiceOption<T extends Enum> extends PairOption {
     super.description,
   });
 
+  @override
   final List<T> choices;
   final T? defaultValue;
 }
@@ -347,7 +399,8 @@ sealed class RepeatablePairOption extends PairOption {
 }
 
 /// A repeatable string companion in a paired option registration.
-final class RepeatablePairStringOption extends RepeatablePairOption {
+final class RepeatablePairStringOption extends RepeatablePairOption
+    with RegExpValidated {
   RepeatablePairStringOption(
     super.name, {
     RegExp? regex,
@@ -355,6 +408,7 @@ final class RepeatablePairStringOption extends RepeatablePairOption {
     super.description,
   }) : regex = regex ?? RegExp(r'\S+');
 
+  @override
   final RegExp regex;
 }
 
@@ -384,7 +438,7 @@ sealed class SingleOption extends Option {
 }
 
 /// A single string option validated by [regex].
-final class StringOption extends SingleOption {
+final class StringOption extends SingleOption with RegExpValidated {
   const StringOption(
     super.name, {
     required this.regex,
@@ -394,6 +448,7 @@ final class StringOption extends SingleOption {
     super.hidden,
   });
 
+  @override
   final RegExp regex;
 }
 
@@ -423,7 +478,8 @@ final class DoubleOption extends SingleOption {
 ///
 /// The parser stores the selected member name and supplies [defaultValue] when
 /// the option is omitted.
-final class ChoiceOption<T extends Enum> extends SingleOption {
+final class ChoiceOption<T extends Enum> extends SingleOption
+    with ChoiceValidated<T> {
   const ChoiceOption(
     super.name, {
     this.defaultValue,
@@ -434,6 +490,7 @@ final class ChoiceOption<T extends Enum> extends SingleOption {
     super.hidden,
   });
 
+  @override
   final List<T> choices;
   final T? defaultValue;
 }
@@ -450,7 +507,8 @@ sealed class RepeatableOption extends Option {
 }
 
 /// A repeatable string option validated by [regex].
-final class RepeatableStringOption extends RepeatableOption {
+final class RepeatableStringOption extends RepeatableOption
+    with RegExpValidated {
   RepeatableStringOption(
     super.name, {
     super.required = false,
@@ -460,6 +518,7 @@ final class RepeatableStringOption extends RepeatableOption {
     super.hidden,
   }) : regex = regex ?? RegExp(r'\S+');
 
+  @override
   final RegExp regex;
 }
 
@@ -517,11 +576,13 @@ final class AccessorListOption extends AccessorOption {
 }
 
 /// A regex-validated string leaf in a dotted accessor path.
-final class AccessorStringOption extends AccessorPrimitiveOption {
+final class AccessorStringOption extends AccessorPrimitiveOption
+    with RegExpValidated {
   AccessorStringOption(super.name, {super.description, RegExp? regex})
     : _regExp = regex ?? RegExp(r'\S+');
 
   final RegExp _regExp;
+  @override
   RegExp get regex => _regExp;
 }
 
@@ -543,8 +604,8 @@ final class AccessorDoubleOption extends AccessorPrimitiveOption {
 ///
 /// The parser stores the selected member name and merges [defaultValue] when it
 /// is omitted.
-final class AccessorChoiceOption<T extends Enum>
-    extends AccessorPrimitiveOption {
+final class AccessorChoiceOption<T extends Enum> extends AccessorPrimitiveOption
+    with ChoiceValidated<T> {
   AccessorChoiceOption(
     super.name, {
     required this.choices,
@@ -552,6 +613,7 @@ final class AccessorChoiceOption<T extends Enum>
     super.description,
   });
 
+  @override
   final List<T> choices;
   final T? defaultValue;
 }

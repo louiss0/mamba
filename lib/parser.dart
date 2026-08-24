@@ -459,46 +459,46 @@ class Parser {
     Map<String, List<double>> repeatedDoubleOptions,
   ) {
     switch (option) {
-      case StringOption(:final regex):
-        stringOptions[option.name] = _parseStringOption(regex, value);
+      case StringOption():
+        stringOptions[option.name] = _parseRegExpValidated(option, value);
       case IntOption():
         intOptions[option.name] = _parseInt(value);
       case DoubleOption():
         doubleOptions[option.name] = _parseDouble(value);
-      case ChoiceOption(:final choices):
-        stringOptions[option.name] = _parseChoiceOption(
+      case ChoiceOption():
+        stringOptions[option.name] = _parseChoiceValidated(
           option.name,
-          choices.map((choice) => choice.name),
+          option,
           value,
         );
-      case PairedStringOption(:final regex):
-        stringOptions[option.name] = _parseStringOption(regex, value);
+      case PairedStringOption():
+        stringOptions[option.name] = _parseRegExpValidated(option, value);
       case PairedIntOption():
         intOptions[option.name] = _parseInt(value);
       case PairedDoubleOption():
         doubleOptions[option.name] = _parseDouble(value);
-      case PairedChoiceOption(:final choices):
-        stringOptions[option.name] = _parseChoiceOption(
+      case PairedChoiceOption():
+        stringOptions[option.name] = _parseChoiceValidated(
           option.name,
-          choices.map((choice) => choice.name),
+          option,
           value,
         );
-      case PairStringOption(:final regex):
-        stringOptions[option.name] = _parseStringOption(regex, value);
+      case PairStringOption():
+        stringOptions[option.name] = _parseRegExpValidated(option, value);
       case PairIntOption():
         intOptions[option.name] = _parseInt(value);
       case PairDoubleOption():
         doubleOptions[option.name] = _parseDouble(value);
-      case PairChoiceOption(:final choices):
-        stringOptions[option.name] = _parseChoiceOption(
+      case PairChoiceOption():
+        stringOptions[option.name] = _parseChoiceValidated(
           option.name,
-          choices.map((choice) => choice.name),
+          option,
           value,
         );
-      case RepeatableStringOption(:final regex):
+      case RepeatableStringOption():
         _addRepeatedValue(
           option.name,
-          _parseStringOption(regex, value),
+          _parseRegExpValidated(option, value),
           repeatedStringOptions,
         );
       case RepeatableIntOption():
@@ -509,10 +509,10 @@ class Parser {
           _parseDouble(value),
           repeatedDoubleOptions,
         );
-      case RepeatablePairedStringOption(:final regex):
+      case RepeatablePairedStringOption():
         _addRepeatedValue(
           option.name,
-          _parseStringOption(regex, value),
+          _parseRegExpValidated(option, value),
           repeatedStringOptions,
         );
       case RepeatablePairedIntOption():
@@ -523,10 +523,10 @@ class Parser {
           _parseDouble(value),
           repeatedDoubleOptions,
         );
-      case RepeatablePairStringOption(:final regex):
+      case RepeatablePairStringOption():
         _addRepeatedValue(
           option.name,
-          _parseStringOption(regex, value),
+          _parseRegExpValidated(option, value),
           repeatedStringOptions,
         );
       case RepeatablePairIntOption():
@@ -549,20 +549,20 @@ class Parser {
     values.update(name, (items) => [...items, value], ifAbsent: () => [value]);
   }
 
-  String _parseStringOption(RegExp regex, String value) {
-    if (!_matchesEntirely(regex, value)) {
+  String _parseRegExpValidated(RegExpValidated input, String value) {
+    if (!input.matchesEntirely(value)) {
       throw MambaParseException("This value doesn't satify the requirement");
     }
     return value;
   }
 
-  String _parseChoiceOption(
+  String _parseChoiceValidated<T extends Enum>(
     String name,
-    Iterable<String> choices,
+    ChoiceValidated<T> input,
     String value,
   ) {
-    final names = choices.toList();
-    if (!names.contains(value)) {
+    final names = input.choices.map((choice) => choice.name).toList();
+    if (!input.isValidChoice(value)) {
       throw MambaParseException(
         '$value is not a valid choice for $name\nMust be one of: $names',
       );
@@ -807,7 +807,7 @@ class Parser {
           final collected = <String>[];
           while (index < values.length &&
               collected.length <= maxCount &&
-              _matchesEntirely(positional.regex, values[index])) {
+              positional.matchesEntirely(values[index])) {
             collected.add(values[index++]);
           }
           if (collected.isEmpty && isMandatory) {
@@ -819,7 +819,7 @@ class Parser {
             repeated[positional.name] = collected;
           }
         } else if (index < values.length) {
-          if (!_matchesEntirely(positional.regex, values[index])) {
+          if (!positional.matchesEntirely(values[index])) {
             if (!isMandatory) {
               throw ArgumentError(
                 'Invalid value for positional ${positional.name} at $index after the command',
@@ -913,12 +913,12 @@ class Parser {
 
   dynamic _parseAccessorValue(AccessorPrimitiveOption option, String value) =>
       switch (option) {
-        AccessorStringOption(:final regex) => _parseStringOption(regex, value),
+        AccessorStringOption() => _parseRegExpValidated(option, value),
         AccessorIntOption() => _parseInt(value),
         AccessorDoubleOption() => _parseDouble(value),
-        AccessorChoiceOption(:final choices) => _parseChoiceOption(
+        AccessorChoiceOption() => _parseChoiceValidated(
           option.name,
-          choices.map((choice) => choice.name),
+          option,
           value,
         ),
       };
