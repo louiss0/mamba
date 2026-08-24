@@ -840,15 +840,44 @@ class Parser {
 
     fill(mandatory, isMandatory: true);
     fill(discretionary, isMandatory: false);
-    if (index != values.length) {
+    // Variadics absorb values only after every mandatory and discretionary
+    // positional has taken theirs.
+    final variadicValues = _parseVariadic(registry, values.sublist(index));
+    return (
+      singles: singles.isEmpty ? null : singles,
+      repeated: repeated.isEmpty ? null : repeated,
+      variadic: variadicValues,
+    );
+  }
+
+  /// Collects every remaining value into the registered variadic.
+  ///
+  /// Each absorbed token must satisfy its own validation, and a failure names
+  /// the exact index inside the variadic sequence so callers can locate it.
+  Map<String, List<String>>? _parseVariadic(
+    CommandRegistry registry,
+    List<String> values,
+  ) {
+    if (values.isEmpty) return null;
+    final variadic = registry.variadic;
+    if (variadic == null) {
       throw MambaParseException(
         "This term isn't a registered command positional",
       );
     }
-    return (
-      singles: singles.isEmpty ? null : singles,
-      repeated: repeated.isEmpty ? null : repeated,
-    );
+    return {
+      variadic.name: [
+        for (final (index, value) in values.indexed)
+          switch (variadic) {
+            NormalVariadic() when variadic.matchesEntirely(value) => value,
+            ChoiceVariadic() when variadic.isValidChoice(value) => value,
+            _ => throw MambaParseException(
+              "The term at index $index isn't accepted by "
+              'the ${variadic.name} variadic',
+            ),
+          },
+      ],
+    };
   }
 
   bool _isAccessor(String path, CommandRegistry registry) =>

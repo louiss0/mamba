@@ -645,6 +645,10 @@ typedef ParsedSingleOptions = ({
 typedef ParsedPositionals = ({
   Map<String, String>? singles,
   Map<String, List<String>>? repeated,
+
+  /// Variadic values keyed by their registered variadic name; `null` when no
+  /// variadic is registered or supplied.
+  Map<String, List<String>>? variadic,
 });
 
 /// A declarative command definition and its executable behavior.

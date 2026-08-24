@@ -28,7 +28,7 @@ class TestGroupCommand extends GroupCommand {
   ) {
     return runChildCommand(
       commandPath,
-      (singles: null, repeated: null),
+      (singles: null, repeated: null, variadic: null),
       (
         accessors: null,
         boolFlags: null,
@@ -75,7 +75,7 @@ void main() {
     stringOptions: null,
   );
   registerFallbackValue(emptyInputs);
-  registerFallbackValue((singles: null, repeated: null));
+  registerFallbackValue((singles: null, repeated: null, variadic: null));
 
   group("GroupCommand", () {
     final stashPush = TestCommand("push");
@@ -118,7 +118,11 @@ void main() {
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
-      await git.run((singles: null, repeated: null), emptyInputs, []);
+      await git.run(
+        (singles: null, repeated: null, variadic: null),
+        emptyInputs,
+        [],
+      );
 
       verify(() => stashPop.run(any(), any(), any())).called(1);
     });
@@ -162,7 +166,7 @@ void main() {
     test('returns empty output when no default child is configured', () async {
       expect(
         await groupCommand.run(
-          (singles: null, repeated: null),
+          (singles: null, repeated: null, variadic: null),
           emptyInputs,
           [],
         ),
