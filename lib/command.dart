@@ -43,11 +43,11 @@ final class ChoicePositional<T extends Enum> extends Positional {
   });
 }
 
-class Variadic extends NamedInput {
-  Variadic(String name, {String? description}) : super(name, description);
+sealed class Variadic extends NamedInput {
+  const Variadic(String name, {String? description}) : super(name, description);
 }
 
-class NormalVariadic extends Variadic {
+final class NormalVariadic extends Variadic {
   final RegExp regExp;
 
   NormalVariadic(super.name, {super.description, RegExp? regExp})
@@ -57,7 +57,7 @@ class NormalVariadic extends Variadic {
 final class ChoiceVariadic<T extends Enum> extends Variadic {
   final List<T> choices;
   final T? defaultValue;
-  ChoiceVariadic(
+  const ChoiceVariadic(
     super.name, {
     super.description,
     required this.choices,
