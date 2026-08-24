@@ -9,11 +9,15 @@ enum VariantChoice { one }
 
 enum DeploymentFormat { yaml, json }
 
-/// Metadata describing one expected registry level.
-///
-/// The registry [name] and [description] are required positional fields; the
-/// remaining categories are optional named fields.
-typedef RegistryMetadata = (
+/// One named entry: its [name] as the first positional field feeding the
+/// built map's key, followed by the expected props compared against the
+/// exported metadata for that key.
+typedef NamedExpectation = (String name, Map<String, dynamic> props);
+
+/// Builds the expected map for a registry level from its [name] and
+/// [description] plus optional category expectations, with an optional
+/// [commands] list whose records recurse through this builder.
+Map<String, dynamic> buildRegistryExpectation(
   String name,
   String description, {
   List<String>? aliases,
@@ -21,28 +25,16 @@ typedef RegistryMetadata = (
   List<NamedExpectation>? options,
   List<NamedExpectation>? positionals,
   List<NamedExpectation>? accessors,
-});
-
-/// One named entry: its [name] as the first positional field feeding the
-/// built map's key, followed by the expected props compared against the
-/// exported metadata for that key.
-typedef NamedExpectation = (String name, Map<String, dynamic> props);
-
-/// Builds the expected map for a registry level from its [metadata] and an
-/// optional [commands] list whose records recurse through this builder.
-Map<String, dynamic> buildRegistryExpectation(
-  RegistryMetadata metadata, {
   List<NamedExpectation>? commands,
 }) => {
-  'name': metadata.$1,
-  'description': metadata.$2,
-  'aliases': ?metadata.aliases,
-  if (metadata.flags case final flags?) 'flags': _namesToMaps(flags),
-  if (metadata.options case final options?) 'options': _namesToMaps(options),
-  if (metadata.positionals case final positionals?)
+  'name': name,
+  'description': description,
+  'aliases': ?aliases,
+  if (flags case final flags?) 'flags': _namesToMaps(flags),
+  if (options case final options?) 'options': _namesToMaps(options),
+  if (positionals case final positionals?)
     'positionals': _namesToMaps(positionals),
-  if (metadata.accessors case final accessors?)
-    'accessors': _namesToMaps(accessors),
+  if (accessors case final accessors?) 'accessors': _namesToMaps(accessors),
   if (commands != null) 'commands': _namesToMaps(commands, addNames: true),
 };
 
@@ -96,7 +88,7 @@ void main() {
         expect(
           registry.toMap(),
           equals(
-            buildRegistryExpectation((
+            buildRegistryExpectation(
               'tool',
               'Tool command.',
 
@@ -153,7 +145,7 @@ void main() {
                 ),
               ],
               aliases: null,
-            )),
+            ),
           ),
         );
       });
@@ -170,7 +162,7 @@ void main() {
           expect(
             registry.toMap(),
             equals(
-              buildRegistryExpectation((
+              buildRegistryExpectation(
                 'tool',
 
                 'Tool command.\n\nThis is a tool meant to be used to make ',
@@ -179,7 +171,7 @@ void main() {
                 options: null,
                 positionals: null,
                 accessors: null,
-              )),
+              ),
             ),
           );
         },
@@ -221,16 +213,14 @@ void main() {
             registry.toMap(),
             equals(
               buildRegistryExpectation(
-                (
-                  'git',
+                'git',
 
-                  'Save snapshots of your code and be able to send them anywhere',
-                  aliases: null,
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                ),
+                'Save snapshots of your code and be able to send them anywhere',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
 
                 commands: [
                   ('add', {'description': 'Add a file to the staging area'}),
@@ -292,15 +282,13 @@ void main() {
           registry.toMap(),
           equals(
             buildRegistryExpectation(
-              (
-                'tool',
-                'Tool command.',
-                aliases: null,
-                flags: null,
-                options: null,
-                positionals: null,
-                accessors: null,
-              ),
+              'tool',
+              'Tool command.',
+              aliases: null,
+              flags: null,
+              options: null,
+              positionals: null,
+              accessors: null,
 
               commands: [
                 ('sub', {'description': 'Sub command.'}),
@@ -404,15 +392,13 @@ void main() {
           map,
           equals(
             buildRegistryExpectation(
-              (
-                'git',
-                'Create a new Git repository.',
-                aliases: null,
-                flags: null,
-                options: null,
-                positionals: null,
-                accessors: null,
-              ),
+              'git',
+              'Create a new Git repository.',
+              aliases: null,
+              flags: null,
+              options: null,
+              positionals: null,
+              accessors: null,
 
               commands: [
                 (
@@ -478,7 +464,7 @@ void main() {
         expect(
           registry.toMap(),
           equals(
-            buildRegistryExpectation((
+            buildRegistryExpectation(
               'curl',
               'Do HTTP Requests',
 
@@ -535,7 +521,7 @@ void main() {
               flags: null,
               positionals: null,
               accessors: null,
-            )),
+            ),
           ),
         );
       });
@@ -571,7 +557,7 @@ void main() {
         expect(
           registry.toMap(),
           equals(
-            buildRegistryExpectation((
+            buildRegistryExpectation(
               'rsync',
               'Synchronize files and directories.',
 
@@ -617,7 +603,7 @@ void main() {
               options: null,
               positionals: null,
               accessors: null,
-            )),
+            ),
           ),
         );
       });
@@ -697,15 +683,13 @@ void main() {
           registry.toMap(),
           equals(
             buildRegistryExpectation(
-              (
-                'docker',
-                'Manage containers.',
-                aliases: null,
-                flags: null,
-                options: null,
-                positionals: null,
-                accessors: null,
-              ),
+              'docker',
+              'Manage containers.',
+              aliases: null,
+              flags: null,
+              options: null,
+              positionals: null,
+              accessors: null,
 
               commands: [
                 (
@@ -926,15 +910,13 @@ void main() {
           registry.toMap(),
           equals(
             buildRegistryExpectation(
-              (
-                'git',
-                'Track and manage source code.',
-                aliases: null,
-                flags: null,
-                options: null,
-                positionals: null,
-                accessors: null,
-              ),
+              'git',
+              'Track and manage source code.',
+              aliases: null,
+              flags: null,
+              options: null,
+              positionals: null,
+              accessors: null,
 
               commands: [
                 (
@@ -1125,15 +1107,13 @@ void main() {
             registry.toMap(),
             equals(
               buildRegistryExpectation(
-                (
-                  'aws',
-                  'Manage Amazon Web Services.',
-                  aliases: null,
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                ),
+                'aws',
+                'Manage Amazon Web Services.',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
 
                 commands: [
                   (
@@ -1201,15 +1181,13 @@ void main() {
             registry.toMap(),
             equals(
               buildRegistryExpectation(
-                (
-                  'git',
-                  'Track and manage source code.',
-                  aliases: null,
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                ),
+                'git',
+                'Track and manage source code.',
+                aliases: null,
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
 
                 commands: [
                   (
