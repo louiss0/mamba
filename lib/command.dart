@@ -20,27 +20,16 @@ sealed class NamedInput {
 /// Register it in `mandatoryPositionals` or `discretionaryPositionals`; the
 /// parser stores its complete-token match in [ParsedPositionals], and help
 /// renders it as required or optional usage respectively.
-class Positional extends NamedInput {
-  static final RegExp anyToken = RegExp(r"\S+");
-
-  Positional(String name, {String? description, RegExp? regex})
-    : _regExp = regex ?? anyToken,
-      super(name, description);
-
-  final RegExp _regExp;
-
-  /// Pattern every supplied token must match entirely.
-  RegExp get regex => _regExp;
+sealed class Positional extends NamedInput {
+  Positional(String name, {required String? description})
+    : super(name, description);
 }
 
 final class NormalPositional extends Positional {
   final RegExp regExp;
 
   NormalPositional(super.name, {super.description, RegExp? regExp})
-    : regExp = regExp ?? Positional.anyToken;
-
-  @override
-  RegExp get regex => regExp;
+    : regExp = regExp ?? RegExp(r"\S+");
 }
 
 final class ChoicePositional<T extends Enum> extends Positional {
@@ -52,9 +41,28 @@ final class ChoicePositional<T extends Enum> extends Positional {
     required this.choices,
     this.defaultValue,
   });
+}
 
-  @override
-  RegExp get regex => Positional.anyToken;
+class Variadic extends NamedInput {
+  Variadic(String name, {String? description}) : super(name, description);
+}
+
+class NormalVariadic extends Variadic {
+  final RegExp regExp;
+
+  NormalVariadic(super.name, {super.description, RegExp? regExp})
+    : regExp = regExp ?? RegExp(r"\S+");
+}
+
+final class ChoiceVariadic<T extends Enum> extends Variadic {
+  final List<T> choices;
+  final T? defaultValue;
+  ChoiceVariadic(
+    super.name, {
+    super.description,
+    required this.choices,
+    this.defaultValue,
+  });
 }
 
 /// A positional that collects several tokens, one per repetition plus the
