@@ -40,22 +40,34 @@ typedef PositionalExpectation = (
 });
 
 /// Expected metadata for an accessor and its nested options.
-typedef AccessorExpectation = (
-  String name, {
-  String? description,
-  List<Object>? options,
-});
+final class AccessorExpectation {
+  const AccessorExpectation(this.name, {this.description, this.options});
+
+  final String name;
+  final String? description;
+  final List<AccessorExpectation>? options;
+}
 
 /// Expected metadata for a command and its nested registry categories.
-typedef CommandExpectation = (
-  String name,
-  String description, {
-  List<FlagExpectation>? flags,
-  List<OptionExpectation>? options,
-  List<PositionalExpectation>? positionals,
-  List<AccessorExpectation>? accessors,
-  List<Object>? commands,
-});
+final class CommandExpectation {
+  const CommandExpectation(
+    this.name,
+    this.description, {
+    this.flags,
+    this.options,
+    this.positionals,
+    this.accessors,
+    this.commands,
+  });
+
+  final String name;
+  final String description;
+  final List<FlagExpectation>? flags;
+  final List<OptionExpectation>? options;
+  final List<PositionalExpectation>? positionals;
+  final List<AccessorExpectation>? accessors;
+  final List<CommandExpectation>? commands;
+}
 
 /// Builds the expected map for a registry level from its [name] and
 /// [description] plus optional category expectations, with an optional
@@ -103,19 +115,20 @@ Map<String, dynamic> buildRegistryExpectation(
   };
 
   Object? mapAccessor(AccessorExpectation entry, {bool root = true}) {
-    final options = entry.options?.cast<AccessorExpectation>();
+    final options = entry.options;
     if (root) {
       return {
         'description': entry.description,
         'options': {
           for (final option in options ?? const <AccessorExpectation>[])
-            option.$1: {'description': option.description},
+            option.name: {'description': option.description},
         },
       };
     }
     if (options == null) return entry.description;
     return {
-      for (final option in options) option.$1: mapAccessor(option, root: false),
+      for (final option in options)
+        option.name: mapAccessor(option, root: false),
     };
   }
 
@@ -123,12 +136,12 @@ Map<String, dynamic> buildRegistryExpectation(
     List<AccessorExpectation> entries, {
     bool root = true,
   }) => {
-    for (final entry in entries) entry.$1: mapAccessor(entry, root: root),
+    for (final entry in entries) entry.name: mapAccessor(entry, root: root),
   };
 
   Map<String, dynamic> mapCommand(CommandExpectation entry) => {
-    'name': entry.$1,
-    'description': entry.$2,
+    'name': entry.name,
+    'description': entry.description,
     if (entry.flags case final flags?) 'flags': mapFlags(flags),
     if (entry.options case final options?) 'options': mapOptions(options),
     if (entry.positionals case final positionals?)
@@ -137,8 +150,7 @@ Map<String, dynamic> buildRegistryExpectation(
       'accessors': mapAccessors(accessors, root: false),
     if (entry.commands case final commands?)
       'commands': {
-        for (final command in commands.cast<CommandExpectation>())
-          command.$1: mapCommand(command),
+        for (final command in commands) command.name: mapCommand(command),
       },
   };
 
@@ -153,8 +165,7 @@ Map<String, dynamic> buildRegistryExpectation(
     if (accessors case final accessors?) 'accessors': mapAccessors(accessors),
     if (commands case final commands?)
       'commands': {
-        for (final command in commands.cast<CommandExpectation>())
-          command.$1: mapCommand(command),
+        for (final command in commands) command.name: mapCommand(command),
       },
   };
 }
@@ -242,12 +253,10 @@ void main() {
               ],
 
               accessors: [
-                (
+                AccessorExpectation(
                   'user',
                   description: null,
-                  options: [
-                    ('profile', description: null, options: null),
-                  ],
+                  options: [AccessorExpectation('profile', description: null)],
                 ),
               ],
               aliases: null,
@@ -329,7 +338,7 @@ void main() {
                 accessors: null,
 
                 commands: [
-                  (
+                  CommandExpectation(
                     'add',
                     'Add a file to the staging area',
                     flags: null,
@@ -338,7 +347,7 @@ void main() {
                     accessors: null,
                     commands: null,
                   ),
-                  (
+                  CommandExpectation(
                     'commit',
                     'Take a snapshot of your code',
                     flags: null,
@@ -347,7 +356,7 @@ void main() {
                     accessors: null,
                     commands: null,
                   ),
-                  (
+                  CommandExpectation(
                     'worktree',
                     'Place your code in separate repo that can be merged',
                     flags: null,
@@ -355,7 +364,7 @@ void main() {
                     positionals: null,
                     accessors: null,
                     commands: [
-                      (
+                      CommandExpectation(
                         'add',
                         'Make a new work tree',
                         flags: null,
@@ -376,7 +385,7 @@ void main() {
                         accessors: null,
                         commands: null,
                       ),
-                      (
+                      CommandExpectation(
                         'commit',
                         'Take a snapshot of your code',
                         flags: null,
@@ -427,7 +436,7 @@ void main() {
               accessors: null,
 
               commands: [
-                (
+                CommandExpectation(
                   'sub',
                   'Sub command.',
                   flags: null,
@@ -436,7 +445,7 @@ void main() {
                   accessors: null,
                   commands: null,
                 ),
-                (
+                CommandExpectation(
                   'one',
                   'Group one.',
                   flags: null,
@@ -444,7 +453,7 @@ void main() {
                   positionals: null,
                   accessors: null,
                   commands: [
-                    (
+                    CommandExpectation(
                       'two',
                       'Group two.',
                       flags: null,
@@ -452,7 +461,7 @@ void main() {
                       positionals: null,
                       accessors: null,
                       commands: [
-                        (
+                        CommandExpectation(
                           'three',
                           'Group three.',
                           flags: null,
@@ -460,7 +469,7 @@ void main() {
                           positionals: null,
                           accessors: null,
                           commands: [
-                            (
+                            CommandExpectation(
                               'four',
                               'Group four.',
                               flags: null,
@@ -468,7 +477,7 @@ void main() {
                               positionals: null,
                               accessors: null,
                               commands: [
-                                (
+                                CommandExpectation(
                                   'five',
                                   'Group five.',
                                   flags: null,
@@ -476,7 +485,7 @@ void main() {
                                   positionals: null,
                                   accessors: null,
                                   commands: [
-                                    (
+                                    CommandExpectation(
                                       'sub',
                                       'Sub command.',
                                       flags: null,
@@ -575,66 +584,60 @@ void main() {
               accessors: null,
 
               commands: [
-                (
+                CommandExpectation(
                   'config',
                   'Configure Git.',
                   flags: null,
                   options: null,
                   positionals: null,
                   accessors: [
-                    (
+                    AccessorExpectation(
                       'branch',
                       description: null,
                       options: [
-                        (
+                        AccessorExpectation(
                           'main',
                           description: null,
                           options: [
-                            (
+                            AccessorExpectation(
                               'remote',
                               description:
                                   'The remote to fetch from or push to.',
-                              options: null,
                             ),
-                            (
+                            AccessorExpectation(
                               'merge',
                               description: 'The upstream branch to merge.',
-                              options: null,
                             ),
-                            (
+                            AccessorExpectation(
                               'rebase',
                               description:
                                   'Whether to rebase instead of merge when pulling.',
-                              options: null,
                             ),
                           ],
                         ),
                       ],
                     ),
-                    (
+                    AccessorExpectation(
                       'remote',
                       description: null,
                       options: [
-                        (
+                        AccessorExpectation(
                           'origin',
                           description: null,
                           options: [
-                            (
+                            AccessorExpectation(
                               'url',
                               description: 'The URL of a remote repository.',
-                              options: null,
                             ),
-                            (
+                            AccessorExpectation(
                               'pushurl',
                               description:
                                   'The push URL of a remote repository.',
-                              options: null,
                             ),
-                            (
+                            AccessorExpectation(
                               'fetch',
                               description:
                                   'The default set of refspecs for fetch.',
-                              options: null,
                             ),
                           ],
                         ),
@@ -915,7 +918,7 @@ void main() {
               accessors: null,
 
               commands: [
-                (
+                CommandExpectation(
                   'run',
                   'Create and run a new container from an image.',
                   flags: null,
@@ -936,7 +939,7 @@ void main() {
                   accessors: null,
                   commands: null,
                 ),
-                (
+                CommandExpectation(
                   'exec',
                   'Execute a command in a running container.',
                   flags: null,
@@ -961,7 +964,7 @@ void main() {
                   accessors: null,
                   commands: null,
                 ),
-                (
+                CommandExpectation(
                   'cp',
                   'Copy files between a container and the local filesystem.',
                   flags: null,
@@ -981,7 +984,7 @@ void main() {
                   accessors: null,
                   commands: null,
                 ),
-                (
+                CommandExpectation(
                   'rename',
                   'Rename a container.',
                   flags: null,
@@ -1001,7 +1004,7 @@ void main() {
                   accessors: null,
                   commands: null,
                 ),
-                (
+                CommandExpectation(
                   'commit',
                   "Create a new image from a container's changes.",
                   flags: null,
@@ -1157,7 +1160,7 @@ void main() {
               accessors: null,
 
               commands: [
-                (
+                CommandExpectation(
                   'remote',
                   'Manage tracked repositories.',
                   flags: null,
@@ -1165,7 +1168,7 @@ void main() {
                   positionals: null,
                   accessors: null,
                   commands: [
-                    (
+                    CommandExpectation(
                       'add',
                       'Add a tracked repository.',
                       flags: [
@@ -1234,7 +1237,7 @@ void main() {
                     ),
                   ],
                 ),
-                (
+                CommandExpectation(
                   'worktree',
                   'Manage linked working trees.',
                   flags: null,
@@ -1242,7 +1245,7 @@ void main() {
                   positionals: null,
                   accessors: null,
                   commands: [
-                    (
+                    CommandExpectation(
                       'add',
                       'Create a linked working tree.',
                       flags: [
@@ -1304,7 +1307,7 @@ void main() {
                     ),
                   ],
                 ),
-                (
+                CommandExpectation(
                   'stash',
                   'Stash working directory changes.',
                   flags: null,
@@ -1312,7 +1315,7 @@ void main() {
                   positionals: null,
                   accessors: null,
                   commands: [
-                    (
+                    CommandExpectation(
                       'push',
                       'Stash changes in the working directory.',
                       flags: [
@@ -1406,7 +1409,7 @@ void main() {
                 accessors: null,
 
                 commands: [
-                  (
+                  CommandExpectation(
                     'put-object',
                     'Add an object to an Amazon S3 bucket.',
                     flags: null,
@@ -1497,7 +1500,7 @@ void main() {
                 accessors: null,
 
                 commands: [
-                  (
+                  CommandExpectation(
                     'worktree',
                     'Manage linked working trees.',
                     flags: null,
@@ -1505,7 +1508,7 @@ void main() {
                     positionals: null,
                     accessors: null,
                     commands: [
-                      (
+                      CommandExpectation(
                         'add',
                         'Create a linked working tree.',
                         flags: null,
