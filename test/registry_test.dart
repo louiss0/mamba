@@ -1748,6 +1748,20 @@ void main() {
         expect(registry.variadic, same(extra));
       });
 
+      test('accepts a variadic without any registered positionals', () {
+        final extra = NormalVariadic('extra');
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: extra,
+        );
+
+        expect(registry.mandatoryPositionals, isNull);
+        expect(registry.discretionaryPositionals, isNull);
+        expect(registry.toMap()['variadic'], {'description': null});
+      });
+
       test('holds a nested command variadic under its registry', () {
         final formats = ChoiceVariadic<DeploymentFormat>(
           'formats',
