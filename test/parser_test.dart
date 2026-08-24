@@ -1149,6 +1149,25 @@ void main() {
       expect(result.$2.variadic, isNull);
     });
 
+    test('accepts a variadic on its own without mandatory, discretionary, '
+        'or repeated positionals', () {
+      final subject = parser(
+        flags: [BooleanFlag('force')],
+        options: [IntOption('retries')],
+        variadic: NormalVariadic('extra'),
+      );
+
+      final result = subject.parse(['--force', '--retries', '2', 'a', 'b']);
+
+      expect(result.$3.boolFlags, {'force': true});
+      expect(result.$3.intOptions, {'retries': 2});
+      expect(result.$2.singles, isNull);
+      expect(result.$2.repeated, isNull);
+      expect(result.$2.variadic, {
+        'extra': ['a', 'b'],
+      });
+    });
+
     test('matches every NormalVariadic value against its regex', () {
       final subject = parser(
         variadic: NormalVariadic('ids', regExp: RegExp(r'^\d+$')),
