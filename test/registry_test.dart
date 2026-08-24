@@ -101,11 +101,10 @@ Map<String, dynamic> buildRegistryExpectation(
         'required': entry.required,
         'hidden': entry.hidden,
         'description': entry.description,
-        if (entry.repeatable case final repeatable?) 'repeatable': repeatable,
-        if (entry.variant case final variant?) 'variant': variant,
-        if (entry.choices case final choices?) 'choices': choices,
-        if (entry.choiceDefault case final choiceDefault?)
-          'default': choiceDefault,
+        'repeatable': ?entry.repeatable,
+        'variant': ?entry.variant,
+        'choices': ?entry.choices,
+        'default': ?entry.choiceDefault,
       },
   };
 
