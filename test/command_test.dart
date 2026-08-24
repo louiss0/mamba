@@ -221,6 +221,16 @@ void main() {
       expect(_VariadicCommand().variadic, isNull);
     });
 
+    test('registers a variadic without any positionals', () {
+      final extra = NormalVariadic('extra');
+
+      final command = _VariadicCommand(variadic: extra);
+
+      expect(command.mandatoryPositionals, isNull);
+      expect(command.discretionaryPositionals, isNull);
+      expect(command.variadic, same(extra));
+    });
+
     test('registers a NormalVariadic under variadic', () {
       final extra = NormalVariadic('extra');
 
