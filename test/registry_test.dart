@@ -1979,6 +1979,53 @@ void main() {
       );
     });
 
+    test('resolves help after a registered option and its value', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestCommand(
+            'config',
+            'Configure the tool.',
+            options: [StringOption('file', regex: RegExp(r'\S+'))],
+          ),
+        ],
+      );
+
+      expect(
+        registry.registryForArguments([
+          'config',
+          '--file',
+          'settings.json',
+          '--help',
+        ]).name,
+        'config',
+      );
+    });
+
+    test('publishes root inputs to every descendant registry', () {
+      final globalFlag = BooleanFlag('dry-run');
+      final globalOption = IntOption('retries');
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: [globalFlag],
+        options: [globalOption],
+        commands: [
+          TestGroupCommand('config', [
+            TestCommand('get', 'Get configuration.'),
+          ], 'Configure.'),
+        ],
+      );
+
+      final group = registry.commandRegistries!.single;
+      final child = group.commandRegistries!.single;
+      expect(group.boolFlags!['dry-run'], same(globalFlag));
+      expect(group.singleOptions!['retries'], same(globalOption));
+      expect(child.boolFlags!['dry-run'], same(globalFlag));
+      expect(child.singleOptions!['retries'], same(globalOption));
+    });
+
     test('group commands publish explicit inputs to descendants', () {
       final inheritedFlag = BooleanFlag('color');
       final inheritedOption = IntOption('retries');
@@ -2143,6 +2190,122 @@ void main() {
         ),
         throwsA(isA<MambaRegistryError>()),
       );
+    });
+
+    test('rejects empty positional and variadic names', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          mandatoryPositionals: [Positional('')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: NormalVariadic(''),
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    group('choice defaults', () {
+      test('rejects defaults outside their registered choices', () {
+        final invalidDefinitions = <CommandRegistry Function()>[
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            options: [
+              ChoiceOption(
+                'format',
+                choices: [DeploymentFormat.yaml],
+                defaultValue: DeploymentFormat.json,
+              ),
+            ],
+          ),
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            pairedOptions: [
+              PairedChoiceOption(
+                'format',
+                choices: [DeploymentFormat.yaml],
+                defaultValue: DeploymentFormat.json,
+                options: [PairStringOption('destination')],
+              ),
+            ],
+          ),
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            pairedOptions: [
+              PairedStringOption(
+                'source',
+                options: [
+                  PairChoiceOption(
+                    'format',
+                    choices: [DeploymentFormat.yaml],
+                    defaultValue: DeploymentFormat.json,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            mandatoryPositionals: [
+              ChoicePositional(
+                'format',
+                choices: [DeploymentFormat.yaml],
+                defaultValue: DeploymentFormat.json,
+              ),
+            ],
+          ),
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            discretionaryPositionals: [
+              RepeatedChoicePositional(
+                'formats',
+                choices: [DeploymentFormat.yaml],
+                defaultValue: DeploymentFormat.json,
+              ),
+            ],
+          ),
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            variadic: ChoiceVariadic(
+              'formats',
+              choices: [DeploymentFormat.yaml],
+              defaultValue: DeploymentFormat.json,
+            ),
+          ),
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            accessors: [
+              AccessorListOption(
+                'output',
+                options: [
+                  AccessorChoiceOption(
+                    'format',
+                    choices: [DeploymentFormat.yaml],
+                    defaultValue: DeploymentFormat.json,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ];
+
+        for (final createRegistry in invalidDefinitions) {
+          expect(createRegistry, throwsA(isA<MambaRegistryError>()));
+        }
+      });
     });
 
     test('recursively validates nested accessor names', () {
@@ -2387,6 +2550,21 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('rejects aliases that cannot be command tokens', () {
+      for (final alias in ['', '--help', '-h']) {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            commands: [
+              TestCommand('checkout', 'Checkout.', aliases: [alias]),
+            ],
+          ),
+          throwsA(isA<MambaException>()),
+        );
+      }
     });
 
     for (final depth in [1, 2, 3, 4, 5]) {

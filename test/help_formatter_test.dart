@@ -315,6 +315,67 @@ void main() {
   });
 
   group('HelpFormatter', () {
+    group('positional usage', () {
+      test(
+        'renders the names of choices for single and repeated positionals',
+        () {
+          final registry = CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            mandatoryPositionals: [
+              ChoicePositional<_Mode>('mode', choices: _Mode.values),
+              RepeatedChoicePositional<_Mode>(
+                'modes',
+                choices: _Mode.values,
+                times: 2,
+              ),
+            ],
+            discretionaryPositionals: [
+              RepeatedStringPositional('files', times: 1),
+            ],
+          );
+
+          final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+          expect(
+            help,
+            startsWith(
+              'tool < auto | always > < auto | always x3 > [ files x2 ]',
+            ),
+          );
+        },
+      );
+
+      test('renders a variadic after every bounded positional', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          mandatoryPositionals: [Positional('source')],
+          discretionaryPositionals: [Positional('target')],
+          variadic: NormalVariadic('extra'),
+        );
+
+        final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+        expect(help, startsWith('tool < source > [ target ] [ extra ... ]'));
+      });
+
+      test('renders choice names for a choice variadic', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: ChoiceVariadic<_OutputFormat>(
+            'formats',
+            choices: _OutputFormat.values,
+          ),
+        );
+
+        final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+        expect(help, startsWith('tool [ json | yaml ... ]'));
+      });
+    });
+
     test('renders optional paired options as one PairDSL expression', () {
       final registry = CommandRegistry.create(
         'login',
@@ -554,7 +615,9 @@ void main() {
   });
 }
 
-enum _OutputFormat { json }
+enum _OutputFormat { json, yaml }
+
+enum _Mode { auto, always }
 
 class _HelpCommand extends Command {
   _HelpCommand(this.name, this.shortDescription);

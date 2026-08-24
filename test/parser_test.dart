@@ -176,6 +176,36 @@ void main() {
     });
   });
 
+  group('Choice positionals', () {
+    test('accepts only registered choices for a single positional', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          ChoicePositional<Mode>('mode', choices: [Mode.auto]),
+        ],
+      );
+
+      expect(subject.parse(['auto']).$2.singles, {'mode': 'auto'});
+      expectParseError(subject, ['bogus']);
+    });
+
+    test('accepts only registered choices for a repeated positional', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          RepeatedChoicePositional<Mode>(
+            'modes',
+            choices: [Mode.auto],
+            times: 1,
+          ),
+        ],
+      );
+
+      expect(subject.parse(['auto', 'auto']).$2.repeated, {
+        'modes': ['auto', 'auto'],
+      });
+      expectParseError(subject, ['auto', 'bogus']);
+    });
+  });
+
   group('Repeated positionals alone', () {
     test('collects up to two values with the default maxCount of one', () {
       final inputs = parser(
@@ -313,11 +343,11 @@ void main() {
           ),
           Positional('label'),
         ],
-      ).parse(['auto', 'always', 'small', 'final']).$2;
+      ).parse(['auto', 'always', 'auto', 'final']).$2;
 
       expect(inputs.singles, {'label': 'final'});
       expect(inputs.repeated, {
-        'modes': ['auto', 'always', 'small'],
+        'modes': ['auto', 'always', 'auto'],
       });
     });
 
@@ -868,6 +898,27 @@ void main() {
 
       expect(result.$1, ['config', 'get']);
       expect(result.$3.boolFlags, {'color': false});
+    });
+
+    test('does not locate a command inside an option value', () {
+      final subject = Parser(
+        CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            _ParserGroupCommand(
+              'group',
+              inheritedOptions: [StringOption('target', regex: RegExp(r'\S+'))],
+              [_ParserCommand('leaf')],
+            ),
+          ],
+        ),
+      );
+
+      final result = subject.parse(['group', '--target', 'leaf', 'leaf']);
+
+      expect(result.$1, ['group', 'leaf']);
+      expect(result.$3.stringOptions, {'target': 'leaf'});
     });
   });
 

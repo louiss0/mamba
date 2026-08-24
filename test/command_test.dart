@@ -214,6 +214,21 @@ void main() {
       expect(AccessorIntOption('port').regex.hasMatch('80'), isTrue);
       expect(AccessorDoubleOption('ratio').regex.hasMatch('1.5'), isTrue);
     });
+
+    test('rejects negative repeated positional counts', () {
+      expect(
+        () => RepeatedStringPositional('files', times: -1),
+        throwsArgumentError,
+      );
+      expect(
+        () => RepeatedChoicePositional<OutputFormat>(
+          'formats',
+          choices: OutputFormat.values,
+          times: -1,
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 
   group('Variadic', () {

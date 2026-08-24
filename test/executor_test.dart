@@ -29,6 +29,119 @@ void main() {
 
       expect(result, isA<MambaFailureResult>());
     });
+
+    test('returns root help when valid input selects no command', () async {
+      final result = await factory.fake().execute(['--dry-run']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect((result as MambaSuccessResult).output, contains('mamba'));
+    });
+  });
+
+  group('global inputs', () {
+    test('parses built-in and custom root inputs for a command', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        options: [StringOption('config', regex: RegExp(r'\S+'))],
+        commands: [_InputCommand('run')],
+      ).fake();
+
+      final result = await executor.execute([
+        'run',
+        '--dry-run',
+        '-vv',
+        '--config',
+        'settings.json',
+      ]);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(
+        (result as MambaSuccessResult).output,
+        'dry-run=true verbose=2 config=settings.json',
+      );
+    });
+
+    test('resolves command help after a value-taking option', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        commands: [
+          _InputCommand(
+            'run',
+            options: [StringOption('config', regex: RegExp(r'\S+'))],
+          ),
+        ],
+      ).fake();
+
+      final result = await executor.execute([
+        'run',
+        '--config',
+        'settings.json',
+        '--help',
+      ]);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect((result as MambaSuccessResult).output, startsWith('run'));
+    });
+  });
+
+  group('default commands', () {
+    test('applies a root default after a value-taking option', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        options: [StringOption('config', regex: RegExp(r'\S+'))],
+        defaultSubCommandPath: ['run'],
+        commands: [_InputCommand('run')],
+      ).fake();
+
+      final result = await executor.execute(['--config', 'settings.json']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(
+        (result as MambaSuccessResult).output,
+        contains('config=settings.json'),
+      );
+    });
+
+    test('runs child hooks when a group selects its default', () async {
+      final events = <String>[];
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        commands: [
+          _DefaultGroup(
+            [_HookCommand('serve', events)],
+            defaultSubCommandPath: ['serve'],
+          ),
+        ],
+      ).fake();
+
+      final result = await executor.execute(['group']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(events, ['pre:serve', 'run:serve', 'post:serve']);
+    });
+
+    test('returns a failure for an unknown group default path', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        commands: [
+          _DefaultGroup(
+            [_Command('serve')],
+            defaultSubCommandPath: ['missing'],
+          ),
+        ],
+      ).fake();
+
+      final result = await executor
+          .execute(['group'])
+          .timeout(const Duration(seconds: 1));
+
+      expect(result, isA<MambaFailureResult>());
+    });
   });
 
   group('persistent hooks', () {
@@ -66,6 +179,73 @@ final class _Command extends Command {
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
   ) => '';
+}
+
+final class _InputCommand extends Command {
+  _InputCommand(this.name, {super.options});
+
+  @override
+  final String name;
+
+  @override
+  String get shortDescription => 'A test input command.';
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) =>
+      'dry-run=${inputs.boolFlags?['dry-run']} '
+      'verbose=${inputs.countFlags?['verbose']} '
+      'config=${inputs.stringOptions?['config']}';
+}
+
+final class _DefaultGroup extends GroupCommand {
+  _DefaultGroup(super.commands, {required super.defaultSubCommandPath});
+
+  @override
+  final String name = 'group';
+
+  @override
+  String get shortDescription => 'A default command group.';
+}
+
+final class _HookCommand extends Command with HookRunner {
+  _HookCommand(this.name, this.events);
+
+  @override
+  final String name;
+
+  final List<String> events;
+
+  @override
+  String get shortDescription => 'A command with hooks.';
+
+  @override
+  void preRun(
+    ProcessedStandardInput? input,
+    MambaReadContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) {
+    events.add('pre:$name');
+  }
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    events.add('run:$name');
+    return '';
+  }
+
+  @override
+  Future<void> postRun(MambaReadContext context) async {
+    events.add('post:$name');
+  }
 }
 
 final class _PersistentGroup extends GroupCommand with PersistentHookRunner {

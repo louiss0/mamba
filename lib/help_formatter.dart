@@ -124,9 +124,10 @@ final class MambaHelpFormatter extends HelpFormatter {
   @override
   String format(CommandRegistry registry) {
     final buffer = StringBuffer();
-    final positionals = [
+    final positionals = <FormattedString>[
       ...?registry.mandatoryPositionals?.values.map(_requiredPositional),
       ...?registry.discretionaryPositionals?.values.map(_optionalPositional),
+      if (registry.variadic case final variadic?) _variadic(variadic),
     ];
     final commandLine =
         '${registry.name}${positionals.isEmpty ? '' : ' ${positionals.map((positional) => positional.string).join(' ')}'}';
@@ -179,10 +180,31 @@ final class MambaHelpFormatter extends HelpFormatter {
   }
 
   RequiredString _requiredPositional(Positional positional) =>
-      formatIntoRequiredString(positional.name);
+      formatIntoRequiredString(_positionalExpression(positional));
 
   OptionalString _optionalPositional(Positional positional) =>
-      formatIntoOptionalString(positional.name);
+      formatIntoOptionalString(_positionalExpression(positional));
+
+  OptionalString _variadic(Variadic variadic) => formatIntoOptionalString(
+    '${switch (variadic) {
+      ChoiceVariadic(:final choices) => _choiceExpression(choices),
+      NormalVariadic() => variadic.name,
+    }} ...',
+  );
+
+  String _positionalExpression(Positional positional) {
+    final name = switch (positional) {
+      ChoicePositional(:final choices) ||
+      RepeatedChoicePositional(:final choices) => _choiceExpression(choices),
+      _ => positional.name,
+    };
+    return positional is RepeatedPositional
+        ? '$name x${positional.times + 1}'
+        : name;
+  }
+
+  String _choiceExpression(Iterable<Enum> choices) =>
+      choices.map((choice) => choice.name).join(' | ');
 
   String _flag(Flag flag) => _entry(
     name: flag.name,

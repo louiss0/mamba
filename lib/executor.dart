@@ -170,7 +170,11 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       repeated: null,
       variadic: null,
     );
-    late ParsedSingleOptions options;
+    ParsedSingleOptions options = (
+      stringOptions: null,
+      intOptions: null,
+      doubleOptions: null,
+    );
     try {
       if (_registry.requestsHelp(args)) {
         return writeOut(
@@ -178,7 +182,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         );
       }
 
-      final executionArguments = _argumentsWithDefaultCommand(args);
+      final executionArguments = _argumentsWithDefaultCommands(args);
       if (executionArguments.isEmpty) {
         return writeOut(
           _helpFormatter.format(_registry.registryForArguments(args)),
@@ -191,6 +195,9 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
       final commandPathCommands = _commandsForPath(commandPath);
       final command = commandPathCommands.lastOrNull;
+      if (command == null) {
+        return writeOut(_helpFormatter.format(_registry));
+      }
 
       persistentHookRunners = commandPathCommands
           .whereType<PersistentHookRunner>();
@@ -209,7 +216,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         final standardInput = await _readStandardInput();
         hookRunner.preRun(standardInput, context, positionals, options);
       }
-      final output = await command!.run(positionals, inputs, trailingArguments);
+      final output = await command.run(positionals, inputs, trailingArguments);
       return writeOut(output);
     } on Exception catch (error) {
       return writeErr(
@@ -253,7 +260,24 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     return selectedCommands;
   }
 
-  List<String> _argumentsWithDefaultCommand(List<String> args) {
+  List<String> _argumentsWithDefaultCommands(List<String> args) {
+    var arguments = _argumentsWithRootDefaultCommand(args);
+    final appliedGroupDefaults = <GroupCommand>{};
+    while (true) {
+      final insertion = _groupDefaultInsertion(arguments);
+      if (insertion == null || !appliedGroupDefaults.add(insertion.group)) {
+        break;
+      }
+      arguments = [
+        ...arguments.take(insertion.index),
+        ...insertion.path,
+        ...arguments.skip(insertion.index),
+      ];
+    }
+    return arguments;
+  }
+
+  List<String> _argumentsWithRootDefaultCommand(List<String> args) {
     final path = _defaultSubCommandPath;
     if (path == null || !_needsDefaultCommand(args)) return args;
 
@@ -266,6 +290,51 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       ];
     }
     return [...path, ...args];
+  }
+
+  ({GroupCommand group, int index, List<String> path})? _groupDefaultInsertion(
+    List<String> args,
+  ) {
+    var registry = _registry;
+    var childCommands = commands;
+    GroupCommand? selectedGroup;
+    var insertionIndex = 0;
+    var offset = 0;
+
+    while (offset < args.length) {
+      final token = args[offset];
+      if (token == '--') break;
+      if (token == _registry.name && identical(registry, _registry)) {
+        offset++;
+        continue;
+      }
+
+      final inputLength = registry.registeredInputTokenLength(token);
+      if (inputLength != null) {
+        offset += inputLength;
+        continue;
+      }
+
+      final commandName = registry.aliases?[token] ?? token;
+      final command = childCommands
+          ?.where((candidate) => candidate.name == commandName)
+          .firstOrNull;
+      final childRegistry = registry.commandRegistries
+          ?.where((candidate) => candidate.name == commandName)
+          .firstOrNull;
+      if (command == null || childRegistry == null) break;
+
+      registry = childRegistry;
+      selectedGroup = command is GroupCommand ? command : null;
+      childCommands = selectedGroup?.commands;
+      insertionIndex = offset + 1;
+      offset++;
+    }
+
+    final path = selectedGroup?.defaultSubCommandPath;
+    return path == null
+        ? null
+        : (group: selectedGroup!, index: insertionIndex, path: path);
   }
 
   bool _needsDefaultCommand(List<String> args) {
@@ -281,8 +350,9 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         offset++;
         continue;
       }
-      if (_registry.isRegisteredFlagToken(token)) {
-        offset++;
+      final inputLength = _registry.registeredInputTokenLength(token);
+      if (inputLength != null) {
+        offset += inputLength;
         continue;
       }
       if (_isRootCommand(token)) return false;

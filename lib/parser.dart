@@ -264,7 +264,7 @@ class Parser {
         offset++;
         continue;
       }
-      final inputLength = _registeredInputTokenLength(token, registry);
+      final inputLength = registry.registeredInputTokenLength(token);
       if (inputLength != null) {
         offset += inputLength;
         continue;
@@ -278,36 +278,29 @@ class Parser {
     final indexes = <int>{};
     var commandIndex = 0;
     var registry = _registry;
-    for (final (index, token) in args.indexed) {
+    var index = 0;
+    while (index < args.length) {
+      final token = args[index];
       if (token == '--') break;
       if (commandIndex >= command.length) break;
       final commandName = command[commandIndex];
       final isCommandToken =
           token == commandName || registry.aliases?[token] == commandName;
-      if (!isCommandToken) continue;
-      indexes.add(index);
-      if (!(commandName == registry.name && identical(registry, _registry))) {
-        registry = registry.commandRegistries!.firstWhere(
-          (candidate) => candidate.name == commandName,
-        );
+      if (isCommandToken) {
+        indexes.add(index);
+        if (!(commandName == registry.name && identical(registry, _registry))) {
+          registry = registry.commandRegistries!.firstWhere(
+            (candidate) => candidate.name == commandName,
+          );
+        }
+        commandIndex++;
+        index++;
+        continue;
       }
-      commandIndex++;
+
+      index += registry.registeredInputTokenLength(token) ?? 1;
     }
     return indexes;
-  }
-
-  int? _registeredInputTokenLength(String token, CommandRegistry registry) {
-    if (token.startsWith('--') && token.length > 2) {
-      final (name, inlineValue) = _splitLongOption(token.substring(2));
-      if (_isAccessor(name, registry) || _findOption(registry, name) != null) {
-        return inlineValue == null ? 2 : 1;
-      }
-    }
-    if (token.startsWith('-') && token.length > 1) {
-      final names = token.substring(1);
-      if (_findOption(registry, names) != null) return 2;
-    }
-    return registry.isRegisteredFlagToken(token) ? 1 : null;
   }
 
   CommandRegistry _registryForCommand(List<String> command) {
@@ -807,7 +800,7 @@ class Parser {
           final collected = <String>[];
           while (index < values.length &&
               collected.length <= maxCount &&
-              positional.matchesEntirely(values[index])) {
+              _isValidPositionalValue(positional, values[index])) {
             collected.add(values[index++]);
           }
           if (collected.isEmpty && isMandatory) {
@@ -819,7 +812,7 @@ class Parser {
             repeated[positional.name] = collected;
           }
         } else if (index < values.length) {
-          if (!positional.matchesEntirely(values[index])) {
+          if (!_isValidPositionalValue(positional, values[index])) {
             if (!isMandatory) {
               throw ArgumentError(
                 'Invalid value for positional ${positional.name} at $index after the command',
@@ -849,6 +842,13 @@ class Parser {
       variadic: variadicValues,
     );
   }
+
+  bool _isValidPositionalValue(Positional positional, String value) =>
+      switch (positional) {
+        ChoicePositional() => positional.isValidChoice(value),
+        RepeatedChoicePositional() => positional.isValidChoice(value),
+        _ => positional.matchesEntirely(value),
+      };
 
   /// Collects every remaining value into the registered variadic.
   ///

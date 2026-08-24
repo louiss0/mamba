@@ -125,7 +125,7 @@ final class Switch extends Command {
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
-  ) => 'Switching to ${positionals!['branch']}.';
+  ) => 'Switching to ${positionals.singles!['branch']}.';
 }
 ```
 

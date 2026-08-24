@@ -127,7 +127,11 @@ sealed class RepeatedPositional extends Positional {
     super.description,
     super.regex,
     this.times = 1,
-  });
+  }) {
+    if (times < 0) {
+      throw ArgumentError.value(times, 'times', 'must not be negative');
+    }
+  }
 }
 
 final class RepeatedStringPositional extends RepeatedPositional {

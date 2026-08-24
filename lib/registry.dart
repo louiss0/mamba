@@ -18,8 +18,9 @@ final class MambaCommandNotFoundException extends MambaException {
 ///
 /// A registry separates each input kind into its own map so callers can look up
 /// a definition by name while preserving its input semantics. Group registries
-/// recursively organize children and carry explicitly inherited flags and
-/// options to descendants; local same-name definitions take precedence.
+/// recursively organize children and carry root-global and explicitly
+/// inherited inputs to descendants; local same-name definitions take
+/// precedence.
 final class CommandRegistry {
   static final BooleanFlag _helpFlag = BooleanFlag(
     'help',
@@ -124,7 +125,16 @@ final class CommandRegistry {
       variadic: variadic,
       accessors: _indexByName<AccessorListOption>(accessors),
       commandRegistries: commands
-          ?.map((command) => _fromCommand(command, parentPath: [name]))
+          ?.map(
+            (command) => _fromCommand(
+              command,
+              parentPath: [name],
+              inheritedFlags: flags,
+              inheritedOptions: options == null && pairedOptions == null
+                  ? null
+                  : [...?options, ...?pairedOptions],
+            ),
+          )
           .toList(),
     );
   }
@@ -452,8 +462,9 @@ final class CommandRegistry {
         offset++;
         continue;
       }
-      if (registry.isRegisteredFlagToken(token)) {
-        offset++;
+      final inputLength = registry.registeredInputTokenLength(token);
+      if (inputLength != null) {
+        offset += inputLength;
         continue;
       }
 
@@ -497,6 +508,55 @@ final class CommandRegistry {
               boolFlags?.values.any((flag) => flag.short == name) == true ||
               countFlags?.values.any((flag) => flag.short == name) == true,
         );
+  }
+
+  /// Number of argument tokens occupied by a registered flag or option token.
+  ///
+  /// Inline long-option values occupy one token; other value-taking inputs
+  /// occupy the option token and the following value token.
+  int? registeredInputTokenLength(String token) {
+    if (token.startsWith('--') && token.length > 2) {
+      final separatorIndex = token.indexOf('=');
+      final name = separatorIndex < 0
+          ? token.substring(2)
+          : token.substring(2, separatorIndex);
+      if (_hasValueInput(name)) return separatorIndex < 0 ? 2 : 1;
+    }
+    if (token.startsWith('-') && token.length > 1) {
+      final short = token.substring(1);
+      if (_hasValueInput(short, byShortAlias: true)) return 2;
+    }
+    return isRegisteredFlagToken(token) ? 1 : null;
+  }
+
+  bool _hasValueInput(String name, {bool byShortAlias = false}) {
+    bool hasAccessorPath() {
+      final segments = name.split('.');
+      AccessorOption? accessor = accessors?[segments.first];
+      for (final segment in segments.skip(1)) {
+        if (accessor is! AccessorListOption) return false;
+        accessor = accessor.options
+            .where((option) => option.name == segment)
+            .firstOrNull;
+      }
+      return accessor is AccessorPrimitiveOption;
+    }
+
+    final ordinaryOptions = <Option>[
+      ...?singleOptions?.values,
+      ...?repeatedOptions?.values,
+      ...?pairedOptions?.values,
+    ];
+    final pairOptions = pairedOptions?.values.expand(
+      (option) => option.options,
+    );
+    if (byShortAlias) {
+      return ordinaryOptions.any((option) => option.short == name) ||
+          pairOptions?.any((option) => option.short == name) == true;
+    }
+    return ordinaryOptions.any((option) => option.name == name) ||
+        pairOptions?.any((option) => option.name == name) == true ||
+        hasAccessorPath();
   }
 
   static List<T>? _mergeByName<T extends NamedInput>(
@@ -554,6 +614,14 @@ final class CommandRegistry {
     _validateAccessors(accessors);
     _validatePositionals(mandatoryPositionals, discretionaryPositionals);
     _validateVariadic(variadic, mandatoryPositionals, discretionaryPositionals);
+    _validateChoiceDefaults(
+      options,
+      pairedOptions,
+      mandatoryPositionals,
+      discretionaryPositionals,
+      variadic,
+      accessors,
+    );
     _validateDuplicates(
       accessors,
       flags,
@@ -596,6 +664,12 @@ final class CommandRegistry {
     }
     final registered = <String>{};
     for (final alias in aliases) {
+      if (alias.isEmpty || alias.startsWith('-')) {
+        throw MambaException(
+          'Alias $alias is not a usable command token for command path $path.',
+        );
+      }
+      _validateCommandName(alias);
       if (!registered.add(alias)) {
         throw MambaException(
           'Alias $alias is registered more than once for command path $path.',
@@ -720,11 +794,59 @@ final class CommandRegistry {
   }
 
   static void _validatePositionalName(String name) {
-    if (_keyboardSymbol.hasMatch(name)) {
+    if (!_namedInputName.hasMatch(name)) {
       throw MambaRegistryError(
-        "Positional names can't use keyboard symbols other than _ or -",
+        'Positional names must use letters, numbers, or hyphens and start with a letter',
       );
     }
+  }
+
+  static void _validateChoiceDefaults(
+    List<Option>? options,
+    List<PairedOption>? pairedOptions,
+    List<Positional>? mandatoryPositionals,
+    List<Positional>? discretionaryPositionals,
+    Variadic? variadic,
+    List<AccessorListOption>? accessors,
+  ) {
+    void validate(Iterable<Enum> choices, Enum? defaultValue, String name) {
+      if (defaultValue != null && !choices.contains(defaultValue)) {
+        throw MambaRegistryError(
+          'Default ${defaultValue.name} is not a registered choice for $name',
+        );
+      }
+    }
+
+    void validateInput(NamedInput input) {
+      switch (input) {
+        case ChoiceOption(:final choices, :final defaultValue) ||
+            PairedChoiceOption(:final choices, :final defaultValue) ||
+            PairChoiceOption(:final choices, :final defaultValue) ||
+            ChoicePositional(:final choices, :final defaultValue) ||
+            RepeatedChoicePositional(:final choices, :final defaultValue) ||
+            ChoiceVariadic(:final choices, :final defaultValue) ||
+            AccessorChoiceOption(:final choices, :final defaultValue):
+          validate(choices, defaultValue, input.name);
+        default:
+      }
+    }
+
+    void validateAccessor(AccessorOption accessor) {
+      validateInput(accessor);
+      if (accessor case AccessorListOption(:final options)) {
+        options.forEach(validateAccessor);
+      }
+    }
+
+    [
+      ...?options,
+      ...?pairedOptions,
+      ...?pairedOptions?.expand((option) => option.options),
+      ...?mandatoryPositionals,
+      ...?discretionaryPositionals,
+    ].forEach(validateInput);
+    if (variadic != null) validateInput(variadic);
+    accessors?.forEach(validateAccessor);
   }
 
   static void _validateDuplicates(
