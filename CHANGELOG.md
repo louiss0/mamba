@@ -1,6 +1,9 @@
 ## 0.0.1
 
 - Restored the README from the pre-release revision.
+- Repeated choice positionals now render one bounded Carapace `positional` slot
+  per accepted value (`times` repetitions plus the original) instead of the
+  unbounded `positionalany` field, which Mamba does not support.
 
 
 

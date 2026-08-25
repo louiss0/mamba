@@ -68,10 +68,10 @@ For this series of tests you need to make sure that the long flag is used for th
 
 ## Positionals
 
-These are based on the `positional:` and `positionalany`fields.
+These are based on the `positional:` fields.
 
 - positionals are rendered when choice positionals are used.
-- positionals are rendered based on the repeated choice positionals
+- repeated choice positionals render one bounded `positional` slot per accepted value (its `times` repetitions plus the original); `positionalany` is never emitted.
 
 ## Variadic
 

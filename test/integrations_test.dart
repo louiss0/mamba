@@ -686,10 +686,14 @@ completion:
         );
       });
 
-      test("repeated choice positionals are rendered", () {
+      test("repeated choice positionals render bounded slots", () {
         final registry = specRegistry(
           discretionaryPositionals: [
-            RepeatedChoicePositional<_Format>('format', choices: _Format.values),
+            RepeatedChoicePositional<_Format>(
+              'format',
+              choices: _Format.values,
+              times: 2,
+            ),
           ],
         );
 
@@ -699,9 +703,19 @@ completion:
 name: "spec"
 description: "spec command"
 completion:
-  positionalany:
-    - "json"
-    - "yaml"'''),
+  positional:
+    - - "json"
+      - "json"
+      - "yaml"
+      - "yaml"
+    - - "json"
+      - "json"
+      - "yaml"
+      - "yaml"
+    - - "json"
+      - "json"
+      - "yaml"
+      - "yaml"'''),
         );
       });
     });
@@ -1210,9 +1224,15 @@ commands:
           --no-wait: ""
           -o, --output?=: ""
         completion:
-          positionalany:
-            - "basic"
-            - "standard"
+          positional:
+            - - "basic"
+              - "basic"
+              - "standard"
+              - "standard"
+            - - "basic"
+              - "basic"
+              - "standard"
+              - "standard"
           dashany:
             - "json"
             - "yaml"'''),

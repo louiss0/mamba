@@ -276,22 +276,24 @@ Map<String, dynamic> _commandBody(
 
 /// Exposes choice positionals and variadics through Carapace completion.
 ///
-/// Single choice positionals fill `positional`, repeated ones fill
-/// `positionalany`; choice variadics fill `dash` while repeated choice
-/// variadics fill `dashany`.
+/// Choice positionals fill `positional`; a repeated choice positional fills
+/// one bounded slot per accepted value (its `times` repetitions plus the
+/// original) because Mamba has no unbounded positional. Choice variadics fill
+/// `dash` while repeated choice variadics fill `dashany`.
 Map<String, dynamic> _completionFor(CommandRegistry registry) {
   final positionalChoices = <List<String>>[];
-  final positionalAnyChoices = <String>[];
 
   for (final positional in [
     ...?registry.mandatoryPositionals?.values,
     ...?registry.discretionaryPositionals?.values,
   ]) {
     switch (positional) {
+      case RepeatedChoicePositional(:final choices, :final times):
+        for (var slot = 0; slot <= times; slot++) {
+          positionalChoices.add(_choicePairs(choices));
+        }
       case ChoicePositional(:final choices):
         positionalChoices.add(_choicePairs(choices));
-      case RepeatedChoicePositional(:final choices):
-        positionalAnyChoices.addAll(choices.map((choice) => choice.name));
       default:
         break;
     }
@@ -312,7 +314,6 @@ Map<String, dynamic> _completionFor(CommandRegistry registry) {
 
   return {
     if (positionalChoices.isNotEmpty) 'positional': positionalChoices,
-    if (positionalAnyChoices.isNotEmpty) 'positionalany': positionalAnyChoices,
     if (dashChoices.isNotEmpty) 'dash': dashChoices,
     if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
   };
