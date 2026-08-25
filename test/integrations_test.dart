@@ -808,6 +808,90 @@ commands:
       });
     });
 
+    group("persistent flag registries", () {
+      test("root globals and each group's own inputs render persistently", () {
+        final registry = specRegistry(
+          flags: [
+            BooleanFlag('verbose', short: 'v', description: 'increase output'),
+            CountFlag('trace'),
+          ],
+          options: [IntOption('jobs', short: 'j')],
+          commands: [
+            TestGroupCommand(
+              'remote',
+              [
+                TestCommand('add', 'add a remote'),
+                TestCommand('remove', 'remove a remote'),
+              ],
+              'manage remotes',
+              inheritedFlags: [BooleanFlag('force')],
+              inheritedOptions: [
+                IntOption('depth', short: 'd', required: true),
+              ],
+            ),
+            TestGroupCommand(
+              'auth',
+              [TestCommand('login', 'log in')],
+              'manage credentials',
+              inheritedFlags: [CountFlag('attempts')],
+            ),
+          ],
+        );
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  -v, --verbose: "increase output"
+  --trace*: ""
+  -j, --jobs=: ""
+commands:
+  - name: "remote"
+    description: "manage remotes"
+    persistentflags:
+      -v, --verbose: "increase output"
+      --force: ""
+      --trace*: ""
+      -j, --jobs=: ""
+      -d, --depth!=: ""
+    commands:
+      - name: "add"
+        description: "add a remote"
+        persistentflags:
+          -v, --verbose: "increase output"
+          --force: ""
+          --trace*: ""
+          -j, --jobs=: ""
+          -d, --depth!=: ""
+      - name: "remove"
+        description: "remove a remote"
+        persistentflags:
+          -v, --verbose: "increase output"
+          --force: ""
+          --trace*: ""
+          -j, --jobs=: ""
+          -d, --depth!=: ""
+  - name: "auth"
+    description: "manage credentials"
+    persistentflags:
+      -v, --verbose: "increase output"
+      --trace*: ""
+      --attempts*: ""
+      -j, --jobs=: ""
+    commands:
+      - name: "login"
+        description: "log in"
+        persistentflags:
+          -v, --verbose: "increase output"
+          --trace*: ""
+          --attempts*: ""
+          -j, --jobs=: ""'''),
+        );
+      });
+    });
+
     group("nested subcommands", () {
       for (final depth in [2, 3, 4, 5]) {
         test("a single flag reaches $depth nested subcommands", () {
