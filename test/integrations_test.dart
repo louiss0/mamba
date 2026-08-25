@@ -209,7 +209,7 @@ commands:
   - name: "sub"
     description: "a subcommand"
     flags:
-      --retries=: ""'''),
+      --retries?=: ""'''),
         );
       });
 
@@ -347,7 +347,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  --retries=: ""'''),
+  --retries?=: ""'''),
           );
         });
 
@@ -360,7 +360,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  -r, --retries=: ""'''),
+  -r, --retries?=: ""'''),
           );
         });
 
@@ -373,7 +373,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  --include*=: ""'''),
+  --include*?=: ""'''),
           );
         });
 
@@ -388,7 +388,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  -i, --include*=: ""'''),
+  -i, --include*?=: ""'''),
           );
         });
 
@@ -403,7 +403,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  --debug-level&=: ""'''),
+  --debug-level?&=: ""'''),
           );
         });
 
@@ -418,7 +418,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  -d, --debug-level&=: ""'''),
+  -d, --debug-level?&=: ""'''),
           );
         });
 
@@ -499,9 +499,9 @@ exclusiveflags:
 name: "spec"
 description: "spec command"
 flags:
-  --auth=: "credentials"
-  -u, --user=: ""
-  --port=: ""'''),
+  --auth?=: "credentials"
+  -u, --user?=: ""
+  --port?=: ""'''),
           );
         });
 
@@ -535,9 +535,11 @@ flags:
 
       group("modifier combos", () {
         for (final combo in modifierCombos) {
+          // Optionality fills with ! or ? only on value-taking options; flags
+          // carry neither optionality nor arity.
           final suffix =
               '${combo.repeatability ? '*' : ''}'
-              '${combo.optionality ? '!' : ''}'
+              '${combo.arity ? (combo.optionality ? '!' : '?') : ''}'
               '${combo.appearance ? '&' : ''}'
               '${combo.arity ? '=' : ''}';
 
@@ -848,7 +850,7 @@ description: "spec command"
 flags:
   -v, --verbose: "increase output"
   --trace*: ""
-  -j, --jobs=: ""
+  -j, --jobs?=: ""
 commands:
   - name: "remote"
     description: "manage remotes"
@@ -856,7 +858,7 @@ commands:
       -v, --verbose: "increase output"
       --force: ""
       --trace*: ""
-      -j, --jobs=: ""
+      -j, --jobs?=: ""
       -d, --depth!=: ""
     commands:
       - name: "add"
@@ -865,7 +867,7 @@ commands:
           -v, --verbose: "increase output"
           --force: ""
           --trace*: ""
-          -j, --jobs=: ""
+          -j, --jobs?=: ""
           -d, --depth!=: ""
       - name: "remove"
         description: "remove a remote"
@@ -873,7 +875,7 @@ commands:
           -v, --verbose: "increase output"
           --force: ""
           --trace*: ""
-          -j, --jobs=: ""
+          -j, --jobs?=: ""
           -d, --depth!=: ""
   - name: "auth"
     description: "manage credentials"
@@ -881,7 +883,7 @@ commands:
       -v, --verbose: "increase output"
       --trace*: ""
       --attempts*: ""
-      -j, --jobs=: ""
+      -j, --jobs?=: ""
     commands:
       - name: "login"
         description: "log in"
@@ -889,7 +891,7 @@ commands:
           -v, --verbose: "increase output"
           --trace*: ""
           --attempts*: ""
-          -j, --jobs=: ""'''),
+          -j, --jobs?=: ""'''),
         );
       });
     });
@@ -970,8 +972,8 @@ description: "spec command"
 flags:
   -v, --verbose: ""
   --debug: ""
-  -o, --output=: ""
-  --subscription=: ""
+  -o, --output?=: ""
+  --subscription?=: ""
 commands:
   - name: "vm"
     description: "manage virtual machines"
@@ -979,8 +981,8 @@ commands:
       -v, --verbose: ""
       --debug: ""
       --no-wait: ""
-      -o, --output=: ""
-      --subscription=: ""
+      -o, --output?=: ""
+      --subscription?=: ""
     commands:
       - name: "list"
         description: "list virtual machines"
@@ -988,17 +990,17 @@ commands:
           -v, --verbose: ""
           --debug: ""
           --no-wait: ""
-          -o, --output=: ""
-          --subscription=: ""
+          -o, --output?=: ""
+          --subscription?=: ""
   - name: "storage"
     description: "manage storage accounts"
     persistentflags:
       -v, --verbose: ""
       --debug: ""
       --https-only: ""
-      -o, --output=: ""
-      --subscription=: ""
-      --account-name=: ""
+      -o, --output?=: ""
+      --subscription?=: ""
+      --account-name?=: ""
     commands:
       - name: "check-name"
         description: "check name availability"
@@ -1006,73 +1008,73 @@ commands:
           -v, --verbose: ""
           --debug: ""
           --https-only: ""
-          -o, --output=: ""
-          --subscription=: ""
-          --account-name=: ""
+          -o, --output?=: ""
+          --subscription?=: ""
+          --account-name?=: ""
   - name: "network"
     description: "manage networks"
     persistentflags:
       -v, --verbose: ""
       --debug: ""
-      -o, --output=: ""
-      --subscription=: ""
-      --timeout=: ""
+      -o, --output?=: ""
+      --subscription?=: ""
+      --timeout?=: ""
     commands:
       - name: "dns"
         description: "manage dns zones"
         persistentflags:
           -v, --verbose: ""
           --debug: ""
-          -o, --output=: ""
-          --subscription=: ""
-          --timeout=: ""
-          --zone-name=: ""
+          -o, --output?=: ""
+          --subscription?=: ""
+          --timeout?=: ""
+          --zone-name?=: ""
         commands:
           - name: "record-set"
             description: "manage record sets"
             persistentflags:
               -v, --verbose: ""
               --debug: ""
-              -o, --output=: ""
-              --subscription=: ""
-              --timeout=: ""
-              --zone-name=: ""
-              --relative-name=: ""
+              -o, --output?=: ""
+              --subscription?=: ""
+              --timeout?=: ""
+              --zone-name?=: ""
+              --relative-name?=: ""
             commands:
               - name: "a"
                 description: "manage a record sets"
                 persistentflags:
                   -v, --verbose: ""
                   --debug: ""
-                  -o, --output=: ""
-                  --subscription=: ""
-                  --timeout=: ""
-                  --zone-name=: ""
-                  --relative-name=: ""
-                  --ttl=: ""
+                  -o, --output?=: ""
+                  --subscription?=: ""
+                  --timeout?=: ""
+                  --zone-name?=: ""
+                  --relative-name?=: ""
+                  --ttl?=: ""
                 commands:
                   - name: "add-record"
                     description: "add an a record"
                     persistentflags:
                       -v, --verbose: ""
                       --debug: ""
-                      -o, --output=: ""
-                      --subscription=: ""
-                      --timeout=: ""
-                      --zone-name=: ""
-                      --relative-name=: ""
-                      --ttl=: ""
+                      -o, --output?=: ""
+                      --subscription?=: ""
+                      --timeout?=: ""
+                      --zone-name?=: ""
+                      --relative-name?=: ""
+                      --ttl?=: ""
                   - name: "remove-record"
                     description: "remove an a record"
                     persistentflags:
                       -v, --verbose: ""
                       --debug: ""
-                      -o, --output=: ""
-                      --subscription=: ""
-                      --timeout=: ""
-                      --zone-name=: ""
-                      --relative-name=: ""
-                      --ttl=: ""'''),
+                      -o, --output?=: ""
+                      --subscription?=: ""
+                      --timeout?=: ""
+                      --zone-name?=: ""
+                      --relative-name?=: ""
+                      --ttl?=: ""'''),
         );
       });
       test("choice inputs complete locally while their flags publish", () {
@@ -1114,14 +1116,14 @@ name: "spec"
 description: "spec command"
 flags:
   -v, --verbose: ""
-  -o, --output=: ""
+  -o, --output?=: ""
 commands:
   - name: "vm"
     description: "manage virtual machines"
     persistentflags:
       -v, --verbose: ""
       --no-wait: ""
-      -o, --output=: ""
+      -o, --output?=: ""
     completion:
       positional:
         - - "basic"
@@ -1134,7 +1136,7 @@ commands:
         persistentflags:
           -v, --verbose: ""
           --no-wait: ""
-          -o, --output=: ""
+          -o, --output?=: ""
         completion:
           positionalany:
             - "basic"
@@ -1180,8 +1182,8 @@ commands:
             equalsYaml(
               nestedExpectation(
                 depth: depth,
-                rootFlagEntries: ['-i, --include*=: ""'],
-                persistentEntries: ['-i, --include*=: ""'],
+                rootFlagEntries: ['-i, --include*?=: ""'],
+                persistentEntries: ['-i, --include*?=: ""'],
               ),
             ),
           );
@@ -1209,14 +1211,14 @@ commands:
               nestedExpectation(
                 depth: depth,
                 rootFlagEntries: [
-                  '--auth=: ""',
-                  '--user=: ""',
-                  '--port=: ""',
+                  '--auth?=: ""',
+                  '--user?=: ""',
+                  '--port?=: ""',
                 ],
                 persistentEntries: [
-                  '--auth=: ""',
-                  '--user=: ""',
-                  '--port=: ""',
+                  '--auth?=: ""',
+                  '--user?=: ""',
+                  '--port?=: ""',
                 ],
               ),
             ),

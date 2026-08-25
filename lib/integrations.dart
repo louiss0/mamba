@@ -44,6 +44,8 @@ String _descriptionFor(CommandRegistry registry) =>
 ///
 /// Modifiers follow `<key><repeatability><optionality><appearance><arity>`
 /// and always attach to the long flag; the optional short alias is prefixed.
+/// Value-taking inputs fill the optionality slot with `!` when required and
+/// `?` otherwise, while flags carry no optionality or arity.
 String _inputKey({
   required String name,
   required String? short,
@@ -53,7 +55,7 @@ String _inputKey({
   required bool takesValue,
 }) => '${short == null ? '' : '-$short, '}--$name'
   '${repeatable ? '*' : ''}'
-  '${mandatory ? '!' : ''}'
+  '${takesValue ? (mandatory ? '!' : '?') : ''}'
   '${hidden ? '&' : ''}'
   '${takesValue ? '=' : ''}';
 
