@@ -9,6 +9,8 @@ enum _Format { json, yaml }
 
 enum _Level { debug, info }
 
+enum _Sku { basic, standard }
+
 /// Builds a root registry named `spec` around the given inputs and children.
 CommandRegistry specRegistry({
   List<Flag>? flags,
@@ -1073,6 +1075,76 @@ commands:
                       --ttl=: ""'''),
         );
       });
+      test("choice inputs complete locally while their flags publish", () {
+        final registry = specRegistry(
+          flags: [BooleanFlag('verbose', short: 'v')],
+          options: [IntOption('output', short: 'o')],
+          commands: [
+            TestGroupCommand(
+              'vm',
+              [
+                TestCommand(
+                  'show',
+                  'show a virtual machine',
+                  discretionaryPositionals: [
+                    RepeatedChoicePositional<_Sku>(
+                      'sku',
+                      choices: _Sku.values,
+                    ),
+                  ],
+                  variadic: RepeatedChoiceVariadic<_Format>(
+                    'extra',
+                    choices: _Format.values,
+                  ),
+                ),
+              ],
+              'manage virtual machines',
+              inheritedFlags: [BooleanFlag('no-wait')],
+              mandatoryPositionals: [
+                ChoicePositional<_Sku>('sku', choices: _Sku.values),
+              ],
+            ),
+          ],
+        );
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  -v, --verbose: ""
+  -o, --output=: ""
+commands:
+  - name: "vm"
+    description: "manage virtual machines"
+    persistentflags:
+      -v, --verbose: ""
+      --no-wait: ""
+      -o, --output=: ""
+    completion:
+      positional:
+        - - "basic"
+          - "basic"
+          - "standard"
+          - "standard"
+    commands:
+      - name: "show"
+        description: "show a virtual machine"
+        persistentflags:
+          -v, --verbose: ""
+          --no-wait: ""
+          -o, --output=: ""
+        completion:
+          positionalany:
+            - "basic"
+            - "standard"
+          dashany:
+            - "json"
+            - "yaml"'''),
+        );
+      });
+
     });
 
     group("nested subcommands", () {

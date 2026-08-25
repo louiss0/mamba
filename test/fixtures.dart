@@ -10,6 +10,8 @@ class TestGroupCommand extends GroupCommand {
     super.inheritedOptions,
     super.flags,
     super.options,
+    super.mandatoryPositionals,
+    super.discretionaryPositionals,
     super.variadic,
   });
 
