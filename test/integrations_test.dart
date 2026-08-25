@@ -69,6 +69,84 @@ final List<ModifierCombo> modifierCombos = [
             ),
 ];
 
+/// Group command names for nested chains, indexed by level below the root.
+const nestedGroupNames = ['alpha', 'beta', 'gamma', 'delta'];
+
+/// Builds a root registry whose inputs must travel down [depth] subcommand
+/// levels before reaching the leaf.
+CommandRegistry nestedRegistry(
+  int depth, {
+  List<Flag>? flags,
+  List<Option>? options,
+  List<PairedOption>? pairedOptions,
+}) {
+  List<Command> buildChain(int remaining) {
+    if (remaining <= 1) return [TestCommand('leaf', 'leaf command')];
+    final groupName = nestedGroupNames[depth - remaining];
+    return [
+      TestGroupCommand(groupName, buildChain(remaining - 1), '$groupName command'),
+    ];
+  }
+
+  return specRegistry(
+    flags: flags,
+    options: options,
+    pairedOptions: pairedOptions,
+    commands: buildChain(depth),
+  );
+}
+
+/// Renders one nested command level; every descendant publishes the same
+/// [persistentEntries] while the leaf ends the chain.
+List<String> nestedCommandLines(
+  String name,
+  List<String> remaining,
+  String indent,
+  List<String> persistentEntries,
+) {
+  final lines = <String>[
+    '$indent- name: "$name"',
+    '$indent  description: "$name command"',
+    '$indent  persistentflags:',
+    ...[for (final entry in persistentEntries) '$indent    $entry'],
+  ];
+  if (remaining.isNotEmpty) {
+    lines
+      ..add('$indent  commands:')
+      ..addAll(
+        nestedCommandLines(
+          remaining.first,
+          remaining.sublist(1),
+          '$indent    ',
+          persistentEntries,
+        ),
+      );
+  }
+  return lines;
+}
+
+/// Builds the full expected spec for a nested chain of [depth] subcommands.
+String nestedExpectation({
+  required int depth,
+  required List<String> rootFlagEntries,
+  required List<String> persistentEntries,
+}) {
+  final names = [
+    for (var index = 0; index < depth - 1; index++) nestedGroupNames[index],
+    'leaf',
+  ];
+  final lines = <String>['name: "spec"', 'description: "spec command"'];
+  if (rootFlagEntries.isNotEmpty) {
+    lines.add('flags:');
+    lines.addAll([for (final entry in rootFlagEntries) '  $entry']);
+  }
+  lines.add('commands:');
+  lines.addAll(
+    nestedCommandLines(names.first, names.sublist(1), '  ', persistentEntries),
+  );
+  return lines.join('\n');
+}
+
 void main() {
   group("CarapaceSpecConverter", () {
     group("commands", () {
@@ -669,6 +747,42 @@ commands:
         );
       });
 
+      test("globals stay persistent on a group while its own inputs stay local", () {
+        final registry = specRegistry(
+          flags: [BooleanFlag('global-flag', short: 'g')],
+          commands: [
+            TestGroupCommand(
+              'container',
+              [TestCommand('list', 'list containers')],
+              'manage containers',
+              inheritedFlags: [BooleanFlag('color')],
+            ),
+          ],
+        );
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  -g, --global-flag: ""
+commands:
+  - name: "container"
+    description: "manage containers"
+    flags:
+      --color: ""
+    persistentflags:
+      -g, --global-flag: ""
+    commands:
+      - name: "list"
+        description: "list containers"
+        persistentflags:
+          -g, --global-flag: ""
+          --color: ""'''),
+        );
+      });
+
       test("published inputs move to persistentflags while locals stay put", () {
         final registry = specRegistry(
           flags: [BooleanFlag('global-flag')],
@@ -693,6 +807,84 @@ commands:
       --global-flag: ""'''),
         );
       });
+    });
+
+    group("nested subcommands", () {
+      for (final depth in [2, 3, 4, 5]) {
+        test("a single flag reaches $depth nested subcommands", () {
+          final registry = nestedRegistry(
+            depth,
+            flags: [BooleanFlag('force', short: 'f')],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml(
+              nestedExpectation(
+                depth: depth,
+                rootFlagEntries: ['-f, --force: ""'],
+                persistentEntries: ['-f, --force: ""'],
+              ),
+            ),
+          );
+        });
+      }
+
+      for (final depth in [2, 3, 4, 5]) {
+        test("a repeated option reaches $depth nested subcommands", () {
+          final registry = nestedRegistry(
+            depth,
+            options: [RepeatableIntOption('include', short: 'i')],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml(
+              nestedExpectation(
+                depth: depth,
+                rootFlagEntries: ['-i, --include*=: ""'],
+                persistentEntries: ['-i, --include*=: ""'],
+              ),
+            ),
+          );
+        });
+      }
+
+      for (final depth in [2, 3, 4, 5]) {
+        test("a paired option reaches $depth nested subcommands", () {
+          final registry = nestedRegistry(
+            depth,
+            pairedOptions: [
+              PairedStringOption(
+                'auth',
+                options: [
+                  PairStringOption('user'),
+                  PairIntOption('port'),
+                ],
+              ),
+            ],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml(
+              nestedExpectation(
+                depth: depth,
+                rootFlagEntries: [
+                  '--auth=: ""',
+                  '--user=: ""',
+                  '--port=: ""',
+                ],
+                persistentEntries: [
+                  '--auth=: ""',
+                  '--user=: ""',
+                  '--port=: ""',
+                ],
+              ),
+            ),
+          );
+        });
+      }
     });
   });
 }
