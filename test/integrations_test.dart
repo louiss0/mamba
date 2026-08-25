@@ -160,8 +160,8 @@ void main() {
         expect(
           convertSpec(registry),
           equalsYaml('''
-name: "command"
-description: "the command"
+name: "spec"
+description: "spec command"
 commands:
   - name: "sub"
     description: "a subcommand"
@@ -180,8 +180,8 @@ commands:
         expect(
           convertSpec(registry),
           equalsYaml('''
-name: "command"
-description: "the command"
+name: "spec"
+description: "spec command"
 commands:
   - name: "sub"
     description: "a subcommand"
@@ -201,8 +201,8 @@ commands:
         expect(
           convertSpec(registry),
           equalsYaml('''
-name: "command"
-description: "the command"
+name: "spec"
+description: "spec command"
 commands:
   - name: "sub"
     description: "a subcommand"
@@ -225,8 +225,8 @@ commands:
         expect(
           convertSpec(registry),
           equalsYaml('''
-name: "command"
-description: "the command"
+name: "spec"
+description: "spec command"
 commands:
   - name: "sub"
     description: |-
@@ -302,7 +302,7 @@ flags:
 name: "spec"
 description: "spec command"
 flags:
-  --trace&*: ""'''),
+  --trace*&: ""'''),
           );
         });
 
@@ -733,7 +733,7 @@ description: "spec command"
 commands:
   - name: "container"
     description: "manage containers"
-    flags:
+    persistentflags:
       --color: ""
       -v, --verbose*&: ""
       -n, --namespace!=: ""
@@ -747,7 +747,7 @@ commands:
         );
       });
 
-      test("globals stay persistent on a group while its own inputs stay local", () {
+      test("a group publishes globals and its own inherited inputs alike", () {
         final registry = specRegistry(
           flags: [BooleanFlag('global-flag', short: 'g')],
           commands: [
@@ -770,10 +770,9 @@ flags:
 commands:
   - name: "container"
     description: "manage containers"
-    flags:
-      --color: ""
     persistentflags:
       -g, --global-flag: ""
+      --color: ""
     commands:
       - name: "list"
         description: "list containers"
