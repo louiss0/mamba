@@ -17,10 +17,11 @@ final class MambaCommandNotFoundException extends MambaException {
 /// A validated, name-indexed view of one command and its descendants.
 ///
 /// A registry separates each input kind into its own map so callers can look up
-/// a definition by name while preserving its input semantics. Group registries
-/// recursively organize children and carry root-global and explicitly
-/// inherited inputs to descendants; local same-name definitions take
-/// precedence.
+/// a definition by name while preserving its input semantics. Each registry
+/// holds only its locally declared inputs; inputs inherited from the root and
+/// enclosing groups stay at the declaring level through [publishedFlags] and
+/// [publishedOptions], and consumers resolve them by walking the [parent]
+/// chain from the root.
 final class CommandRegistry {
   static final BooleanFlag _helpFlag = BooleanFlag(
     'help',
@@ -44,10 +45,28 @@ final class CommandRegistry {
     this.discretionaryPositionals,
     this.variadic,
     this.accessors,
-    this.commandRegistries,
-    this.persistentFlagNames,
-    this.persistentOptionNames,
-  });
+    this.parent,
+    this.publishedFlags,
+    this.publishedOptions,
+    List<Command>? commands,
+    List<String> parentPath = const <String>[],
+    List<Flag>? descendantFlags,
+    List<Option>? descendantOptions,
+  }) {
+    // Children are built in the body so they can point back at this registry
+    // while the inheritance chain is resolved from the root downward.
+    commandRegistries = commands
+        ?.map(
+          (command) => _fromCommand(
+            command,
+            parent: this,
+            parentPath: parentPath,
+            inheritedFlags: descendantFlags,
+            inheritedOptions: descendantOptions,
+          ),
+        )
+        .toList();
+  }
 
   final String name;
   final String shortDescription;
@@ -70,15 +89,18 @@ final class CommandRegistry {
   /// Input absorbing every positional token left after all positionals fill.
   final Variadic? variadic;
   final Map<String, AccessorListOption>? accessors;
-  final List<CommandRegistry>? commandRegistries;
+  late final List<CommandRegistry>? commandRegistries;
 
-  /// Names of flags and options that act persistently at this level.
+  /// The enclosing registry, or `null` on the root.
+  final CommandRegistry? parent;
+
+  /// Flags and options this level publishes to its descendants.
   ///
-  /// Root declarations are inherited-only by definition, and group commands
-  /// publish their inheritedFlags and inheritedOptions downward, so both land
-  /// in these sets; local same-name definitions are not listed.
-  final Set<String>? persistentFlagNames;
-  final Set<String>? persistentOptionNames;
+  /// The root publishes its own flags and options; a group publishes its
+  /// declared inheritedFlags and inheritedOptions. They are not merged into
+  /// descendant tables; the parser collects them by walking from the root.
+  final List<Flag>? publishedFlags;
+  final List<Option>? publishedOptions;
 
   /// Builds and validates a root registry from a list-defined command surface.
   ///
@@ -119,13 +141,6 @@ final class CommandRegistry {
       helpFlag: _helpFlag,
       longDescription: longDescription,
       aliases: _indexAliases(commands),
-      persistentFlagNames: flags?.map((flag) => flag.name).toSet(),
-      persistentOptionNames: options == null && pairedOptions == null
-          ? null
-          : [
-              ...?options,
-              ...?pairedOptions,
-            ].map((option) => option.name).toSet(),
       boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
       countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
       singleOptions: _indexByName<SingleOption>(
@@ -141,39 +156,42 @@ final class CommandRegistry {
       ),
       variadic: variadic,
       accessors: _indexByName<AccessorListOption>(accessors),
-      commandRegistries: commands
-          ?.map(
-            (command) => _fromCommand(
-              command,
-              parentPath: [name],
-              inheritedFlags: flags,
-              inheritedOptions: options == null && pairedOptions == null
-                  ? null
-                  : [...?options, ...?pairedOptions],
-            ),
-          )
-          .toList(),
+      parent: null,
+      publishedFlags: flags,
+      publishedOptions: options == null && pairedOptions == null
+          ? null
+          : [...?options, ...?pairedOptions],
+      commands: commands,
+      parentPath: [name],
+      descendantFlags: flags,
+      descendantOptions: options == null && pairedOptions == null
+          ? null
+          : [...?options, ...?pairedOptions],
     );
   }
 
   static CommandRegistry _fromCommand(
     Command command, {
+    required CommandRegistry parent,
     List<String> parentPath = const <String>[],
     List<Flag>? inheritedFlags,
     List<Option>? inheritedOptions,
   }) {
     final group = command is GroupCommand ? command : null;
     final childCommands = group?.commands;
-    final publishedFlags = _mergeByName(inheritedFlags, group?.inheritedFlags);
-    final publishedOptions = _mergeByName(
-      inheritedOptions,
-      group?.inheritedOptions,
-    );
-    final registeredFlags = _mergeByName(publishedFlags, command.flags);
+    // Inputs this level contributes to its descendants; they stay here and are
+    // resolved by walking from the root rather than being merged downward.
+    final ownPublishedFlags = group?.inheritedFlags;
+    final ownPublishedOptions = group?.inheritedOptions;
+    final publishedFlags = _mergeByName(inheritedFlags, ownPublishedFlags);
+    final publishedOptions = _mergeByName(inheritedOptions, ownPublishedOptions);
     final localOptions =
         command.options == null && command.pairedOptions == null
         ? null
         : [...?command.options, ...?command.pairedOptions];
+    // Inherited inputs join the validation surface so conflicts with local
+    // declarations are still reported at the level that would collide.
+    final registeredFlags = _mergeByName(publishedFlags, command.flags);
     final registeredOptions = _mergeByName(publishedOptions, localOptions);
     final ordinaryOptions = registeredOptions
         ?.where((option) => option is! PairedOption)
@@ -203,22 +221,21 @@ final class CommandRegistry {
       longDescription: command.longDescription,
       aliases: _indexAliases(childCommands),
       commandAliases: command.aliases,
-      persistentFlagNames: publishedFlags?.map((flag) => flag.name).toSet(),
-      persistentOptionNames:
-          publishedOptions?.map((option) => option.name).toSet(),
       boolFlags: _indexByName<BooleanFlag>(
-        registeredFlags?.whereType<BooleanFlag>(),
+        command.flags?.whereType<BooleanFlag>(),
       ),
       countFlags: _indexByName<CountFlag>(
-        registeredFlags?.whereType<CountFlag>(),
+        command.flags?.whereType<CountFlag>(),
       ),
       singleOptions: _indexByName<SingleOption>(
-        ordinaryOptions?.whereType<SingleOption>(),
+        localOptions?.whereType<SingleOption>(),
       ),
       repeatedOptions: _indexByName<RepeatableOption>(
-        ordinaryOptions?.whereType<RepeatableOption>(),
+        localOptions?.whereType<RepeatableOption>(),
       ),
-      pairedOptions: _indexByName<PairedOption>(pairedOptions),
+      pairedOptions: _indexByName<PairedOption>(
+        localOptions?.whereType<PairedOption>().toList(),
+      ),
       mandatoryPositionals: _indexByName<Positional>(
         command.mandatoryPositionals,
       ),
@@ -227,16 +244,13 @@ final class CommandRegistry {
       ),
       variadic: command.variadic,
       accessors: _indexByName<AccessorListOption>(command.accessors),
-      commandRegistries: childCommands
-          ?.map(
-            (child) => _fromCommand(
-              child,
-              parentPath: commandPath,
-              inheritedFlags: publishedFlags,
-              inheritedOptions: publishedOptions,
-            ),
-          )
-          .toList(),
+      parent: parent,
+      publishedFlags: ownPublishedFlags,
+      publishedOptions: ownPublishedOptions,
+      commands: childCommands,
+      parentPath: [...parentPath, command.name],
+      descendantFlags: publishedFlags,
+      descendantOptions: publishedOptions,
     );
   }
 
@@ -468,6 +482,80 @@ final class CommandRegistry {
     return false;
   }
 
+  /// Flags and options published by this level and every ancestor, ordered
+  /// from the root down.
+  List<Flag> get _inheritableFlags => [
+    for (CommandRegistry? level = this; level != null; level = level.parent)
+      ...?level.publishedFlags,
+  ];
+
+  List<Option> get _inheritableOptions => [
+    for (CommandRegistry? level = this; level != null; level = level.parent)
+      ...?level.publishedOptions,
+  ];
+
+  static Map<String, T>? _combineWithInherited<T extends NamedInput>(
+    Iterable<T> inherited,
+    Map<String, T>? local,
+  ) {
+    if (local == null && inherited.isEmpty) return null;
+    return {for (final input in inherited) input.name: input, ...?local};
+  }
+
+  /// Boolean flags available here: inherited inputs plus local declarations,
+  /// with a local same-name definition taking precedence.
+  Map<String, BooleanFlag>? get applicableBoolFlags =>
+      _combineWithInherited(_inheritableFlags.whereType<BooleanFlag>(), boolFlags);
+
+  /// Count flags available here, including inherited ones.
+  Map<String, CountFlag>? get applicableCountFlags =>
+      _combineWithInherited(_inheritableFlags.whereType<CountFlag>(), countFlags);
+
+  /// Single options available here, including inherited ones.
+  Map<String, SingleOption>? get applicableSingleOptions =>
+      _combineWithInherited(
+        _inheritableOptions.whereType<SingleOption>(),
+        singleOptions,
+      );
+
+  /// Repeatable options available here, including inherited ones.
+  Map<String, RepeatableOption>? get applicableRepeatedOptions =>
+      _combineWithInherited(
+        _inheritableOptions.whereType<RepeatableOption>(),
+        repeatedOptions,
+      );
+
+  /// Paired options available here, including inherited ones.
+  Map<String, PairedOption>? get applicablePairedOptions =>
+      _combineWithInherited(
+        _inheritableOptions.whereType<PairedOption>(),
+        pairedOptions,
+      );
+
+  /// A copy of this registry whose input tables include every flag and option
+  /// inherited from the root and enclosing groups.
+  ///
+  /// Local definitions win over inherited same-name inputs. Positionals,
+  /// accessors, variadics, and child registries are never inherited and stay
+  /// untouched.
+  CommandRegistry withInheritedInputs() => CommandRegistry._(
+    name: name,
+    shortDescription: shortDescription,
+    helpFlag: helpFlag,
+    longDescription: longDescription,
+    aliases: aliases,
+    commandAliases: commandAliases,
+    boolFlags: applicableBoolFlags,
+    countFlags: applicableCountFlags,
+    singleOptions: applicableSingleOptions,
+    repeatedOptions: applicableRepeatedOptions,
+    pairedOptions: applicablePairedOptions,
+    mandatoryPositionals: mandatoryPositionals,
+    discretionaryPositionals: discretionaryPositionals,
+    variadic: variadic,
+    accessors: accessors,
+  );
+
   /// Returns the deepest registered command named by [args].
   ///
   /// Registered flags and the root name do not advance the command path. Help
@@ -509,6 +597,8 @@ final class CommandRegistry {
   /// The check recognizes long names, valid negated boolean names, short names,
   /// and bundles of short flags.
   bool isRegisteredFlagToken(String token) {
+    final boolFlags = applicableBoolFlags;
+    final countFlags = applicableCountFlags;
     if (token.startsWith('--') && token.length > 2) {
       final name = token.substring(2).split('=').first;
       final negativeName = name.startsWith('no-') ? name.substring(3) : null;
@@ -549,6 +639,17 @@ final class CommandRegistry {
     return isRegisteredFlagToken(token) ? 1 : null;
   }
 
+  /// Options available here, including inherited ones.
+  Iterable<Option> _valueOptions() sync* {
+    for (final option in [
+      ...?applicableSingleOptions?.values,
+      ...?applicableRepeatedOptions?.values,
+      ...?applicablePairedOptions?.values,
+    ]) {
+      yield option;
+    }
+  }
+
   bool _hasValueInput(String name, {bool byShortAlias = false}) {
     bool hasAccessorPath() {
       final segments = name.split('.');
@@ -562,12 +663,8 @@ final class CommandRegistry {
       return accessor is AccessorPrimitiveOption;
     }
 
-    final ordinaryOptions = <Option>[
-      ...?singleOptions?.values,
-      ...?repeatedOptions?.values,
-      ...?pairedOptions?.values,
-    ];
-    final pairOptions = pairedOptions?.values.expand(
+    final ordinaryOptions = <Option>[..._valueOptions()];
+    final pairOptions = applicablePairedOptions?.values.expand(
       (option) => option.options,
     );
     if (byShortAlias) {

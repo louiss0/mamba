@@ -31,7 +31,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 /// descendants repeat that shape nested under `commands:`.
 Map<String, dynamic> _specFor(CommandRegistry registry) => {
   'name': registry.name,
-  ..._commandBody(registry),
+  ..._commandBody(registry, const [], const []),
 };
 
 /// Combines short and long descriptions exactly like the registry export.
@@ -77,10 +77,65 @@ Object? _choiceDefault(NamedInput input) => switch (input) {
 };
 
 /// Collects the rendered body shared by every spec level.
-Map<String, dynamic> _commandBody(CommandRegistry registry) {
-  final persistentFlagNames = registry.persistentFlagNames ?? const <String>{};
-  final persistentOptionNames =
-      registry.persistentOptionNames ?? const <String>{};
+///
+/// [inheritedFlags] and [inheritedOptions] carry every ancestor-published
+/// input accumulated from the root; this level's own published inputs are
+/// appended so they render persistently here and travel down the subtree.
+Map<String, dynamic> _commandBody(
+  CommandRegistry registry,
+  List<Flag> inheritedFlags,
+  List<Option> inheritedOptions,
+) {
+  final persistentFlags = [...inheritedFlags, ...?registry.publishedFlags];
+  final persistentOptions = [
+    ...inheritedOptions,
+    ...?registry.publishedOptions,
+  ];
+  final persistentFlagNames = {
+    for (final flag in persistentFlags) flag.name,
+  };
+  final persistentOptionNames = {
+    for (final option in persistentOptions) option.name,
+  };
+
+  final localFlagNames = {
+    ...?registry.boolFlags?.keys,
+    ...?registry.countFlags?.keys,
+  };
+  // A local same-name definition replaces the inherited input entirely.
+  final effectivePersistentFlags = persistentFlags
+      .where((flag) => !localFlagNames.contains(flag.name))
+      .toList();
+
+  final localOptionNames = {
+    ...?registry.singleOptions?.keys,
+    ...?registry.repeatedOptions?.keys,
+    ...?registry.pairedOptions?.keys,
+  };
+  final effectivePersistentOptions = persistentOptions
+      .where((option) => !localOptionNames.contains(option.name))
+      .toList();
+
+  final boolFlags = [
+    ...effectivePersistentFlags.whereType<BooleanFlag>(),
+    ...?registry.boolFlags?.values,
+  ];
+  final countFlags = [
+    ...effectivePersistentFlags.whereType<CountFlag>(),
+    ...?registry.countFlags?.values,
+  ];
+  final singleOptions = [
+    ...effectivePersistentOptions.whereType<SingleOption>(),
+    ...?registry.singleOptions?.values,
+  ];
+  final repeatedOptions = [
+    ...effectivePersistentOptions.whereType<RepeatableOption>(),
+    ...?registry.repeatedOptions?.values,
+  ];
+  final pairedOptions = [
+    ...effectivePersistentOptions.whereType<PairedOption>(),
+    ...?registry.pairedOptions?.values,
+  ];
 
   final flagEntries = <String, Object>{};
   final persistentEntries = <String, Object>{};
@@ -155,8 +210,8 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
   }
 
   for (final flag in [
-    ...?registry.boolFlags?.values,
-    ...?registry.countFlags?.values,
+    ...boolFlags,
+    ...countFlags,
   ]) {
     placeEntry(
       flag.name,
@@ -178,8 +233,8 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
   }
 
   for (final option in [
-    ...?registry.singleOptions?.values,
-    ...?registry.repeatedOptions?.values,
+    ...singleOptions,
+    ...repeatedOptions,
   ]) {
     placeOption(option, repeatable: option is RepeatableOption);
   }
@@ -187,7 +242,7 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
   // Variant paired options are alternatives, so they render as exclusive
   // groups instead of ordinary entries; required-together groups render all
   // members as plain entries sharing the group's requiredness.
-  for (final paired in [...?registry.pairedOptions?.values]) {
+  for (final paired in pairedOptions) {
     if (paired.variant) {
       exclusiveGroups.add([
         paired.name,
@@ -209,7 +264,11 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
 
   if (registry.commandRegistries case final children?) {
     body['commands'] = [
-      for (final child in children) {'name': child.name, ..._commandBody(child)},
+      for (final child in children)
+        {
+          'name': child.name,
+          ..._commandBody(child, persistentFlags, persistentOptions),
+        },
     ];
   }
   return body;

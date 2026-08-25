@@ -32,7 +32,9 @@ class Parser {
   parse(List<String> args) {
     final command = _findCommand(args);
     final commandIndexes = _commandTokenIndexes(args, command);
-    final registry = _registryForCommand(command);
+    // Inherited flags and options stay at their declaring level, so the parser
+    // resolves them from the root before validating the invocation.
+    final registry = _registryForCommand(command).withInheritedInputs();
     final consumed = <int>{};
     final boolFlags = <String, bool>{};
     final countFlags = <String, int>{};

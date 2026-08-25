@@ -178,14 +178,18 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     try {
       if (_registry.requestsHelp(args)) {
         return writeOut(
-          _helpFormatter.format(_registry.registryForArguments(args)),
+          _helpFormatter.format(
+            _registry.registryForArguments(args).withInheritedInputs(),
+          ),
         );
       }
 
       final executionArguments = _argumentsWithDefaultCommands(args);
       if (executionArguments.isEmpty) {
         return writeOut(
-          _helpFormatter.format(_registry.registryForArguments(args)),
+          _helpFormatter.format(
+            _registry.registryForArguments(args).withInheritedInputs(),
+          ),
         );
       }
 
@@ -196,7 +200,11 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       final commandPathCommands = _commandsForPath(commandPath);
       final command = commandPathCommands.lastOrNull;
       if (command == null) {
-        return writeOut(_helpFormatter.format(_registry));
+        return writeOut(
+          _helpFormatter.format(
+            _registry.registryForArguments(args).withInheritedInputs(),
+          ),
+        );
       }
 
       persistentHookRunners = commandPathCommands

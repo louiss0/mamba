@@ -1,5 +1,6 @@
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
 
@@ -2003,7 +2004,7 @@ void main() {
       );
     });
 
-    test('publishes root inputs to every descendant registry', () {
+    test('descendant registries keep only local inputs', () {
       final globalFlag = BooleanFlag('dry-run');
       final globalOption = IntOption('retries');
       final registry = CommandRegistry.create(
@@ -2020,17 +2021,19 @@ void main() {
 
       final group = registry.commandRegistries!.single;
       final child = group.commandRegistries!.single;
-      expect(group.boolFlags!['dry-run'], same(globalFlag));
-      expect(group.singleOptions!['retries'], same(globalOption));
-      expect(child.boolFlags!['dry-run'], same(globalFlag));
-      expect(child.singleOptions!['retries'], same(globalOption));
+      // Inherited inputs stay at the root; the parser resolves them from there
+      // instead of descendant registries carrying copies.
+      expect(group.boolFlags, isNull);
+      expect(group.singleOptions, isNull);
+      expect(child.boolFlags, isNull);
+      expect(child.singleOptions, isNull);
     });
 
-    test('group commands publish explicit inputs to descendants', () {
-      final inheritedFlag = BooleanFlag('color');
+    test('the parser resolves inherited inputs for a group from the root', () {
+      final inheritedFlag = BooleanFlag('color', negatable: true);
       final inheritedOption = IntOption('retries');
-      final localFlag = BooleanFlag('color', description: 'child');
-      final localOption = IntOption('retries', description: 'child');
+      final localFlag = BooleanFlag('verbose');
+      final localOption = IntOption('jobs');
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
@@ -2052,12 +2055,12 @@ void main() {
         ],
       );
 
-      final group = registry.commandRegistries!.single;
-      final child = group.commandRegistries!.single;
-      expect(group.boolFlags!['color'], same(inheritedFlag));
-      expect(group.singleOptions!['retries'], same(inheritedOption));
-      expect(child.boolFlags!['color'], same(localFlag));
-      expect(child.singleOptions!['retries'], same(localOption));
+      final inputs = Parser(registry)
+          .parse(['tool', 'config', '--no-color', 'get', '--retries', '2'])
+          .$3;
+
+      expect(inputs.boolFlags, {'color': false, 'verbose': false});
+      expect(inputs.intOptions, {'retries': 2});
     });
 
     test('only group commands register child commands', () {
