@@ -139,7 +139,7 @@ String nestedExpectation({
   ];
   final lines = <String>['name: "spec"', 'description: "spec command"'];
   if (rootFlagEntries.isNotEmpty) {
-    lines.add('flags:');
+    lines.add('persistentflags:');
     lines.addAll([for (final entry in rootFlagEntries) '  $entry']);
   }
   lines.add('commands:');
@@ -251,7 +251,7 @@ commands:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --verbose*: "increase verbosity"'''),
           );
         });
@@ -264,7 +264,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -v, --verbose*: ""'''),
           );
         });
@@ -277,7 +277,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --force: ""'''),
           );
         });
@@ -290,7 +290,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -f, --force: ""'''),
           );
         });
@@ -303,7 +303,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --trace*&: ""'''),
           );
         });
@@ -316,7 +316,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --quiet&: ""'''),
           );
         });
@@ -331,7 +331,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --force: ""'''),
           );
         });
@@ -346,7 +346,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --retries?=: ""'''),
           );
         });
@@ -359,7 +359,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -r, --retries?=: ""'''),
           );
         });
@@ -372,7 +372,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --include*?=: ""'''),
           );
         });
@@ -387,7 +387,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -i, --include*?=: ""'''),
           );
         });
@@ -402,7 +402,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --debug-level?&=: ""'''),
           );
         });
@@ -417,7 +417,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -d, --debug-level?&=: ""'''),
           );
         });
@@ -430,7 +430,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --token!=: ""'''),
           );
         });
@@ -445,7 +445,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -t, --token!=: ""'''),
           );
         });
@@ -469,7 +469,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --format?=:
     description: "output format"
     default: "json"'''),
@@ -486,7 +486,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --assumeyes:
     description: ""
     default: true'''),
@@ -514,7 +514,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --auth?=: ""
   --level?=:
     description: ""
@@ -570,7 +570,7 @@ exclusiveflags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --auth?=: "credentials"
   -u, --user?=: ""
   --port?=: ""'''),
@@ -597,7 +597,7 @@ flags:
             equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --conn!=: "connection"
   --host!=: ""
   --timeout!=: ""'''),
@@ -649,7 +649,7 @@ flags:
               equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --combo$suffix: ""'''),
             );
           });
@@ -748,7 +748,7 @@ completion:
     });
 
     group("inherited flags and options", () {
-      test("global flags and options go to each child command", () {
+      test("root inputs render as persistentflags for the whole tree", () {
         final registry = specRegistry(
           flags: [BooleanFlag('force', short: 'f'), CountFlag('verbose')],
           options: [IntOption('retries', short: 'r', required: true)],
@@ -763,7 +763,7 @@ completion:
           equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -f, --force: ""
   --verbose*: ""
   -r, --retries!=: ""
@@ -783,7 +783,7 @@ commands:
         );
       });
 
-      test("inherited options and flags go to each child's subcommand", () {
+      test("a group's inherited inputs render as persistentflags down its subtree", () {
         final registry = specRegistry(
           commands: [
             TestGroupCommand(
@@ -823,7 +823,7 @@ commands:
         );
       });
 
-      test("a group publishes globals and its own inherited inputs alike", () {
+      test("groups merge ancestor globals with their own persistent inputs", () {
         final registry = specRegistry(
           flags: [BooleanFlag('global-flag', short: 'g')],
           commands: [
@@ -841,7 +841,7 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -g, --global-flag: ""
 commands:
   - name: "container"
@@ -871,7 +871,7 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   --global-flag: ""
 commands:
   - name: "child"
@@ -919,7 +919,7 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -v, --verbose: "increase output"
   --trace*: ""
   -j, --jobs?=: ""
@@ -1041,7 +1041,7 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -v, --verbose: ""
   --debug: ""
   -o, --output?=: ""
@@ -1186,7 +1186,7 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
-flags:
+persistentflags:
   -v, --verbose: ""
   -o, --output?=: ""
 commands:

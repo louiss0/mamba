@@ -72,11 +72,11 @@ final class CommandRegistry {
   final Map<String, AccessorListOption>? accessors;
   final List<CommandRegistry>? commandRegistries;
 
-  /// Names of flags and options published to this command by its ancestors.
+  /// Names of flags and options that act persistently at this level.
   ///
-  /// Root inputs and explicitly inherited group inputs reach descendants
-  /// through these sets so integrations can tell published inputs from local
-  /// ones; local same-name definitions are not listed.
+  /// Root declarations are inherited-only by definition, and group commands
+  /// publish their inheritedFlags and inheritedOptions downward, so both land
+  /// in these sets; local same-name definitions are not listed.
   final Set<String>? persistentFlagNames;
   final Set<String>? persistentOptionNames;
 
@@ -119,6 +119,13 @@ final class CommandRegistry {
       helpFlag: _helpFlag,
       longDescription: longDescription,
       aliases: _indexAliases(commands),
+      persistentFlagNames: flags?.map((flag) => flag.name).toSet(),
+      persistentOptionNames: options == null && pairedOptions == null
+          ? null
+          : [
+              ...?options,
+              ...?pairedOptions,
+            ].map((option) => option.name).toSet(),
       boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
       countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
       singleOptions: _indexByName<SingleOption>(
