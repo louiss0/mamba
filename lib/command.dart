@@ -111,6 +111,19 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
   });
 }
 
+/// A choice variadic whose strict choices repeat across every absorbed token.
+///
+/// It parses exactly like [ChoiceVariadic]; completions render its choices as
+/// an unbounded series.
+final class RepeatedChoiceVariadic<T extends Enum> extends ChoiceVariadic<T> {
+  const RepeatedChoiceVariadic(
+    super.name,
+    {super.description,
+    required super.choices,
+    super.defaultValue,
+  });
+}
+
 /// A positional that collects several tokens, one per repetition plus the
 /// original.
 ///

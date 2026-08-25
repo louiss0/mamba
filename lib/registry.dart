@@ -45,6 +45,8 @@ final class CommandRegistry {
     this.variadic,
     this.accessors,
     this.commandRegistries,
+    this.persistentFlagNames,
+    this.persistentOptionNames,
   });
 
   final String name;
@@ -69,6 +71,14 @@ final class CommandRegistry {
   final Variadic? variadic;
   final Map<String, AccessorListOption>? accessors;
   final List<CommandRegistry>? commandRegistries;
+
+  /// Names of flags and options published to this command by its ancestors.
+  ///
+  /// Root inputs and explicitly inherited group inputs reach descendants
+  /// through these sets so integrations can tell published inputs from local
+  /// ones; local same-name definitions are not listed.
+  final Set<String>? persistentFlagNames;
+  final Set<String>? persistentOptionNames;
 
   /// Builds and validates a root registry from a list-defined command surface.
   ///
@@ -186,6 +196,9 @@ final class CommandRegistry {
       longDescription: command.longDescription,
       aliases: _indexAliases(childCommands),
       commandAliases: command.aliases,
+      persistentFlagNames: publishedFlags?.map((flag) => flag.name).toSet(),
+      persistentOptionNames:
+          publishedOptions?.map((option) => option.name).toSet(),
       boolFlags: _indexByName<BooleanFlag>(
         registeredFlags?.whereType<BooleanFlag>(),
       ),
