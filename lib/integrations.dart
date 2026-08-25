@@ -53,11 +53,12 @@ String _inputKey({
   required bool mandatory,
   required bool hidden,
   required bool takesValue,
-}) => '${short == null ? '' : '-$short, '}--$name'
-  '${repeatable ? '*' : ''}'
-  '${takesValue ? (mandatory ? '!' : '?') : ''}'
-  '${hidden ? '&' : ''}'
-  '${takesValue ? '=' : ''}';
+}) =>
+    '${short == null ? '' : '-$short, '}--$name'
+    '${repeatable ? '*' : ''}'
+    '${takesValue ? (mandatory ? '!' : '?') : ''}'
+    '${hidden ? '&' : ''}'
+    '${takesValue ? '=' : ''}';
 
 /// Wraps a description and optional default into the entry value.
 ///
@@ -65,8 +66,8 @@ String _inputKey({
 /// fallback; everything else stays a bare description string.
 Object _entryValue(String? description, Object? defaultValue) =>
     defaultValue == null
-        ? (description ?? '')
-        : {'description': description ?? '', 'default': defaultValue};
+    ? (description ?? '')
+    : {'description': description ?? '', 'default': defaultValue};
 
 /// Extracts the registered choice default from any input that carries one.
 Object? _choiceDefault(NamedInput input) => switch (input) {
@@ -91,9 +92,7 @@ Map<String, dynamic> _commandBody(
     ...inheritedOptions,
     ...?registry.publishedOptions,
   ];
-  final persistentFlagNames = {
-    for (final flag in persistentFlags) flag.name,
-  };
+  final persistentFlagNames = {for (final flag in persistentFlags) flag.name};
   final persistentOptionNames = {
     for (final option in persistentOptions) option.name,
   };
@@ -209,10 +208,7 @@ Map<String, dynamic> _commandBody(
     }
   }
 
-  for (final flag in [
-    ...boolFlags,
-    ...countFlags,
-  ]) {
+  for (final flag in [...boolFlags, ...countFlags]) {
     placeEntry(
       flag.name,
       persistentFlagNames.contains(flag.name),
@@ -227,15 +223,13 @@ Map<String, dynamic> _commandBody(
       flag.description,
       // Only a flipped boolean default is worth publishing; the parser
       // already treats absent flags as false.
-      defaultValue:
-          flag is BooleanFlag && flag.defaultValue == true ? true : null,
+      defaultValue: flag is BooleanFlag && flag.defaultValue == true
+          ? true
+          : null,
     );
   }
 
-  for (final option in [
-    ...singleOptions,
-    ...repeatedOptions,
-  ]) {
+  for (final option in [...singleOptions, ...repeatedOptions]) {
     placeOption(option, repeatable: option is RepeatableOption);
   }
 
@@ -278,10 +272,17 @@ Map<String, dynamic> _commandBody(
 ///
 /// Choice positionals fill `positional`; a repeated choice positional fills
 /// one bounded slot per accepted value (its `times` repetitions plus the
-/// original) because Mamba has no unbounded positional. Choice variadics fill
-/// `dash` while repeated choice variadics fill `dashany`.
+/// original) because Mamba has no unbounded positional. String options fill
+/// `completion.flag`, and every remaining ordinary positional or variadic
+/// completes `$files` by default.
 Map<String, dynamic> _completionFor(CommandRegistry registry) {
   final positionalChoices = <List<String>>[];
+  final flagChoices = <String, List<String>>{};
+  const paginatedNumberChoices = [
+    '-',
+    r"$carapace.number.Range({format: '${C_VALUE}%d', start: 0, end: 9})",
+    r'$nospace(*)',
+  ];
 
   for (final positional in [
     ...?registry.mandatoryPositionals?.values,
@@ -294,6 +295,24 @@ Map<String, dynamic> _completionFor(CommandRegistry registry) {
         }
       case ChoicePositional(:final choices):
         positionalChoices.add(_choicePairs(choices));
+      case RepeatedPositional(times: final times):
+        for (var slot = 0; slot <= times; slot++) {
+          positionalChoices.add(const [r'$files']);
+        }
+      default:
+        positionalChoices.add(const [r'$files']);
+    }
+  }
+
+  // Each completion request expands one decimal digit so the finite Carapace
+  // action can cover an unbounded numeric domain without command execution.
+  for (final option
+      in registry.singleOptions?.values ?? const <SingleOption>[]) {
+    switch (option) {
+      case StringOption():
+        flagChoices[option.name] = const [r'$files'];
+      case IntOption() || DoubleOption():
+        flagChoices[option.name] = paginatedNumberChoices;
       default:
         break;
     }
@@ -308,12 +327,15 @@ Map<String, dynamic> _completionFor(CommandRegistry registry) {
       dashAnyChoices.addAll(choices.map((choice) => choice.name));
     case ChoiceVariadic(:final choices):
       dashChoices.add(_choicePairs(choices));
+    case NormalVariadic():
+      dashChoices.add(const [r'$files']);
     default:
       break;
   }
 
   return {
     if (positionalChoices.isNotEmpty) 'positional': positionalChoices,
+    if (flagChoices.isNotEmpty) 'flag': flagChoices,
     if (dashChoices.isNotEmpty) 'dash': dashChoices,
     if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
   };

@@ -1182,22 +1182,29 @@ void main() {
   });
 
   group('Parses Variadics correctly', () {
-    test('sends every argument into the variadic array', () {
+    test('sends every argument after -- into the variadic array', () {
       final subject = parser(variadic: NormalVariadic('extra'));
 
-      final result = subject.parse(['one', 'two', 'three']);
+      final result = subject.parse(['--', 'one', 'two', 'three']);
 
       expect(result.$2.variadic, {
         'extra': ['one', 'two', 'three'],
       });
       expect(result.$2.singles, isNull);
       expect(result.$2.repeated, isNull);
+      expect(result.$4, ['one', 'two', 'three']);
     });
 
     test('leaves the variadic map empty without arguments', () {
       final result = parser(variadic: NormalVariadic('extra')).parse([]);
 
       expect(result.$2.variadic, isNull);
+    });
+
+    test('does not absorb ordinary positional arguments', () {
+      final subject = parser(variadic: NormalVariadic('extra'));
+
+      expectParseError(subject, ['ordinary']);
     });
 
     test('accepts a variadic on its own without mandatory, discretionary, '
@@ -1208,7 +1215,14 @@ void main() {
         variadic: NormalVariadic('extra'),
       );
 
-      final result = subject.parse(['--force', '--retries', '2', 'a', 'b']);
+      final result = subject.parse([
+        '--force',
+        '--retries',
+        '2',
+        '--',
+        'a',
+        'b',
+      ]);
 
       expect(result.$3.boolFlags, {'force': true});
       expect(result.$3.intOptions, {'retries': 2});
@@ -1224,7 +1238,7 @@ void main() {
         variadic: NormalVariadic('ids', regExp: RegExp(r'^\d+$')),
       );
 
-      final result = subject.parse(['12', '34', '56']);
+      final result = subject.parse(['--', '12', '34', '56']);
 
       expect(result.$2.variadic, {
         'ids': ['12', '34', '56'],
@@ -1237,7 +1251,7 @@ void main() {
       );
 
       expect(
-        () => subject.parse(['12', 'oops', '56']),
+        () => subject.parse(['--', '12', 'oops', '56']),
         throwsA(
           isA<MambaParseException>().having(
             (error) => error.message,
@@ -1257,7 +1271,7 @@ void main() {
         ),
       );
 
-      final result = subject.parse(['auto', 'always', 'auto']);
+      final result = subject.parse(['--', 'auto', 'always', 'auto']);
 
       expect(result.$2.variadic, {
         'modes': ['auto', 'always', 'auto'],
@@ -1270,7 +1284,7 @@ void main() {
       );
 
       expect(
-        () => subject.parse(['auto', 'always', 'never']),
+        () => subject.parse(['--', 'auto', 'always', 'never']),
         throwsA(
           isA<MambaParseException>().having(
             (error) => error.message,
@@ -1281,13 +1295,13 @@ void main() {
       );
     });
 
-    test('absorbs values only after mandatory positionals take theirs', () {
+    test('collects dash values after mandatory positionals', () {
       final subject = parser(
         mandatoryPositionals: [Positional('source')],
         variadic: NormalVariadic('extra'),
       );
 
-      final result = subject.parse(['input.txt', 'one', 'two']);
+      final result = subject.parse(['input.txt', '--', 'one', 'two']);
 
       expect(result.$2.singles, {'source': 'input.txt'});
       expect(result.$2.variadic, {
@@ -1295,13 +1309,13 @@ void main() {
       });
     });
 
-    test('absorbs values only after discretionary positionals take theirs', () {
+    test('collects dash values after discretionary positionals', () {
       final subject = parser(
         discretionaryPositionals: [Positional('target')],
         variadic: NormalVariadic('extra'),
       );
 
-      final result = subject.parse(['output.txt', 'one', 'two']);
+      final result = subject.parse(['output.txt', '--', 'one', 'two']);
 
       expect(result.$2.singles, {'target': 'output.txt'});
       expect(result.$2.variadic, {
@@ -1309,7 +1323,7 @@ void main() {
       });
     });
 
-    test('absorbs leftovers after Mandatory, Repeated, Mandatory', () {
+    test('collects dash values after Mandatory, Repeated, Mandatory', () {
       final subject = parser(
         mandatoryPositionals: [
           Positional('first'),
@@ -1319,7 +1333,7 @@ void main() {
         variadic: NormalVariadic('extra'),
       );
 
-      final result = subject.parse(['a', 'f1', 'f2', 'b', 'v1', 'v2']);
+      final result = subject.parse(['a', 'f1', 'f2', 'b', '--', 'v1', 'v2']);
 
       expect(result.$2.singles, {'first': 'a', 'last': 'b'});
       expect(result.$2.repeated, {
@@ -1330,7 +1344,7 @@ void main() {
       });
     });
 
-    test('absorbs leftovers after Mandatory, Repeated, Discretionary', () {
+    test('collects dash values after Mandatory, Repeated, Discretionary', () {
       final subject = parser(
         mandatoryPositionals: [
           Positional('first'),
@@ -1340,7 +1354,7 @@ void main() {
         variadic: NormalVariadic('extra'),
       );
 
-      final result = subject.parse(['a', 'f1', 'f2', 't', 'v1', 'v2']);
+      final result = subject.parse(['a', 'f1', 'f2', 't', '--', 'v1', 'v2']);
 
       expect(result.$2.singles, {'first': 'a', 'target': 't'});
       expect(result.$2.repeated, {
@@ -1351,14 +1365,14 @@ void main() {
       });
     });
 
-    test('absorbs leftovers after Mandatory, Discretionary, Repeated', () {
+    test('collects dash values after Mandatory, Discretionary, Repeated', () {
       final subject = parser(
         mandatoryPositionals: [Positional('first')],
         discretionaryPositionals: [RepeatedStringPositional('more')],
         variadic: NormalVariadic('extra'),
       );
 
-      final result = subject.parse(['a', 'm1', 'm2', 'v1', 'v2']);
+      final result = subject.parse(['a', 'm1', 'm2', '--', 'v1', 'v2']);
 
       expect(result.$2.singles, {'first': 'a'});
       expect(result.$2.repeated, {

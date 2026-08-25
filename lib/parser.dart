@@ -11,7 +11,8 @@ class MambaParseException extends MambaException {
 ///
 /// It accepts command paths, long and short options, bundled flags, negatable
 /// boolean flags, dotted accessors, positionals, and trailing arguments after
-/// `--`. It returns the selected path and typed input maps without executing a
+/// `--`. A registered variadic validates and names only those trailing values.
+/// It returns the selected path and typed input maps without executing a
 /// command.
 class Parser {
   Parser(this._registry);
@@ -144,7 +145,12 @@ class Parser {
       repeatedIntOptions,
       repeatedDoubleOptions,
     );
-    final parsedPositionals = _parsePositionals(registry, positionalValues);
+    final positionals = _parsePositionals(registry, positionalValues);
+    final parsedPositionals = (
+      singles: positionals.singles,
+      repeated: positionals.repeated,
+      variadic: _parseVariadic(registry, trailingArguments),
+    );
 
     return (
       command,
@@ -773,7 +779,10 @@ class Parser {
     // coverage:ignore-end
   };
 
-  ParsedPositionals _parsePositionals(
+  ({
+    Map<String, String>? singles,
+    Map<String, List<String>>? repeated,
+  }) _parsePositionals(
     CommandRegistry registry,
     List<String> values,
   ) {
@@ -835,13 +844,14 @@ class Parser {
 
     fill(mandatory, isMandatory: true);
     fill(discretionary, isMandatory: false);
-    // Variadics absorb values only after every mandatory and discretionary
-    // positional has taken theirs.
-    final variadicValues = _parseVariadic(registry, values.sublist(index));
+    if (index != values.length) {
+      throw MambaParseException(
+        "This term isn't a registered command positional",
+      );
+    }
     return (
       singles: singles.isEmpty ? null : singles,
       repeated: repeated.isEmpty ? null : repeated,
-      variadic: variadicValues,
     );
   }
 
@@ -852,21 +862,16 @@ class Parser {
         _ => positional.matchesEntirely(value),
       };
 
-  /// Collects every remaining value into the registered variadic.
+  /// Collects values after `--` into the registered variadic.
   ///
-  /// Each absorbed token must satisfy its own validation, and a failure names
+  /// Each collected token must satisfy its own validation, and a failure names
   /// the exact index inside the variadic sequence so callers can locate it.
   Map<String, List<String>>? _parseVariadic(
     CommandRegistry registry,
     List<String> values,
   ) {
-    if (values.isEmpty) return null;
     final variadic = registry.variadic;
-    if (variadic == null) {
-      throw MambaParseException(
-        "This term isn't a registered command positional",
-      );
-    }
+    if (variadic == null || values.isEmpty) return null;
     return {
       variadic.name: [
         for (final (index, value) in values.indexed)

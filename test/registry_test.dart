@@ -1818,7 +1818,7 @@ void main() {
         });
       });
 
-      test('rejects invalid and colliding variadic names', () {
+      test('rejects invalid variadic names', () {
         expect(
           () => CommandRegistry.create(
             'tool',
@@ -1827,15 +1827,21 @@ void main() {
           ),
           throwsA(isA<MambaRegistryError>()),
         );
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            mandatoryPositionals: [Positional('extra')],
-            variadic: NormalVariadic('extra'),
-          ),
-          throwsA(isA<MambaException>()),
+      });
+
+      test('keeps dash variadics separate from ordinary positionals', () {
+        final positional = Positional('extra');
+        final variadic = NormalVariadic('extra');
+
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          mandatoryPositionals: [positional],
+          variadic: variadic,
         );
+
+        expect(registry.mandatoryPositionals, {'extra': positional});
+        expect(registry.variadic, same(variadic));
       });
     });
 

@@ -83,29 +83,18 @@ Its current completion coverage is narrower than Mamba's input model:
 | --- | --- | --- |
 | `ChoicePositional` | Static enum names in `positional` | Keep static values; no macro is needed. |
 | `RepeatedChoicePositional` | One bounded `positional` slot per accepted value (`times` repetitions plus the original) | Keep static values in every slot. |
-| `ChoiceVariadic` | Static enum names in `dash` | Keep static values. |
-| `RepeatedChoiceVariadic` | Static enum names in `dashany` | Keep static values. |
+| `ChoiceVariadic` | Static enum names in `dash` for values after `--` | Keep static values. |
+| `RepeatedChoiceVariadic` | Static enum names in `dashany` for values after `--` | Keep static values. |
 | `ChoiceOption`, `PairedChoiceOption`, and `PairChoiceOption` | No `completion.flag` entry | Emit their enum names as static flag-value completions. |
 | Accessor choice options | No completion entry | Requires an accessor-to-Carapace design before completion can be emitted safely. |
-| String inputs | No completion entry | Require explicit completion metadata; a regular expression does not reveal user intent. |
-| Integer and double inputs | No completion entry | Usually none; use an explicit bounded range when one exists. |
+| String options | `$files` in `completion.flag` | Prefer explicit completion metadata because a regular expression does not reveal user intent. |
+| Integer and double options | Signed, prefix-paged digits in `completion.flag` | Keep the generated unbounded fallback; use an explicit bounded range when the domain has real limits. |
 | Boolean and count flags | No value completion is needed | Their names are completed by Carapace itself. |
 
 Mace should not infer a macro from an input name. A value named `path` could be
 a local file, a remote object path, or an application-specific identifier.
 Likewise, Mamba's regular expressions validate tokens but do not provide a
 finite set of useful suggestions.
-
-### Known conversion gaps
-
-* Mamba's variadic consumes ordinary positionals before `--`. Carapace `dash`
-  and `dashany` apply after `--`, while Mamba treats those tokens as untyped
-  `trailingArguments`. Mace should not map a Mamba variadic to a dash completion
-  until those models are reconciled.
-
-These mappings are tested as current converter output, but they do not express
-the same argument grammar. They should be treated as compatibility issues, not
-as a foundation for new macro support.
 
 ## Portable macros Mace can support
 
@@ -192,6 +181,37 @@ These generic groups are useful candidates for an opt-in Mace integration:
 | Text encodings | `$carapace.text.Encodings` |
 | Dates and times | `$carapace.time.Date`, `$carapace.time.DateTime`, `$carapace.time.Time` |
 
+### Unbounded number completion
+
+[`number.Range`][number-range] is inclusive but finite: it materializes every
+integer from `start` through `end` for each completion request. Carapace's
+[exported action][export] also contains one finite `values` array and has no
+continuation token, so it does not provide native pagination.
+
+Mace composes `number.Range`, `${C_VALUE}`, and `$nospace(*)` to expose an
+unbounded numeric domain ten values at a time without executing a command:
+
+```yaml
+completion:
+  flag:
+    count:
+      - "-"
+      - "$carapace.number.Range({format: '${C_VALUE}%d', start: 0, end: 9})"
+      - "$nospace(*)"
+```
+
+`${C_VALUE}` is the numeric prefix currently being completed. An empty prefix
+offers `0` through `9`; `12` offers `120` through `129`; `-` offers `-0`
+through `-9`; and `1.` offers `1.0` through `1.9`. The no-space modifier keeps
+the token open so another completion request can add another digit. This is a
+decimal prefix tree rather than a conventional next-page control, but every
+finite integer and decimal representation remains reachable. Decimal points
+and exponent markers must be typed by the user.
+
+This fallback depends on `carapace-bin` because `number.Range` is a registered
+`$carapace.*` macro. Consumers limited to portable `carapace-spec` macros
+should omit automatic numeric completion or provide a finite static domain.
+
 Tool-specific groups such as `$carapace.tools.git.Refs`,
 `$carapace.tools.docker.Containers`, and `$carapace.tools.npm.Scripts` can be
 valuable, but they are deliberately coupled to another program and its local
@@ -273,8 +293,6 @@ and prevents command execution from entering the spec accidentally.
 
 The most useful progression is:
 
-* Reconcile Mamba's bounded repeated positionals and pre-`--` variadics with
-  Carapace's positional and dash fields.
 * Fill `completion.flag` for all Mamba choice options.
 * Add typed `$files`, `$directories`, and `$executables` providers.
 * Add typed list and uniqueness modifiers.
@@ -289,6 +307,8 @@ portable dynamic completions before introducing version-dependent behavior.
 [core-macros]: https://github.com/carapace-sh/carapace-spec/blob/master/core.go
 [custom-macros]: https://carapace-sh.github.io/carapace-bin/spec/macros.html
 [exec-macros]: https://carapace-sh.github.io/carapace-bin/release_notes/v1.5.html#macro
+[export]: https://carapace-sh.github.io/carapace/carapace/export.html
 [modifiers]: https://carapace-sh.github.io/carapace-spec/carapace-spec/macros/modifier.html
+[number-range]: https://github.com/carapace-sh/carapace-bin/blob/master/pkg/actions/number/number.go
 [spec]: https://carapace-sh.github.io/carapace-bin/spec.html
 [variables]: https://carapace-sh.github.io/carapace-spec/carapace-spec/variables.html

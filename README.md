@@ -95,18 +95,24 @@ value. Register it in `mandatoryPositionals` to require it or
 `discretionaryPositionals` to accept it only when present. Its default
 expression accepts one non-whitespace token.
 
+`Variadic` is separate from ordinary positionals. It names and validates the
+values after `--`; it never accepts extra tokens left over after mandatory and
+discretionary positionals are filled.
+
 **Parser.** After identifying command names and named inputs, the parser
 assigns positional tokens in declaration order. Each expression must match the
 whole token. Missing mandatory values, invalid discretionary values, and extra
 values are errors. Values are returned by name in `ParsedPositionals`, a record
 with a `singles` map for `Positional` values and a `repeated` map holding the
 collected lists of `RepeatedStringPositional` and `RepeatedChoicePositional`,
-the two concrete `RepeatedPositional` kinds.
+the two concrete `RepeatedPositional` kinds. When a variadic is registered,
+its validated post-`--` values appear by name in the `variadic` map. The same
+tokens remain available as raw `trailingArguments`.
 
 **Help.** Mandatory names appear as bare red operands; discretionary names use
 compact dim brackets such as `[target]`. Choice members are joined with `|`,
-bounded repetitions use `{1,N}`, and a variadic uses `*` in the final
-positional slot.
+bounded repetitions use `{1,N}`, and a variadic uses a dash expression such as
+`[-- extra*]`.
 
 ```dart
 final class Switch extends Command {
@@ -367,7 +373,9 @@ supplied.
 **Parser.** Command names can follow the root name or omit it. Registered
 inputs can appear before, between, or after command path segments. The selected
 command's registry determines valid inputs and positionals. Parsing ends at
-`--`, and all following tokens become `trailingArguments`.
+`--`, and all following tokens become `trailingArguments`. A registered
+variadic also validates and names those tokens without absorbing ordinary
+positionals.
 
 **Help.** A group lists its direct children in **Commands** with their short
 descriptions. Like every command, its usage begins with name, positionals, and
@@ -429,8 +437,9 @@ positional map, typed named-input maps, and trailing tokens. It supports:
 * `-s value` short options;
 * `--flag`, `-f`, and bundled short flags such as `-vvv`;
 * `--no-name` for negatable boolean flags;
-* positional, paired, repeated, and accessor forms; and
-* `--` as an end-of-options separator.
+* positional, paired, repeated, and accessor forms;
+* `--` as an end-of-options separator; and
+* registered variadic validation for values after `--`.
 
 It rejects unknown inputs and commands, malformed or missing values, invalid
 regular-expression or numeric values, unsupported negation, unsatisfied

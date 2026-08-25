@@ -79,11 +79,11 @@ final class ChoicePositional<T extends Enum> extends Positional
   });
 }
 
-/// Every remaining positional value registered after all positionals fill.
+/// A named, validated sequence of values supplied after `--`.
 ///
-/// Register it in `variadic`; the parser validates each absorbed token once
-/// mandatory and discretionary positionals have taken theirs, then stores the
-/// collected values in the `variadic` map of [ParsedPositionals].
+/// Register it in `variadic`; the parser leaves ordinary positionals to the
+/// mandatory and discretionary definitions, then validates every token after
+/// `--` and stores the values in the `variadic` map of [ParsedPositionals].
 sealed class Variadic extends NamedInput {
   const Variadic(String name, {String? description}) : super(name, description);
 }
@@ -111,7 +111,7 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
   });
 }
 
-/// A choice variadic whose strict choices repeat across every absorbed token.
+/// A choice variadic whose strict choices repeat across dash arguments.
 ///
 /// It parses exactly like [ChoiceVariadic]; completions render its choices as
 /// an unbounded series.
@@ -663,8 +663,8 @@ typedef ParsedPositionals = ({
   Map<String, String>? singles,
   Map<String, List<String>>? repeated,
 
-  /// Variadic values keyed by their registered variadic name; `null` when no
-  /// variadic is registered or supplied.
+  /// Values after `--` keyed by their registered variadic name; `null` when no
+  /// registered variadic value is supplied.
   Map<String, List<String>>? variadic,
 });
 
@@ -682,7 +682,7 @@ abstract class Command {
   final List<Positional>? mandatoryPositionals;
   final List<Positional>? discretionaryPositionals;
 
-  /// Input absorbing every positional token left after all positionals fill.
+  /// Input validating and naming values supplied after `--`.
   final Variadic? variadic;
   final List<Flag>? flags;
   final List<Option>? options;

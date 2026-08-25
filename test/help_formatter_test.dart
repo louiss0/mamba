@@ -343,7 +343,7 @@ void main() {
         },
       );
 
-      test('renders a variadic after every bounded positional', () {
+      test('renders a dash variadic after every bounded positional', () {
         final registry = CommandRegistry.create(
           'tool',
           'Tool command.',
@@ -354,7 +354,7 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool source [target] [extra*]'));
+        expect(help, startsWith('tool source [target] [-- extra*]'));
       });
 
       test('renders choice names for a choice variadic', () {
@@ -369,7 +369,7 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool [(json|yaml)*]'));
+        expect(help, startsWith('tool [-- (json|yaml)*]'));
       });
     });
 

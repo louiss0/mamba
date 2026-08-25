@@ -77,8 +77,8 @@ These are based on the `positional:` fields.
 
 These are based on the `dash:` and `dashany` fields.
 
-- variadics are rendered when choice variadics are used.
-- variadics are rendered based on the repeated choice variadics
+- choice variadics render completion for the first value after `--`.
+- repeated choice variadics render completion for every value after `--`.
 
 ## Inherited flags and options 
 

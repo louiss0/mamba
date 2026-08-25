@@ -86,7 +86,7 @@ final class CommandRegistry {
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
 
-  /// Input absorbing every positional token left after all positionals fill.
+  /// Input validating and naming values supplied after `--`.
   final Variadic? variadic;
   final Map<String, AccessorListOption>? accessors;
   late final List<CommandRegistry>? commandRegistries;
@@ -730,7 +730,7 @@ final class CommandRegistry {
     _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(mandatoryPositionals, discretionaryPositionals);
-    _validateVariadic(variadic, mandatoryPositionals, discretionaryPositionals);
+    _validateVariadic(variadic);
     _validateChoiceDefaults(
       options,
       pairedOptions,
@@ -751,22 +751,9 @@ final class CommandRegistry {
     );
   }
 
-  static void _validateVariadic(
-    Variadic? variadic,
-    List<Positional>? mandatory,
-    List<Positional>? discretionary,
-  ) {
+  static void _validateVariadic(Variadic? variadic) {
     if (variadic == null) return;
     _validatePositionalName(variadic.name);
-    final positionalNames = [
-      ...?mandatory,
-      ...?discretionary,
-    ].map((positional) => positional.name);
-    if (positionalNames.contains(variadic.name)) {
-      throw MambaException(
-        "A variadic can't have the same name as a positional: ${variadic.name}",
-      );
-    }
   }
 
   static void _validateAliases(

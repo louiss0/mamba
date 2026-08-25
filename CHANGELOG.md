@@ -4,6 +4,10 @@
 - Repeated choice positionals now render one bounded Carapace `positional` slot
   per accepted value (`times` repetitions plus the original) instead of the
   unbounded `positionalany` field, which Mamba does not support.
+- Variadics now validate only values after `--` and no longer absorb extra
+  ordinary positionals.
+- Numeric options now render signed, prefix-paged Carapace completions with no
+  fixed upper bound or completion-time command execution.
 
 
 
