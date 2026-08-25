@@ -59,20 +59,46 @@ String _inputKey({
   '${hidden ? '&' : ''}'
   '${takesValue ? '=' : ''}';
 
+/// Wraps a description and optional default into the entry value.
+///
+/// Entries with a default render as an object so Carapace can complete the
+/// fallback; everything else stays a bare description string.
+Object _entryValue(String? description, Object? defaultValue) =>
+    defaultValue == null
+        ? (description ?? '')
+        : {'description': description ?? '', 'default': defaultValue};
+
+/// Extracts the registered choice default from any input that carries one.
+Object? _choiceDefault(NamedInput input) => switch (input) {
+  ChoiceOption(:final defaultValue) ||
+  PairedChoiceOption(:final defaultValue) ||
+  PairChoiceOption(:final defaultValue) => defaultValue?.name,
+  _ => null,
+};
+
 /// Collects the rendered body shared by every spec level.
 Map<String, dynamic> _commandBody(CommandRegistry registry) {
   final persistentFlagNames = registry.persistentFlagNames ?? const <String>{};
   final persistentOptionNames =
       registry.persistentOptionNames ?? const <String>{};
 
-  final flagEntries = <String, String>{};
-  final persistentEntries = <String, String>{};
+  final flagEntries = <String, Object>{};
+  final persistentEntries = <String, Object>{};
   final exclusiveGroups = <List<String>>[];
 
   // Ancestor-published inputs complete from the descendant's
   // persistentflags; locally declared inputs stay in flags.
-  void placeEntry(String name, bool persistent, String key, String? description) {
-    (persistent ? persistentEntries : flagEntries)[key] = description ?? '';
+  void placeEntry(
+    String name,
+    bool persistent,
+    String key,
+    String? description, {
+    Object? defaultValue,
+  }) {
+    (persistent ? persistentEntries : flagEntries)[key] = _entryValue(
+      description,
+      defaultValue,
+    );
   }
 
   void placeOption(Option option, {required bool repeatable}) {
@@ -88,6 +114,7 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
         takesValue: true,
       ),
       option.description,
+      defaultValue: _choiceDefault(option),
     );
   }
 
@@ -107,6 +134,7 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
         takesValue: true,
       ),
       paired.description,
+      defaultValue: _choiceDefault(paired),
     );
     for (final member in paired.options) {
       placeEntry(
@@ -121,6 +149,7 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
           takesValue: true,
         ),
         member.description,
+        defaultValue: _choiceDefault(member),
       );
     }
   }
@@ -141,6 +170,10 @@ Map<String, dynamic> _commandBody(CommandRegistry registry) {
         takesValue: false,
       ),
       flag.description,
+      // Only a flipped boolean default is worth publishing; the parser
+      // already treats absent flags as false.
+      defaultValue:
+          flag is BooleanFlag && flag.defaultValue == true ? true : null,
     );
   }
 

@@ -451,6 +451,78 @@ flags:
         });
       });
 
+      group("defaults", () {
+        test("choice option default rendered", () {
+          final registry = specRegistry(
+            options: [
+              ChoiceOption<_Format>(
+                'format',
+                choices: _Format.values,
+                defaultValue: _Format.json,
+                description: 'output format',
+              ),
+            ],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  --format?=:
+    description: "output format"
+    default: "json"'''),
+          );
+        });
+
+        test("boolean flag default rendered", () {
+          final registry = specRegistry(
+            flags: [BooleanFlag('assumeyes', defaultValue: true)],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  --assumeyes:
+    description: ""
+    default: true'''),
+          );
+        });
+
+        test("pair choice member default rendered", () {
+          final registry = specRegistry(
+            pairedOptions: [
+              PairedStringOption(
+                'auth',
+                options: [
+                  PairChoiceOption<_Level>(
+                    'level',
+                    choices: _Level.values,
+                    defaultValue: _Level.info,
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  --auth?=: ""
+  --level?=:
+    description: ""
+    default: "info"'''),
+          );
+        });
+      });
+
       group("paired options", () {
         test("variant paired option renders exclusiveflags", () {
           final registry = specRegistry(
