@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://carapace.sh/schemas/command.json
+name: infinite-numbers
+description: Complete signed numbers in unbounded digit pages
+flags:
+  --integer=: Complete an integer
+  --number=: Complete an integer or decimal number
+completion:
+  flag:
+    integer: &number-pages
+      - "-"
+      - "$carapace.number.Range({format: '${C_VALUE}%d', start: 0, end: 9})"
+      - "$nospace(*)"
+    number: *number-pages
