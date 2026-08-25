@@ -892,6 +892,189 @@ commands:
       });
     });
 
+    group("real-world registries", () {
+      // Modeled on the Azure CLI: documented globals (-v/--verbose, --debug,
+      // -o/--output, --subscription) and a real four-group chain
+      // (network > dns > record-set > a). Az scopes most flags per command,
+      // so group-owned persistent inputs here adapt its conventions.
+      test("an az-style tree carries persistent flags down four group levels", () {
+        final registry = specRegistry(
+          flags: [
+            BooleanFlag('verbose', short: 'v'),
+            BooleanFlag('debug'),
+          ],
+          options: [
+            IntOption('output', short: 'o'),
+            StringOption('subscription', regex: RegExp(r'\S+')),
+          ],
+          commands: [
+            TestGroupCommand(
+              'vm',
+              [TestCommand('list', 'list virtual machines')],
+              'manage virtual machines',
+              inheritedFlags: [BooleanFlag('no-wait')],
+            ),
+            TestGroupCommand(
+              'storage',
+              [TestCommand('check-name', 'check name availability')],
+              'manage storage accounts',
+              inheritedFlags: [BooleanFlag('https-only')],
+              inheritedOptions: [
+                StringOption('account-name', regex: RegExp(r'\S+')),
+              ],
+            ),
+            TestGroupCommand(
+              'network',
+              [
+                TestGroupCommand(
+                  'dns',
+                  [
+                    TestGroupCommand(
+                      'record-set',
+                      [
+                        TestGroupCommand(
+                          'a',
+                          [
+                            TestCommand('add-record', 'add an a record'),
+                            TestCommand('remove-record', 'remove an a record'),
+                          ],
+                          'manage a record sets',
+                          inheritedOptions: [DoubleOption('ttl')],
+                        ),
+                      ],
+                      'manage record sets',
+                      inheritedOptions: [
+                        StringOption('relative-name', regex: RegExp(r'\S+')),
+                      ],
+                    ),
+                  ],
+                  'manage dns zones',
+                  inheritedOptions: [
+                    StringOption('zone-name', regex: RegExp(r'\S+')),
+                  ],
+                ),
+              ],
+              'manage networks',
+              inheritedOptions: [IntOption('timeout')],
+            ),
+          ],
+        );
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+flags:
+  -v, --verbose: ""
+  --debug: ""
+  -o, --output=: ""
+  --subscription=: ""
+commands:
+  - name: "vm"
+    description: "manage virtual machines"
+    persistentflags:
+      -v, --verbose: ""
+      --debug: ""
+      --no-wait: ""
+      -o, --output=: ""
+      --subscription=: ""
+    commands:
+      - name: "list"
+        description: "list virtual machines"
+        persistentflags:
+          -v, --verbose: ""
+          --debug: ""
+          --no-wait: ""
+          -o, --output=: ""
+          --subscription=: ""
+  - name: "storage"
+    description: "manage storage accounts"
+    persistentflags:
+      -v, --verbose: ""
+      --debug: ""
+      --https-only: ""
+      -o, --output=: ""
+      --subscription=: ""
+      --account-name=: ""
+    commands:
+      - name: "check-name"
+        description: "check name availability"
+        persistentflags:
+          -v, --verbose: ""
+          --debug: ""
+          --https-only: ""
+          -o, --output=: ""
+          --subscription=: ""
+          --account-name=: ""
+  - name: "network"
+    description: "manage networks"
+    persistentflags:
+      -v, --verbose: ""
+      --debug: ""
+      -o, --output=: ""
+      --subscription=: ""
+      --timeout=: ""
+    commands:
+      - name: "dns"
+        description: "manage dns zones"
+        persistentflags:
+          -v, --verbose: ""
+          --debug: ""
+          -o, --output=: ""
+          --subscription=: ""
+          --timeout=: ""
+          --zone-name=: ""
+        commands:
+          - name: "record-set"
+            description: "manage record sets"
+            persistentflags:
+              -v, --verbose: ""
+              --debug: ""
+              -o, --output=: ""
+              --subscription=: ""
+              --timeout=: ""
+              --zone-name=: ""
+              --relative-name=: ""
+            commands:
+              - name: "a"
+                description: "manage a record sets"
+                persistentflags:
+                  -v, --verbose: ""
+                  --debug: ""
+                  -o, --output=: ""
+                  --subscription=: ""
+                  --timeout=: ""
+                  --zone-name=: ""
+                  --relative-name=: ""
+                  --ttl=: ""
+                commands:
+                  - name: "add-record"
+                    description: "add an a record"
+                    persistentflags:
+                      -v, --verbose: ""
+                      --debug: ""
+                      -o, --output=: ""
+                      --subscription=: ""
+                      --timeout=: ""
+                      --zone-name=: ""
+                      --relative-name=: ""
+                      --ttl=: ""
+                  - name: "remove-record"
+                    description: "remove an a record"
+                    persistentflags:
+                      -v, --verbose: ""
+                      --debug: ""
+                      -o, --output=: ""
+                      --subscription=: ""
+                      --timeout=: ""
+                      --zone-name=: ""
+                      --relative-name=: ""
+                      --ttl=: ""'''),
+        );
+      });
+    });
+
     group("nested subcommands", () {
       for (final depth in [2, 3, 4, 5]) {
         test("a single flag reaches $depth nested subcommands", () {
