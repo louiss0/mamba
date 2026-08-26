@@ -7,7 +7,7 @@ import 'package:zema/zema.dart';
 
 final _taskStore = TaskStore();
 
-late final List<Command> _taskCommands = [
+final List<Command> _taskCommands = [
   CreateTaskCommand(_taskStore),
   ListTaskCommand(_taskStore),
   ReadTaskCommand(_taskStore),
@@ -319,7 +319,10 @@ final class CompletionTaskCommand extends Command {
   CompletionTaskCommand(this.buildRegistry)
     : super(
         options: [
-          _textOption('output', 'Write the spec to a file instead of stdout.'),
+          _textOption(
+            'output',
+            'Override the default Carapace spec file location.',
+          ),
         ],
       );
 
@@ -332,14 +335,31 @@ final class CompletionTaskCommand extends Command {
   @override
   String run(_, ParsedNamedInputs inputs, _) {
     final spec = CarapaceSpecConverter(buildRegistry()).convert();
-    final outputPath = inputs.stringOptions?['output'];
-    if (outputPath == null) return spec;
-
+    final outputPath =
+        inputs.stringOptions?['output'] ?? _defaultCarapaceSpecPath();
     final outputFile = File(outputPath);
     outputFile.parent.createSync(recursive: true);
     outputFile.writeAsStringSync(spec);
     return 'Wrote Carapace spec to ${outputFile.path}.';
   }
+}
+
+String _defaultCarapaceSpecPath() {
+  final environment = Platform.environment;
+  final configDirectory = switch (Platform.operatingSystem) {
+    'windows' => environment['APPDATA'],
+    'macos' => '${environment['HOME']}/Library/Application Support',
+    _ => environment['XDG_CONFIG_HOME'] ?? '${environment['HOME']}/.config',
+  };
+  if (configDirectory == null || configDirectory == 'null') {
+    throw MambaException('Unable to locate the Carapace config directory.');
+  }
+  return [
+    configDirectory,
+    'carapace',
+    'specs',
+    'task-cli.yaml',
+  ].join(Platform.pathSeparator);
 }
 
 final class CompleteTaskCommand extends Command {
