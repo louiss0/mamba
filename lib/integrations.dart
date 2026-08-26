@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:mamba/command.dart';
 import 'package:mamba/registry.dart';
 import 'package:yaml_writer/yaml_writer.dart';
@@ -23,6 +25,63 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 
   @override
   String convert() => YamlWriter().write(_specFor(registry));
+}
+
+/// Writes a registry's Carapace spec to the platform's spec directory.
+///
+/// Production writers use the operating system's Carapace configuration
+/// directory. Development writers use a matching directory below the system
+/// temp directory so local runs do not modify the user's installed specs.
+final class CarapaceSpecWriter {
+  CarapaceSpecWriter(
+    this.registry, {
+    this.development = false,
+    String? outputPath,
+  }) : path = outputPath ?? _carapaceSpecPath(registry.name, development);
+
+  final CommandRegistry registry;
+  final bool development;
+  final String path;
+
+  /// Writes the converted registry and returns the created file.
+  File write() {
+    final file = File(path);
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(CarapaceSpecConverter(registry).convert());
+    return file;
+  }
+}
+
+String _carapaceSpecPath(String name, bool development) {
+  final baseDirectory = development
+      ? Directory.systemTemp.path
+      : _carapaceConfigDirectory();
+  return [
+    baseDirectory,
+    'carapace',
+    'specs',
+    '$name.yaml',
+  ].join(Platform.pathSeparator);
+}
+
+String _carapaceConfigDirectory() {
+  final environment = Platform.environment;
+  final directory = switch (Platform.operatingSystem) {
+    'windows' => environment['APPDATA'],
+    'macos' => _joinHome(environment['HOME'], 'Library', 'Application Support'),
+    _ =>
+      environment['XDG_CONFIG_HOME'] ??
+          _joinHome(environment['HOME'], '.config'),
+  };
+  if (directory == null) {
+    throw StateError('Unable to locate the Carapace configuration directory.');
+  }
+  return directory;
+}
+
+String? _joinHome(String? home, String first, [String? second]) {
+  if (home == null) return null;
+  return [home, first, if (second != null) second].join(Platform.pathSeparator);
 }
 
 /// Renders [registry] as the spec map for one command level.

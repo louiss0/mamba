@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:mamba/integrations.dart';
 import 'package:mamba/mamba.dart';
 import 'package:zema/zema.dart';
 
@@ -334,32 +333,13 @@ final class CompletionTaskCommand extends Command {
 
   @override
   String run(_, ParsedNamedInputs inputs, _) {
-    final spec = CarapaceSpecConverter(buildRegistry()).convert();
-    final outputPath =
-        inputs.stringOptions?['output'] ?? _defaultCarapaceSpecPath();
-    final outputFile = File(outputPath);
-    outputFile.parent.createSync(recursive: true);
-    outputFile.writeAsStringSync(spec);
+    final outputFile = CarapaceSpecWriter(
+      buildRegistry(),
+      development: true,
+      outputPath: inputs.stringOptions?['output'],
+    ).write();
     return 'Wrote Carapace spec to ${outputFile.path}.';
   }
-}
-
-String _defaultCarapaceSpecPath() {
-  final environment = Platform.environment;
-  final configDirectory = switch (Platform.operatingSystem) {
-    'windows' => environment['APPDATA'],
-    'macos' => '${environment['HOME']}/Library/Application Support',
-    _ => environment['XDG_CONFIG_HOME'] ?? '${environment['HOME']}/.config',
-  };
-  if (configDirectory == null || configDirectory == 'null') {
-    throw MambaException('Unable to locate the Carapace config directory.');
-  }
-  return [
-    configDirectory,
-    'carapace',
-    'specs',
-    'task-cli.yaml',
-  ].join(Platform.pathSeparator);
 }
 
 final class CompleteTaskCommand extends Command {

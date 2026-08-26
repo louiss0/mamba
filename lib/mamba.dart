@@ -18,5 +18,6 @@ export 'context.dart';
 export 'errors.dart';
 export 'executor.dart';
 export 'help_formatter.dart';
+export 'integrations.dart';
 export 'parser.dart';
 export 'registry.dart';
