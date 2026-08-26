@@ -132,6 +132,7 @@ String nestedExpectation({
   required int depth,
   required List<String> rootFlagEntries,
   required List<String> persistentEntries,
+  List<String>? rootCompletionLines,
 }) {
   final names = [
     for (var index = 0; index < depth - 1; index++) nestedGroupNames[index],
@@ -142,6 +143,7 @@ String nestedExpectation({
     lines.add('persistentflags:');
     lines.addAll([for (final entry in rootFlagEntries) '  $entry']);
   }
+  if (rootCompletionLines != null) lines.addAll(rootCompletionLines);
   lines.add('commands:');
   lines.addAll(
     nestedCommandLines(names.first, names.sublist(1), '  ', persistentEntries),
@@ -209,7 +211,12 @@ commands:
   - name: "sub"
     description: "a subcommand"
     flags:
-      --retries?=: ""'''),
+      --retries?=: ""
+    completion:
+      flag:
+        retries:
+          - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
         );
       });
 
@@ -266,6 +273,25 @@ name: "spec"
 description: "spec command"
 persistentflags:
   -v, --verbose*: ""'''),
+          );
+        });
+
+        test("count and bool flag descriptions are rendered", () {
+          final registry = specRegistry(
+            flags: [
+              CountFlag('verbose', description: 'increase verbosity'),
+              BooleanFlag('force', description: 'overwrite existing files'),
+            ],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
+name: "spec"
+description: "spec command"
+persistentflags:
+  --force: "overwrite existing files"
+  --verbose*: "increase verbosity"'''),
           );
         });
 
@@ -347,7 +373,12 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  --retries?=: ""'''),
+  --retries?=: ""
+completion:
+  flag:
+    retries:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
           );
         });
 
@@ -360,7 +391,40 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  -r, --retries?=: ""'''),
+  -r, --retries?=: ""
+completion:
+  flag:
+    retries:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
+          );
+        });
+
+        test("option and repeated option descriptions are rendered", () {
+          final registry = specRegistry(
+            options: [
+              IntOption('retries', description: 'attempts before giving up'),
+              RepeatableIntOption(
+                'include',
+                description: 'globs to include',
+              ),
+            ],
+          );
+
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
+name: "spec"
+description: "spec command"
+persistentflags:
+  --retries?=: "attempts before giving up"
+  --include*?=: "globs to include"
+completion:
+  flag:
+    retries:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+    include:
+      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
           );
         });
 
@@ -373,7 +437,11 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  --include*?=: ""'''),
+  --include*?=: ""
+completion:
+  flag:
+    include:
+      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
           );
         });
 
@@ -388,7 +456,11 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  -i, --include*?=: ""'''),
+  -i, --include*?=: ""
+completion:
+  flag:
+    include:
+      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
           );
         });
 
@@ -403,7 +475,12 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  --debug-level?&=: ""'''),
+  --debug-level?&=: ""
+completion:
+  flag:
+    debug-level:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
           );
         });
 
@@ -418,7 +495,12 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  -d, --debug-level?&=: ""'''),
+  -d, --debug-level?&=: ""
+completion:
+  flag:
+    debug-level:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
           );
         });
 
@@ -431,7 +513,12 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  --token!=: ""'''),
+  --token!=: ""
+completion:
+  flag:
+    token:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
           );
         });
 
@@ -446,7 +533,12 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  -t, --token!=: ""'''),
+  -t, --token!=: ""
+completion:
+  flag:
+    token:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''),
           );
         });
       });
@@ -650,7 +742,14 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
-  --combo$suffix: ""'''),
+  --combo$suffix: ""''' +
+                  (combo.arity
+                      ? '''\ncompletion:
+  flag:
+    combo:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+'''
+                      : '')),
             );
           });
         }
@@ -721,7 +820,7 @@ completion:
     });
 
     group("variadic", () {
-      test("choice variadics are rendered", () {
+      test("choice variadics complete the first argument after --", () {
         final registry = specRegistry(
           variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
         );
@@ -740,7 +839,7 @@ completion:
         );
       });
 
-      test("repeated choice variadics are rendered", () {
+      test("repeated choice variadics complete every argument after --", () {
         final registry = specRegistry(
           variadic: RepeatedChoiceVariadic<_Format>(
             'extra',
@@ -757,6 +856,71 @@ completion:
   dashany:
     - "json"
     - "yaml"'''),
+        );
+      });
+
+      test("keeps ordinary and dash completions separate", () {
+        final registry = specRegistry(
+          mandatoryPositionals: [
+            ChoicePositional<_Format>('format', choices: _Format.values),
+          ],
+          variadic: ChoiceVariadic<_Level>(
+            'extra',
+            choices: _Level.values,
+          ),
+        );
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+completion:
+  positional:
+    - - "json"
+      - "json"
+      - "yaml"
+      - "yaml"
+  dash:
+    - - "debug"
+      - "debug"
+      - "info"
+      - "info"'''),
+        );
+      });
+    });
+
+    group("numeric options", () {
+      test("int options complete a bounded default range", () {
+        final registry = specRegistry(options: [IntOption('retries')]);
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+persistentflags:
+  --retries?=: ""
+completion:
+  flag:
+    retries:
+      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+        );
+      });
+      test("double options complete money-style with two decimals", () {
+        final registry = specRegistry(options: [DoubleOption('price')]);
+
+        expect(
+          convertSpec(registry),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+persistentflags:
+  --price?=: ""
+completion:
+  flag:
+    price:
+      - "\$carapace.number.Range({format: '%.2f', start: 0, end: 1000})"'''),
         );
       });
     });
@@ -781,6 +945,10 @@ persistentflags:
   -f, --force: ""
   --verbose*: ""
   -r, --retries!=: ""
+completion:
+  flag:
+    retries:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
 commands:
   - name: "push"
     description: "push changes"
@@ -937,6 +1105,10 @@ persistentflags:
   -v, --verbose: "increase output"
   --trace*: ""
   -j, --jobs?=: ""
+completion:
+  flag:
+    jobs:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
 commands:
   - name: "remote"
     description: "manage remotes"
@@ -1060,6 +1232,12 @@ persistentflags:
   --debug: ""
   -o, --output?=: ""
   --subscription?=: ""
+completion:
+  flag:
+    output:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
+    subscription:
+      - "\$files"
 commands:
   - name: "vm"
     description: "manage virtual machines"
@@ -1203,6 +1381,10 @@ description: "spec command"
 persistentflags:
   -v, --verbose: ""
   -o, --output?=: ""
+completion:
+  flag:
+    output:
+      - "\$carapace.number.Range({start: 0, end: 1000})"
 commands:
   - name: "vm"
     description: "manage virtual machines"
@@ -1276,6 +1458,12 @@ commands:
                 depth: depth,
                 rootFlagEntries: ['-i, --include*?=: ""'],
                 persistentEntries: ['-i, --include*?=: ""'],
+                rootCompletionLines: [
+                  'completion:',
+                  '  flag:',
+                  '    include:',
+                  '      - "\$carapace.number.Range({start: 0, end: 1000})"',
+                ],
               ),
             ),
           );

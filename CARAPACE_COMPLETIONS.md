@@ -88,7 +88,7 @@ Its current completion coverage is narrower than Mamba's input model:
 | `ChoiceOption`, `PairedChoiceOption`, and `PairChoiceOption` | No `completion.flag` entry | Emit their enum names as static flag-value completions. |
 | Accessor choice options | No completion entry | Requires an accessor-to-Carapace design before completion can be emitted safely. |
 | String options | `$files` in `completion.flag` | Prefer explicit completion metadata because a regular expression does not reveal user intent. |
-| Integer and double options | Signed, prefix-paged digits in `completion.flag` | Keep the generated unbounded fallback; use an explicit bounded range when the domain has real limits. |
+| Integer and double options | `$carapace.number.Range` over 0–1000 in `completion.flag`; doubles format with two decimals | Keep the generated bounded fallback; narrow the range when the domain has real limits. |
 | Boolean and count flags | No value completion is needed | Their names are completed by Carapace itself. |
 
 Mace should not infer a macro from an input name. A value named `path` could be
@@ -181,32 +181,25 @@ These generic groups are useful candidates for an opt-in Mace integration:
 | Text encodings | `$carapace.text.Encodings` |
 | Dates and times | `$carapace.time.Date`, `$carapace.time.DateTime`, `$carapace.time.Time` |
 
-### Unbounded number completion
+### Bounded number completion
 
 [`number.Range`][number-range] is inclusive but finite: it materializes every
 integer from `start` through `end` for each completion request. Carapace's
 [exported action][export] also contains one finite `values` array and has no
-continuation token, so it does not provide native pagination.
+continuation token, so it cannot expose an unbounded numeric domain.
 
-Mace composes `number.Range`, `${C_VALUE}`, and `$nospace(*)` to expose an
-unbounded numeric domain ten values at a time without executing a command:
+Mace therefore completes numeric options with a pragmatic default range of 0
+to 1000. Doubles add a `%.2f` format so money-style values offer at most two
+decimal places:
 
 ```yaml
 completion:
   flag:
     count:
-      - "-"
-      - "$carapace.number.Range({format: '${C_VALUE}%d', start: 0, end: 9})"
-      - "$nospace(*)"
+      - "$carapace.number.Range({start: 0, end: 1000})"
+    price:
+      - "$carapace.number.Range({format: '%.2f', start: 0, end: 1000})"
 ```
-
-`${C_VALUE}` is the numeric prefix currently being completed. An empty prefix
-offers `0` through `9`; `12` offers `120` through `129`; `-` offers `-0`
-through `-9`; and `1.` offers `1.0` through `1.9`. The no-space modifier keeps
-the token open so another completion request can add another digit. This is a
-decimal prefix tree rather than a conventional next-page control, but every
-finite integer and decimal representation remains reachable. Decimal points
-and exponent markers must be typed by the user.
 
 This fallback depends on `carapace-bin` because `number.Range` is a registered
 `$carapace.*` macro. Consumers limited to portable `carapace-spec` macros

@@ -274,14 +274,15 @@ Map<String, dynamic> _commandBody(
 /// one bounded slot per accepted value (its `times` repetitions plus the
 /// original) because Mamba has no unbounded positional. String options fill
 /// `completion.flag`, and every remaining ordinary positional or variadic
-/// completes `$files` by default.
+/// completes `$files` by default. Numeric options complete a finite default
+/// range from 0 to 1000 because Carapace has no unbounded number producer.
 Map<String, dynamic> _completionFor(CommandRegistry registry) {
   final positionalChoices = <List<String>>[];
   final flagChoices = <String, List<String>>{};
-  const paginatedNumberChoices = [
-    '-',
-    r"$carapace.number.Range({format: '${C_VALUE}%d', start: 0, end: 9})",
-    r'$nospace(*)',
+  const intRange = [r'$carapace.number.Range({start: 0, end: 1000})'];
+  // Money-style doubles complete with at most two decimal places.
+  const doubleRange = [
+    r"$carapace.number.Range({format: '%.2f', start: 0, end: 1000})",
   ];
 
   for (final positional in [
@@ -306,13 +307,17 @@ Map<String, dynamic> _completionFor(CommandRegistry registry) {
 
   // Each completion request expands one decimal digit so the finite Carapace
   // action can cover an unbounded numeric domain without command execution.
-  for (final option
-      in registry.singleOptions?.values ?? const <SingleOption>[]) {
+  for (final option in [
+    ...?registry.singleOptions?.values,
+    ...?registry.repeatedOptions?.values,
+  ]) {
     switch (option) {
       case StringOption():
         flagChoices[option.name] = const [r'$files'];
-      case IntOption() || DoubleOption():
-        flagChoices[option.name] = paginatedNumberChoices;
+      case IntOption() || RepeatableIntOption():
+        flagChoices[option.name] = intRange;
+      case DoubleOption() || RepeatableDoubleOption():
+        flagChoices[option.name] = doubleRange;
       default:
         break;
     }

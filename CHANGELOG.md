@@ -6,8 +6,10 @@
   unbounded `positionalany` field, which Mamba does not support.
 - Variadics now validate only values after `--` and no longer absorb extra
   ordinary positionals.
-- Numeric options now render signed, prefix-paged Carapace completions with no
-  fixed upper bound or completion-time command execution.
+- Numeric options now complete a bounded default range of 0 to 1000 through
+  `$carapace.number.Range`; doubles format money-style with at most two
+  decimal places. String options and non-choice positionals and variadics
+  complete `$files` by default.
 
 
 
