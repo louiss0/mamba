@@ -95,9 +95,16 @@ final class Executor {
   /// A command may return `null` to suppress successful output.
   /// Call this where the executable is built, then pass command-line arguments
   /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
-  MambaExecutor<void> create() => _Executor(this, (output) {
-    if (output != null) stdout.writeln(output);
-  }, stderr.writeln);
+  MambaExecutor<void> create() => _Executor(
+    this,
+    (output) {
+      if (output != null) stdout.writeln(output);
+    },
+    (exception) {
+      stderr.writeln(exception);
+      exitCode = 1;
+    },
+  );
 
   static List<String>? _copyDefaultSubCommandPath(
     String registryName,
