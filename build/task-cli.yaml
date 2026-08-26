@@ -56,7 +56,7 @@ commands:
   - name: "completion"
     description: "Generate the Carapace completion spec."
     flags:
-      --output?=: "Write the spec to a file instead of stdout."
+      --output?=: "Override the default Carapace spec file location."
     completion:
       flag:
         output:
