@@ -56,8 +56,6 @@ final class Executor {
 
   final List<Option>? options;
 
-  final List<PairedOption>? pairedOptions;
-
   final List<String>? defaultSubCommandPath;
 
   final List<Command>? commands;
@@ -73,7 +71,6 @@ final class Executor {
     this.accessors,
     this.flags,
     this.options,
-    this.pairedOptions,
     List<String>? defaultSubCommandPath,
     this.commands,
     this.context,
@@ -155,7 +152,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         accessors: factory.accessors,
         flags: [...Executor._defaultFlags, ...?factory.flags],
         options: factory.options,
-        pairedOptions: factory.pairedOptions,
+
         commands: factory.commands,
       ),
       commands = factory.commands;
