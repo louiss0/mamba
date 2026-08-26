@@ -31,7 +31,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 /// descendants repeat that shape nested under `commands:`.
 Map<String, dynamic> _specFor(CommandRegistry registry) => {
   'name': registry.name,
-  ..._commandBody(registry, const [], const []),
+  ..._commandBody(registry),
 };
 
 /// Combines short and long descriptions exactly like the registry export.
@@ -79,19 +79,12 @@ Object? _choiceDefault(NamedInput input) => switch (input) {
 
 /// Collects the rendered body shared by every spec level.
 ///
-/// [inheritedFlags] and [inheritedOptions] carry every ancestor-published
-/// input accumulated from the root; this level's own published inputs are
-/// appended so they render persistently here and travel down the subtree.
-Map<String, dynamic> _commandBody(
-  CommandRegistry registry,
-  List<Flag> inheritedFlags,
-  List<Option> inheritedOptions,
-) {
-  final persistentFlags = [...inheritedFlags, ...?registry.publishedFlags];
-  final persistentOptions = [
-    ...inheritedOptions,
-    ...?registry.publishedOptions,
-  ];
+/// Each registry writes only the inputs it publishes. Carapace applies a
+/// command's `persistentflags` to its descendants, so repeating ancestor
+/// inputs in every nested command would be redundant and misleading.
+Map<String, dynamic> _commandBody(CommandRegistry registry) {
+  final persistentFlags = [...?registry.publishedFlags];
+  final persistentOptions = [...?registry.publishedOptions];
   final persistentFlagNames = {for (final flag in persistentFlags) flag.name};
   final persistentOptionNames = {
     for (final option in persistentOptions) option.name,
@@ -140,8 +133,8 @@ Map<String, dynamic> _commandBody(
   final persistentEntries = <String, Object>{};
   final exclusiveGroups = <List<String>>[];
 
-  // Ancestor-published inputs complete from the descendant's
-  // persistentflags; locally declared inputs stay in flags.
+  // Published inputs stay on their declaring command; local inputs stay in
+  // flags. Carapace propagates persistent flags to descendants.
   void placeEntry(
     String name,
     bool persistent,
@@ -172,8 +165,8 @@ Map<String, dynamic> _commandBody(
     );
   }
 
-  // Pair members inherit their group's placement, so a published paired
-  // option keeps its members beside it under persistentflags.
+  // Pair members share their group's placement, so a published paired option
+  // keeps its members together under persistentflags.
   void placePairedGroup(PairedOption paired, {required bool repeatable}) {
     final persistent = persistentOptionNames.contains(paired.name);
     placeEntry(
@@ -259,10 +252,7 @@ Map<String, dynamic> _commandBody(
   if (registry.commandRegistries case final children?) {
     body['commands'] = [
       for (final child in children)
-        {
-          'name': child.name,
-          ..._commandBody(child, persistentFlags, persistentOptions),
-        },
+        {'name': child.name, ..._commandBody(child)},
     ];
   }
   return body;
