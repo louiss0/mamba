@@ -1,0 +1,63 @@
+name: "task-cli"
+description: "Manage a persisted task list."
+persistentflags:
+  --dry-run: "Show what would happen without changing anything."
+  -v, --verbose*: "Increase output verbosity."
+commands:
+  - name: "create"
+    description: "Create a task."
+    flags:
+      --title!=: "Task title."
+      --description!=: "Task description."
+    completion:
+      flag:
+        title:
+          - "$files"
+        description:
+          - "$files"
+  - name: "list"
+    description: "List tasks, optionally filtered by completion."
+    flags:
+      --completed: "Show completed tasks."
+      --pending: "Show pending tasks."
+  - name: "read"
+    description: "Read one task."
+    completion:
+      positional:
+        - - "$files"
+  - name: "update"
+    description: "Update a task."
+    flags:
+      --title?=: "Replacement title."
+      --description?=: "Replacement description."
+    completion:
+      positional:
+        - - "$files"
+      flag:
+        title:
+          - "$files"
+        description:
+          - "$files"
+  - name: "delete"
+    description: "Delete a task."
+    completion:
+      positional:
+        - - "$files"
+  - name: "complete"
+    description: "Mark a task as completed."
+    completion:
+      positional:
+        - - "$files"
+  - name: "reopen"
+    description: "Mark a task as pending."
+    completion:
+      positional:
+        - - "$files"
+  - name: "completion"
+    description: "Generate the Carapace completion spec."
+    flags:
+      --output?=: "Write the spec to a file instead of stdout."
+    completion:
+      flag:
+        output:
+          - "$files"
