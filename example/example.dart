@@ -335,7 +335,7 @@ final class CompletionTaskCommand extends Command {
   String run(_, ParsedNamedInputs inputs, _) {
     final outputFile = CarapaceSpecWriter(
       buildRegistry(),
-      development: true,
+      development: false,
       outputPath: inputs.stringOptions?['output'],
     ).write();
     return 'Wrote Carapace spec to ${outputFile.path}.';
