@@ -1,24 +1,41 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:mamba/integrations.dart';
 import 'package:mamba/mamba.dart';
 import 'package:zema/zema.dart';
 
 final _taskStore = TaskStore();
 
+late final List<Command> _taskCommands = [
+  CreateTaskCommand(_taskStore),
+  ListTaskCommand(_taskStore),
+  ReadTaskCommand(_taskStore),
+  UpdateTaskCommand(_taskStore),
+  DeleteTaskCommand(_taskStore),
+  CompleteTaskCommand(_taskStore),
+  ReopenTaskCommand(_taskStore),
+  CompletionTaskCommand(_buildTaskRegistry),
+];
+
 Future<void> main(List<String> args) => Executor(
   'task-cli',
   'Manage a persisted task list.',
-  commands: [
-    CreateTaskCommand(_taskStore),
-    ListTaskCommand(_taskStore),
-    ReadTaskCommand(_taskStore),
-    UpdateTaskCommand(_taskStore),
-    DeleteTaskCommand(_taskStore),
-    CompleteTaskCommand(_taskStore),
-    ReopenTaskCommand(_taskStore),
-  ],
+  commands: _taskCommands,
 ).create().execute(args);
+
+CommandRegistry _buildTaskRegistry() => CommandRegistry.create(
+  'task-cli',
+  'Manage a persisted task list.',
+  flags: [
+    BooleanFlag(
+      'dry-run',
+      description: 'Show what would happen without changing anything.',
+    ),
+    CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
+  ],
+  commands: _taskCommands,
+);
 
 final class Task {
   const Task({
@@ -295,6 +312,33 @@ final class DeleteTaskCommand extends Command {
     }
     store.writeAll(remaining);
     return 'Deleted task $id.';
+  }
+}
+
+final class CompletionTaskCommand extends Command {
+  CompletionTaskCommand(this.buildRegistry)
+    : super(
+        options: [
+          _textOption('output', 'Write the spec to a file instead of stdout.'),
+        ],
+      );
+
+  final CommandRegistry Function() buildRegistry;
+  @override
+  String get name => 'completion';
+  @override
+  String get shortDescription => 'Generate the Carapace completion spec.';
+
+  @override
+  String run(_, ParsedNamedInputs inputs, _) {
+    final spec = CarapaceSpecConverter(buildRegistry()).convert();
+    final outputPath = inputs.stringOptions?['output'];
+    if (outputPath == null) return spec;
+
+    final outputFile = File(outputPath);
+    outputFile.parent.createSync(recursive: true);
+    outputFile.writeAsStringSync(spec);
+    return 'Wrote Carapace spec to ${outputFile.path}.';
   }
 }
 
