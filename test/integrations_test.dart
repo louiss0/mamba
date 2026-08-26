@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:mamba/command.dart';
 import 'package:mamba/integrations.dart';
 import 'package:mamba/registry.dart';
@@ -43,15 +45,16 @@ Matcher equalsYaml(String expected) => predicate<String>(
   'equals the expected Carapace spec:\n$expected',
 );
 
-String _normalizeYaml(String yaml) => yaml
-    .split('\n')
-    .map((line) => line.trimRight())
-    .join('\n')
-    .trim();
+String _normalizeYaml(String yaml) =>
+    yaml.split('\n').map((line) => line.trimRight()).join('\n').trim();
 
 /// Modifier slots ordered `<key><repeatability><optionality><appearance><arity>`.
-typedef ModifierCombo =
-    ({bool repeatability, bool optionality, bool appearance, bool arity});
+typedef ModifierCombo = ({
+  bool repeatability,
+  bool optionality,
+  bool appearance,
+  bool arity,
+});
 
 /// Every modifier combination whose slot can exist for a real input.
 ///
@@ -86,7 +89,11 @@ CommandRegistry nestedRegistry(
     if (remaining <= 1) return [TestCommand('leaf', 'leaf command')];
     final groupName = nestedGroupNames[depth - remaining];
     return [
-      TestGroupCommand(groupName, buildChain(remaining - 1), '$groupName command'),
+      TestGroupCommand(
+        groupName,
+        buildChain(remaining - 1),
+        '$groupName command',
+      ),
     ];
   }
 
@@ -109,8 +116,6 @@ List<String> nestedCommandLines(
   final lines = <String>[
     '$indent- name: "$name"',
     '$indent  description: "$name command"',
-    '$indent  persistentflags:',
-    ...[for (final entry in persistentEntries) '$indent    $entry'],
   ];
   if (remaining.isNotEmpty) {
     lines
@@ -152,6 +157,53 @@ String nestedExpectation({
 }
 
 void main() {
+  group('CarapaceSpecWriter', () {
+    test('writes development specs below the system temp directory', () {
+      final writer = CarapaceSpecWriter(
+        CommandRegistry.create('writer-fixture', 'writer command'),
+        development: true,
+      );
+      final file = writer.write();
+      addTearDown(() {
+        if (file.existsSync()) file.deleteSync();
+      });
+
+      expect(file.path, startsWith(Directory.systemTemp.path));
+      expect(
+        file.path,
+        endsWith(
+          [
+            'carapace',
+            'specs',
+            'writer-fixture.yaml',
+          ].join(Platform.pathSeparator),
+        ),
+      );
+      expect(file.readAsStringSync(), contains('name: "writer-fixture"'));
+    });
+
+    test('writes to an explicit path and creates missing directories', () {
+      final directory = Directory.systemTemp.createTempSync('mamba-spec-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final path = [
+        directory.path,
+        'nested',
+        'spec.yaml',
+      ].join(Platform.pathSeparator);
+      final writer = CarapaceSpecWriter(
+        specRegistry(),
+        development: false,
+        outputPath: path,
+      );
+
+      final file = writer.write();
+
+      expect(file.path, path);
+      expect(file.existsSync(), isTrue);
+      expect(file.readAsStringSync(), contains('name: "spec"'));
+    });
+  });
+
   group("CarapaceSpecConverter", () {
     group("commands", () {
       test("rendered with flags", () {
@@ -264,7 +316,9 @@ persistentflags:
         });
 
         test("count flag rendered with short", () {
-          final registry = specRegistry(flags: [CountFlag('verbose', short: 'v')]);
+          final registry = specRegistry(
+            flags: [CountFlag('verbose', short: 'v')],
+          );
 
           expect(
             convertSpec(registry),
@@ -309,7 +363,9 @@ persistentflags:
         });
 
         test("bool flag rendered with short", () {
-          final registry = specRegistry(flags: [BooleanFlag('force', short: 'f')]);
+          final registry = specRegistry(
+            flags: [BooleanFlag('force', short: 'f')],
+          );
 
           expect(
             convertSpec(registry),
@@ -322,7 +378,9 @@ persistentflags:
         });
 
         test("hidden count flag rendered", () {
-          final registry = specRegistry(flags: [CountFlag('trace', hidden: true)]);
+          final registry = specRegistry(
+            flags: [CountFlag('trace', hidden: true)],
+          );
 
           expect(
             convertSpec(registry),
@@ -335,7 +393,9 @@ persistentflags:
         });
 
         test("hidden bool flag rendered", () {
-          final registry = specRegistry(flags: [BooleanFlag('quiet', hidden: true)]);
+          final registry = specRegistry(
+            flags: [BooleanFlag('quiet', hidden: true)],
+          );
 
           expect(
             convertSpec(registry),
@@ -383,7 +443,9 @@ completion:
         });
 
         test("option rendered with short", () {
-          final registry = specRegistry(options: [IntOption('retries', short: 'r')]);
+          final registry = specRegistry(
+            options: [IntOption('retries', short: 'r')],
+          );
 
           expect(
             convertSpec(registry),
@@ -404,10 +466,7 @@ completion:
           final registry = specRegistry(
             options: [
               IntOption('retries', description: 'attempts before giving up'),
-              RepeatableIntOption(
-                'include',
-                description: 'globs to include',
-              ),
+              RepeatableIntOption('include', description: 'globs to include'),
             ],
           );
 
@@ -429,7 +488,9 @@ completion:
         });
 
         test("repeatable flag rendered", () {
-          final registry = specRegistry(options: [RepeatableIntOption('include')]);
+          final registry = specRegistry(
+            options: [RepeatableIntOption('include')],
+          );
 
           expect(
             convertSpec(registry),
@@ -505,7 +566,9 @@ completion:
         });
 
         test("required flag rendered", () {
-          final registry = specRegistry(options: [IntOption('token', required: true)]);
+          final registry = specRegistry(
+            options: [IntOption('token', required: true)],
+          );
 
           expect(
             convertSpec(registry),
@@ -738,18 +801,20 @@ persistentflags:
 
             expect(
               convertSpec(registry),
-              equalsYaml('''
+              equalsYaml(
+                '''
 name: "spec"
 description: "spec command"
 persistentflags:
   --combo$suffix: ""''' +
-                  (combo.arity
-                      ? '''\ncompletion:
+                    (combo.arity
+                        ? '''\ncompletion:
   flag:
     combo:
       - "\$carapace.number.Range({start: 0, end: 1000})"
 '''
-                      : '')),
+                        : ''),
+              ),
             );
           });
         }
@@ -864,10 +929,7 @@ completion:
           mandatoryPositionals: [
             ChoicePositional<_Format>('format', choices: _Format.values),
           ],
-          variadic: ChoiceVariadic<_Level>(
-            'extra',
-            choices: _Level.values,
-          ),
+          variadic: ChoiceVariadic<_Level>('extra', choices: _Level.values),
         );
 
         expect(
@@ -926,9 +988,12 @@ completion:
     });
 
     group("inherited flags and options", () {
-      test("root inputs render as persistentflags for the whole tree", () {
+      test("root inputs render as persistentflags once", () {
         final registry = specRegistry(
-          flags: [BooleanFlag('force', short: 'f'), CountFlag('verbose')],
+          flags: [
+            BooleanFlag('force', short: 'f'),
+            CountFlag('verbose'),
+          ],
           options: [IntOption('retries', short: 'r', required: true)],
           commands: [
             TestCommand('push', 'push changes'),
@@ -952,20 +1017,12 @@ completion:
 commands:
   - name: "push"
     description: "push changes"
-    persistentflags:
-      -f, --force: ""
-      --verbose*: ""
-      -r, --retries!=: ""
   - name: "pull"
-    description: "pull changes"
-    persistentflags:
-      -f, --force: ""
-      --verbose*: ""
-      -r, --retries!=: ""'''),
+    description: "pull changes"'''),
         );
       });
 
-      test("a group's inherited inputs render as persistentflags down its subtree", () {
+      test("a group's inherited inputs render once on the group", () {
         final registry = specRegistry(
           commands: [
             TestGroupCommand(
@@ -997,30 +1054,28 @@ commands:
       -n, --namespace!=: ""
     commands:
       - name: "list"
-        description: "list containers"
-        persistentflags:
-          --color: ""
-          -v, --verbose*&: ""
-          -n, --namespace!=: ""'''),
+        description: "list containers"'''),
         );
       });
 
-      test("groups merge ancestor globals with their own persistent inputs", () {
-        final registry = specRegistry(
-          flags: [BooleanFlag('global-flag', short: 'g')],
-          commands: [
-            TestGroupCommand(
-              'container',
-              [TestCommand('list', 'list containers')],
-              'manage containers',
-              inheritedFlags: [BooleanFlag('color')],
-            ),
-          ],
-        );
+      test(
+        "groups merge ancestor globals with their own persistent inputs",
+        () {
+          final registry = specRegistry(
+            flags: [BooleanFlag('global-flag', short: 'g')],
+            commands: [
+              TestGroupCommand(
+                'container',
+                [TestCommand('list', 'list containers')],
+                'manage containers',
+                inheritedFlags: [BooleanFlag('color')],
+              ),
+            ],
+          );
 
-        expect(
-          convertSpec(registry),
-          equalsYaml('''
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
 name: "spec"
 description: "spec command"
 persistentflags:
@@ -1029,28 +1084,31 @@ commands:
   - name: "container"
     description: "manage containers"
     persistentflags:
-      -g, --global-flag: ""
       --color: ""
     commands:
       - name: "list"
-        description: "list containers"
-        persistentflags:
-          -g, --global-flag: ""
-          --color: ""'''),
-        );
-      });
+        description: "list containers"'''),
+          );
+        },
+      );
 
-      test("published inputs move to persistentflags while locals stay put", () {
-        final registry = specRegistry(
-          flags: [BooleanFlag('global-flag')],
-          commands: [
-            TestCommand('child', 'child command', flags: [BooleanFlag('own-flag')]),
-          ],
-        );
+      test(
+        "published inputs move to persistentflags while locals stay put",
+        () {
+          final registry = specRegistry(
+            flags: [BooleanFlag('global-flag')],
+            commands: [
+              TestCommand(
+                'child',
+                'child command',
+                flags: [BooleanFlag('own-flag')],
+              ),
+            ],
+          );
 
-        expect(
-          convertSpec(registry),
-          equalsYaml('''
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
 name: "spec"
 description: "spec command"
 persistentflags:
@@ -1059,11 +1117,10 @@ commands:
   - name: "child"
     description: "child command"
     flags:
-      --own-flag: ""
-    persistentflags:
-      --global-flag: ""'''),
-        );
-      });
+      --own-flag: ""'''),
+          );
+        },
+      );
     });
 
     group("persistent flag registries", () {
@@ -1113,43 +1170,20 @@ commands:
   - name: "remote"
     description: "manage remotes"
     persistentflags:
-      -v, --verbose: "increase output"
       --force: ""
-      --trace*: ""
-      -j, --jobs?=: ""
       -d, --depth!=: ""
     commands:
       - name: "add"
         description: "add a remote"
-        persistentflags:
-          -v, --verbose: "increase output"
-          --force: ""
-          --trace*: ""
-          -j, --jobs?=: ""
-          -d, --depth!=: ""
       - name: "remove"
         description: "remove a remote"
-        persistentflags:
-          -v, --verbose: "increase output"
-          --force: ""
-          --trace*: ""
-          -j, --jobs?=: ""
-          -d, --depth!=: ""
   - name: "auth"
     description: "manage credentials"
     persistentflags:
-      -v, --verbose: "increase output"
-      --trace*: ""
       --attempts*: ""
-      -j, --jobs?=: ""
     commands:
       - name: "login"
-        description: "log in"
-        persistentflags:
-          -v, --verbose: "increase output"
-          --trace*: ""
-          --attempts*: ""
-          -j, --jobs?=: ""'''),
+        description: "log in"'''),
         );
       });
     });
@@ -1159,72 +1193,77 @@ commands:
       // -o/--output, --subscription) and a real four-group chain
       // (network > dns > record-set > a). Az scopes most flags per command,
       // so group-owned persistent inputs here adapt its conventions.
-      test("an az-style tree carries persistent flags down four group levels", () {
-        final registry = specRegistry(
-          flags: [
-            BooleanFlag('verbose', short: 'v'),
-            BooleanFlag('debug'),
-          ],
-          options: [
-            IntOption('output', short: 'o'),
-            StringOption('subscription', regex: RegExp(r'\S+')),
-          ],
-          commands: [
-            TestGroupCommand(
-              'vm',
-              [TestCommand('list', 'list virtual machines')],
-              'manage virtual machines',
-              inheritedFlags: [BooleanFlag('no-wait')],
-            ),
-            TestGroupCommand(
-              'storage',
-              [TestCommand('check-name', 'check name availability')],
-              'manage storage accounts',
-              inheritedFlags: [BooleanFlag('https-only')],
-              inheritedOptions: [
-                StringOption('account-name', regex: RegExp(r'\S+')),
-              ],
-            ),
-            TestGroupCommand(
-              'network',
-              [
-                TestGroupCommand(
-                  'dns',
-                  [
-                    TestGroupCommand(
-                      'record-set',
-                      [
-                        TestGroupCommand(
-                          'a',
-                          [
-                            TestCommand('add-record', 'add an a record'),
-                            TestCommand('remove-record', 'remove an a record'),
-                          ],
-                          'manage a record sets',
-                          inheritedOptions: [DoubleOption('ttl')],
-                        ),
-                      ],
-                      'manage record sets',
-                      inheritedOptions: [
-                        StringOption('relative-name', regex: RegExp(r'\S+')),
-                      ],
-                    ),
-                  ],
-                  'manage dns zones',
-                  inheritedOptions: [
-                    StringOption('zone-name', regex: RegExp(r'\S+')),
-                  ],
-                ),
-              ],
-              'manage networks',
-              inheritedOptions: [IntOption('timeout')],
-            ),
-          ],
-        );
+      test(
+        "an az-style tree carries persistent flags down four group levels",
+        () {
+          final registry = specRegistry(
+            flags: [
+              BooleanFlag('verbose', short: 'v'),
+              BooleanFlag('debug'),
+            ],
+            options: [
+              IntOption('output', short: 'o'),
+              StringOption('subscription', regex: RegExp(r'\S+')),
+            ],
+            commands: [
+              TestGroupCommand(
+                'vm',
+                [TestCommand('list', 'list virtual machines')],
+                'manage virtual machines',
+                inheritedFlags: [BooleanFlag('no-wait')],
+              ),
+              TestGroupCommand(
+                'storage',
+                [TestCommand('check-name', 'check name availability')],
+                'manage storage accounts',
+                inheritedFlags: [BooleanFlag('https-only')],
+                inheritedOptions: [
+                  StringOption('account-name', regex: RegExp(r'\S+')),
+                ],
+              ),
+              TestGroupCommand(
+                'network',
+                [
+                  TestGroupCommand(
+                    'dns',
+                    [
+                      TestGroupCommand(
+                        'record-set',
+                        [
+                          TestGroupCommand(
+                            'a',
+                            [
+                              TestCommand('add-record', 'add an a record'),
+                              TestCommand(
+                                'remove-record',
+                                'remove an a record',
+                              ),
+                            ],
+                            'manage a record sets',
+                            inheritedOptions: [DoubleOption('ttl')],
+                          ),
+                        ],
+                        'manage record sets',
+                        inheritedOptions: [
+                          StringOption('relative-name', regex: RegExp(r'\S+')),
+                        ],
+                      ),
+                    ],
+                    'manage dns zones',
+                    inheritedOptions: [
+                      StringOption('zone-name', regex: RegExp(r'\S+')),
+                    ],
+                  ),
+                ],
+                'manage networks',
+                inheritedOptions: [IntOption('timeout')],
+              ),
+            ],
+          );
 
-        expect(
-          convertSpec(registry),
-          equalsYaml('''
+          expect(
+            convertSpec(registry),
+            equalsYaml('''
 name: "spec"
 description: "spec command"
 persistentflags:
@@ -1242,105 +1281,45 @@ commands:
   - name: "vm"
     description: "manage virtual machines"
     persistentflags:
-      -v, --verbose: ""
-      --debug: ""
       --no-wait: ""
-      -o, --output?=: ""
-      --subscription?=: ""
     commands:
       - name: "list"
         description: "list virtual machines"
-        persistentflags:
-          -v, --verbose: ""
-          --debug: ""
-          --no-wait: ""
-          -o, --output?=: ""
-          --subscription?=: ""
   - name: "storage"
     description: "manage storage accounts"
     persistentflags:
-      -v, --verbose: ""
-      --debug: ""
       --https-only: ""
-      -o, --output?=: ""
-      --subscription?=: ""
       --account-name?=: ""
     commands:
       - name: "check-name"
         description: "check name availability"
-        persistentflags:
-          -v, --verbose: ""
-          --debug: ""
-          --https-only: ""
-          -o, --output?=: ""
-          --subscription?=: ""
-          --account-name?=: ""
   - name: "network"
     description: "manage networks"
     persistentflags:
-      -v, --verbose: ""
-      --debug: ""
-      -o, --output?=: ""
-      --subscription?=: ""
       --timeout?=: ""
     commands:
       - name: "dns"
         description: "manage dns zones"
         persistentflags:
-          -v, --verbose: ""
-          --debug: ""
-          -o, --output?=: ""
-          --subscription?=: ""
-          --timeout?=: ""
           --zone-name?=: ""
         commands:
           - name: "record-set"
             description: "manage record sets"
             persistentflags:
-              -v, --verbose: ""
-              --debug: ""
-              -o, --output?=: ""
-              --subscription?=: ""
-              --timeout?=: ""
-              --zone-name?=: ""
               --relative-name?=: ""
             commands:
               - name: "a"
                 description: "manage a record sets"
                 persistentflags:
-                  -v, --verbose: ""
-                  --debug: ""
-                  -o, --output?=: ""
-                  --subscription?=: ""
-                  --timeout?=: ""
-                  --zone-name?=: ""
-                  --relative-name?=: ""
                   --ttl?=: ""
                 commands:
                   - name: "add-record"
                     description: "add an a record"
-                    persistentflags:
-                      -v, --verbose: ""
-                      --debug: ""
-                      -o, --output?=: ""
-                      --subscription?=: ""
-                      --timeout?=: ""
-                      --zone-name?=: ""
-                      --relative-name?=: ""
-                      --ttl?=: ""
                   - name: "remove-record"
-                    description: "remove an a record"
-                    persistentflags:
-                      -v, --verbose: ""
-                      --debug: ""
-                      -o, --output?=: ""
-                      --subscription?=: ""
-                      --timeout?=: ""
-                      --zone-name?=: ""
-                      --relative-name?=: ""
-                      --ttl?=: ""'''),
-        );
-      });
+                    description: "remove an a record"'''),
+          );
+        },
+      );
       test("choice inputs complete locally while their flags publish", () {
         final registry = specRegistry(
           flags: [BooleanFlag('verbose', short: 'v')],
@@ -1353,10 +1332,7 @@ commands:
                   'show',
                   'show a virtual machine',
                   discretionaryPositionals: [
-                    RepeatedChoicePositional<_Sku>(
-                      'sku',
-                      choices: _Sku.values,
-                    ),
+                    RepeatedChoicePositional<_Sku>('sku', choices: _Sku.values),
                   ],
                   variadic: RepeatedChoiceVariadic<_Format>(
                     'extra',
@@ -1389,9 +1365,7 @@ commands:
   - name: "vm"
     description: "manage virtual machines"
     persistentflags:
-      -v, --verbose: ""
       --no-wait: ""
-      -o, --output?=: ""
     completion:
       positional:
         - - "basic"
@@ -1401,10 +1375,6 @@ commands:
     commands:
       - name: "show"
         description: "show a virtual machine"
-        persistentflags:
-          -v, --verbose: ""
-          --no-wait: ""
-          -o, --output?=: ""
         completion:
           positional:
             - - "basic"
@@ -1420,7 +1390,6 @@ commands:
             - "yaml"'''),
         );
       });
-
     });
 
     group("nested subcommands", () {
@@ -1477,10 +1446,7 @@ commands:
             pairedOptions: [
               PairedStringOption(
                 'auth',
-                options: [
-                  PairStringOption('user'),
-                  PairIntOption('port'),
-                ],
+                options: [PairStringOption('user'), PairIntOption('port')],
               ),
             ],
           );
