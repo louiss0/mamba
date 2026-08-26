@@ -54,16 +54,30 @@ final class TaskStore {
         '${Directory.systemTemp.path}${Platform.pathSeparator}mamba_tasks.json',
       ) {
     if (!file.existsSync()) {
-      file.writeAsStringSync('[]');
+      file.writeAsStringSync('{"nextId":1,"tasks":[]}');
+    }
+    final decoded = jsonDecode(file.readAsStringSync());
+    if (decoded is Map<String, dynamic>) {
+      _nextId = decoded['nextId'] as int? ?? 1;
+    } else if (decoded is List) {
+      final ids = decoded
+          .whereType<Map<String, dynamic>>()
+          .map((task) => task['id'])
+          .whereType<int>();
+      _nextId = ids.isEmpty ? 1 : ids.reduce((a, b) => a > b ? a : b) + 1;
     }
   }
 
   final File file;
+  int _nextId = 1;
 
   List<Task> readAll() {
     final decoded = jsonDecode(file.readAsStringSync());
-    if (decoded is! List) return [];
-    return decoded
+    final taskData = decoded is Map<String, dynamic>
+        ? decoded['tasks']
+        : decoded;
+    if (taskData is! List) return [];
+    return taskData
         .whereType<Map<String, dynamic>>()
         .map(Task.fromJson)
         .toList();
@@ -71,9 +85,10 @@ final class TaskStore {
 
   void writeAll(List<Task> tasks) {
     file.writeAsStringSync(
-      const JsonEncoder.withIndent(
-        '  ',
-      ).convert(tasks.map((task) => task.toJson()).toList()),
+      JsonEncoder.withIndent('  ').convert({
+        'nextId': _nextId,
+        'tasks': tasks.map((task) => task.toJson()).toList(),
+      }),
     );
   }
 
@@ -87,13 +102,12 @@ final class TaskStore {
   Task add(String title, String description) {
     final tasks = readAll();
     final task = Task(
-      id: tasks.isEmpty
-          ? 1
-          : tasks.map((task) => task.id).reduce((a, b) => a > b ? a : b) + 1,
+      id: _nextId,
       title: title,
       description: description,
       completed: false,
     );
+    _nextId++;
     writeAll([...tasks, task]);
     return task;
   }
