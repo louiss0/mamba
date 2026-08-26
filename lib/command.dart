@@ -822,7 +822,7 @@ abstract class GroupCommand extends Command {
     List<String> trailingArguments,
   ) async {
     final path = defaultSubCommandPath;
-    if (path == null) return null;
+    if (path == null) return '';
     return runChildCommand(path, positionals, input, trailingArguments);
   }
 }

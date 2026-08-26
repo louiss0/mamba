@@ -49,23 +49,26 @@ final class CommandRegistry {
     this.publishedFlags,
     this.publishedOptions,
     List<Command>? commands,
+    List<CommandRegistry>? childRegistries,
     List<String> parentPath = const <String>[],
     List<Flag>? descendantFlags,
     List<Option>? descendantOptions,
   }) {
     // Children are built in the body so they can point back at this registry
     // while the inheritance chain is resolved from the root downward.
-    commandRegistries = commands
-        ?.map(
-          (command) => _fromCommand(
-            command,
-            parent: this,
-            parentPath: parentPath,
-            inheritedFlags: descendantFlags,
-            inheritedOptions: descendantOptions,
-          ),
-        )
-        .toList();
+    commandRegistries =
+        childRegistries ??
+        commands
+            ?.map(
+              (command) => _fromCommand(
+                command,
+                parent: this,
+                parentPath: parentPath,
+                inheritedFlags: descendantFlags,
+                inheritedOptions: descendantOptions,
+              ),
+            )
+            .toList();
   }
 
   final String name;
@@ -184,7 +187,10 @@ final class CommandRegistry {
     final ownPublishedFlags = group?.inheritedFlags;
     final ownPublishedOptions = group?.inheritedOptions;
     final publishedFlags = _mergeByName(inheritedFlags, ownPublishedFlags);
-    final publishedOptions = _mergeByName(inheritedOptions, ownPublishedOptions);
+    final publishedOptions = _mergeByName(
+      inheritedOptions,
+      ownPublishedOptions,
+    );
     final localOptions =
         command.options == null && command.pairedOptions == null
         ? null
@@ -504,12 +510,16 @@ final class CommandRegistry {
 
   /// Boolean flags available here: inherited inputs plus local declarations,
   /// with a local same-name definition taking precedence.
-  Map<String, BooleanFlag>? get applicableBoolFlags =>
-      _combineWithInherited(_inheritableFlags.whereType<BooleanFlag>(), boolFlags);
+  Map<String, BooleanFlag>? get applicableBoolFlags => _combineWithInherited(
+    _inheritableFlags.whereType<BooleanFlag>(),
+    boolFlags,
+  );
 
   /// Count flags available here, including inherited ones.
-  Map<String, CountFlag>? get applicableCountFlags =>
-      _combineWithInherited(_inheritableFlags.whereType<CountFlag>(), countFlags);
+  Map<String, CountFlag>? get applicableCountFlags => _combineWithInherited(
+    _inheritableFlags.whereType<CountFlag>(),
+    countFlags,
+  );
 
   /// Single options available here, including inherited ones.
   Map<String, SingleOption>? get applicableSingleOptions =>
@@ -554,6 +564,7 @@ final class CommandRegistry {
     discretionaryPositionals: discretionaryPositionals,
     variadic: variadic,
     accessors: accessors,
+    childRegistries: commandRegistries,
   );
 
   /// Returns the deepest registered command named by [args].
