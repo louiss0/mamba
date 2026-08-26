@@ -15,6 +15,8 @@ Future<void> main(List<String> args) => Executor(
     ReadTaskCommand(_taskStore),
     UpdateTaskCommand(_taskStore),
     DeleteTaskCommand(_taskStore),
+    CompleteTaskCommand(_taskStore),
+    ReopenTaskCommand(_taskStore),
   ],
 ).create().execute(args);
 
@@ -23,22 +25,26 @@ final class Task {
     required this.id,
     required this.title,
     required this.description,
+    required this.completed,
   });
 
   final int id;
   final String title;
   final String description;
+  final bool completed;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
     'description': description,
+    'completed': completed,
   };
 
   factory Task.fromJson(Map<String, dynamic> json) => Task(
     id: json['id'] as int,
     title: json['title'] as String,
     description: json['description'] as String,
+    completed: json['completed'] as bool? ?? false,
   );
 }
 
@@ -86,9 +92,24 @@ final class TaskStore {
           : tasks.map((task) => task.id).reduce((a, b) => a > b ? a : b) + 1,
       title: title,
       description: description,
+      completed: false,
     );
     writeAll([...tasks, task]);
     return task;
+  }
+
+  void setCompleted(int id, bool completed) {
+    final tasks = readAll();
+    final index = tasks.indexWhere((task) => task.id == id);
+    if (index < 0) throw MambaException('Task not found.');
+    final task = tasks[index];
+    tasks[index] = Task(
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      completed: completed,
+    );
+    writeAll(tasks);
   }
 }
 
@@ -147,19 +168,39 @@ final class CreateTaskCommand extends Command {
 }
 
 final class ListTaskCommand extends Command {
-  ListTaskCommand(this.store);
+  ListTaskCommand(this.store)
+    : super(
+        flags: [
+          BooleanFlag('completed', description: 'Show completed tasks.'),
+          BooleanFlag('pending', description: 'Show pending tasks.'),
+        ],
+      );
+
   final TaskStore store;
   @override
   String get name => 'list';
   @override
-  String get shortDescription => 'List all tasks.';
+  String get shortDescription =>
+      'List tasks, optionally filtered by completion.';
 
   @override
-  String run(_, __, ___) {
-    final tasks = store.readAll();
-    if (tasks.isEmpty) return 'No tasks.';
+  String run(_, ParsedNamedInputs inputs, _) {
+    final completed = inputs.boolFlags?['completed'] == true;
+    final pending = inputs.boolFlags?['pending'] == true;
+    if (completed && pending) {
+      throw MambaException('Use either --completed or --pending, not both.');
+    }
+    final tasks = store.readAll().where((task) {
+      if (completed) return task.completed;
+      if (pending) return !task.completed;
+      return true;
+    }).toList();
+    if (tasks.isEmpty) return 'No matching tasks.';
     return tasks
-        .map((task) => '${task.id}: ${task.title} — ${task.description}')
+        .map(
+          (task) =>
+              '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title} — ${task.description}',
+        )
         .join('\n');
   }
 }
@@ -177,7 +218,7 @@ final class ReadTaskCommand extends Command {
   String run(ParsedPositionals positionals, _, __) {
     final task = store.find(_taskId(positionals));
     if (task == null) throw MambaException('Task not found.');
-    return '${task.id}: ${task.title}\n${task.description}';
+    return '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title}\n${task.description}';
   }
 }
 
@@ -214,6 +255,7 @@ final class UpdateTaskCommand extends Command {
       description: description == null
           ? current.description
           : _validatedText('description', description),
+      completed: current.completed,
     );
     store.writeAll(tasks);
     return 'Updated task $id.';
@@ -234,9 +276,46 @@ final class DeleteTaskCommand extends Command {
     final tasks = store.readAll();
     final id = _taskId(positionals);
     final remaining = tasks.where((task) => task.id != id).toList();
-    if (remaining.length == tasks.length)
+    if (remaining.length == tasks.length) {
       throw MambaException('Task not found.');
+    }
     store.writeAll(remaining);
     return 'Deleted task $id.';
+  }
+}
+
+final class CompleteTaskCommand extends Command {
+  CompleteTaskCommand(this.store)
+    : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
+
+  final TaskStore store;
+  @override
+  String get name => 'complete';
+  @override
+  String get shortDescription => 'Mark a task as completed.';
+
+  @override
+  String run(ParsedPositionals positionals, _, __) {
+    final id = _taskId(positionals);
+    store.setCompleted(id, true);
+    return 'Completed task $id.';
+  }
+}
+
+final class ReopenTaskCommand extends Command {
+  ReopenTaskCommand(this.store)
+    : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
+
+  final TaskStore store;
+  @override
+  String get name => 'reopen';
+  @override
+  String get shortDescription => 'Mark a task as pending.';
+
+  @override
+  String run(ParsedPositionals positionals, _, __) {
+    final id = _taskId(positionals);
+    store.setCompleted(id, false);
+    return 'Reopened task $id.';
   }
 }
