@@ -7,7 +7,7 @@ import 'package:zema/zema.dart';
 final _taskStore = TaskStore();
 
 Future<void> main(List<String> args) => Executor(
-  'mamba',
+  'task-cli',
   'Manage a persisted task list.',
   commands: [
     CreateTaskCommand(_taskStore),
