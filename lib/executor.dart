@@ -14,7 +14,7 @@ sealed class MambaExecutionResult {
 
 /// Captures command output produced by a successful fake execution.
 final class MambaSuccessResult extends MambaExecutionResult {
-  final String output;
+  final String? output;
   const MambaSuccessResult(this.output);
 }
 
@@ -92,10 +92,12 @@ final class Executor {
 
   /// Creates the production executor that writes output and failures to stdio.
   ///
+  /// A command may return `null` to suppress successful output.
   /// Call this where the executable is built, then pass command-line arguments
   /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
-  MambaExecutor<void> create() =>
-      _Executor(this, stdout.writeln, stderr.writeln);
+  MambaExecutor<void> create() => _Executor(this, (output) {
+    if (output != null) stdout.writeln(output);
+  }, stderr.writeln);
 
   static List<String>? _copyDefaultSubCommandPath(
     String registryName,

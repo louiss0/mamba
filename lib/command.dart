@@ -117,8 +117,8 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
 /// an unbounded series.
 final class RepeatedChoiceVariadic<T extends Enum> extends ChoiceVariadic<T> {
   const RepeatedChoiceVariadic(
-    super.name,
-    {super.description,
+    super.name, {
+    super.description,
     required super.choices,
     super.defaultValue,
   });
@@ -711,7 +711,8 @@ abstract class Command {
   /// Runs this command with parser-validated values and trailing arguments.
   ///
   /// The returned text is delivered to the executor's output environment.
-  FutureOr<String> run(
+  /// Returns `null` when no output should be produced.
+  FutureOr<String?> run(
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
@@ -792,7 +793,7 @@ abstract class GroupCommand extends Command {
       children = command is GroupCommand ? command.commands : null;
     }
 
-    return (await command!.run(positionals, input, trailingArguments));
+    return (await command!.run(positionals, input, trailingArguments)) ?? '';
   }
 
   static List<String>? _copyDefaultSubCommandPath(List<String>? path) {
@@ -815,13 +816,13 @@ abstract class GroupCommand extends Command {
   }
 
   @override
-  FutureOr<String> run(
+  FutureOr<String?> run(
     ParsedPositionals positionals,
     ParsedNamedInputs input,
     List<String> trailingArguments,
   ) async {
     final path = defaultSubCommandPath;
-    if (path == null) return '';
+    if (path == null) return null;
     return runChildCommand(path, positionals, input, trailingArguments);
   }
 }
