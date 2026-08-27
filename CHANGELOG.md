@@ -1,3 +1,11 @@
+## 0.1.0
+
+- Added Carapace completion-spec conversion and platform-aware spec writing.
+- Added validated, self-describing `RegistryMap` inputs for integrations.
+- Added variadics, repeated positionals, persistent inputs, and nested command
+  support across command registration, parsing, help, and integrations.
+- Updated parser and command APIs to use list-defined input schemas.
+
 ## 0.0.1
 
 - Restored the README from the pre-release revision.
