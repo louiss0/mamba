@@ -845,22 +845,8 @@ enum RegistryMapProps {
   positionals,
   variadic;
 
-  String get propertyName => switch (this) {
-    RegistryMapProps.name => 'name',
-    RegistryMapProps.description => 'description',
-    RegistryMapProps.flags => 'flags',
-    RegistryMapProps.persistentFlags => 'persistentFlags',
-    RegistryMapProps.persistentOptions => 'persistentOptions',
-    RegistryMapProps.options => 'options',
-    RegistryMapProps.commands => 'commands',
-    RegistryMapProps.accessors => 'accessors',
-    RegistryMapProps.aliases => 'aliases',
-    RegistryMapProps.positionals => 'positionals',
-    RegistryMapProps.variadic => 'variadic',
-  };
-
   Object? parse(Object? value, [String? path]) {
-    final propertyPath = path ?? propertyName;
+    final propertyPath = path ?? this.name;
     switch (this) {
       case RegistryMapProps.name:
       case RegistryMapProps.description:
@@ -904,18 +890,14 @@ void _parseCommand(Map<Object?, Object?> value, String path) {
   _validateProperties(
     properties,
     path,
-    RegistryMapProps.values.map((property) => property.propertyName).toSet(),
+    RegistryMapProps.values.map((property) => property.name).toSet(),
     const {'name', 'description'},
   );
 
   for (final property in RegistryMapProps.values) {
-    final propertyValue = properties[property.propertyName];
-    if (propertyValue != null ||
-        properties.containsKey(property.propertyName)) {
-      property.parse(
-        propertyValue,
-        _joinRegistryPath(path, property.propertyName),
-      );
+    final propertyValue = properties[property.name];
+    if (propertyValue != null || properties.containsKey(property.name)) {
+      property.parse(propertyValue, _joinRegistryPath(path, property.name));
     }
   }
 }
