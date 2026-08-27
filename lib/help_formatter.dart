@@ -139,9 +139,9 @@ final class MambaHelpFormatter extends HelpFormatter {
   @override
   void formatLongDescription(StringBuffer buffer, String longDescription) {
     buffer
-      ..writeln('-' * 10)
-      ..writeln(longDescription)
-      ..writeln('-' * 10);
+      ..writeln(MambaColors.mid('-' * 10))
+      ..writeln(MambaColors.primary(longDescription))
+      ..writeln(MambaColors.mid('-' * 10));
   }
 
   @override
@@ -158,7 +158,11 @@ final class MambaHelpFormatter extends HelpFormatter {
     final commandLine =
         '${registry.name}${positionals.isEmpty ? '' : ' $positionalExpression'}';
 
-    buffer.writeln("$commandLine  '${registry.shortDescription}'");
+    buffer.writeln(
+      MambaColors.primary("$commandLine  '${registry.shortDescription}'"),
+    );
+
+    buffer.writeln();
 
     final longDescription = registry.longDescription;
     if (longDescription != null) {
@@ -172,12 +176,7 @@ final class MambaHelpFormatter extends HelpFormatter {
       ...?registry.countFlags?.values.where((flag) => !flag.hidden).map(_flag),
     ]);
     buffer.writeln();
-    _writeSection(
-      buffer,
-      'Accessor flags',
-      _accessors(registry),
-      includeEntrySpacing: false,
-    );
+    _writeSection(buffer, 'Accessor flags', _accessors(registry));
     buffer.writeln();
     _writeSection(buffer, 'Options', [
       ...?registry.singleOptions?.values
@@ -199,7 +198,6 @@ final class MambaHelpFormatter extends HelpFormatter {
               )
               .toList() ??
           const [],
-      includeEntrySpacing: false,
     );
 
     return buffer.toString();
@@ -380,18 +378,17 @@ final class MambaHelpFormatter extends HelpFormatter {
       .replaceAll(RegExp(r'[-.]'), '_')
       .toUpperCase();
 
-  void _writeSection(
-    StringBuffer buffer,
-    String title,
-    List<String> entries, {
-    bool includeEntrySpacing = true,
-  }) {
+  void _writeSection(StringBuffer buffer, String title, List<String> entries) {
     if (entries.isEmpty) return;
     buffer.writeln(formatIntoSectionTitle(title).string);
-    if (includeEntrySpacing) buffer.writeln();
+    buffer.writeln();
     for (final entry in entries) {
       buffer.writeln(entry);
-      buffer.writeln(MambaColors.black('_' * (entry.length + 1)));
+      final visibleEntry = entry.replaceAll(
+        FormattedString._ansiColorRegex,
+        '',
+      );
+      buffer.writeln(MambaColors.black('_' * visibleEntry.length));
     }
   }
 }

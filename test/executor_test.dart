@@ -3,6 +3,9 @@ import 'package:mamba/context.dart';
 import 'package:mamba/executor.dart';
 import 'package:test/test.dart';
 
+String _withoutAnsi(String value) =>
+    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
+
 void main() {
   group('ExecutorFactory', () {
     final factory = Executor('mamba', 'A command-line application.');
@@ -107,7 +110,9 @@ void main() {
       ]);
 
       expect(result, isA<MambaSuccessResult>());
-      expect((result as MambaSuccessResult).output, startsWith('run'));
+      final output = (result as MambaSuccessResult).output;
+      expect(output, isNotNull);
+      expect(_withoutAnsi(output!), startsWith('run'));
     });
   });
 

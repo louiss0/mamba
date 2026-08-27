@@ -329,6 +329,33 @@ void main() {
   });
 
   group('HelpFormatter', () {
+    test('styles descriptions and separates section titles from entries', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        longDescription: 'A longer description.',
+        accessors: [
+          AccessorListOption('config', options: [AccessorStringOption('path')]),
+        ],
+        commands: [_HelpCommand('run', 'Run the tool.')],
+      );
+      final lines = MambaHelpFormatter().format(registry).split('\n');
+      final accessorTitleIndex = lines.indexOf(
+        MambaColors.deep('Accessor flags'),
+      );
+      final commandTitleIndex = lines.indexOf(MambaColors.deep('Commands'));
+
+      expect(lines[0], MambaColors.primary("tool  'Tool command.'"));
+      expect(lines[1], isEmpty);
+      expect(lines[2], MambaColors.mid('-' * 10));
+      expect(lines[3], MambaColors.primary('A longer description.'));
+      expect(lines[4], MambaColors.mid('-' * 10));
+      expect(accessorTitleIndex, isNonNegative);
+      expect(lines[accessorTitleIndex + 1], isEmpty);
+      expect(commandTitleIndex, isNonNegative);
+      expect(lines[commandTitleIndex + 1], isEmpty);
+    });
+
     test('adds a black separator after every visible entry', () {
       final registry = CommandRegistry.create(
         'tool',
@@ -343,7 +370,7 @@ void main() {
       final entry = lines[entryIndex];
       expect(
         lines[entryIndex + 1],
-        MambaColors.black('_' * (entry.length + 1)),
+        MambaColors.black('_' * _withoutAnsi(entry).length),
       );
     });
 
