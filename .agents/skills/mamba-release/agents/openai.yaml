@@ -1,7 +1,0 @@
-interface:
-  display_name: "Mamba Release"
-  short_description: "Prepare and publish stable Mamba releases"
-  default_prompt: "Use $mamba-release to prepare a Mamba release."
-
-policy:
-  allow_implicit_invocation: false
