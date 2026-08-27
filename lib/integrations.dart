@@ -20,7 +20,14 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
   CarapaceSpecConverter(super.registryMap);
 
   @override
-  String convert() => YamlWriter().write(_specFor(registryMap.map));
+  String convert() {
+    final map = {
+      'name': _commandName(registryMap.map),
+      ..._commandBody(registryMap.map, isRoot: true),
+    };
+
+    return YamlWriter().write(map);
+  }
 }
 
 /// Writes a map-derived Carapace spec to the platform's spec directory.
@@ -81,12 +88,6 @@ String? _joinHome(String? home, String first, [String? second]) {
   if (home == null) return null;
   return [home, first, ?second].join(Platform.pathSeparator);
 }
-
-/// Builds the root Carapace map from a validated command registry map.
-Map<String, dynamic> _specFor(Map<String, dynamic> registry) => {
-  'name': _commandName(registry),
-  ..._commandBody(registry, isRoot: true),
-};
 
 /// Translates one command and its descendants into the Carapace command body.
 Map<String, dynamic> _commandBody(
