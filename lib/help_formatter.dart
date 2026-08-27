@@ -3,14 +3,21 @@ import 'package:chalkdart/chalkstrings.dart';
 import 'command.dart';
 import 'registry.dart';
 
+abstract final class MambaColors {
+  static final yellow = chalk.hex('#D3C85E');
+  static final bright = chalk.hex('#B3CD58');
+  static final primary = chalk.hex('#92C362');
+  static final mid = chalk.hex('#81AC4E');
+  static final deep = chalk.hex('#50631F');
+  static final black = chalk.hex('#11130A');
+}
+
 /// An ANSI-styled fragment that a help formatter can compose safely.
 ///
 /// The base type rejects unstyled content so delimiter wrappers cannot be
 /// confused with an unformatted command grammar.
-abstract class FormattedString {
-  final String string;
-  FormattedString(String string) : string = _parse(string);
-  FormattedString._(this.string);
+extension type FormattedString._(String string) {
+  FormattedString(String string) : this._(_parse(string));
 
   static final _ansiColorRegex = RegExp(r'\x1B\[[0-9;]*m');
 
@@ -25,13 +32,25 @@ abstract class FormattedString {
 }
 
 /// A styled help fragment that must be supplied.
-final class RequiredString extends FormattedString {
-  RequiredString(super.string);
+extension type RequiredString._(FormattedString string)
+    implements FormattedString {
+  RequiredString(String string)
+    : this._(FormattedString('< ${_parse(string)} >'));
+
+  static String _parse(String string) {
+    final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
+    if (unformatted.contains('<') || unformatted.contains('>')) {
+      throw FormatException('Required strings must not contain < or >', string);
+    }
+    return string;
+  }
 }
 
 /// A styled help fragment enclosed in optional square brackets.
-final class OptionalString extends FormattedString {
-  OptionalString(String string) : super('[${_parse(string)}]');
+extension type OptionalString._(FormattedString string)
+    implements FormattedString {
+  OptionalString(String string)
+    : this._(FormattedString('[ ${_parse(string)} ]'));
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -43,25 +62,37 @@ final class OptionalString extends FormattedString {
 }
 
 /// Joins a primary help member with members that must be supplied with it.
-final class PairString extends FormattedString {
+extension type PairString._(FormattedString string) implements FormattedString {
   PairString(String primaryMember, Iterable<String> pairMembers)
-    : super._([primaryMember, ...pairMembers].join(' & '));
+    : this._(
+        FormattedString(
+          MambaColors.bright([primaryMember, ...pairMembers].join(' & ')),
+        ),
+      );
 }
 
 /// Joins a primary help member with mutually exclusive alternatives.
-final class OrString extends FormattedString {
+extension type OrString._(FormattedString string) implements FormattedString {
   OrString(String primaryMember, Iterable<String> alternativeMembers)
-    : super._([primaryMember, ...alternativeMembers].join('|'));
+    : this._(
+        FormattedString(
+          MambaColors.mid([primaryMember, ...alternativeMembers].join('|')),
+        ),
+      );
 }
 
 /// A bright-green title for a help section.
-final class SectionTitleString extends FormattedString {
-  SectionTitleString(String string) : super(string.brightGreen);
+extension type SectionTitleString._(FormattedString string)
+    implements FormattedString {
+  SectionTitleString(String string)
+    : this._(FormattedString(MambaColors.deep(string)));
 }
 
 /// A bright-yellow description for a help entry.
-final class EntryDescriptionString extends FormattedString {
-  EntryDescriptionString(String string) : super(string.brightYellow);
+extension type EntryDescriptionString._(FormattedString string)
+    implements FormattedString {
+  EntryDescriptionString(String string)
+    : this._(FormattedString(MambaColors.yellow(string)));
 }
 
 /// The customization boundary for rendering a [CommandRegistry] as help text.
@@ -360,6 +391,7 @@ final class MambaHelpFormatter extends HelpFormatter {
     if (includeEntrySpacing) buffer.writeln();
     for (final entry in entries) {
       buffer.writeln(entry);
+      buffer.writeln(MambaColors.black('_' * (entry.length + 1)));
     }
   }
 }
