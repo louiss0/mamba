@@ -187,6 +187,9 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       r"$carapace.number.Range({format: '%.2f', start: 0, end: 1000})",
     ];
 
+    List<String> choicePairs(List<String> choices) => [
+      for (final choice in choices) ...[choice, choice],
+    ];
     final positionals = _mapOrNull(command['positionals']);
     if (positionals != null) {
       for (final positionalValue in positionals.values) {
@@ -194,7 +197,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         final choices = _stringList(positional['choices']);
         final values = choices.isEmpty
             ? const [r'$files']
-            : _choicePairs(choices);
+            : choicePairs(choices);
         final times = positional['repeatable'] == true
             ? positional['times'] as int? ?? 0
             : 0;
@@ -239,7 +242,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       } else if (variadic['repeatable'] == true) {
         dashAnyChoices.addAll(choices);
       } else {
-        dashChoices.add(_choicePairs(choices));
+        dashChoices.add(choicePairs(choices));
       }
     }
 
@@ -297,10 +300,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     List() => value.cast<String>(),
     _ => const [],
   };
-
-  List<String> _choicePairs(List<String> choices) => [
-    for (final choice in choices) ...[choice, choice],
-  ];
 }
 
 /// Writes a map-derived Carapace spec to the platform's spec directory.
