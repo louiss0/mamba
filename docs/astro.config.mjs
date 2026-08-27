@@ -18,9 +18,6 @@ export default defineConfig({
 			},
 			favicon: '/mamba-small-logo.png',
 			customCss: ['./src/styles/mamba.css'],
-			components: {
-				Head: './src/components/Head.astro',
-			},
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/louiss0/mamba' }],
 			sidebar: [
 				{
