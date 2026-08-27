@@ -1,11 +1,11 @@
-# Mamba
 
-[![pub package](https://img.shields.io/pub/v/mamba.svg)](https://pub.dev/packages/mamba)
-[![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
 Mamba is a list-defined Dart framework for command-line applications. Commands
 declare their inputs as fields, so the command surface, parser, and help output
 all come from one definition.
+
+[![pub package](https://img.shields.io/pub/v/mamba.svg)](https://pub.dev/packages/mamba)
+[![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
 ## Architecture
 
