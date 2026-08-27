@@ -122,10 +122,23 @@ Future<void> _verifyReleaseState(String version) async {
 }
 
 Future<void> _verifyCleanWorktree() async {
-  final status = await _runChecked('git', ['status', '--porcelain']);
-  if (status.isNotEmpty) {
+  final hasStagedChanges = await _hasChanges(['diff', '--cached', '--quiet']);
+  final hasUnstagedChanges = await _hasChanges(['diff', '--quiet']);
+  final untrackedFiles = await _runChecked('git', [
+    'ls-files',
+    '--others',
+    '--exclude-standard',
+  ]);
+  if (hasStagedChanges || hasUnstagedChanges || untrackedFiles.isNotEmpty) {
     throw StateError('The working tree must be clean before a release.');
   }
+}
+
+Future<bool> _hasChanges(List<String> arguments) async {
+  final result = await Process.run('git', arguments);
+  if (result.exitCode == 0) return false;
+  if (result.exitCode == 1) return true;
+  throw ProcessException('git', arguments, '${result.stderr}', result.exitCode);
 }
 
 Future<String> _runChecked(String command, List<String> arguments) async {
