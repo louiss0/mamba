@@ -309,14 +309,14 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 /// temp directory so local runs do not modify the user's installed specs.
 final class CarapaceSpecWriter {
   CarapaceSpecWriter(
-    this.registryMap, {
+    this.converter, {
     this.development = false,
     String? outputPath,
   }) : path =
            outputPath ??
-           _carapaceSpecPath(registryMap.map['name'], development);
+           _carapaceSpecPath(converter.registryMap.map['name'], development);
 
-  final RegistryMap registryMap;
+  final CarapaceSpecConverter converter;
   final bool development;
   final String path;
 
@@ -324,7 +324,7 @@ final class CarapaceSpecWriter {
   File write() {
     final file = File(path);
     file.parent.createSync(recursive: true);
-    file.writeAsStringSync(CarapaceSpecConverter(registryMap).convert());
+    file.writeAsStringSync(converter.convert());
     return file;
   }
 

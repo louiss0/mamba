@@ -160,8 +160,10 @@ void main() {
   group('CarapaceSpecWriter', () {
     test('writes development specs below the system temp directory', () {
       final writer = CarapaceSpecWriter(
-        RegistryMap(
-          CommandRegistry.create('writer-fixture', 'writer command').toMap(),
+        CarapaceSpecConverter(
+          RegistryMap(
+            CommandRegistry.create('writer-fixture', 'writer command').toMap(),
+          ),
         ),
         development: true,
       );
@@ -193,7 +195,7 @@ void main() {
         'spec.yaml',
       ].join(Platform.pathSeparator);
       final writer = CarapaceSpecWriter(
-        RegistryMap(specRegistry().toMap()),
+        CarapaceSpecConverter(RegistryMap(specRegistry().toMap())),
         development: false,
         outputPath: path,
       );
