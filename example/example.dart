@@ -232,7 +232,7 @@ final class ReadTaskCommand extends Command {
   String get shortDescription => 'Read one task.';
 
   @override
-  String run(ParsedPositionals positionals, _, __) {
+  String run(ParsedPositionals positionals, _, _) {
     final task = store.find(_taskId(positionals));
     if (task == null) throw MambaException('Task not found.');
     return '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title}\n${task.description}';
@@ -289,7 +289,7 @@ final class DeleteTaskCommand extends Command {
   String get shortDescription => 'Delete a task.';
 
   @override
-  String run(ParsedPositionals positionals, _, __) {
+  String run(ParsedPositionals positionals, _, _) {
     final tasks = store.readAll();
     final id = _taskId(positionals);
     final remaining = tasks.where((task) => task.id != id).toList();
@@ -338,7 +338,7 @@ final class CompleteTaskCommand extends Command {
   String get shortDescription => 'Mark a task as completed.';
 
   @override
-  String run(ParsedPositionals positionals, _, __) {
+  String run(ParsedPositionals positionals, _, _) {
     final id = _taskId(positionals);
     store.setCompleted(id, true);
     return 'Completed task $id.';
@@ -356,7 +356,7 @@ final class ReopenTaskCommand extends Command {
   String get shortDescription => 'Mark a task as pending.';
 
   @override
-  String run(ParsedPositionals positionals, _, __) {
+  String run(ParsedPositionals positionals, _, _) {
     final id = _taskId(positionals);
     store.setCompleted(id, false);
     return 'Reopened task $id.';

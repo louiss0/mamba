@@ -9,7 +9,7 @@ Future<void> main(List<String> arguments) async {
   await _verifyReleaseState(version);
   await _runChecked('dart', ['format', '.']);
   await _verifyCleanWorktree();
-  await _runChecked('dart', ['analyze']);
+  await _runChecked('dart', ['analyze', '--fatal-infos']);
   await _runChecked('dart', ['test']);
   await _runChecked('dart', ['pub', 'publish', '--dry-run']);
 

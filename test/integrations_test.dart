@@ -816,6 +816,12 @@ persistentflags:
           test("long flag renders --combo$suffix", () {
             // Value-taking options carry the arity slot while flags cannot;
             // optionality additionally requires an option to be expressible.
+            final completion = combo.arity
+                ? '\ncompletion:\n'
+                      '  flag:\n'
+                      '    combo:\n'
+                      '      - "\$carapace.number.Range({start: 0, end: 1000})"\n'
+                : '';
             final registry = combo.arity
                 ? specRegistry(
                     options: [
@@ -844,20 +850,11 @@ persistentflags:
 
             expect(
               convertSpec(RegistryMap(registry.toMap())),
-              equalsYaml(
-                '''
+              equalsYaml('''
 name: "spec"
 description: "spec command"
 persistentflags:
-  --combo$suffix: ""''' +
-                    (combo.arity
-                        ? '''\ncompletion:
-  flag:
-    combo:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
-'''
-                        : ''),
-              ),
+  --combo$suffix: ""$completion'''),
             );
           });
         }
