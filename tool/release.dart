@@ -7,12 +7,8 @@ Future<void> main(List<String> arguments) async {
   final version = release.version;
 
   await _verifyReleaseState(version);
-  await _runChecked('dart', [
-    'format',
-    '--output=none',
-    '--set-exit-if-changed',
-    '.',
-  ]);
+  await _runChecked('dart', ['format', '.']);
+  await _verifyCleanWorktree();
   await _runChecked('dart', ['analyze']);
   await _runChecked('dart', ['test']);
   await _runChecked('dart', ['pub', 'publish', '--dry-run']);
@@ -80,10 +76,7 @@ Future<void> _verifyReleaseState(String version) async {
     );
   }
 
-  final status = await _runChecked('git', ['status', '--porcelain']);
-  if (status.isNotEmpty) {
-    throw StateError('The working tree must be clean before a release.');
-  }
+  await _verifyCleanWorktree();
 
   final pubspec = await File('pubspec.yaml').readAsString();
   final pubspecVersion = RegExp(
@@ -125,6 +118,13 @@ Future<void> _verifyReleaseState(String version) async {
       '${tagCheck.stdout}${tagCheck.stderr}',
       tagCheck.exitCode,
     );
+  }
+}
+
+Future<void> _verifyCleanWorktree() async {
+  final status = await _runChecked('git', ['status', '--porcelain']);
+  if (status.isNotEmpty) {
+    throw StateError('The working tree must be clean before a release.');
   }
 }
 
