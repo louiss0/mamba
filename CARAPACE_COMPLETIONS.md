@@ -3,7 +3,9 @@
 This document describes how Mace can turn Mamba command definitions into
 Carapace completion specs. It focuses on completion values and macros rather
 than the flag and command structure already emitted by
-`CarapaceSpecConverter`.
+`CarapaceSpecConverter`. Construct `RegistryMap(registry.toMap())` before
+passing it to the converter or writer; integrations consume the validated map
+rather than a live registry.
 
 The research was reviewed on August 25, 2026 against the official Carapace
 documentation and the locally installed `carapace-bin 1.6.4`.

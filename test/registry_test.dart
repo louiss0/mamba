@@ -170,6 +170,53 @@ Map<String, dynamic> buildRegistryExpectation(
   };
 }
 
+/// Removes metadata newly required by integration consumers so existing map
+/// assertions can continue to focus on their original registry fields.
+Map<String, dynamic> withoutIntegrationMetadata(Map<String, dynamic> source) {
+  final map = Map<String, dynamic>.from(source);
+  map
+    ..remove('persistentFlags')
+    ..remove('persistentOptions');
+
+  final options = map['options'];
+  if (options is Map) {
+    map['options'] = <String, dynamic>{
+      for (final entry in options.entries)
+        entry.key as String: Map<String, dynamic>.from(entry.value as Map)
+          ..remove('valueType')
+          ..remove('pairedOptions'),
+    };
+  }
+
+  final positionals = map['positionals'];
+  if (positionals is Map) {
+    map['positionals'] = <String, dynamic>{
+      for (final entry in positionals.entries)
+        entry.key as String: Map<String, dynamic>.from(entry.value as Map)
+          ..remove('choices')
+          ..remove('default')
+          ..remove('repeatable')
+          ..remove('times'),
+    };
+  }
+
+  final variadic = map['variadic'];
+  if (variadic is Map) {
+    map['variadic'] = Map<String, dynamic>.from(variadic)..remove('repeatable');
+  }
+
+  final commands = map['commands'];
+  if (commands is Map) {
+    map['commands'] = <String, dynamic>{
+      for (final entry in commands.entries)
+        entry.key as String: withoutIntegrationMetadata(
+          Map<String, dynamic>.from(entry.value as Map),
+        ),
+    };
+  }
+  return map;
+}
+
 void main() {
   group('CommandRegistry', () {
     group("toMap", () {
@@ -197,7 +244,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          withoutIntegrationMetadata(registry.toMap()),
           equals(
             buildRegistryExpectation(
               'tool',
@@ -265,6 +312,65 @@ void main() {
         );
       });
 
+      test('exports the metadata required by map integrations', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [IntOption('retries')],
+          pairedOptions: [
+            PairedStringOption(
+              'auth',
+              variant: true,
+              options: [PairStringOption('user')],
+            ),
+          ],
+          discretionaryPositionals: [
+            RepeatedChoicePositional<DeploymentFormat>(
+              'format',
+              choices: DeploymentFormat.values,
+              times: 2,
+            ),
+          ],
+          variadic: RepeatedChoiceVariadic<DeploymentFormat>(
+            'extra',
+            choices: DeploymentFormat.values,
+          ),
+          commands: [
+            TestGroupCommand(
+              'group',
+              [TestCommand('child', 'Child command.')],
+              'Group command.',
+              inheritedFlags: [BooleanFlag('color')],
+              inheritedOptions: [DoubleOption('timeout')],
+            ),
+          ],
+        );
+
+        final exported = registry.toMap();
+        final options = exported['options'] as Map<String, dynamic>;
+        final positionals = exported['positionals'] as Map<String, dynamic>;
+        final variadic = exported['variadic'] as Map<String, dynamic>;
+        final group =
+            (exported['commands'] as Map<String, dynamic>)['group']
+                as Map<String, dynamic>;
+
+        expect(options['retries'], containsPair('valueType', 'int'));
+        expect(options['auth'], containsPair('valueType', 'string'));
+        expect(options['auth'], containsPair('pairedOptions', ['user']));
+        expect(
+          positionals['format'],
+          containsPair('choices', ['yaml', 'json']),
+        );
+        expect(positionals['format'], containsPair('repeatable', true));
+        expect(positionals['format'], containsPair('times', 2));
+        expect(variadic, containsPair('repeatable', true));
+        expect(group['persistentFlags'], contains('color'));
+        expect(
+          group['persistentOptions'],
+          containsPair('timeout', containsPair('valueType', 'double')),
+        );
+      });
+
       test(
         "When a long description is added it's added to the description",
         () {
@@ -275,7 +381,7 @@ void main() {
           );
 
           expect(
-            registry.toMap(),
+            withoutIntegrationMetadata(registry.toMap()),
             equals(
               buildRegistryExpectation(
                 'tool',
@@ -325,7 +431,7 @@ void main() {
           );
 
           expect(
-            registry.toMap(),
+            withoutIntegrationMetadata(registry.toMap()),
             equals(
               buildRegistryExpectation(
                 'git',
@@ -424,7 +530,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          withoutIntegrationMetadata(registry.toMap()),
           equals(
             buildRegistryExpectation(
               'tool',
@@ -569,7 +675,7 @@ void main() {
           ],
         );
 
-        final map = registry.toMap();
+        final map = withoutIntegrationMetadata(registry.toMap());
 
         expect(
           map,
@@ -684,7 +790,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          withoutIntegrationMetadata(registry.toMap()),
           equals(
             buildRegistryExpectation(
               'curl',
@@ -785,7 +891,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          withoutIntegrationMetadata(registry.toMap()),
           equals(
             buildRegistryExpectation(
               'rsync',
@@ -906,7 +1012,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          withoutIntegrationMetadata(registry.toMap()),
           equals(
             buildRegistryExpectation(
               'docker',
@@ -1148,7 +1254,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          withoutIntegrationMetadata(registry.toMap()),
           equals(
             buildRegistryExpectation(
               'git',
@@ -1397,7 +1503,7 @@ void main() {
           );
 
           expect(
-            registry.toMap(),
+            withoutIntegrationMetadata(registry.toMap()),
             equals(
               buildRegistryExpectation(
                 'aws',
@@ -1488,7 +1594,7 @@ void main() {
           );
 
           expect(
-            registry.toMap(),
+            withoutIntegrationMetadata(registry.toMap()),
             equals(
               buildRegistryExpectation(
                 'git',
@@ -1579,7 +1685,7 @@ void main() {
             );
 
             expect(
-              registry.toMap()['options'],
+              withoutIntegrationMetadata(registry.toMap())['options'],
               equals({
                 'format': {
                   'short': null,
@@ -1639,7 +1745,9 @@ void main() {
             ],
           );
 
-          final options = registry.toMap()['options'] as Map<String, dynamic>;
+          final options =
+              withoutIntegrationMetadata(registry.toMap())['options']
+                  as Map<String, dynamic>;
 
           expect(options['chunk-size']['repeatable'], isNull);
           expect(options['compression-level']['repeatable'], isNull);
@@ -1677,7 +1785,7 @@ void main() {
             ],
           );
 
-          final exported = registry.toMap();
+          final exported = withoutIntegrationMetadata(registry.toMap());
 
           expect(exported['commands']['publish']['aliases'], ['push']);
           expect(exported['flags']['dry-run'], {
@@ -1760,7 +1868,9 @@ void main() {
 
         expect(registry.mandatoryPositionals, isNull);
         expect(registry.discretionaryPositionals, isNull);
-        expect(registry.toMap()['variadic'], {'description': null});
+        expect(withoutIntegrationMetadata(registry.toMap())['variadic'], {
+          'description': null,
+        });
       });
 
       test('holds a nested command variadic under its registry', () {
@@ -1792,7 +1902,7 @@ void main() {
           variadic: extra,
         );
 
-        expect(registry.toMap()['variadic'], {
+        expect(withoutIntegrationMetadata(registry.toMap())['variadic'], {
           'description': 'Everything that follows.',
         });
       });
@@ -1811,7 +1921,7 @@ void main() {
           variadic: formats,
         );
 
-        expect(registry.toMap()['variadic'], {
+        expect(withoutIntegrationMetadata(registry.toMap())['variadic'], {
           'description': 'Output formats.',
           'choices': ['yaml', 'json'],
           'default': 'yaml',
@@ -2061,9 +2171,9 @@ void main() {
         ],
       );
 
-      final inputs = Parser(registry)
-          .parse(['tool', 'config', '--no-color', 'get', '--retries', '2'])
-          .$3;
+      final inputs = Parser(
+        registry,
+      ).parse(['tool', 'config', '--no-color', 'get', '--retries', '2']).$3;
 
       expect(inputs.boolFlags, {'color': false, 'verbose': false});
       expect(inputs.intOptions, {'retries': 2});

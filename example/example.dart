@@ -14,7 +14,7 @@ final List<Command> _taskCommands = [
   DeleteTaskCommand(_taskStore),
   CompleteTaskCommand(_taskStore),
   ReopenTaskCommand(_taskStore),
-  CompletionTaskCommand(_buildTaskRegistry),
+  CompletionTaskCommand(),
 ];
 
 Future<void> main(List<String> args) => Executor(
@@ -22,19 +22,6 @@ Future<void> main(List<String> args) => Executor(
   'Manage a persisted task list.',
   commands: _taskCommands,
 ).create().execute(args);
-
-CommandRegistry _buildTaskRegistry() => CommandRegistry.create(
-  'task-cli',
-  'Manage a persisted task list.',
-  flags: [
-    BooleanFlag(
-      'dry-run',
-      description: 'Show what would happen without changing anything.',
-    ),
-    CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
-  ],
-  commands: _taskCommands,
-);
 
 final class Task {
   const Task({
@@ -314,8 +301,8 @@ final class DeleteTaskCommand extends Command {
   }
 }
 
-final class CompletionTaskCommand extends Command {
-  CompletionTaskCommand(this.buildRegistry)
+final class CompletionTaskCommand extends CompletionCommand {
+  CompletionTaskCommand()
     : super(
         options: [
           _textOption(
@@ -324,8 +311,6 @@ final class CompletionTaskCommand extends Command {
           ),
         ],
       );
-
-  final CommandRegistry Function() buildRegistry;
   @override
   String get name => 'completion';
   @override
@@ -334,7 +319,7 @@ final class CompletionTaskCommand extends Command {
   @override
   String run(_, ParsedNamedInputs inputs, _) {
     final outputFile = CarapaceSpecWriter(
-      buildRegistry(),
+      registryMap,
       development: false,
       outputPath: inputs.stringOptions?['output'],
     ).write();

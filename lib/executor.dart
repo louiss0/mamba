@@ -164,7 +164,10 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
         commands: factory.commands,
       ),
-      commands = factory.commands;
+      commands = factory.commands {
+    final registryMap = RegistryMap(_registry.toMap());
+    _assignCompletionRegistryMap(commands, registryMap);
+  }
 
   @override
   Future<ReturnType> execute(List<String> args) async {
@@ -249,6 +252,19 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
           options,
         ),
       );
+    }
+  }
+
+  void _assignCompletionRegistryMap(
+    Iterable<Command>? candidates,
+    RegistryMap registryMap,
+  ) {
+    if (candidates == null) return;
+    for (final command in candidates) {
+      if (command is CompletionCommand) command.registryMap = registryMap;
+      if (command is GroupCommand) {
+        _assignCompletionRegistryMap(command.commands, registryMap);
+      }
     }
   }
 

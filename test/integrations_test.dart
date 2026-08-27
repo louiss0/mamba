@@ -34,9 +34,9 @@ CommandRegistry specRegistry({
   commands: commands,
 );
 
-/// Renders the Carapace spec for [registry].
-String convertSpec(CommandRegistry registry) =>
-    CarapaceSpecConverter(registry).convert();
+/// Renders the Carapace spec exported by [registryMap].
+String convertSpec(RegistryMap registryMap) =>
+    CarapaceSpecConverter(registryMap).convert();
 
 /// Compares specs after dropping trailing whitespace and the final newline so
 /// block-scalar blank lines and EOF newlines do not affect expectations.
@@ -160,7 +160,9 @@ void main() {
   group('CarapaceSpecWriter', () {
     test('writes development specs below the system temp directory', () {
       final writer = CarapaceSpecWriter(
-        CommandRegistry.create('writer-fixture', 'writer command'),
+        RegistryMap(
+          CommandRegistry.create('writer-fixture', 'writer command').toMap(),
+        ),
         development: true,
       );
       final file = writer.write();
@@ -191,7 +193,7 @@ void main() {
         'spec.yaml',
       ].join(Platform.pathSeparator);
       final writer = CarapaceSpecWriter(
-        specRegistry(),
+        RegistryMap(specRegistry().toMap()),
         development: false,
         outputPath: path,
       );
@@ -205,6 +207,45 @@ void main() {
   });
 
   group("CarapaceSpecConverter", () {
+    test('renders a RegistryMap without a CommandRegistry', () {
+      final registryMap = RegistryMap({
+        'name': 'from-map',
+        'description': 'A map-defined command.',
+        'flags': {
+          'force': {
+            'short': 'f',
+            'default': false,
+            'negatable': false,
+            'hidden': false,
+            'description': null,
+          },
+        },
+        'options': {
+          'retries': {
+            'short': null,
+            'required': true,
+            'hidden': false,
+            'description': 'Retry attempts.',
+            'valueType': 'int',
+          },
+        },
+      });
+
+      expect(
+        CarapaceSpecConverter(registryMap).convert(),
+        equalsYaml('''
+name: "from-map"
+description: "A map-defined command."
+persistentflags:
+  -f, --force: ""
+  --retries!=: "Retry attempts."
+completion:
+  flag:
+    retries:
+      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+      );
+    });
+
     group("commands", () {
       test("rendered with flags", () {
         final registry = specRegistry(
@@ -214,7 +255,7 @@ void main() {
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -234,7 +275,7 @@ commands:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -255,7 +296,7 @@ commands:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -284,7 +325,7 @@ commands:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -306,7 +347,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -321,7 +362,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -339,7 +380,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -353,7 +394,7 @@ persistentflags:
           final registry = specRegistry(flags: [BooleanFlag('force')]);
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -368,7 +409,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -383,7 +424,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -398,7 +439,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -413,7 +454,7 @@ persistentflags:
           final registry = specRegistry(flags: [BooleanFlag('force')]);
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -428,7 +469,7 @@ persistentflags:
           final registry = specRegistry(options: [IntOption('retries')]);
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -448,7 +489,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -471,7 +512,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -493,7 +534,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -512,7 +553,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -531,7 +572,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -551,7 +592,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -571,7 +612,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -591,7 +632,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -620,7 +661,7 @@ completion:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -637,7 +678,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -665,7 +706,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -695,7 +736,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -721,7 +762,7 @@ exclusiveflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -748,7 +789,7 @@ persistentflags:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -800,7 +841,7 @@ persistentflags:
                   );
 
             expect(
-              convertSpec(registry),
+              convertSpec(RegistryMap(registry.toMap())),
               equalsYaml(
                 '''
 name: "spec"
@@ -833,7 +874,7 @@ persistentflags:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -862,7 +903,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -891,7 +932,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -913,7 +954,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -933,7 +974,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -957,7 +998,7 @@ completion:
         final registry = specRegistry(options: [IntOption('retries')]);
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -973,7 +1014,7 @@ completion:
         final registry = specRegistry(options: [DoubleOption('price')]);
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1002,7 +1043,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1041,7 +1082,7 @@ commands:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1074,7 +1115,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1107,7 +1148,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1121,6 +1162,42 @@ commands:
           );
         },
       );
+
+      test('local inputs replace a group\'s published inputs', () {
+        final registry = specRegistry(
+          commands: [
+            TestGroupCommand(
+              'container',
+              [TestCommand('list', 'list containers')],
+              'manage containers',
+              inheritedFlags: [BooleanFlag('force', short: 'f')],
+              inheritedOptions: [IntOption('retries', short: 'r')],
+              flags: [BooleanFlag('force', short: 'F')],
+              options: [IntOption('retries', short: 'R')],
+            ),
+          ],
+        );
+
+        expect(
+          convertSpec(RegistryMap(registry.toMap())),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+commands:
+  - name: "container"
+    description: "manage containers"
+    flags:
+      -F, --force: ""
+      -R, --retries?=: ""
+    completion:
+      flag:
+        retries:
+          - "\$carapace.number.Range({start: 0, end: 1000})"
+    commands:
+      - name: "list"
+        description: "list containers"'''),
+        );
+      });
     });
 
     group("persistent flag registries", () {
@@ -1154,7 +1231,7 @@ commands:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1262,7 +1339,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1350,7 +1427,7 @@ commands:
         );
 
         expect(
-          convertSpec(registry),
+          convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -1401,7 +1478,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml(
               nestedExpectation(
                 depth: depth,
@@ -1421,7 +1498,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml(
               nestedExpectation(
                 depth: depth,
@@ -1452,7 +1529,7 @@ commands:
           );
 
           expect(
-            convertSpec(registry),
+            convertSpec(RegistryMap(registry.toMap())),
             equalsYaml(
               nestedExpectation(
                 depth: depth,

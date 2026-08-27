@@ -973,8 +973,20 @@ void _parseFlag(Map<String, Object?> value, String path) {
 }
 
 void _parseOption(Map<String, Object?> value, String path) {
-  const requiredProperties = {'short', 'required', 'hidden', 'description'};
-  const optionalProperties = {'repeatable', 'variant', 'choices', 'default'};
+  const requiredProperties = {
+    'short',
+    'required',
+    'hidden',
+    'description',
+    'valueType',
+  };
+  const optionalProperties = {
+    'repeatable',
+    'variant',
+    'choices',
+    'default',
+    'pairedOptions',
+  };
   _validateProperties(value, path, {
     ...requiredProperties,
     ...optionalProperties,
@@ -1005,23 +1017,48 @@ void _parseOption(Map<String, Object?> value, String path) {
   if (value.containsKey('default')) {
     _expectString(value['default'], _joinRegistryPath(path, 'default'));
   }
+  if (value.containsKey('valueType')) {
+    _expectValueType(value['valueType'], _joinRegistryPath(path, 'valueType'));
+  }
+  if (value.containsKey('pairedOptions')) {
+    _parseStringList(
+      value['pairedOptions'],
+      _joinRegistryPath(path, 'pairedOptions'),
+    );
+  }
 }
 
 void _parsePositional(Map<String, Object?> value, String path) {
-  const properties = {'required', 'description'};
-  _validateProperties(value, path, properties, properties);
+  const requiredProperties = {'required', 'description'};
+  const optionalProperties = {'choices', 'default', 'repeatable', 'times'};
+  _validateProperties(value, path, {
+    ...requiredProperties,
+    ...optionalProperties,
+  }, requiredProperties);
   _expectBool(value['required'], _joinRegistryPath(path, 'required'));
   _expectString(
     value['description'],
     _joinRegistryPath(path, 'description'),
     nullable: true,
   );
+  if (value.containsKey('choices')) {
+    _parseStringList(value['choices'], _joinRegistryPath(path, 'choices'));
+  }
+  if (value.containsKey('default')) {
+    _expectString(value['default'], _joinRegistryPath(path, 'default'));
+  }
+  if (value.containsKey('repeatable')) {
+    _expectBool(value['repeatable'], _joinRegistryPath(path, 'repeatable'));
+  }
+  if (value.containsKey('times')) {
+    _expectNonNegativeInt(value['times'], _joinRegistryPath(path, 'times'));
+  }
 }
 
 void _parseVariadic(Object? value, String path) {
   final variadic = _map(value, path);
   const requiredProperties = {'description'};
-  const optionalProperties = {'choices', 'default'};
+  const optionalProperties = {'choices', 'default', 'repeatable'};
   _validateProperties(variadic, path, {
     ...requiredProperties,
     ...optionalProperties,
@@ -1036,6 +1073,9 @@ void _parseVariadic(Object? value, String path) {
   }
   if (variadic.containsKey('default')) {
     _expectString(variadic['default'], _joinRegistryPath(path, 'default'));
+  }
+  if (variadic.containsKey('repeatable')) {
+    _expectBool(variadic['repeatable'], _joinRegistryPath(path, 'repeatable'));
   }
 }
 
@@ -1162,12 +1202,30 @@ void _expectBool(Object? value, String path) {
   if (value is! bool) _invalid(value, path, 'must be a bool');
 }
 
+void _expectNonNegativeInt(Object? value, String path) {
+  if (value is! int || value < 0) {
+    _invalid(value, path, 'must be a non-negative int');
+  }
+}
+
+void _expectValueType(Object? value, String path) {
+  const valueTypes = {'string', 'int', 'double', 'choice'};
+  if (value is! String || !valueTypes.contains(value)) {
+    _invalid(value, path, 'must be a supported option value type');
+  }
+}
+
 String _joinRegistryPath(String parent, String property) =>
     parent.isEmpty ? property : '$parent.$property';
 
 Never _invalid(Object? value, String path, String message) =>
     throw ArgumentError.value(value, path, message);
 
+/// A command that generates output from the executor's complete command map.
+///
+/// The [Executor] assigns [registryMap] when it creates an execution
+/// environment. Subclasses can pass this validated map to an integration
+/// without creating or retaining a live registry.
 abstract class CompletionCommand extends Command {
   late final RegistryMap registryMap;
 

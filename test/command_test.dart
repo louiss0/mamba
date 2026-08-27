@@ -324,6 +324,7 @@ void main() {
       'required': false,
       'hidden': false,
       'description': null,
+      'valueType': 'string',
     };
 
     Map<String, dynamic> positional() => {
@@ -468,6 +469,22 @@ void main() {
                 map['options'] = {'output': option()..['default'] = 1},
           ),
           (
+            description: 'an unsupported option value type',
+            invalidValue: 'duration',
+            suffix: 'options.output.valueType',
+            write: (map) => map['options'] = {
+              'output': option()..['valueType'] = 'duration',
+            },
+          ),
+          (
+            description: 'a non-string paired option member',
+            invalidValue: 1,
+            suffix: 'options.output.pairedOptions.1',
+            write: (map) => map['options'] = {
+              'output': option()..['pairedOptions'] = ['paired', 1],
+            },
+          ),
+          (
             description: 'a non-boolean persistent option required value',
             invalidValue: 'yes',
             suffix: 'persistentOptions.output.required',
@@ -482,6 +499,21 @@ void main() {
             write: (map) => map['positionals'] = {
               'path': positional()..['required'] = 'yes',
             },
+          ),
+          (
+            description: 'a non-boolean positional repeatable value',
+            invalidValue: 'yes',
+            suffix: 'positionals.path.repeatable',
+            write: (map) => map['positionals'] = {
+              'path': positional()..['repeatable'] = 'yes',
+            },
+          ),
+          (
+            description: 'a negative positional repetition count',
+            invalidValue: -1,
+            suffix: 'positionals.path.times',
+            write: (map) =>
+                map['positionals'] = {'path': positional()..['times'] = -1},
           ),
           (
             description: 'a non-string positional description',
@@ -504,6 +536,16 @@ void main() {
             write: (map) => map['variadic'] = {
               'description': null,
               'choices': ['json', 1],
+            },
+          ),
+          (
+            description: 'a non-boolean repeated variadic value',
+            invalidValue: 'yes',
+            suffix: 'variadic.repeatable',
+            write: (map) => map['variadic'] = {
+              'description': null,
+              'choices': ['json'],
+              'repeatable': 'yes',
             },
           ),
           (
@@ -742,6 +784,18 @@ void main() {
           hasInvalidProperty(entry.path, entry.value.values.single),
         );
       }
+    });
+
+    test('requires an option value type', () {
+      final missingType = option()..remove('valueType');
+      final map = registryMap({
+        'options': {'output': missingType},
+      });
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('options.output.valueType', missingType),
+      );
     });
 
     test('requires variadic props when variadic is present', () {

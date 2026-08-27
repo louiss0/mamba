@@ -1,53 +1,51 @@
 import 'dart:io';
 
 import 'package:mamba/command.dart';
-import 'package:mamba/registry.dart';
 import 'package:yaml_writer/yaml_writer.dart';
 
+/// Converts a validated [RegistryMap] into an integration-specific artifact.
 abstract class RegistryMapConverter {
-  final CommandRegistry registry;
-  RegistryMapConverter(this.registry);
+  RegistryMapConverter(this.registryMap);
 
-  Map<String, dynamic> get registryMap => registry.toMap();
+  final RegistryMap registryMap;
 
   String convert();
 }
 
-/// Converts a validated [CommandRegistry] into a Carapace completion spec.
+/// Converts a [RegistryMap] into a Carapace completion spec.
 ///
-/// The spec renders every named input under `flags:` using the modifier order
-/// `<key><repeatability><optionality><appearance><arity>` applied to the long
-/// flag, publishes ancestor-owned inputs under each descendant's
-/// `persistentflags:`, renders variant paired options as `exclusiveflags:`,
-/// and exposes choice positionals and variadics through `completion:`.
+/// The map carries all input semantics needed to reproduce the complete
+/// Carapace output without retaining a live command definition.
 final class CarapaceSpecConverter extends RegistryMapConverter {
-  CarapaceSpecConverter(super.registry);
+  CarapaceSpecConverter(super.registryMap);
 
   @override
-  String convert() => YamlWriter().write(_specFor(registry));
+  String convert() => YamlWriter().write(_specFor(registryMap.map));
 }
 
-/// Writes a registry's Carapace spec to the platform's spec directory.
+/// Writes a map-derived Carapace spec to the platform's spec directory.
 ///
 /// Production writers use the operating system's Carapace configuration
 /// directory. Development writers use a matching directory below the system
 /// temp directory so local runs do not modify the user's installed specs.
 final class CarapaceSpecWriter {
   CarapaceSpecWriter(
-    this.registry, {
+    this.registryMap, {
     this.development = false,
     String? outputPath,
-  }) : path = outputPath ?? _carapaceSpecPath(registry.name, development);
+  }) : path =
+           outputPath ??
+           _carapaceSpecPath(_commandName(registryMap.map), development);
 
-  final CommandRegistry registry;
+  final RegistryMap registryMap;
   final bool development;
   final String path;
 
-  /// Writes the converted registry and returns the created file.
+  /// Writes the converted registry map and returns the created file.
   File write() {
     final file = File(path);
     file.parent.createSync(recursive: true);
-    file.writeAsStringSync(CarapaceSpecConverter(registry).convert());
+    file.writeAsStringSync(CarapaceSpecConverter(registryMap).convert());
     return file;
   }
 }
@@ -81,30 +79,236 @@ String _carapaceConfigDirectory() {
 
 String? _joinHome(String? home, String first, [String? second]) {
   if (home == null) return null;
-  return [home, first, if (second != null) second].join(Platform.pathSeparator);
+  return [home, first, ?second].join(Platform.pathSeparator);
 }
 
-/// Renders [registry] as the spec map for one command level.
-///
-/// The root level contributes only `name` plus the shared command body;
-/// descendants repeat that shape nested under `commands:`.
-Map<String, dynamic> _specFor(CommandRegistry registry) => {
-  'name': registry.name,
-  ..._commandBody(registry),
+/// Builds the root Carapace map from a validated command registry map.
+Map<String, dynamic> _specFor(Map<String, dynamic> registry) => {
+  'name': _commandName(registry),
+  ..._commandBody(registry, isRoot: true),
 };
 
-/// Combines short and long descriptions exactly like the registry export.
-String _descriptionFor(CommandRegistry registry) =>
-    registry.longDescription == null
-    ? registry.shortDescription
-    : '${registry.shortDescription}\n\n${registry.longDescription}';
+/// Translates one command and its descendants into the Carapace command body.
+Map<String, dynamic> _commandBody(
+  Map<String, dynamic> command, {
+  required bool isRoot,
+}) {
+  final flagEntries = <String, Object>{};
+  final persistentEntries = <String, Object>{};
+  final exclusiveGroups = <List<String>>[];
+
+  void placeEntry(
+    String name,
+    bool persistent,
+    String key,
+    String? description, {
+    Object? defaultValue,
+  }) {
+    (persistent ? persistentEntries : flagEntries)[key] = _entryValue(
+      description,
+      defaultValue,
+    );
+  }
+
+  void placeFlag(String name, Map<String, dynamic> flag, bool persistent) {
+    final booleanFlag = flag.containsKey('default');
+    placeEntry(
+      name,
+      persistent,
+      _inputKey(
+        name: name,
+        short: flag['short'] as String?,
+        repeatable: !booleanFlag,
+        mandatory: false,
+        hidden: flag['hidden'] as bool,
+        takesValue: false,
+      ),
+      flag['description'] as String?,
+      defaultValue: booleanFlag && flag['default'] == true ? true : null,
+    );
+  }
+
+  void placeOption(
+    String name,
+    Map<String, dynamic> option,
+    bool persistent, {
+    bool? required,
+    bool? hidden,
+  }) {
+    placeEntry(
+      name,
+      persistent,
+      _inputKey(
+        name: name,
+        short: option['short'] as String?,
+        repeatable: option['repeatable'] == true,
+        mandatory: required ?? option['required'] as bool,
+        hidden: hidden ?? option['hidden'] as bool,
+        takesValue: true,
+      ),
+      option['description'] as String?,
+      defaultValue: option['default'],
+    );
+  }
+
+  void placeOptions(Map<String, dynamic>? options, bool persistent) {
+    if (options == null) return;
+    final pairedMembers = <String>{
+      for (final value in options.values)
+        if (value is Map) ..._stringList(_map(value)['pairedOptions']),
+    };
+
+    for (final entry in options.entries) {
+      final name = entry.key;
+      final option = _map(entry.value);
+      final pairedOptions = _stringList(option['pairedOptions']);
+      if (pairedOptions.isNotEmpty) {
+        if (option['variant'] == true) {
+          exclusiveGroups.add([name, ...pairedOptions]);
+          continue;
+        }
+        placeOption(name, option, persistent);
+        for (final pairName in pairedOptions) {
+          final pairValue = options[pairName];
+          if (pairValue is Map) {
+            placeOption(
+              pairName,
+              _map(pairValue),
+              persistent,
+              required: option['required'] as bool,
+              hidden: false,
+            );
+          }
+        }
+        continue;
+      }
+      if (pairedMembers.contains(name)) continue;
+      placeOption(name, option, persistent);
+    }
+  }
+
+  void placeFlags(Map<String, dynamic>? flags, bool persistent) {
+    if (flags == null) return;
+    for (final entry in flags.entries) {
+      placeFlag(entry.key, _map(entry.value), persistent);
+    }
+  }
+
+  final localFlags = _mapOrNull(command['flags']);
+  final localOptions = _mapOrNull(command['options']);
+  final persistentFlags = _withoutLocalOverrides(
+    _mapOrNull(command['persistentFlags']),
+    localFlags?.keys,
+  );
+  final persistentOptions = _withoutLocalOverrides(
+    _mapOrNull(command['persistentOptions']),
+    localOptions?.keys,
+  );
+  placeFlags(localFlags, isRoot);
+  placeFlags(persistentFlags, true);
+  placeOptions(localOptions, isRoot);
+  placeOptions(persistentOptions, true);
+
+  final body = <String, dynamic>{
+    'description': command['description'] as String,
+  };
+  final aliases = command['aliases'];
+  if (aliases != null) body['aliases'] = _stringList(aliases);
+  if (flagEntries.isNotEmpty) body['flags'] = flagEntries;
+  if (persistentEntries.isNotEmpty) body['persistentflags'] = persistentEntries;
+  if (exclusiveGroups.isNotEmpty) body['exclusiveflags'] = exclusiveGroups;
+
+  final completion = _completionFor(command);
+  if (completion.isNotEmpty) body['completion'] = completion;
+
+  final commands = _mapOrNull(command['commands']);
+  if (commands != null) {
+    body['commands'] = [
+      for (final child in commands.values)
+        if (child is Map)
+          {
+            'name': _commandName(_map(child)),
+            ..._commandBody(_map(child), isRoot: false),
+          },
+    ];
+  }
+  return body;
+}
+
+/// Builds completion values from semantic metadata carried by one map level.
+Map<String, dynamic> _completionFor(Map<String, dynamic> command) {
+  final positionalChoices = <List<String>>[];
+  final flagChoices = <String, List<String>>{};
+  const intRange = [r'$carapace.number.Range({start: 0, end: 1000})'];
+  const doubleRange = [
+    r"$carapace.number.Range({format: '%.2f', start: 0, end: 1000})",
+  ];
+
+  final positionals = _mapOrNull(command['positionals']);
+  if (positionals != null) {
+    for (final positionalValue in positionals.values) {
+      final positional = _map(positionalValue);
+      final choices = _stringList(positional['choices']);
+      final values = choices.isEmpty
+          ? const [r'$files']
+          : _choicePairs(choices);
+      final times = positional['repeatable'] == true
+          ? positional['times'] as int? ?? 0
+          : 0;
+      for (var slot = 0; slot <= times; slot++) {
+        positionalChoices.add(values);
+      }
+    }
+  }
+
+  // Paired option completions are intentionally unchanged from the
+  // registry-backed converter: only ordinary local options publish values.
+  final options = _mapOrNull(command['options']);
+  if (options != null) {
+    final pairedMembers = <String>{
+      for (final value in options.values)
+        if (value is Map) ..._stringList(_map(value)['pairedOptions']),
+    };
+    for (final entry in options.entries) {
+      final option = _map(entry.value);
+      if (option.containsKey('pairedOptions') ||
+          pairedMembers.contains(entry.key)) {
+        continue;
+      }
+      switch (option['valueType']) {
+        case 'string':
+          flagChoices[entry.key] = const [r'$files'];
+        case 'int':
+          flagChoices[entry.key] = intRange;
+        case 'double':
+          flagChoices[entry.key] = doubleRange;
+      }
+    }
+  }
+
+  final dashChoices = <List<String>>[];
+  final dashAnyChoices = <String>[];
+  final variadic = _mapOrNull(command['variadic']);
+  if (variadic != null) {
+    final choices = _stringList(variadic['choices']);
+    if (choices.isEmpty) {
+      dashChoices.add(const [r'$files']);
+    } else if (variadic['repeatable'] == true) {
+      dashAnyChoices.addAll(choices);
+    } else {
+      dashChoices.add(_choicePairs(choices));
+    }
+  }
+
+  return {
+    if (positionalChoices.isNotEmpty) 'positional': positionalChoices,
+    if (flagChoices.isNotEmpty) 'flag': flagChoices,
+    if (dashChoices.isNotEmpty) 'dash': dashChoices,
+    if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
+  };
+}
 
 /// Builds the ordered Carapace key for one named input.
-///
-/// Modifiers follow `<key><repeatability><optionality><appearance><arity>`
-/// and always attach to the long flag; the optional short alias is prefixed.
-/// Value-taking inputs fill the optionality slot with `!` when required and
-/// `?` otherwise, while flags carry no optionality or arity.
 String _inputKey({
   required String name,
   required String? short,
@@ -119,283 +323,37 @@ String _inputKey({
     '${hidden ? '&' : ''}'
     '${takesValue ? '=' : ''}';
 
-/// Wraps a description and optional default into the entry value.
-///
-/// Entries with a default render as an object so Carapace can complete the
-/// fallback; everything else stays a bare description string.
+/// Wraps a description and optional default into the Carapace entry shape.
 Object _entryValue(String? description, Object? defaultValue) =>
     defaultValue == null
     ? (description ?? '')
     : {'description': description ?? '', 'default': defaultValue};
 
-/// Extracts the registered choice default from any input that carries one.
-Object? _choiceDefault(NamedInput input) => switch (input) {
-  ChoiceOption(:final defaultValue) ||
-  PairedChoiceOption(:final defaultValue) ||
-  PairChoiceOption(:final defaultValue) => defaultValue?.name,
-  _ => null,
+String _commandName(Map<String, dynamic> command) => command['name'] as String;
+
+Map<String, dynamic>? _mapOrNull(Object? value) =>
+    value is Map ? _map(value) : null;
+
+Map<String, dynamic> _map(Object? value) =>
+    Map<String, dynamic>.from(value as Map);
+
+Map<String, dynamic>? _withoutLocalOverrides(
+  Map<String, dynamic>? persistentInputs,
+  Iterable<String>? localNames,
+) {
+  if (persistentInputs == null) return null;
+  final localNameSet = localNames?.toSet() ?? const <String>{};
+  return {
+    for (final entry in persistentInputs.entries)
+      if (!localNameSet.contains(entry.key)) entry.key: entry.value,
+  };
+}
+
+List<String> _stringList(Object? value) => switch (value) {
+  List() => value.cast<String>(),
+  _ => const [],
 };
 
-/// Collects the rendered body shared by every spec level.
-///
-/// Each registry writes only the inputs it publishes. Carapace applies a
-/// command's `persistentflags` to its descendants, so repeating ancestor
-/// inputs in every nested command would be redundant and misleading.
-Map<String, dynamic> _commandBody(CommandRegistry registry) {
-  final persistentFlags = [...?registry.publishedFlags];
-  final persistentOptions = [...?registry.publishedOptions];
-  final persistentFlagNames = {for (final flag in persistentFlags) flag.name};
-  final persistentOptionNames = {
-    for (final option in persistentOptions) option.name,
-  };
-
-  final localFlagNames = {
-    ...?registry.boolFlags?.keys,
-    ...?registry.countFlags?.keys,
-  };
-  // A local same-name definition replaces the inherited input entirely.
-  final effectivePersistentFlags = persistentFlags
-      .where((flag) => !localFlagNames.contains(flag.name))
-      .toList();
-
-  final localOptionNames = {
-    ...?registry.singleOptions?.keys,
-    ...?registry.repeatedOptions?.keys,
-    ...?registry.pairedOptions?.keys,
-  };
-  final effectivePersistentOptions = persistentOptions
-      .where((option) => !localOptionNames.contains(option.name))
-      .toList();
-
-  final boolFlags = [
-    ...effectivePersistentFlags.whereType<BooleanFlag>(),
-    ...?registry.boolFlags?.values,
-  ];
-  final countFlags = [
-    ...effectivePersistentFlags.whereType<CountFlag>(),
-    ...?registry.countFlags?.values,
-  ];
-  final singleOptions = [
-    ...effectivePersistentOptions.whereType<SingleOption>(),
-    ...?registry.singleOptions?.values,
-  ];
-  final repeatedOptions = [
-    ...effectivePersistentOptions.whereType<RepeatableOption>(),
-    ...?registry.repeatedOptions?.values,
-  ];
-  final pairedOptions = [
-    ...effectivePersistentOptions.whereType<PairedOption>(),
-    ...?registry.pairedOptions?.values,
-  ];
-
-  final flagEntries = <String, Object>{};
-  final persistentEntries = <String, Object>{};
-  final exclusiveGroups = <List<String>>[];
-
-  // Published inputs stay on their declaring command; local inputs stay in
-  // flags. Carapace propagates persistent flags to descendants.
-  void placeEntry(
-    String name,
-    bool persistent,
-    String key,
-    String? description, {
-    Object? defaultValue,
-  }) {
-    (persistent ? persistentEntries : flagEntries)[key] = _entryValue(
-      description,
-      defaultValue,
-    );
-  }
-
-  void placeOption(Option option, {required bool repeatable}) {
-    placeEntry(
-      option.name,
-      persistentOptionNames.contains(option.name),
-      _inputKey(
-        name: option.name,
-        short: option.short,
-        repeatable: repeatable,
-        mandatory: option.required,
-        hidden: option.hidden,
-        takesValue: true,
-      ),
-      option.description,
-      defaultValue: _choiceDefault(option),
-    );
-  }
-
-  // Pair members share their group's placement, so a published paired option
-  // keeps its members together under persistentflags.
-  void placePairedGroup(PairedOption paired, {required bool repeatable}) {
-    final persistent = persistentOptionNames.contains(paired.name);
-    placeEntry(
-      paired.name,
-      persistent,
-      _inputKey(
-        name: paired.name,
-        short: paired.short,
-        repeatable: repeatable,
-        mandatory: paired.required,
-        hidden: paired.hidden,
-        takesValue: true,
-      ),
-      paired.description,
-      defaultValue: _choiceDefault(paired),
-    );
-    for (final member in paired.options) {
-      placeEntry(
-        member.name,
-        persistent,
-        _inputKey(
-          name: member.name,
-          short: member.short,
-          repeatable: member is RepeatablePairOption,
-          mandatory: paired.required,
-          hidden: false,
-          takesValue: true,
-        ),
-        member.description,
-        defaultValue: _choiceDefault(member),
-      );
-    }
-  }
-
-  for (final flag in [...boolFlags, ...countFlags]) {
-    placeEntry(
-      flag.name,
-      persistentFlagNames.contains(flag.name),
-      _inputKey(
-        name: flag.name,
-        short: flag.short,
-        repeatable: flag is CountFlag,
-        mandatory: false,
-        hidden: flag.hidden,
-        takesValue: false,
-      ),
-      flag.description,
-      // Only a flipped boolean default is worth publishing; the parser
-      // already treats absent flags as false.
-      defaultValue: flag is BooleanFlag && flag.defaultValue == true
-          ? true
-          : null,
-    );
-  }
-
-  for (final option in [...singleOptions, ...repeatedOptions]) {
-    placeOption(option, repeatable: option is RepeatableOption);
-  }
-
-  // Variant paired options are alternatives, so they render as exclusive
-  // groups instead of ordinary entries; required-together groups render all
-  // members as plain entries sharing the group's requiredness.
-  for (final paired in pairedOptions) {
-    if (paired.variant) {
-      exclusiveGroups.add([
-        paired.name,
-        for (final member in paired.options) member.name,
-      ]);
-      continue;
-    }
-    placePairedGroup(paired, repeatable: paired is RepeatablePairedOption);
-  }
-
-  final body = <String, dynamic>{'description': _descriptionFor(registry)};
-  if (registry.commandAliases case final aliases?) body['aliases'] = aliases;
-  if (flagEntries.isNotEmpty) body['flags'] = flagEntries;
-  if (persistentEntries.isNotEmpty) body['persistentflags'] = persistentEntries;
-  if (exclusiveGroups.isNotEmpty) body['exclusiveflags'] = exclusiveGroups;
-
-  final completion = _completionFor(registry);
-  if (completion.isNotEmpty) body['completion'] = completion;
-
-  if (registry.commandRegistries case final children?) {
-    body['commands'] = [
-      for (final child in children)
-        {'name': child.name, ..._commandBody(child)},
-    ];
-  }
-  return body;
-}
-
-/// Exposes choice positionals and variadics through Carapace completion.
-///
-/// Choice positionals fill `positional`; a repeated choice positional fills
-/// one bounded slot per accepted value (its `times` repetitions plus the
-/// original) because Mamba has no unbounded positional. String options fill
-/// `completion.flag`, and every remaining ordinary positional or variadic
-/// completes `$files` by default. Numeric options complete a finite default
-/// range from 0 to 1000 because Carapace has no unbounded number producer.
-Map<String, dynamic> _completionFor(CommandRegistry registry) {
-  final positionalChoices = <List<String>>[];
-  final flagChoices = <String, List<String>>{};
-  const intRange = [r'$carapace.number.Range({start: 0, end: 1000})'];
-  // Money-style doubles complete with at most two decimal places.
-  const doubleRange = [
-    r"$carapace.number.Range({format: '%.2f', start: 0, end: 1000})",
-  ];
-
-  for (final positional in [
-    ...?registry.mandatoryPositionals?.values,
-    ...?registry.discretionaryPositionals?.values,
-  ]) {
-    switch (positional) {
-      case RepeatedChoicePositional(:final choices, :final times):
-        for (var slot = 0; slot <= times; slot++) {
-          positionalChoices.add(_choicePairs(choices));
-        }
-      case ChoicePositional(:final choices):
-        positionalChoices.add(_choicePairs(choices));
-      case RepeatedPositional(times: final times):
-        for (var slot = 0; slot <= times; slot++) {
-          positionalChoices.add(const [r'$files']);
-        }
-      default:
-        positionalChoices.add(const [r'$files']);
-    }
-  }
-
-  // Each completion request expands one decimal digit so the finite Carapace
-  // action can cover an unbounded numeric domain without command execution.
-  for (final option in [
-    ...?registry.singleOptions?.values,
-    ...?registry.repeatedOptions?.values,
-  ]) {
-    switch (option) {
-      case StringOption():
-        flagChoices[option.name] = const [r'$files'];
-      case IntOption() || RepeatableIntOption():
-        flagChoices[option.name] = intRange;
-      case DoubleOption() || RepeatableDoubleOption():
-        flagChoices[option.name] = doubleRange;
-      default:
-        break;
-    }
-  }
-
-  // Repeated choice variadics must be tested before their base class or the
-  // ChoiceVariadic pattern would absorb them.
-  final dashChoices = <List<String>>[];
-  final dashAnyChoices = <String>[];
-  switch (registry.variadic) {
-    case RepeatedChoiceVariadic(:final choices):
-      dashAnyChoices.addAll(choices.map((choice) => choice.name));
-    case ChoiceVariadic(:final choices):
-      dashChoices.add(_choicePairs(choices));
-    case NormalVariadic():
-      dashChoices.add(const [r'$files']);
-    default:
-      break;
-  }
-
-  return {
-    if (positionalChoices.isNotEmpty) 'positional': positionalChoices,
-    if (flagChoices.isNotEmpty) 'flag': flagChoices,
-    if (dashChoices.isNotEmpty) 'dash': dashChoices,
-    if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
-  };
-}
-
-/// Repeats each enum choice as its own completion value and description.
-List<String> _choicePairs(List<Enum> choices) => [
-  for (final choice in choices) ...[choice.name, choice.name],
+List<String> _choicePairs(List<String> choices) => [
+  for (final choice in choices) ...[choice, choice],
 ];

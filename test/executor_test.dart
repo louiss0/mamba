@@ -38,6 +38,31 @@ void main() {
     });
   });
 
+  group('completion commands', () {
+    test('receive the complete root map when nested', () async {
+      final completion = _CompletionCommand();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        commands: [
+          _DefaultGroup([completion], defaultSubCommandPath: ['completion']),
+        ],
+      ).fake();
+
+      final result = await executor.execute(['group']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect((result as MambaSuccessResult).output, 'mamba');
+      final commands =
+          completion.registryMap.map['commands'] as Map<String, dynamic>;
+      final group = commands['group'] as Map<String, dynamic>;
+      expect(
+        (group['commands'] as Map<String, dynamic>).containsKey('completion'),
+        isTrue,
+      );
+    });
+  });
+
   group('global inputs', () {
     test('parses built-in and custom root inputs for a command', () async {
       final executor = Executor(
@@ -179,6 +204,21 @@ final class _Command extends Command {
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
   ) => '';
+}
+
+final class _CompletionCommand extends CompletionCommand {
+  @override
+  String get name => 'completion';
+
+  @override
+  String get shortDescription => 'A completion command.';
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) => registryMap.map['name'] as String;
 }
 
 final class _InputCommand extends Command {

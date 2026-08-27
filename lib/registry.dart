@@ -262,7 +262,8 @@ final class CommandRegistry {
 
   /// Exports this registry as a serializable command description.
   ///
-  /// Includes every registry name so exported command trees are self-contained.
+  /// Includes input kinds, pairing, repetition, and published inputs so map
+  /// consumers can reproduce the complete command surface.
   Map<String, dynamic> toMap() {
     final description = longDescription == null
         ? shortDescription
@@ -276,38 +277,22 @@ final class CommandRegistry {
     final registeredBooleanFlags = boolFlags;
     final registeredCountFlags = countFlags;
     if (registeredBooleanFlags != null || registeredCountFlags != null) {
-      map['flags'] = {
-        for (final flag
-            in registeredBooleanFlags?.values ?? const <BooleanFlag>[])
-          flag.name: _mapBooleanFlag(flag),
-        for (final flag in registeredCountFlags?.values ?? const <CountFlag>[])
-          flag.name: _mapCountFlag(flag),
-      };
+      map['flags'] = _mapFlags(
+        registeredBooleanFlags?.values,
+        registeredCountFlags?.values,
+      );
     }
 
-    final registeredSingleOptions = singleOptions;
-    final registeredRepeatedOptions = repeatedOptions;
-    final registeredPairedOptions = pairedOptions;
-    if (registeredSingleOptions != null ||
-        registeredRepeatedOptions != null ||
-        registeredPairedOptions != null) {
-      map['options'] = {
-        for (final option
-            in registeredSingleOptions?.values ?? const <SingleOption>[])
-          option.name: _mapOption(option),
-        for (final option
-            in registeredRepeatedOptions?.values ?? const <RepeatableOption>[])
-          option.name: _mapOption(option),
-        for (final pairedOption
-            in registeredPairedOptions?.values ?? const <PairedOption>[])
-          pairedOption.name: _mapOption(pairedOption),
-        for (final pairOption
-            in registeredPairedOptions?.values.expand(
-                  (option) => option.options,
-                ) ??
-                const <PairOption>[])
-          pairOption.name: _mapOption(pairOption),
-      };
+    final localOptions = <Option>[
+      ...?singleOptions?.values,
+      ...?repeatedOptions?.values,
+      ...?pairedOptions?.values,
+    ];
+    if (localOptions.isNotEmpty ||
+        singleOptions != null ||
+        repeatedOptions != null ||
+        pairedOptions != null) {
+      map['options'] = _mapOptions(localOptions);
     }
 
     final registeredMandatoryPositionals = mandatoryPositionals;
@@ -317,11 +302,11 @@ final class CommandRegistry {
       map['positionals'] = {
         for (final positional
             in registeredMandatoryPositionals?.values ?? const <Positional>[])
-          positional.name: _mapPositional(positional.name, positional, true),
+          positional.name: _mapPositional(positional, true),
         for (final positional
             in registeredDiscretionaryPositionals?.values ??
                 const <Positional>[])
-          positional.name: _mapPositional(positional.name, positional, false),
+          positional.name: _mapPositional(positional, false),
       };
     }
 
@@ -338,6 +323,23 @@ final class CommandRegistry {
       };
     }
 
+    // Root inputs are already represented by flags and options. Only groups
+    // need separate published collections to retain the distinction between
+    // local and descendant-published inputs.
+    if (parent != null) {
+      final persistentFlags = publishedFlags;
+      if (persistentFlags != null) {
+        map['persistentFlags'] = _mapFlags(
+          persistentFlags.whereType<BooleanFlag>(),
+          persistentFlags.whereType<CountFlag>(),
+        );
+      }
+      final persistentOptions = publishedOptions;
+      if (persistentOptions != null) {
+        map['persistentOptions'] = _mapOptions(persistentOptions);
+      }
+    }
+
     final registeredCommands = commandRegistries;
     if (registeredCommands != null) {
       map['commands'] = {
@@ -346,6 +348,16 @@ final class CommandRegistry {
     }
     return map;
   }
+
+  static Map<String, dynamic> _mapFlags(
+    Iterable<BooleanFlag>? booleanFlags,
+    Iterable<CountFlag>? countFlags,
+  ) => {
+    for (final flag in booleanFlags ?? const <BooleanFlag>[])
+      flag.name: _mapBooleanFlag(flag),
+    for (final flag in countFlags ?? const <CountFlag>[])
+      flag.name: _mapCountFlag(flag),
+  };
 
   static Map<String, dynamic> _mapBooleanFlag(BooleanFlag flag) => {
     'short': flag.short,
@@ -361,9 +373,17 @@ final class CommandRegistry {
     'description': flag.description,
   };
 
+  static Map<String, dynamic> _mapOptions(Iterable<Option> options) {
+    final pairedOptions = options.whereType<PairedOption>().toList();
+    return {
+      for (final option in options) option.name: _mapOption(option),
+      for (final pairOption in pairedOptions.expand((option) => option.options))
+        pairOption.name: _mapOption(pairOption),
+    };
+  }
+
   static Map<String, dynamic> _mapOption(NamedInput input) {
     final (
-      name,
       short,
       required,
       hidden,
@@ -373,57 +393,29 @@ final class CommandRegistry {
       choiceData,
     ) = switch (input) {
       Option(
-        name: final name,
         short: final short,
         required: final required,
         hidden: final hidden,
         description: final description,
       ) =>
         (
-          name,
           short,
           required,
           hidden,
           description,
           input is RepeatableOption || input is RepeatablePairedOption,
           input is PairedOption && input.variant,
-          switch (input) {
-            ChoiceOption(choices: final choices, defaultValue: final value) ||
-            PairedChoiceOption(
-              choices: final choices,
-              defaultValue: final value,
-            ) => {
-              'choices': choices.map((choice) => choice.name).toList(),
-              if (value != null) 'default': value.name,
-            },
-            _ => const <String, dynamic>{},
-          },
+          _mapChoiceData(input),
         ),
-      PairOption(
-        name: final name,
-        short: final short,
-        description: final description,
-      ) =>
-        (
-          name,
-          short,
-          false,
-          false,
-          description,
-          input is RepeatablePairOption,
-          false,
-          switch (input) {
-            PairChoiceOption(
-              choices: final choices,
-              defaultValue: final value,
-            ) =>
-              {
-                'choices': choices.map((choice) => choice.name).toList(),
-                if (value != null) 'default': value.name,
-              },
-            _ => const <String, dynamic>{},
-          },
-        ),
+      PairOption(short: final short, description: final description) => (
+        short,
+        false,
+        false,
+        description,
+        input is RepeatablePairOption,
+        false,
+        _mapChoiceData(input),
+      ),
       _ => throw ArgumentError('Expected an option input'),
     };
     return {
@@ -434,25 +426,79 @@ final class CommandRegistry {
       if (repeatable) 'repeatable': true,
       if (variant) 'variant': true,
       ...choiceData,
+      'valueType': _mapOptionValueType(input),
+      if (input is PairedOption)
+        'pairedOptions': input.options.map((option) => option.name).toList(),
     };
   }
 
+  static Map<String, dynamic> _mapChoiceData(NamedInput input) =>
+      switch (input) {
+        ChoiceOption(choices: final choices, defaultValue: final value) ||
+        PairedChoiceOption(choices: final choices, defaultValue: final value) ||
+        PairChoiceOption(choices: final choices, defaultValue: final value) ||
+        ChoicePositional(choices: final choices, defaultValue: final value) ||
+        RepeatedChoicePositional(
+          choices: final choices,
+          defaultValue: final value,
+        ) => {
+          'choices': choices.map((choice) => choice.name).toList(),
+          if (value != null) 'default': value.name,
+        },
+        _ => const <String, dynamic>{},
+      };
+
+  static String _mapOptionValueType(NamedInput input) => switch (input) {
+    StringOption() ||
+    RepeatableStringOption() ||
+    PairedStringOption() ||
+    RepeatablePairedStringOption() ||
+    PairStringOption() ||
+    RepeatablePairStringOption() => 'string',
+    IntOption() ||
+    RepeatableIntOption() ||
+    PairedIntOption() ||
+    RepeatablePairedIntOption() ||
+    PairIntOption() ||
+    RepeatablePairIntOption() => 'int',
+    DoubleOption() ||
+    RepeatableDoubleOption() ||
+    PairedDoubleOption() ||
+    RepeatablePairedDoubleOption() ||
+    PairDoubleOption() ||
+    RepeatablePairDoubleOption() => 'double',
+    ChoiceOption() || PairedChoiceOption() || PairChoiceOption() => 'choice',
+    _ => throw ArgumentError('Expected an option input'),
+  };
+
   static Map<String, dynamic> _mapPositional(
-    String name,
     Positional positional,
     bool required,
-  ) => {'required': required, 'description': positional.description};
-
-  static Map<String, dynamic> _mapVariadic(
-    Variadic variadic,
-  ) => switch (variadic) {
-    ChoiceVariadic(:final description, :final choices, :final defaultValue) => {
-      'description': description,
-      'choices': choices.map((choice) => choice.name).toList(),
-      'default': ?defaultValue?.name,
+  ) => {
+    'required': required,
+    'description': positional.description,
+    ..._mapChoiceData(positional),
+    if (positional is RepeatedPositional) ...{
+      'repeatable': true,
+      'times': positional.times,
     },
-    NormalVariadic(:final description) => {'description': description},
   };
+
+  static Map<String, dynamic> _mapVariadic(Variadic variadic) {
+    final map = switch (variadic) {
+      ChoiceVariadic(:final description, :final choices, :final defaultValue) =>
+        {
+          'description': description,
+          'choices': choices.map((choice) => choice.name).toList(),
+          'default': ?defaultValue?.name,
+        },
+      NormalVariadic(:final description) => {'description': description},
+    };
+    if (variadic is RepeatedChoiceVariadic) {
+      map['repeatable'] = true;
+    }
+    return map;
+  }
 
   static Object _mapAccessorList(
     AccessorListOption accessor, {
