@@ -23,17 +23,10 @@ mixin RegExpValidated {
   static final RegExp anyToken = RegExp(r"\S+");
 }
 
-/// Validates candidate values against registered enum-member names.
-///
-/// Inputs expose their members through [choices]; the shared [isValidChoice]
-/// check keeps choice validation identical for every choice input.
+/// Exposes the enum members available to a choice input.
 mixin ChoiceValidated<T extends Enum> {
   /// Members every validated value must name.
   List<T> get choices;
-
-  /// Whether [value] names one of the [choices].
-  bool isValidChoice(String value) =>
-      choices.any((choice) => choice.name == value);
 }
 
 /// A regex-validated value registered in a command's positional sequence.

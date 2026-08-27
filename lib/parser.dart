@@ -563,7 +563,7 @@ class Parser {
     String value,
   ) {
     final names = input.choices.map((choice) => choice.name).toList();
-    if (!input.isValidChoice(value)) {
+    if (!_hasChoice(input.choices, value)) {
       throw MambaParseException(
         '$value is not a valid choice for $name\nMust be one of: $names',
       );
@@ -593,6 +593,9 @@ class Parser {
     final match = regex.firstMatch(value);
     return match != null && match.start == 0 && match.end == value.length;
   }
+
+  bool _hasChoice<T extends Enum>(List<T> choices, String value) =>
+      choices.any((choice) => choice.name == value);
 
   bool _isNegativeNumber(String value) =>
       _matchesEntirely(RegExp(r'-(?:\d+\.?\d*|\.\d+)'), value);
@@ -852,8 +855,8 @@ class Parser {
 
   bool _isValidPositionalValue(Positional positional, String value) =>
       switch (positional) {
-        ChoicePositional() => positional.isValidChoice(value),
-        RepeatedChoicePositional() => positional.isValidChoice(value),
+        ChoicePositional() => _hasChoice(positional.choices, value),
+        RepeatedChoicePositional() => _hasChoice(positional.choices, value),
         _ => _matchesEntirely(positional.regex, value),
       };
 
@@ -873,7 +876,7 @@ class Parser {
           switch (variadic) {
             NormalVariadic() when _matchesEntirely(variadic.regex, value) =>
               value,
-            ChoiceVariadic() when variadic.isValidChoice(value) => value,
+            ChoiceVariadic() when _hasChoice(variadic.choices, value) => value,
             _ => throw MambaParseException(
               "The term at index $index isn't accepted by "
               'the ${variadic.name} variadic',
