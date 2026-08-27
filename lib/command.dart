@@ -23,6 +23,8 @@ mixin RegExpValidated {
   /// Pattern every validated value must match entirely.
   RegExp get regex;
 
+  static final RegExp anyToken = RegExp(r"\S+");
+
   /// Whether [value] is a complete match of [regex].
   bool matchesEntirely(String value) {
     final match = regex.firstMatch(value);
@@ -49,10 +51,8 @@ mixin ChoiceValidated<T extends Enum> {
 /// parser stores its complete-token match in [ParsedPositionals], and help
 /// renders it as required or optional usage respectively.
 class Positional extends NamedInput with RegExpValidated {
-  static final RegExp anyToken = RegExp(r"\S+");
-
   Positional(String name, {String? description, RegExp? regex})
-    : _regExp = regex ?? anyToken,
+    : _regExp = regex ?? RegExpValidated.anyToken,
       super(name, description);
 
   final RegExp _regExp;
@@ -92,7 +92,7 @@ final class NormalVariadic extends Variadic with RegExpValidated {
   final RegExp regExp;
 
   NormalVariadic(super.name, {super.description, RegExp? regExp})
-    : regExp = regExp ?? Positional.anyToken;
+    : regExp = regExp ?? RegExpValidated.anyToken;
 
   @override
   RegExp get regex => regExp;
