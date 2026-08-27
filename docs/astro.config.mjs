@@ -2,17 +2,30 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
+const siteUrl = process.env.PUBLIC_SITE_URL;
+
 // https://astro.build/config
 export default defineConfig({
+	site: siteUrl,
 	integrations: [
 		starlight({
-			title: 'My Docs',
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
+			title: 'Mamba',
+			description: 'A list-defined Dart framework for command-line applications.',
+			logo: {
+				src: './src/assets/Mamba-Small-Logo.png',
+				alt: 'Mamba',
+				replacesTitle: true,
+			},
+			favicon: '/mamba-small-logo.png',
+			customCss: ['./src/styles/mamba.css'],
+			components: {
+				Head: './src/components/Head.astro',
+			},
+			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/louiss0/mamba' }],
 			sidebar: [
 				{
 					label: 'Guides',
 					items: [
-						// Each item here is one entry in the navigation menu.
 						{ label: 'Example Guide', slug: 'guides/example' },
 					],
 				},

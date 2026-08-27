@@ -1,0 +1,28 @@
+---
+import { SEO } from 'astro-seo';
+
+const { entry, head, siteTitle } = Astro.locals.starlightRoute;
+const description = entry.data.description ?? 'A list-defined Dart framework for command-line applications.';
+const title = entry.data.title === siteTitle ? siteTitle : `${entry.data.title} | ${siteTitle}`;
+const shouldRenderSeo = Astro.site !== undefined;
+
+const headWithoutSeoTags = head.filter(({ tag, attrs }) => {
+	if (!shouldRenderSeo) return true;
+	if (tag === 'title' || (tag === 'link' && attrs?.rel === 'canonical')) return false;
+	if (tag !== 'meta') return true;
+
+	return (
+		attrs?.name !== 'description' &&
+		attrs?.name !== 'twitter:card' &&
+		!attrs?.property?.startsWith('og:')
+	);
+});
+---
+
+{
+	shouldRenderSeo && (
+		<SEO title={title} description={description} robotsExtras="max-image-preview:large" />
+	)
+}
+
+{headWithoutSeoTags.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}

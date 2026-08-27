@@ -1,0 +1,40 @@
+@layer starlight.base {
+	:root,
+	::backdrop {
+		--mamba-bright: #b3cd58;
+		--mamba-primary: #92c362;
+		--mamba-mid: #81ac4e;
+		--mamba-deep: #50631e;
+		--mamba-black: #11130a;
+
+		--sl-color-white: #ffffff;
+		--sl-color-gray-1: #edf0df;
+		--sl-color-gray-2: #c8ceb5;
+		--sl-color-gray-3: #929980;
+		--sl-color-gray-4: #626957;
+		--sl-color-gray-5: #303629;
+		--sl-color-gray-6: #1c2016;
+		--sl-color-black: var(--mamba-black);
+
+		--sl-color-accent-low: var(--mamba-deep);
+		--sl-color-accent: var(--mamba-primary);
+		--sl-color-accent-high: var(--mamba-bright);
+	}
+
+	:root[data-theme='light'],
+	[data-theme='light'] ::backdrop {
+		--sl-color-white: var(--mamba-black);
+		--sl-color-gray-1: #29301f;
+		--sl-color-gray-2: #4c5740;
+		--sl-color-gray-3: #727c66;
+		--sl-color-gray-4: #a8b09b;
+		--sl-color-gray-5: #dfe5d5;
+		--sl-color-gray-6: #f1f4e9;
+		--sl-color-gray-7: #f8faf3;
+		--sl-color-black: #ffffff;
+
+		--sl-color-accent-low: #e3ecc4;
+		--sl-color-accent: var(--mamba-deep);
+		--sl-color-accent-high: var(--mamba-deep);
+	}
+}
