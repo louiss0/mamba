@@ -551,7 +551,7 @@ class Parser {
   }
 
   String _parseRegExpValidated(RegExpValidated input, String value) {
-    if (!input.matchesEntirely(value)) {
+    if (!_matchesEntirely(input.regex, value)) {
       throw MambaParseException("This value doesn't satify the requirement");
     }
     return value;
@@ -779,13 +779,8 @@ class Parser {
     // coverage:ignore-end
   };
 
-  ({
-    Map<String, String>? singles,
-    Map<String, List<String>>? repeated,
-  }) _parsePositionals(
-    CommandRegistry registry,
-    List<String> values,
-  ) {
+  ({Map<String, String>? singles, Map<String, List<String>>? repeated})
+  _parsePositionals(CommandRegistry registry, List<String> values) {
     final mandatory =
         registry.mandatoryPositionals?.values.toList() ?? const <Positional>[];
     final discretionary =
@@ -859,7 +854,7 @@ class Parser {
       switch (positional) {
         ChoicePositional() => positional.isValidChoice(value),
         RepeatedChoicePositional() => positional.isValidChoice(value),
-        _ => positional.matchesEntirely(value),
+        _ => _matchesEntirely(positional.regex, value),
       };
 
   /// Collects values after `--` into the registered variadic.
@@ -876,7 +871,8 @@ class Parser {
       variadic.name: [
         for (final (index, value) in values.indexed)
           switch (variadic) {
-            NormalVariadic() when variadic.matchesEntirely(value) => value,
+            NormalVariadic() when _matchesEntirely(variadic.regex, value) =>
+              value,
             ChoiceVariadic() when variadic.isValidChoice(value) => value,
             _ => throw MambaParseException(
               "The term at index $index isn't accepted by "

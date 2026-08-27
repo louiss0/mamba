@@ -15,21 +15,12 @@ sealed class NamedInput {
   final String? description;
 }
 
-/// Validates candidate values against a pattern that must match entirely.
-///
-/// Inputs expose their pattern through [regex]; the shared [matchesEntirely]
-/// check keeps whole-token validation identical for every regex input.
+/// Exposes the pattern used to validate candidate values.
 mixin RegExpValidated {
   /// Pattern every validated value must match entirely.
   RegExp get regex;
 
   static final RegExp anyToken = RegExp(r"\S+");
-
-  /// Whether [value] is a complete match of [regex].
-  bool matchesEntirely(String value) {
-    final match = regex.firstMatch(value);
-    return match != null && match.start == 0 && match.end == value.length;
-  }
 }
 
 /// Validates candidate values against registered enum-member names.
