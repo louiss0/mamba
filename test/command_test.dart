@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
@@ -295,5 +296,540 @@ void main() {
         throwsFormatException,
       );
     });
+  });
+
+  group('RegistryMap', () {
+    Map<String, dynamic> registryMap([Map<String, dynamic>? properties]) => {
+      'name': 'tool',
+      'description': 'A test command.',
+      ...?properties,
+    };
+
+    Map<String, dynamic> booleanFlag() => {
+      'short': null,
+      'default': false,
+      'negatable': false,
+      'hidden': false,
+      'description': null,
+    };
+
+    Map<String, dynamic> countFlag() => {
+      'short': 'v',
+      'hidden': false,
+      'description': null,
+    };
+
+    Map<String, dynamic> option() => {
+      'short': null,
+      'required': false,
+      'hidden': false,
+      'description': null,
+    };
+
+    Map<String, dynamic> positional() => {
+      'required': true,
+      'description': null,
+    };
+
+    Matcher hasInvalidProperty(String path, Object? value) => throwsA(
+      isA<ArgumentError>()
+          .having((error) => error.name, 'argument name', path)
+          .having((error) => error.invalidValue, 'invalid value', value),
+    );
+
+    ({Map<String, dynamic> root, Map<String, dynamic> leaf, List<String> names})
+    nestedCommandMap(int depth) {
+      final root = registryMap();
+      var leaf = root;
+      final names = <String>[];
+      for (var index = 1; index <= depth; index++) {
+        final name = 'command$index';
+        final child = registryMap();
+        leaf['commands'] = {name: child};
+        leaf = child;
+        names.add(name);
+      }
+      return (root: root, leaf: leaf, names: names);
+    }
+
+    String nestedPath(List<String> names, String suffix) => [
+      for (final name in names) ...['commands', name],
+      suffix,
+    ].join('.');
+
+    final invalidDescendantProperties =
+        <
+          ({
+            String description,
+            Object? invalidValue,
+            String suffix,
+            void Function(Map<String, dynamic> map) write,
+          })
+        >[
+          (
+            description: 'a non-string flag short alias',
+            invalidValue: 1,
+            suffix: 'flags.verbose.short',
+            write: (map) =>
+                map['flags'] = {'verbose': booleanFlag()..['short'] = 1},
+          ),
+          (
+            description: 'a non-boolean flag default',
+            invalidValue: 'false',
+            suffix: 'flags.verbose.default',
+            write: (map) => map['flags'] = {
+              'verbose': booleanFlag()..['default'] = 'false',
+            },
+          ),
+          (
+            description: 'a non-boolean flag negatable value',
+            invalidValue: 1,
+            suffix: 'flags.verbose.negatable',
+            write: (map) =>
+                map['flags'] = {'verbose': booleanFlag()..['negatable'] = 1},
+          ),
+          (
+            description: 'a non-boolean flag hidden value',
+            invalidValue: 'no',
+            suffix: 'flags.verbose.hidden',
+            write: (map) =>
+                map['flags'] = {'verbose': booleanFlag()..['hidden'] = 'no'},
+          ),
+          (
+            description: 'a non-string flag description',
+            invalidValue: 1,
+            suffix: 'flags.verbose.description',
+            write: (map) =>
+                map['flags'] = {'verbose': booleanFlag()..['description'] = 1},
+          ),
+          (
+            description: 'a non-boolean persistent flag hidden value',
+            invalidValue: 'no',
+            suffix: 'persistentFlags.verbose.hidden',
+            write: (map) => map['persistentFlags'] = {
+              'verbose': countFlag()..['hidden'] = 'no',
+            },
+          ),
+          (
+            description: 'a non-string option short alias',
+            invalidValue: 1,
+            suffix: 'options.output.short',
+            write: (map) =>
+                map['options'] = {'output': option()..['short'] = 1},
+          ),
+          (
+            description: 'a non-boolean option required value',
+            invalidValue: 'yes',
+            suffix: 'options.output.required',
+            write: (map) =>
+                map['options'] = {'output': option()..['required'] = 'yes'},
+          ),
+          (
+            description: 'a non-boolean option hidden value',
+            invalidValue: 1,
+            suffix: 'options.output.hidden',
+            write: (map) =>
+                map['options'] = {'output': option()..['hidden'] = 1},
+          ),
+          (
+            description: 'a non-string option description',
+            invalidValue: 1,
+            suffix: 'options.output.description',
+            write: (map) =>
+                map['options'] = {'output': option()..['description'] = 1},
+          ),
+          (
+            description: 'a non-boolean option repeatable value',
+            invalidValue: 'yes',
+            suffix: 'options.output.repeatable',
+            write: (map) =>
+                map['options'] = {'output': option()..['repeatable'] = 'yes'},
+          ),
+          (
+            description: 'a non-boolean option variant value',
+            invalidValue: 'yes',
+            suffix: 'options.output.variant',
+            write: (map) =>
+                map['options'] = {'output': option()..['variant'] = 'yes'},
+          ),
+          (
+            description: 'a non-string choice option member',
+            invalidValue: 1,
+            suffix: 'options.output.choices.1',
+            write: (map) => map['options'] = {
+              'output': option()..['choices'] = ['json', 1],
+            },
+          ),
+          (
+            description: 'a non-string choice option default',
+            invalidValue: 1,
+            suffix: 'options.output.default',
+            write: (map) =>
+                map['options'] = {'output': option()..['default'] = 1},
+          ),
+          (
+            description: 'a non-boolean persistent option required value',
+            invalidValue: 'yes',
+            suffix: 'persistentOptions.output.required',
+            write: (map) => map['persistentOptions'] = {
+              'output': option()..['required'] = 'yes',
+            },
+          ),
+          (
+            description: 'a non-boolean positional required value',
+            invalidValue: 'yes',
+            suffix: 'positionals.path.required',
+            write: (map) => map['positionals'] = {
+              'path': positional()..['required'] = 'yes',
+            },
+          ),
+          (
+            description: 'a non-string positional description',
+            invalidValue: 1,
+            suffix: 'positionals.path.description',
+            write: (map) => map['positionals'] = {
+              'path': positional()..['description'] = 1,
+            },
+          ),
+          (
+            description: 'a non-string variadic description',
+            invalidValue: 1,
+            suffix: 'variadic.description',
+            write: (map) => map['variadic'] = {'description': 1},
+          ),
+          (
+            description: 'a non-string variadic choice member',
+            invalidValue: 1,
+            suffix: 'variadic.choices.1',
+            write: (map) => map['variadic'] = {
+              'description': null,
+              'choices': ['json', 1],
+            },
+          ),
+          (
+            description: 'a non-string variadic default',
+            invalidValue: 1,
+            suffix: 'variadic.default',
+            write: (map) => map['variadic'] = {
+              'description': null,
+              'choices': ['json'],
+              'default': 1,
+            },
+          ),
+          (
+            description: 'a non-string alias',
+            invalidValue: 1,
+            suffix: 'aliases.1',
+            write: (map) => map['aliases'] = ['t', 1],
+          ),
+          (
+            description: 'a non-boolean accessor hidden value',
+            invalidValue: 'no',
+            suffix: 'accessors.config.hidden',
+            write: (map) => map['accessors'] = {
+              'config': {
+                'hidden': 'no',
+                'description': null,
+                'options': <String, dynamic>{},
+              },
+            },
+          ),
+          (
+            description: 'a non-map accessor options value',
+            invalidValue: 'not a map',
+            suffix: 'accessors.config.options',
+            write: (map) => map['accessors'] = {
+              'config': {'description': null, 'options': 'not a map'},
+            },
+          ),
+          (
+            description: 'a non-string accessor description',
+            invalidValue: 1,
+            suffix: 'accessors.config.options.port.description',
+            write: (map) => map['accessors'] = {
+              'config': {
+                'description': null,
+                'options': {
+                  'port': {'description': 1},
+                },
+              },
+            },
+          ),
+          (
+            description: 'an unsupported command property',
+            invalidValue: true,
+            suffix: 'unsupported',
+            write: (map) => map['unsupported'] = true,
+          ),
+          (
+            description: 'a non-string nested command name',
+            invalidValue: 1,
+            suffix: 'commands.broken.name',
+            write: (map) => map['commands'] = {
+              'broken': {'name': 1, 'description': 'A broken command.'},
+            },
+          ),
+          (
+            description: 'a non-string nested command description',
+            invalidValue: 1,
+            suffix: 'commands.broken.description',
+            write: (map) => map['commands'] = {
+              'broken': {'name': 'broken', 'description': 1},
+            },
+          ),
+        ];
+
+    test(
+      'accepts every property and value shape written by CommandRegistry.toMap',
+      () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'A test command.',
+          flags: [
+            BooleanFlag(
+              'color',
+              defaultValue: true,
+              negatable: true,
+              hidden: true,
+              description: 'Use ANSI colors.',
+            ),
+            CountFlag(
+              'verbose',
+              short: 'v',
+              description: 'Increase verbosity.',
+            ),
+          ],
+          options: [
+            ChoiceOption<OutputFormat>(
+              'format',
+              choices: OutputFormat.values,
+              defaultValue: OutputFormat.yaml,
+              description: 'The output format.',
+            ),
+            RepeatableStringOption('tag', description: 'A tag to include.'),
+            StringOption(
+              'profile',
+              regex: RegExp(r'\\S+'),
+              required: true,
+              hidden: true,
+              description: 'The configuration profile.',
+            ),
+          ],
+          pairedOptions: [
+            PairedStringOption(
+              'mode',
+              variant: true,
+              description: 'The preferred mode.',
+              options: [
+                PairStringOption(
+                  'legacy-mode',
+                  description: 'The legacy mode.',
+                ),
+              ],
+            ),
+          ],
+          mandatoryPositionals: [
+            Positional('path', description: 'A local path.'),
+          ],
+          variadic: ChoiceVariadic<OutputFormat>(
+            'files',
+            choices: OutputFormat.values,
+            description: 'Files after the separator.',
+          ),
+          accessors: [
+            AccessorListOption(
+              'config',
+              description: 'A configuration object.',
+              options: [
+                AccessorStringOption(
+                  'path',
+                  description: 'The configuration path.',
+                ),
+              ],
+            ),
+            AccessorListOption(
+              'server',
+              options: [
+                AccessorListOption(
+                  'network',
+                  options: [
+                    AccessorIntOption('port', description: 'The server port.'),
+                  ],
+                ),
+                AccessorStringOption(
+                  'hidden',
+                  description: 'An accessor named hidden.',
+                ),
+              ],
+            ),
+          ],
+        );
+        final mapWithEveryOptionalProperty = registryMap({
+          'aliases': ['t'],
+          'persistentFlags': {'verbose': countFlag()},
+          'persistentOptions': {'format': option()},
+          'commands': {
+            'sub': {
+              'name': 'sub',
+              'description': 'A subcommand.',
+              'aliases': ['s'],
+            },
+          },
+        });
+
+        expect(() => RegistryMap(registry.toMap()), returnsNormally);
+        expect(
+          () => RegistryMap(mapWithEveryOptionalProperty),
+          returnsNormally,
+        );
+      },
+    );
+
+    test('requires name and description', () {
+      for (final property in ['name', 'description']) {
+        final map = registryMap()..remove(property);
+        expect(() => RegistryMap(map), hasInvalidProperty(property, map));
+      }
+    });
+
+    test('validates name and description as strings', () {
+      for (final property in ['name', 'description']) {
+        final map = registryMap({property: 1});
+        expect(() => RegistryMap(map), hasInvalidProperty(property, 1));
+      }
+    });
+
+    test('rejects unsupported command properties', () {
+      final map = registryMap({'unsupported': true});
+
+      expect(() => RegistryMap(map), hasInvalidProperty('unsupported', true));
+    });
+
+    test('requires props when an input entry is present', () {
+      final cases =
+          <({String property, Map<String, dynamic> value, String path})>[
+            (
+              property: 'flags',
+              value: {'verbose': {}},
+              path: 'flags.verbose.hidden',
+            ),
+            (
+              property: 'persistentFlags',
+              value: {'verbose': {}},
+              path: 'persistentFlags.verbose.hidden',
+            ),
+            (
+              property: 'options',
+              value: {'output': {}},
+              path: 'options.output.short',
+            ),
+            (
+              property: 'persistentOptions',
+              value: {'output': {}},
+              path: 'persistentOptions.output.short',
+            ),
+            (
+              property: 'positionals',
+              value: {'path': {}},
+              path: 'positionals.path.required',
+            ),
+          ];
+
+      for (final entry in cases) {
+        final map = registryMap({entry.property: entry.value});
+        expect(
+          () => RegistryMap(map),
+          hasInvalidProperty(entry.path, entry.value.values.single),
+        );
+      }
+    });
+
+    test('requires variadic props when variadic is present', () {
+      final map = registryMap({'variadic': <String, dynamic>{}});
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('variadic.description', map['variadic']),
+      );
+    });
+
+    test('validates the collection type for every map property', () {
+      final properties = [
+        'flags',
+        'persistentFlags',
+        'options',
+        'persistentOptions',
+        'positionals',
+        'variadic',
+        'commands',
+        'accessors',
+      ];
+      for (final property in properties) {
+        final map = registryMap({property: 'not a map'});
+        expect(
+          () => RegistryMap(map),
+          hasInvalidProperty(property, 'not a map'),
+        );
+      }
+    });
+
+    test('validates aliases as a list of strings', () {
+      final map = registryMap({'aliases': 'tool'});
+
+      expect(() => RegistryMap(map), hasInvalidProperty('aliases', 'tool'));
+    });
+
+    test('requires non-empty string keys in input collections', () {
+      final nonStringKeyMap = registryMap({
+        'flags': {1: booleanFlag()},
+      });
+      final emptyKeyMap = registryMap({
+        'options': {'': option()},
+      });
+
+      expect(
+        () => RegistryMap(nonStringKeyMap),
+        hasInvalidProperty('flags', 1),
+      );
+      expect(() => RegistryMap(emptyKeyMap), hasInvalidProperty('options', ''));
+    });
+
+    test('requires each nested command name and description', () {
+      for (final property in ['name', 'description']) {
+        final map = registryMap({
+          'commands': {
+            'sub': {
+              if (property != 'name') 'name': 'sub',
+              if (property != 'description') 'description': 'A subcommand.',
+            },
+          },
+        });
+        expect(
+          () => RegistryMap(map),
+          hasInvalidProperty('commands.sub.$property', map['commands']['sub']),
+        );
+      }
+    });
+
+    for (final depth in [1, 2, 3, 4, 5]) {
+      final commandPath = List.generate(
+        depth,
+        (index) => 'command${index + 1}',
+      ).join(' > ');
+      group('nested commands at depth $depth', () {
+        for (final property in invalidDescendantProperties) {
+          test('reports ${property.description} below $commandPath', () {
+            final nested = nestedCommandMap(depth);
+            property.write(nested.leaf);
+            final path = nestedPath(nested.names, property.suffix);
+
+            expect(
+              () => RegistryMap(nested.root),
+              hasInvalidProperty(path, property.invalidValue),
+            );
+          });
+        }
+      });
+    }
   });
 }

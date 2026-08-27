@@ -827,6 +827,363 @@ abstract class GroupCommand extends Command {
   }
 }
 
+/// Properties accepted in a serialised [CommandRegistry] map.
+///
+/// Each property validates the shape written by [CommandRegistry.toMap]. The
+/// optional [path] preserves the full location of malformed nested data in an
+/// [ArgumentError].
+enum RegistryMapProps {
+  name,
+  description,
+  flags,
+  persistentFlags,
+  persistentOptions,
+  options,
+  commands,
+  accessors,
+  aliases,
+  positionals,
+  variadic;
+
+  String get propertyName => switch (this) {
+    RegistryMapProps.name => 'name',
+    RegistryMapProps.description => 'description',
+    RegistryMapProps.flags => 'flags',
+    RegistryMapProps.persistentFlags => 'persistentFlags',
+    RegistryMapProps.persistentOptions => 'persistentOptions',
+    RegistryMapProps.options => 'options',
+    RegistryMapProps.commands => 'commands',
+    RegistryMapProps.accessors => 'accessors',
+    RegistryMapProps.aliases => 'aliases',
+    RegistryMapProps.positionals => 'positionals',
+    RegistryMapProps.variadic => 'variadic',
+  };
+
+  Object? parse(Object? value, [String? path]) {
+    final propertyPath = path ?? propertyName;
+    switch (this) {
+      case RegistryMapProps.name:
+      case RegistryMapProps.description:
+        _expectString(value, propertyPath);
+      case RegistryMapProps.flags:
+      case RegistryMapProps.persistentFlags:
+        _parseInputCollection(value, propertyPath, _parseFlag);
+      case RegistryMapProps.options:
+      case RegistryMapProps.persistentOptions:
+        _parseInputCollection(value, propertyPath, _parseOption);
+      case RegistryMapProps.commands:
+        _parseCommands(value, propertyPath);
+      case RegistryMapProps.accessors:
+        _parseAccessors(value, propertyPath);
+      case RegistryMapProps.aliases:
+        _parseAliases(value, propertyPath);
+      case RegistryMapProps.positionals:
+        _parseInputCollection(value, propertyPath, _parsePositional);
+      case RegistryMapProps.variadic:
+        _parseVariadic(value, propertyPath);
+    }
+    return value;
+  }
+}
+
+/// A validated serialisable representation of a command registry.
+///
+/// The root map and every nested command must contain a string `name` and
+/// `description`. All other registry properties are optional.
+extension type RegistryMap._(Map<String, dynamic> map) {
+  RegistryMap(Map<String, dynamic> map) : this._(_parse(map));
+
+  static Map<String, dynamic> _parse(Map<String, dynamic> map) {
+    _parseCommand(map, '');
+    return Map<String, dynamic>.unmodifiable(map);
+  }
+}
+
+void _parseCommand(Map<Object?, Object?> value, String path) {
+  final properties = _stringMap(value, path);
+  _validateProperties(
+    properties,
+    path,
+    RegistryMapProps.values.map((property) => property.propertyName).toSet(),
+    const {'name', 'description'},
+  );
+
+  for (final property in RegistryMapProps.values) {
+    final propertyValue = properties[property.propertyName];
+    if (propertyValue != null ||
+        properties.containsKey(property.propertyName)) {
+      property.parse(
+        propertyValue,
+        _joinRegistryPath(path, property.propertyName),
+      );
+    }
+  }
+}
+
+void _parseCommands(Object? value, String path) {
+  final commands = _stringMap(value, path);
+  for (final entry in commands.entries) {
+    final commandPath = _joinRegistryPath(path, entry.key);
+    _parseCommand(_map(entry.value, commandPath), commandPath);
+  }
+}
+
+void _parseInputCollection(
+  Object? value,
+  String path,
+  void Function(Map<String, Object?> value, String path) parseInput,
+) {
+  final inputs = _stringMap(value, path);
+  for (final entry in inputs.entries) {
+    final inputPath = _joinRegistryPath(path, entry.key);
+    parseInput(_map(entry.value, inputPath), inputPath);
+  }
+}
+
+void _parseFlag(Map<String, Object?> value, String path) {
+  const commonProperties = {'hidden', 'description'};
+  const booleanProperties = {'short', 'default', 'negatable'};
+  final isBoolean =
+      value.containsKey('default') || value.containsKey('negatable');
+  _validateProperties(
+    value,
+    path,
+    {...commonProperties, ...booleanProperties},
+    isBoolean ? {...commonProperties, ...booleanProperties} : commonProperties,
+  );
+
+  _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
+  _expectString(
+    value['description'],
+    _joinRegistryPath(path, 'description'),
+    nullable: true,
+  );
+
+  if (isBoolean) {
+    _expectString(
+      value['short'],
+      _joinRegistryPath(path, 'short'),
+      nullable: true,
+    );
+    _expectBool(value['default'], _joinRegistryPath(path, 'default'));
+    _expectBool(value['negatable'], _joinRegistryPath(path, 'negatable'));
+  } else if (value.containsKey('short')) {
+    _expectString(value['short'], _joinRegistryPath(path, 'short'));
+  }
+}
+
+void _parseOption(Map<String, Object?> value, String path) {
+  const requiredProperties = {'short', 'required', 'hidden', 'description'};
+  const optionalProperties = {'repeatable', 'variant', 'choices', 'default'};
+  _validateProperties(value, path, {
+    ...requiredProperties,
+    ...optionalProperties,
+  }, requiredProperties);
+
+  _expectString(
+    value['short'],
+    _joinRegistryPath(path, 'short'),
+    nullable: true,
+  );
+  _expectBool(value['required'], _joinRegistryPath(path, 'required'));
+  _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
+  _expectString(
+    value['description'],
+    _joinRegistryPath(path, 'description'),
+    nullable: true,
+  );
+
+  if (value.containsKey('repeatable')) {
+    _expectBool(value['repeatable'], _joinRegistryPath(path, 'repeatable'));
+  }
+  if (value.containsKey('variant')) {
+    _expectBool(value['variant'], _joinRegistryPath(path, 'variant'));
+  }
+  if (value.containsKey('choices')) {
+    _parseStringList(value['choices'], _joinRegistryPath(path, 'choices'));
+  }
+  if (value.containsKey('default')) {
+    _expectString(value['default'], _joinRegistryPath(path, 'default'));
+  }
+}
+
+void _parsePositional(Map<String, Object?> value, String path) {
+  const properties = {'required', 'description'};
+  _validateProperties(value, path, properties, properties);
+  _expectBool(value['required'], _joinRegistryPath(path, 'required'));
+  _expectString(
+    value['description'],
+    _joinRegistryPath(path, 'description'),
+    nullable: true,
+  );
+}
+
+void _parseVariadic(Object? value, String path) {
+  final variadic = _map(value, path);
+  const requiredProperties = {'description'};
+  const optionalProperties = {'choices', 'default'};
+  _validateProperties(variadic, path, {
+    ...requiredProperties,
+    ...optionalProperties,
+  }, requiredProperties);
+  _expectString(
+    variadic['description'],
+    _joinRegistryPath(path, 'description'),
+    nullable: true,
+  );
+  if (variadic.containsKey('choices')) {
+    _parseStringList(variadic['choices'], _joinRegistryPath(path, 'choices'));
+  }
+  if (variadic.containsKey('default')) {
+    _expectString(variadic['default'], _joinRegistryPath(path, 'default'));
+  }
+}
+
+void _parseAliases(Object? value, String path) => _parseStringList(value, path);
+
+void _parseAccessors(Object? value, String path) {
+  final accessors = _stringMap(value, path);
+  for (final entry in accessors.entries) {
+    _parseAccessorRoot(
+      _map(entry.value, _joinRegistryPath(path, entry.key)),
+      _joinRegistryPath(path, entry.key),
+    );
+  }
+}
+
+void _parseAccessorRoot(Map<String, Object?> value, String path) {
+  if (value.containsKey('options')) {
+    const properties = {'hidden', 'description', 'options'};
+    _validateProperties(value, path, properties, {'description', 'options'});
+    _parseHiddenAccessor(value, path);
+
+    final options = _stringMap(
+      value['options'],
+      _joinRegistryPath(path, 'options'),
+    );
+    for (final entry in options.entries) {
+      final optionPath = _joinRegistryPath(
+        _joinRegistryPath(path, 'options'),
+        entry.key,
+      );
+      final option = _map(entry.value, optionPath);
+      _validateProperties(option, optionPath, {'description'}, {'description'});
+      _expectString(
+        option['description'],
+        _joinRegistryPath(optionPath, 'description'),
+        nullable: true,
+      );
+    }
+    return;
+  }
+  _parseAccessorBranch(value, path);
+}
+
+void _parseAccessorBranch(Map<String, Object?> value, String path) {
+  for (final entry in value.entries) {
+    final entryPath = _joinRegistryPath(path, entry.key);
+    // A nested accessor may itself be named `hidden`, so only a bool at this
+    // level is metadata; strings, nulls, and maps are accessor values.
+    if (entry.key == 'hidden' && entry.value is bool) continue;
+    if (entry.value is Map) {
+      _parseAccessorBranch(_map(entry.value, entryPath), entryPath);
+    } else {
+      _expectString(entry.value, entryPath, nullable: true);
+    }
+  }
+}
+
+void _parseHiddenAccessor(Map<String, Object?> value, String path) {
+  if (value.containsKey('hidden')) {
+    _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
+  }
+  _expectString(
+    value['description'],
+    _joinRegistryPath(path, 'description'),
+    nullable: true,
+  );
+}
+
+void _validateProperties(
+  Map<String, Object?> value,
+  String path,
+  Set<String> allowedProperties,
+  Set<String> requiredProperties,
+) {
+  for (final entry in value.entries) {
+    if (!allowedProperties.contains(entry.key)) {
+      _invalid(
+        entry.value,
+        _joinRegistryPath(path, entry.key),
+        'is not a supported registry property',
+      );
+    }
+  }
+  for (final property in requiredProperties) {
+    if (!value.containsKey(property)) {
+      _invalid(value, _joinRegistryPath(path, property), 'is required');
+    }
+  }
+}
+
+Map<String, Object?> _map(Object? value, String path) =>
+    _stringMap(value, path);
+
+Map<String, Object?> _stringMap(Object? value, String path) {
+  if (value is! Map) {
+    _invalid(value, path, 'must be a map with String keys');
+  }
+  final parsed = <String, Object?>{};
+  for (final entry in value.entries) {
+    final key = entry.key;
+    if (key is! String || key.isEmpty) {
+      _invalid(key, path, 'map keys must be non-empty Strings');
+    }
+    parsed[key] = entry.value;
+  }
+  return parsed;
+}
+
+void _parseStringList(Object? value, String path) {
+  if (value is! List) {
+    _invalid(value, path, 'must be a List<String>');
+  }
+  for (final (index, entry) in value.indexed) {
+    _expectString(entry, _joinRegistryPath(path, index.toString()));
+  }
+}
+
+void _expectString(Object? value, String path, {bool nullable = false}) {
+  if (value == null && nullable) return;
+  if (value is! String) _invalid(value, path, 'must be a String');
+}
+
+void _expectBool(Object? value, String path) {
+  if (value is! bool) _invalid(value, path, 'must be a bool');
+}
+
+String _joinRegistryPath(String parent, String property) =>
+    parent.isEmpty ? property : '$parent.$property';
+
+Never _invalid(Object? value, String path, String message) =>
+    throw ArgumentError.value(value, path, message);
+
+abstract class CompletionCommand extends Command {
+  late final RegistryMap registryMap;
+
+  CompletionCommand({
+    super.longDescription,
+    super.aliases,
+    super.mandatoryPositionals,
+    super.discretionaryPositionals,
+    super.variadic,
+    super.flags,
+    super.options,
+    super.pairedOptions,
+    super.accessors,
+  });
+}
+
 /// Standard input captured for a selected command's pre-run hook.
 ///
 /// The executor provides this only when standard input is piped. Consumers can
