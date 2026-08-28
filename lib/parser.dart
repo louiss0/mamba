@@ -640,10 +640,7 @@ class Parser {
         ),
       };
       if (!present) {
-        final message = option is StringOption
-            ? 'The ${option.name} is required'
-            : 'Option --${option.name} is required';
-        throw MambaParseException(message);
+        throw MambaParseException('Option --${option.name} is required.');
       }
     }
   }

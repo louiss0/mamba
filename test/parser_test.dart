@@ -1021,6 +1021,25 @@ void main() {
       }
     });
 
+    test('uses one message for every missing required option', () {
+      final subject = parser(
+        options: [
+          StringOption('output', required: true, regex: RegExp(r'\S+')),
+        ],
+      );
+
+      expect(
+        () => subject.parse([]),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            'Option --output is required.',
+          ),
+        ),
+      );
+    });
+
     test('accepts negative numbers as inline and separate option values', () {
       final subject = parser(
         options: [
