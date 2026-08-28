@@ -965,6 +965,24 @@ void main() {
       });
     });
 
+    test('applies omitted paired choice defaults', () {
+      final inputs = parser(
+        pairedOptions: [
+          PairedOptions(
+            options: [
+              PairChoiceOption(
+                'format',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+            ],
+          ),
+        ],
+      ).parse([]).$3;
+
+      expect(inputs.stringOptions, {'format': 'auto'});
+    });
+
     test('rejects invalid choice values', () {
       expectParseError(
         parser(options: [ChoiceOption('mode', choices: Mode.values)]),
@@ -1336,7 +1354,7 @@ void main() {
       });
     });
 
-    test('rejects leftover values when no variadic is registered', () {
+    test('rejects leftover values when no other postionals are registered', () {
       final subject = parser(mandatoryPositionals: [Positional('source')]);
 
       expectParseError(subject, ['source', 'extra']);

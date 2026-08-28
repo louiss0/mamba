@@ -576,9 +576,14 @@ class Parser {
     CommandRegistry registry,
     Map<String, String> values,
   ) {
-    for (final option
-        in registry.singleOptions?.values ?? const <SingleOption>[]) {
-      if (option case ChoiceOption(defaultValue: final defaultValue?)) {
+    final options = [
+      ...?registry.singleOptions?.values,
+      ..._registeredPairOptions(registry),
+    ];
+    for (final option in options) {
+      if (option
+          case ChoiceOption(defaultValue: final defaultValue?) ||
+              PairChoiceOption(defaultValue: final defaultValue?)) {
         values.putIfAbsent(option.name, () => defaultValue.name);
       }
     }
