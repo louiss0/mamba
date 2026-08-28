@@ -992,6 +992,23 @@ void main() {
       },
     );
 
+    test('identifies the option and value rejected by a regex', () {
+      final subject = parser(
+        options: [StringOption('output', regex: RegExp(r'^valid$'))],
+      );
+
+      expect(
+        () => subject.parse(['--output', 'invalid']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            "Option --output does not accept 'invalid'.",
+          ),
+        ),
+      );
+    });
+
     test('identifies unknown long inputs as flags or options', () {
       final subject = parser();
 

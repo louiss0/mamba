@@ -495,7 +495,8 @@ class Parser {
 
   String _parseRegExpValidated(RegExpValidated input, String value) {
     if (!_matchesEntirely(input.regex, value)) {
-      throw MambaParseException("This value doesn't satify the requirement");
+      final name = (input as NamedInput).name;
+      throw MambaParseException("Option --$name does not accept '$value'.");
     }
     return value;
   }
