@@ -147,7 +147,7 @@ Map<String, dynamic> buildRegistryExpectation(
     if (entry.positionals case final positionals?)
       'positionals': mapPositionals(positionals),
     if (entry.accessors case final accessors?)
-      'accessors': mapAccessors(accessors, root: false),
+      'accessors': mapAccessors(accessors),
     if (entry.commands case final commands?)
       'commands': {
         for (final command in commands) command.name: mapCommand(command),
@@ -1452,10 +1452,15 @@ void main() {
             'description': null,
           });
           expect(exported['accessors']['internal'], {
+            'kind': 'group',
             'hidden': true,
             'description': null,
             'options': {
-              'trace-id': {'description': null},
+              'trace-id': {
+                'kind': 'value',
+                'valueType': 'string',
+                'description': null,
+              },
             },
           });
         });
@@ -1817,35 +1822,36 @@ void main() {
         () => CommandRegistry.create('tool', ''),
         throwsA(isA<MambaException>()),
       );
+      expect(() => CommandRegistry.create('tool', 'x' * 150), returnsNormally);
       expect(
-        () => CommandRegistry.create('tool', 'x' * 150),
+        () => CommandRegistry.create('tool', 'x' * 151),
         throwsA(isA<MambaException>()),
       );
-      expect(() => CommandRegistry.create('tool', 'x' * 149), returnsNormally);
     });
 
-    test('accepts letter-led alphanumeric and hyphenated input names', () {
+    test('accepts shared letter-led hyphen and underscore names', () {
       final registry = CommandRegistry.create(
-        'tool',
+        'build_release-candidate',
         'Tool command.',
         flags: [
-          BooleanFlag('verbose2', short: 'v'),
+          BooleanFlag('dry_run-candidate', short: 'v'),
           BooleanFlag('dry-run'),
         ],
         options: [
-          IntOption('retry2', short: 'r'),
+          IntOption('retry_limit', short: 'r'),
           IntOption('back-off'),
         ],
       );
 
-      expect(registry.boolFlags, contains('verbose2'));
+      expect(registry.name, 'build_release-candidate');
+      expect(registry.boolFlags, contains('dry_run-candidate'));
       expect(registry.boolFlags, contains('dry-run'));
-      expect(registry.singleOptions, contains('retry2'));
+      expect(registry.singleOptions, contains('retry_limit'));
       expect(registry.singleOptions, contains('back-off'));
     });
 
-    test('rejects input names outside the letter-led supported form', () {
-      for (final name in ['2fast', 'dry_run', 'verbose!']) {
+    test('rejects input names outside the shared letter-led word form', () {
+      for (final name in ['2fast', 'dry__run', 'verbose!']) {
         expect(
           () => CommandRegistry.create(
             'tool',
@@ -2036,7 +2042,7 @@ void main() {
     test('rejects invalid and duplicate list definitions', () {
       expect(
         () => CommandRegistry.create('bad name', 'Tool command.'),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => CommandRegistry.create(

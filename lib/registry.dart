@@ -724,10 +724,8 @@ final class CommandRegistry {
     ];
   }
 
-  static final RegExp _keyboardSymbol = RegExp(r'[^A-Za-z0-9_-]');
-  static final RegExp _namedInputName = RegExp(r'^[A-Za-z][A-Za-z0-9-]*$');
+  static final RegExp _inputName = RegExp(r'^[A-Za-z]+(?:[-_][A-Za-z]+)*$');
   static final RegExp _shortInputName = RegExp(r'^[A-Za-z]$');
-  static final RegExp _number = RegExp(r'\d');
 
   static Map<String, T>? _indexByName<T extends NamedInput>(
     Iterable<T>? inputs,
@@ -822,35 +820,19 @@ final class CommandRegistry {
   }
 
   static void _validateCommandName(String name) {
-    if (name.isEmpty) throw const MambaException('Command name is empty,');
-    if (name.contains(' ')) {
-      throw const MambaException(
-        'There should no spaces in between letters for command names',
-      );
-    }
-    if (_number.hasMatch(name)) {
-      throw const MambaException('Command name should have no numbers');
-    }
-    if (name == '_') {
-      throw const MambaException("Command name can't be an underscore");
-    }
-    if (name == '-') {
-      throw const MambaException("Command name can't be a dash");
-    }
-    if (_keyboardSymbol.hasMatch(name)) {
-      throw MambaRegistryError(
-        "Command names can't use keyboard symbols other than _ or -",
-      );
-    }
+    if (_inputName.hasMatch(name)) return;
+    throw MambaRegistryError(
+      'Command names must contain letter-led words separated by hyphens or underscores.',
+    );
   }
 
   static void _validateShortDescription(String shortDescription) {
     if (shortDescription.isEmpty) {
       throw const MambaException("Short description can't be empty");
     }
-    if (shortDescription.length >= 150) {
+    if (shortDescription.length > 150) {
       throw const MambaException(
-        "Short description can't go over 150 lines of code",
+        "Short description can't exceed 150 characters.",
       );
     }
   }
@@ -868,7 +850,7 @@ final class CommandRegistry {
           'The help flag and -h alias are reserved by the executor',
         );
       }
-      if (!_namedInputName.hasMatch(input.name)) {
+      if (!_inputName.hasMatch(input.name)) {
         throw MambaRegistryError(
           '$inputKind names must use letters, numbers, or hyphens and start with a letter',
         );
@@ -935,7 +917,7 @@ final class CommandRegistry {
   }
 
   static void _validatePositionalName(String name) {
-    if (!_namedInputName.hasMatch(name)) {
+    if (!_inputName.hasMatch(name)) {
       throw MambaRegistryError(
         'Positional names must use letters, numbers, or hyphens and start with a letter',
       );
