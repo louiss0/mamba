@@ -1274,6 +1274,20 @@ void main() {
       );
     });
 
+    test('applies an omitted choice variadic default', () {
+      final variadic = parser(
+        variadic: ChoiceVariadic(
+          'modes',
+          choices: Mode.values,
+          defaultValue: Mode.auto,
+        ),
+      ).parse(['--']).$2;
+
+      expect(variadic.variadic, {
+        'modes': ['auto'],
+      });
+    });
+
     test('accepts only enum member names for a ChoiceVariadic', () {
       final subject = parser(
         variadic: ChoiceVariadic<Mode>(

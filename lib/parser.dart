@@ -848,7 +848,15 @@ class Parser {
     List<String> values,
   ) {
     final variadic = registry.variadic;
-    if (variadic == null || values.isEmpty) return null;
+    if (variadic == null) return null;
+    if (values.isEmpty) {
+      return switch (variadic) {
+        ChoiceVariadic(defaultValue: final defaultValue?) => {
+          variadic.name: [defaultValue.name],
+        },
+        _ => null,
+      };
+    }
     return {
       variadic.name: [
         for (final (index, value) in values.indexed)
