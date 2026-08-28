@@ -722,6 +722,19 @@ void main() {
       expect(result.$1, ['checkout']);
     });
 
+    test('reports an unknown child when no positional can consume it', () {
+      final subject = parser(
+        commands: [
+          _ParserGroupCommand('config', [_ParserCommand('get')]),
+        ],
+      );
+
+      expect(
+        () => subject.parse(['config', 'missing']),
+        throwsA(isA<MambaCommandNotFoundException>()),
+      );
+    });
+
     test('stops command discovery at the trailing argument separator', () {
       final result = parser(
         commands: [_ParserCommand('config')],

@@ -253,6 +253,15 @@ class Parser {
         offset += inputLength;
         continue;
       }
+      if ((registry.commandRegistries?.isNotEmpty ?? false) &&
+          registry.mandatoryPositionals == null &&
+          registry.discretionaryPositionals == null) {
+        throw MambaCommandNotFoundException(
+          token,
+          [registry.name],
+          registry.commandRegistries!.map((command) => command.name).toList(),
+        );
+      }
       break;
     }
     return command;
