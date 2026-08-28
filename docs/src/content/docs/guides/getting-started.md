@@ -9,9 +9,9 @@ After installing Mamba you should start by replacing the code in the root lib fo
 ```dart
 import "package:mamba/mamba.dart";
 
-Futture<void> main() {
+Future<void> main(List<String> args) {
   
-await Executor('my-app', "This is my app", [] ).create().execute();
+  await Executor('my-app', "This is my app", [] ).create().execute(args);
 
 }
 ```
@@ -66,27 +66,27 @@ class Run extends Command {
 Register the command! 
 
 ```dart
-Future<void> main(){
+Future<void> main(List<String> args){
   
   await Executor(
     'my-app', 
     "This is my app",
     [Run()],
-  ).create().execute();
+  ).create().execute(args);
 }
 ```
 
 Then provide the `defaultCommandPath` option. 
 
 ```dart
-Future<void> main(){
+Future<void> main(List<String> args){
   
   await Executor(
     'my-app', 
     "This is my app",
     [Run()],
     defaultCommandPath: ['run'],
-  ).create().execute();
+  ).create().execute(args);
 }
 ```
 
@@ -98,7 +98,7 @@ You'll see the default command run!
 This ran
 ```
 
-This is how you use Mamba! 
+**This is how you use Mamba!** 
 
 :::tip[Wanna see the the run in help?]
 
@@ -118,7 +118,8 @@ ___________________________________________
 
 Commands 
 
-run 
+run Run the application.
+------------------------
 ```
 
 :::tip
