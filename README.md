@@ -7,6 +7,8 @@ all come from one definition.
 [![pub package](https://img.shields.io/pub/v/mamba.svg)](https://pub.dev/packages/mamba)
 [![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
 
+![mamba logo](https://raw.githubusercontent.com/louiss0/mamba/main/assets/Mamba-CLI.png)
+
 ## Architecture
 
 Mamba keeps definition, validation, and execution separate:
