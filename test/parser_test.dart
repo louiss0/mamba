@@ -284,6 +284,20 @@ void main() {
       });
     });
 
+    test('reserves values for later mandatory positionals', () {
+      final inputs = parser(
+        mandatoryPositionals: [
+          RepeatedStringPositional('files', times: 2),
+          Positional('destination'),
+        ],
+      ).parse(['a.txt', 'b.txt', 'out']).$2;
+
+      expect(inputs.repeated, {
+        'files': ['a.txt', 'b.txt'],
+      });
+      expect(inputs.singles, {'destination': 'out'});
+    });
+
     test(
       'fills individual positionals before a trailing repeated positional',
       () {

@@ -769,7 +769,11 @@ class Parser {
     // positionals
     // are filled.
     void fill(List<Positional> registered, {required bool isMandatory}) {
-      for (final positional in registered) {
+      for (final entry in registered.indexed) {
+        final positional = entry.$2;
+        final valuesReservedForLaterMandatory = isMandatory
+            ? registered.skip(entry.$1 + 1).length
+            : 0;
         final maxCount = switch (positional) {
           RepeatedPositional() => positional.times,
           _ => null,
@@ -778,7 +782,7 @@ class Parser {
         // original, so a maxCount of 1 collects up to two values.
         if (maxCount != null) {
           final collected = <String>[];
-          while (index < values.length &&
+          while (index < values.length - valuesReservedForLaterMandatory &&
               collected.length <= maxCount &&
               _isValidPositionalValue(positional, values[index])) {
             collected.add(values[index++]);
