@@ -58,8 +58,6 @@ class Parser {
         trailingArguments.addAll(args.skip(index + 1));
         break;
       }
-      if (token.isEmpty) continue;
-
       if (token.startsWith('--') && token.length > 2) {
         final (name, inlineValue) = _splitLongOption(token.substring(2));
         if (_isAccessor(name, registry)) {
@@ -125,6 +123,7 @@ class Parser {
     }
 
     _addBooleanDefaults(registry, boolFlags);
+    _addCountDefaults(registry, countFlags);
     _addChoiceDefaults(registry, stringOptions);
     _addAccessorChoiceDefaults(registry, accessorValues);
     _validateRequiredOptions(
@@ -550,6 +549,12 @@ class Parser {
     }
   }
 
+  void _addCountDefaults(CommandRegistry registry, Map<String, int> values) {
+    for (final flag in registry.countFlags?.values ?? const <CountFlag>[]) {
+      values.putIfAbsent(flag.name, () => 0);
+    }
+  }
+
   void _addChoiceDefaults(
     CommandRegistry registry,
     Map<String, String> values,
@@ -761,7 +766,7 @@ class Parser {
         } else if (index < values.length) {
           if (!_isValidPositionalValue(positional, values[index])) {
             if (!isMandatory) {
-              throw ArgumentError(
+              throw MambaParseException(
                 'Invalid value for positional ${positional.name} at $index after the command',
               );
             }

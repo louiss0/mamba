@@ -147,13 +147,13 @@ void main() {
       expect(inputs.stringOptions, {'mode': 'auto'});
     });
 
-    test('adds Boolean defaults only to Boolean flag maps', () {
+    test('adds defaults to Boolean and count flag maps', () {
       final inputs = parser(
         flags: [BooleanFlag('color', defaultValue: true), CountFlag('verbose')],
       ).parse([]).$3;
 
       expect(inputs.boolFlags, {'color': true});
-      expect(inputs.countFlags, isEmpty);
+      expect(inputs.countFlags, {'verbose': 0});
     });
 
     test('collects arguments after -- separately from inputs', () {
@@ -1047,7 +1047,10 @@ void main() {
         ],
       );
 
-      expect(() => subject.parse(['invalid']), throwsArgumentError);
+      expect(
+        () => subject.parse(['invalid']),
+        throwsA(isA<MambaParseException>()),
+      );
     });
 
     test('requires positional expressions to match the entire value', () {
@@ -1056,6 +1059,14 @@ void main() {
       );
 
       expectParseError(subject, ['Ada']);
+    });
+
+    test('validates explicit empty positional values', () {
+      final subject = parser(
+        mandatoryPositionals: [Positional('value', regex: RegExp(r'^$'))],
+      );
+
+      expect(subject.parse(['']).$2.singles, {'value': ''});
     });
   });
 
