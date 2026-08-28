@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
-import 'package:mamba/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 

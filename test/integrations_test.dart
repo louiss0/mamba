@@ -1403,8 +1403,6 @@ commands:
           );
         });
       }
-
-      for (final depth in [2, 3, 4, 5]) {}
     });
   });
 }
