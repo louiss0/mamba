@@ -56,9 +56,9 @@ final class Executor {
 
   final List<Option>? options;
 
-  final List<String>? defaultSubCommandPath;
+  final List<String>? defaultCommandPath;
 
-  final List<Command>? commands;
+  final List<Command> commands;
 
   final MambaContext? context;
 
@@ -66,18 +66,18 @@ final class Executor {
 
   Executor(
     this.name,
-    this.shortDescription, {
+    this.shortDescription,
+    this.commands, {
     this.longDescription,
     this.accessors,
     this.flags,
     this.options,
-    List<String>? defaultSubCommandPath,
-    this.commands,
+    List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
-  }) : defaultSubCommandPath = _copyDefaultSubCommandPath(
+  }) : defaultCommandPath = _copyDefaultSubCommandPath(
          name,
-         defaultSubCommandPath,
+         defaultCommandPath,
        );
 
   /// Creates an executor for tests that returns success or failure values.
@@ -153,7 +153,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
   _Executor(Executor factory, this.writeOut, this.writeErr)
     : _helpFormatter = factory.helpFormatter ?? MambaHelpFormatter(),
       _context = factory.context ?? MambaContext(),
-      _defaultSubCommandPath = factory.defaultSubCommandPath,
+      _defaultSubCommandPath = factory.defaultCommandPath,
       _registry = CommandRegistry.create(
         factory.name,
         factory.shortDescription,

@@ -20,7 +20,7 @@ final List<Command> _taskCommands = [
 Future<void> main(List<String> args) => Executor(
   'task-cli',
   'Manage a persisted task list.',
-  commands: _taskCommands,
+  _taskCommands,
 ).create().execute(args);
 
 final class Task {

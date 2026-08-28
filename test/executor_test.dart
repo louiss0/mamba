@@ -8,7 +8,7 @@ String _withoutAnsi(String value) =>
 
 void main() {
   group('ExecutorFactory', () {
-    final factory = Executor('mamba', 'A command-line application.');
+    final factory = Executor('mamba', 'A command-line application.', []);
 
     test('creates a fake executor that returns a success result', () async {
       final MambaExecutor<MambaExecutionResult> executor = factory.fake();
@@ -44,13 +44,9 @@ void main() {
   group('completion commands', () {
     test('receive the complete root map when nested', () async {
       final completion = _CompletionCommand();
-      final executor = Executor(
-        'mamba',
-        'A command-line application.',
-        commands: [
-          _DefaultGroup([completion], defaultSubCommandPath: ['completion']),
-        ],
-      ).fake();
+      final executor = Executor('mamba', 'A command-line application.', [
+        _DefaultGroup([completion], defaultSubCommandPath: ['completion']),
+      ]).fake();
 
       final result = await executor.execute(['group']);
 
@@ -72,7 +68,7 @@ void main() {
         'mamba',
         'A command-line application.',
         options: [StringOption('config', regex: RegExp(r'\S+'))],
-        commands: [_InputCommand('run')],
+        [_InputCommand('run')],
       ).fake();
 
       final result = await executor.execute([
@@ -91,16 +87,12 @@ void main() {
     });
 
     test('resolves command help after a value-taking option', () async {
-      final executor = Executor(
-        'mamba',
-        'A command-line application.',
-        commands: [
-          _InputCommand(
-            'run',
-            options: [StringOption('config', regex: RegExp(r'\S+'))],
-          ),
-        ],
-      ).fake();
+      final executor = Executor('mamba', 'A command-line application.', [
+        _InputCommand(
+          'run',
+          options: [StringOption('config', regex: RegExp(r'\S+'))],
+        ),
+      ]).fake();
 
       final result = await executor.execute([
         'run',
@@ -121,9 +113,9 @@ void main() {
       final executor = Executor(
         'mamba',
         'A command-line application.',
+        [_InputCommand('run')],
         options: [StringOption('config', regex: RegExp(r'\S+'))],
-        defaultSubCommandPath: ['run'],
-        commands: [_InputCommand('run')],
+        defaultCommandPath: ['run'],
       ).fake();
 
       final result = await executor.execute(['--config', 'settings.json']);
@@ -137,16 +129,12 @@ void main() {
 
     test('runs child hooks when a group selects its default', () async {
       final events = <String>[];
-      final executor = Executor(
-        'mamba',
-        'A command-line application.',
-        commands: [
-          _DefaultGroup(
-            [_HookCommand('serve', events)],
-            defaultSubCommandPath: ['serve'],
-          ),
-        ],
-      ).fake();
+      final executor = Executor('mamba', 'A command-line application.', [
+        _DefaultGroup(
+          [_HookCommand('serve', events)],
+          defaultSubCommandPath: ['serve'],
+        ),
+      ]).fake();
 
       final result = await executor.execute(['group']);
 
@@ -155,16 +143,9 @@ void main() {
     });
 
     test('returns a failure for an unknown group default path', () async {
-      final executor = Executor(
-        'mamba',
-        'A command-line application.',
-        commands: [
-          _DefaultGroup(
-            [_Command('serve')],
-            defaultSubCommandPath: ['missing'],
-          ),
-        ],
-      ).fake();
+      final executor = Executor('mamba', 'A command-line application.', [
+        _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['missing']),
+      ]).fake();
 
       final result = await executor
           .execute(['group'])
@@ -180,11 +161,9 @@ void main() {
       () async {
         final events = <String>[];
         final group = _PersistentGroup(events, [_Command('serve')]);
-        final executor = Executor(
-          'mamba',
-          'A command-line application.',
-          commands: [group],
-        ).fake();
+        final executor = Executor('mamba', 'A command-line application.', [
+          group,
+        ]).fake();
 
         await executor.execute(['group', 'serve']);
 
