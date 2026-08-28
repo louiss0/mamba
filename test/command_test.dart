@@ -218,9 +218,14 @@ void main() {
   });
 
   group('Input definitions', () {
-    test('accessor numeric regexes describe their accepted shapes', () {
-      expect(AccessorIntOption('port').regex.hasMatch('80'), isTrue);
-      expect(AccessorDoubleOption('ratio').regex.hasMatch('1.5'), isTrue);
+    test('accessor numeric regexes describe parser numeric syntax', () {
+      final integer = AccessorIntOption('port').regex;
+      final decimal = AccessorDoubleOption('ratio').regex;
+
+      expect(integer.hasMatch('-80'), isTrue);
+      expect(integer.hasMatch('+80'), isTrue);
+      expect(decimal.hasMatch('-1.5'), isTrue);
+      expect(decimal.hasMatch('+1'), isTrue);
     });
 
     test('rejects negative repeated positional counts', () {

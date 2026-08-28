@@ -479,14 +479,14 @@ final class AccessorStringOption extends AccessorPrimitiveOption
 final class AccessorIntOption extends AccessorPrimitiveOption {
   AccessorIntOption(super.name, {super.description});
 
-  RegExp get regex => RegExp(r'\d+');
+  RegExp get regex => RegExp(r'[+-]?\d+');
 }
 
 /// A double leaf in a dotted accessor path.
 final class AccessorDoubleOption extends AccessorPrimitiveOption {
   AccessorDoubleOption(super.name, {super.description});
 
-  RegExp get regex => RegExp(r'\d+\.\d+');
+  RegExp get regex => RegExp(r'[+-]?(?:\d+\.\d+|\d+)');
 }
 
 /// An enum-choice leaf in a dotted accessor path.
