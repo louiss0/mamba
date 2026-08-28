@@ -655,7 +655,11 @@ abstract class GroupCommand extends Command {
     List<Command>? children = commands;
     for (final name in path) {
       command = children
-          ?.where((candidate) => candidate.name == name)
+          ?.where(
+            (candidate) =>
+                candidate.name == name ||
+                candidate.aliases?.contains(name) == true,
+          )
           .firstOrNull;
       if (command == null) {
         throw MambaException(

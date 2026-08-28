@@ -134,6 +134,14 @@ void main() {
       verifyNever(() => stashCommand.run(any(), any(), any()));
     });
 
+    test('resolves aliases in direct child command paths', () async {
+      when(() => stashCommand.aliases).thenReturn(['st']);
+
+      await groupCommand.runWithNothingBasedOnCommandPathWithNothing(['st']);
+
+      verify(() => stashCommand.run(any(), any(), any())).called(1);
+    });
+
     test('runs a relative default subcommand path', () async {
       final git = TestGroupCommand(
         'git',
