@@ -692,7 +692,6 @@ persistentflags:
         });
       });
 
-
       group("modifier combos", () {
         for (final combo in modifierCombos) {
           // Optionality fills with ! or ? only on value-taking options; flags

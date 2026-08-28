@@ -1922,8 +1922,6 @@ void main() {
       );
     });
 
-
-
     test('recursively validates nested accessor names', () {
       expect(
         () => CommandRegistry.create(
