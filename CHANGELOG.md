@@ -1,4 +1,4 @@
-## 1.2.0
+## 0.2.0
 
 - Added standalone `PairedOptions` groups with group-level `description`,
   `required`, and `variant` registered in their own list.
