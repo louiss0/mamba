@@ -177,6 +177,20 @@ void main() {
   });
 
   group('Choice positionals', () {
+    test('applies an omitted mandatory choice positional default', () {
+      final positionals = parser(
+        mandatoryPositionals: [
+          ChoicePositional(
+            'mode',
+            choices: Mode.values,
+            defaultValue: Mode.auto,
+          ),
+        ],
+      ).parse([]).$2;
+
+      expect(positionals.singles, {'mode': 'auto'});
+    });
+
     test('accepts only registered choices for a single positional', () {
       final subject = parser(
         mandatoryPositionals: [

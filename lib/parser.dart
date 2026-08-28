@@ -807,6 +807,10 @@ class Parser {
             );
           }
           singles[positional.name] = values[index++];
+        } else if (positional case ChoicePositional(
+          defaultValue: final defaultValue?,
+        )) {
+          singles[positional.name] = defaultValue.name;
         } else if (isMandatory) {
           throw MambaParseException(
             'The ${positional.name} is required at $index after this command',
