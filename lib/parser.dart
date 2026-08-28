@@ -340,9 +340,10 @@ class Parser {
         pairOptions.where((option) => option.short == name).firstOrNull;
   }
 
-  Iterable<PairOption> _registeredPairOptions(CommandRegistry registry) =>
-      registry.pairedOptions?.values.expand((option) => option.options) ??
-      const <PairOption>[];
+  Iterable<PairOption> _registeredPairOptions(CommandRegistry registry) => [
+    ...?registry.pairedOptions?.values.expand((option) => option.options),
+    ...?registry.pairedOptionGroups?.expand((group) => group.options),
+  ];
 
   (String, String?) _splitLongOption(String token) {
     final separatorIndex = token.indexOf('=');
@@ -742,6 +743,50 @@ class Parser {
       if (provided > 0 && provided != options.length) {
         throw MambaParseException(
           'Paired options ${options.map((option) => '--${option.name}').join(', ')} must be passed together',
+        );
+      }
+    }
+
+    for (final group
+        in registry.pairedOptionGroups ?? const <PairedOptions>[]) {
+      final provided = group.options
+          .where(
+            (option) => _isPairedOptionPresent(
+              option,
+              stringOptions,
+              intOptions,
+              doubleOptions,
+              repeatedStringOptions,
+              repeatedIntOptions,
+              repeatedDoubleOptions,
+            ),
+          )
+          .toList();
+      if (group.variant) {
+        if (group.required && provided.isEmpty) {
+          throw MambaParseException(
+            'One variant option is required: ${group.options.map((option) => '--${option.name}').join(', ')}',
+          );
+        }
+        if (provided.length > 1) {
+          throw MambaParseException(
+            'Variant options ${provided.map((option) => '--${option.name}').join(', ')} accept only one option',
+          );
+        }
+        continue;
+      }
+      if (group.required && provided.length != group.options.length) {
+        final missingNames = group.options
+            .where((option) => !provided.contains(option))
+            .map((option) => '--${option.name}')
+            .join(', ');
+        throw MambaParseException(
+          'Required paired options are missing: $missingNames',
+        );
+      }
+      if (provided.isNotEmpty && provided.length != group.options.length) {
+        throw MambaParseException(
+          'Paired options ${group.options.map((option) => '--${option.name}').join(', ')} must be passed together',
         );
       }
     }

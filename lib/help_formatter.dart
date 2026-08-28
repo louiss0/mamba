@@ -186,6 +186,9 @@ final class MambaHelpFormatter extends HelpFormatter {
           .where((option) => !option.hidden)
           .map(_option),
       ...?registry.pairedOptions?.values.map(_pairedOption),
+      ...?registry.pairedOptionGroups
+          ?.where((group) => group is! PairedOption)
+          .map(_pairedOptions),
     ]);
     _writeSection(
       buffer,
@@ -266,6 +269,22 @@ final class MambaHelpFormatter extends HelpFormatter {
     final description = members
         .map((member) => member.description ?? '')
         .join('; ');
+
+    return '${grammar.string} ${formatIntoEntryDescription(description).string}';
+  }
+
+  String _pairedOptions(PairedOptions group) {
+    final members = group.options;
+    final membersAfterFirst = members.skip(1).map(_pairedMember);
+    final expression = group.variant
+        ? formatIntoOrString(_pairedMember(members.first), membersAfterFirst)
+        : formatIntoPairString(_pairedMember(members.first), membersAfterFirst);
+    final grammar = group.required
+        ? formatIntoRequiredString(expression.string)
+        : formatIntoOptionalString(expression.string);
+    final description =
+        group.description ??
+        members.map((member) => member.description ?? '').join('; ');
 
     return '${grammar.string} ${formatIntoEntryDescription(description).string}';
   }

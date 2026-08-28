@@ -215,12 +215,31 @@ sealed class Option extends NamedInput {
   final bool hidden;
 }
 
+/// A standalone registration that groups pair options.
+///
+/// The group itself is not an input. Its [options] are registered and parsed as
+/// a unit; [required] makes the group mandatory and [variant] makes members
+/// alternatives.
+class PairedOptions {
+  PairedOptions({
+    required List<PairOption> options,
+    this.description,
+    this.required = false,
+    this.variant = false,
+  }) : options = List.unmodifiable(options);
+
+  final List<PairOption> options;
+  final String? description;
+  final bool required;
+  final bool variant;
+}
+
 /// A primary option registered with companion members as a group or variant.
 ///
 /// The primary and [options] use ordinary option syntax. The parser requires
 /// all members together unless [variant] is true, when it permits only one;
 /// help joins the members with ` & ` or ` | ` respectively.
-sealed class PairedOption extends Option {
+sealed class PairedOption extends Option implements PairedOptions {
   PairedOption(
     super.name, {
     required List<PairOption> options,
@@ -230,7 +249,9 @@ sealed class PairedOption extends Option {
     this.variant = false,
   }) : options = List.unmodifiable(options);
 
+  @override
   final List<PairOption> options;
+  @override
   final bool variant;
 }
 
@@ -670,7 +691,7 @@ abstract class Command {
   final Variadic? variadic;
   final List<Flag>? flags;
   final List<Option>? options;
-  final List<PairedOption>? pairedOptions;
+  final List<PairedOptions>? pairedOptions;
 
   /// Top-level accessor groups registered for this command.
   ///

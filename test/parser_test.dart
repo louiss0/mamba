@@ -10,7 +10,7 @@ Parser parser({
   List<Flag>? flags,
   List<Option>? options,
   List<AccessorListOption>? accessors,
-  List<PairedOption>? pairedOptions,
+  List<PairedOptions>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
   Variadic? variadic,
@@ -597,6 +597,94 @@ void main() {
   });
 
   group('Paired options', () {
+    test('parses a standalone paired options group', () {
+      final parsed = parser(
+        pairedOptions: [
+          PairedOptions(
+            options: [PairStringOption('username'), PairIntOption('port')],
+          ),
+        ],
+      ).parse(['--username', 'mamba', '--port', '42']);
+
+      expect(parsed.$3.stringOptions, {'username': 'mamba'});
+      expect(parsed.$3.intOptions, {'port': 42});
+    });
+
+    test('rejects a partially supplied standalone group', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            options: [PairStringOption('username'), PairIntOption('port')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, ['--username', 'mamba']);
+    });
+
+    test('reports missing required standalone group members', () {
+      expect(
+        () => parser(
+          pairedOptions: [
+            PairedOptions(
+              required: true,
+              options: [
+                PairStringOption('username', description: 'Account name.'),
+                PairIntOption('port', description: 'Server port.'),
+              ],
+            ),
+          ],
+        ).parse(['--username', 'mamba']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            'Required paired options are missing: --port',
+          ),
+        ),
+      );
+    });
+
+    test('accepts exactly one variant member', () {
+      final parsed = parser(
+        pairedOptions: [
+          PairedOptions(
+            variant: true,
+            options: [PairStringOption('json'), PairStringOption('text')],
+          ),
+        ],
+      ).parse(['--json', 'report']);
+
+      expect(parsed.$3.stringOptions, {'json': 'report'});
+    });
+
+    test('rejects multiple variant members', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            variant: true,
+            options: [PairStringOption('json'), PairStringOption('text')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, ['--json', 'a', '--text', 'b']);
+    });
+
+    test('requires one member for a required variant', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            required: true,
+            variant: true,
+            options: [PairStringOption('json'), PairStringOption('text')],
+          ),
+        ],
+      );
+
+      expectParseError(subject, []);
+    });
+
     test('parses paired string, int, and double options', () {
       final subject = parser(
         pairedOptions: [

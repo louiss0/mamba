@@ -1955,6 +1955,31 @@ void main() {
       });
     });
 
+    test('rejects standalone paired options without members', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          pairedOptions: [PairedOptions(options: [])],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+    });
+
+    test('rejects duplicate names across standalone groups', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          pairedOptions: [
+            PairedOptions(options: [PairStringOption('username')]),
+            PairedOptions(options: [PairStringOption('username')]),
+          ],
+        ),
+        throwsA(isA<MambaException>()),
+      );
+    });
+
     test('indexes paired options by their group name', () {
       final credentials = PairedStringOption(
         'username',

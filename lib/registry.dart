@@ -41,6 +41,7 @@ final class CommandRegistry {
     this.singleOptions,
     this.repeatedOptions,
     this.pairedOptions,
+    this.pairedOptionGroups,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
     this.variadic,
@@ -86,6 +87,9 @@ final class CommandRegistry {
   final Map<String, SingleOption>? singleOptions;
   final Map<String, RepeatableOption>? repeatedOptions;
   final Map<String, PairedOption>? pairedOptions;
+
+  /// Standalone pair-group definitions, including group-level metadata.
+  final List<PairedOptions>? pairedOptionGroups;
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
 
@@ -119,7 +123,7 @@ final class CommandRegistry {
     Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
-    List<PairedOption>? pairedOptions,
+    List<PairedOptions>? pairedOptions,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
   }) {
@@ -152,7 +156,10 @@ final class CommandRegistry {
       repeatedOptions: _indexByName<RepeatableOption>(
         options?.whereType<RepeatableOption>(),
       ),
-      pairedOptions: _indexByName<PairedOption>(pairedOptions),
+      pairedOptions: _indexByName<PairedOption>(
+        pairedOptions?.whereType<PairedOption>(),
+      ),
+      pairedOptionGroups: pairedOptions,
       mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
       discretionaryPositionals: _indexByName<Positional>(
         discretionaryPositionals,
@@ -163,13 +170,13 @@ final class CommandRegistry {
       publishedFlags: flags,
       publishedOptions: options == null && pairedOptions == null
           ? null
-          : [...?options, ...?pairedOptions],
+          : [...?options, ...?pairedOptions?.whereType<Option>()],
       commands: commands,
       parentPath: [name],
       descendantFlags: flags,
       descendantOptions: options == null && pairedOptions == null
           ? null
-          : [...?options, ...?pairedOptions],
+          : [...?options, ...?pairedOptions?.whereType<Option>()],
     );
   }
 
@@ -194,7 +201,10 @@ final class CommandRegistry {
     final localOptions =
         command.options == null && command.pairedOptions == null
         ? null
-        : [...?command.options, ...?command.pairedOptions];
+        : [...?command.options, ...?command.pairedOptions?.whereType<Option>()];
+    final standalonePairGroups = command.pairedOptions
+        ?.where((group) => group is! Option)
+        .toList();
     // Inherited inputs join the validation surface so conflicts with local
     // declarations are still reported at the level that would collide.
     final registeredFlags = _mergeByName(publishedFlags, command.flags);
@@ -202,7 +212,12 @@ final class CommandRegistry {
     final ordinaryOptions = registeredOptions
         ?.where((option) => option is! PairedOption)
         .toList();
-    final pairedOptions = registeredOptions?.whereType<PairedOption>().toList();
+    final registeredPairGroups = [
+      ...?inheritedOptions?.whereType<PairedOptions>().where(
+        (group) => group is! Option,
+      ),
+      ...?standalonePairGroups,
+    ];
 
     final commandPath = [...parentPath, command.name];
     _validateDefinition(
@@ -214,7 +229,7 @@ final class CommandRegistry {
       command.variadic,
       registeredFlags,
       ordinaryOptions,
-      pairedOptions,
+      registeredPairGroups,
       command.accessors,
       childCommands,
       commandPath,
@@ -242,6 +257,7 @@ final class CommandRegistry {
       pairedOptions: _indexByName<PairedOption>(
         localOptions?.whereType<PairedOption>().toList(),
       ),
+      pairedOptionGroups: standalonePairGroups,
       mandatoryPositionals: _indexByName<Positional>(
         command.mandatoryPositionals,
       ),
@@ -588,6 +604,12 @@ final class CommandRegistry {
         pairedOptions,
       );
 
+  /// Standalone pair groups available here, including inherited ones.
+  Iterable<PairedOptions> get applicablePairedOptionGroups sync* {
+    yield* parent?.applicablePairedOptionGroups ?? const <PairedOptions>[];
+    yield* pairedOptionGroups ?? const <PairedOptions>[];
+  }
+
   /// A copy of this registry whose input tables include every flag and option
   /// inherited from the root and enclosing groups.
   ///
@@ -606,6 +628,7 @@ final class CommandRegistry {
     singleOptions: applicableSingleOptions,
     repeatedOptions: applicableRepeatedOptions,
     pairedOptions: applicablePairedOptions,
+    pairedOptionGroups: applicablePairedOptionGroups.toList(),
     mandatoryPositionals: mandatoryPositionals,
     discretionaryPositionals: discretionaryPositionals,
     variadic: variadic,
@@ -774,7 +797,7 @@ final class CommandRegistry {
     Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
-    List<PairedOption>? pairedOptions,
+    List<PairedOptions>? pairedOptions,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
     List<String> commandPath,
@@ -909,19 +932,22 @@ final class CommandRegistry {
     }
   }
 
-  static void _validatePairedOptions(List<PairedOption>? pairedOptions) {
-    _validateDuplicateNames(pairedOptions, 'paired option');
-    _validateNamedInputs(pairedOptions, 'Paired option');
-    for (final pairedOption in pairedOptions ?? const <PairedOption>[]) {
-      if (pairedOption.options.isEmpty) {
+  static void _validatePairedOptions(List<PairedOptions>? pairedOptions) {
+    final groups = pairedOptions ?? const <PairedOptions>[];
+    for (final group in groups) {
+      if (group.options.isEmpty) {
         throw const MambaException(
-          'A paired option must contain at least one pair option',
+          'Paired options must contain at least one pair option',
         );
       }
     }
     _validateNamedInputs(
-      pairedOptions?.expand((pairedOption) => pairedOption.options),
+      groups.expand((group) => group.options),
       'Pair option',
+    );
+    _validateDuplicateNames(
+      groups.expand((group) => group.options),
+      'pair option',
     );
   }
 
@@ -964,7 +990,7 @@ final class CommandRegistry {
 
   static void _validateChoiceDefaults(
     List<Option>? options,
-    List<PairedOption>? pairedOptions,
+    List<PairedOptions>? pairedOptions,
     List<Positional>? mandatoryPositionals,
     List<Positional>? discretionaryPositionals,
     Variadic? variadic,
@@ -1001,7 +1027,7 @@ final class CommandRegistry {
 
     [
       ...?options,
-      ...?pairedOptions,
+      ...?pairedOptions?.whereType<PairedOption>(),
       ...?pairedOptions?.expand((option) => option.options),
       ...?mandatoryPositionals,
       ...?discretionaryPositionals,
@@ -1014,15 +1040,15 @@ final class CommandRegistry {
     List<AccessorListOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
-    List<PairedOption>? pairedOptions,
+    List<PairedOptions>? pairedOptions,
     List<Positional>? mandatory,
     List<Positional>? discretionary,
     List<Command>? commands,
     List<String> commandPath,
   ) {
-    final registeredOptions = [
+    final registeredOptions = <NamedInput>[
       ...?options,
-      ...?pairedOptions,
+      ...?pairedOptions?.whereType<PairedOption>(),
       ...?pairedOptions?.expand((pairedOption) => pairedOption.options),
     ];
     _validateDuplicateNames(registeredOptions, 'option');
