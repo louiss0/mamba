@@ -22,13 +22,15 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Guides',
-					items: [
-						{ label: 'Example Guide', slug: 'guides/example' },
+          items: [
+            { autogenerate: { directory: 'guides' } }
 					],
 				},
 				{
 					label: 'Reference',
-					items: [{ autogenerate: { directory: 'reference' } }],
+          items: [
+            { autogenerate: { directory: 'reference' } }
+					],
 				},
 			],
 		}),
