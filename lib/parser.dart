@@ -79,6 +79,9 @@ class Parser {
             consumed,
             option.name,
             inlineValue,
+            allowedDashValueRegex: option is RegExpValidated
+                ? (option as RegExpValidated).regex
+                : null,
           );
           _addOptionValue(
             option,
@@ -328,14 +331,18 @@ class Parser {
     int index,
     Set<int> consumed,
     String name,
-    String? inlineValue,
-  ) {
+    String? inlineValue, {
+    RegExp? allowedDashValueRegex,
+  }) {
     if (inlineValue != null) return inlineValue;
     if (index + 1 >= args.length) {
       throw MambaParseException('Option --$name requires a value');
     }
     final value = args[index + 1];
-    if (value.startsWith('-') && !_isNegativeNumber(value)) {
+    if (value.startsWith('-') &&
+        !_isNegativeNumber(value) &&
+        (allowedDashValueRegex == null ||
+            !_matchesEntirely(allowedDashValueRegex, value))) {
       throw MambaParseException('Option --$name requires a value');
     }
     consumed.add(index + 1);
@@ -384,7 +391,16 @@ class Parser {
     if (option != null) {
       _addOptionValue(
         option,
-        _takeOptionValue(args, index, consumed, option.name, null),
+        _takeOptionValue(
+          args,
+          index,
+          consumed,
+          option.name,
+          null,
+          allowedDashValueRegex: option is RegExpValidated
+              ? (option as RegExpValidated).regex
+              : null,
+        ),
         stringOptions,
         intOptions,
         doubleOptions,

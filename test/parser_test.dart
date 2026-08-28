@@ -813,6 +813,19 @@ void main() {
       expect(inputs.doubleOptions, {'ratio': 1.5});
     });
 
+    test(
+      'accepts dash-prefixed string values when their regex allows them',
+      () {
+        final subject = parser(
+          options: [StringOption('pattern', regex: RegExp(r'^-\w+$'))],
+        );
+
+        expect(subject.parse(['--pattern', '-value']).$3.stringOptions, {
+          'pattern': '-value',
+        });
+      },
+    );
+
     test('keeps equals signs after the first inline separator', () {
       final inputs = parser(
         options: [StringOption('query', regex: RegExp(r'.+'))],
