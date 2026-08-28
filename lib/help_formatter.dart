@@ -185,10 +185,7 @@ final class MambaHelpFormatter extends HelpFormatter {
       ...?registry.repeatedOptions?.values
           .where((option) => !option.hidden)
           .map(_option),
-      ...?registry.pairedOptions?.values.map(_pairedOption),
-      ...?registry.pairedOptionGroups
-          ?.where((group) => group is! PairedOption)
-          .map(_pairedOptions),
+      ...?registry.pairedOptionGroups?.map(_pairedOptions),
     ]);
     _writeSection(
       buffer,
@@ -254,25 +251,6 @@ final class MambaHelpFormatter extends HelpFormatter {
     },
   );
 
-  String _pairedOption(PairedOption option) {
-    final members = [option, ...option.options];
-    final membersAfterPrimary = members.skip(1).map(_pairedMember);
-    final expression = option.variant
-        ? formatIntoOrString(_pairedMember(members.first), membersAfterPrimary)
-        : formatIntoPairString(
-            _pairedMember(members.first),
-            membersAfterPrimary,
-          );
-    final grammar = option.required
-        ? formatIntoRequiredString(expression.string)
-        : formatIntoOptionalString(expression.string);
-    final description = members
-        .map((member) => member.description ?? '')
-        .join('; ');
-
-    return '${grammar.string} ${formatIntoEntryDescription(description).string}';
-  }
-
   String _pairedOptions(PairedOptions group) {
     final members = group.options;
     final membersAfterFirst = members.skip(1).map(_pairedMember);
@@ -295,7 +273,6 @@ final class MambaHelpFormatter extends HelpFormatter {
       _ => null,
     };
     final choices = switch (option) {
-      PairedChoiceOption(:final choices) ||
       PairChoiceOption(:final choices) => choices,
       _ => null,
     };
@@ -307,10 +284,8 @@ final class MambaHelpFormatter extends HelpFormatter {
     return _isRepeatablePairMember(option) ? '($expression)+' : expression;
   }
 
-  bool _isRepeatablePairMember(NamedInput option) => switch (option) {
-    RepeatablePairedOption() || RepeatablePairOption() => true,
-    _ => false,
-  };
+  bool _isRepeatablePairMember(NamedInput option) =>
+      option is RepeatablePairOption;
 
   List<String> _accessors(CommandRegistry registry) {
     final values = <String>[];

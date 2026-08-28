@@ -263,42 +263,47 @@ final class Commit extends Command {
 
 ### Paired options and pair members
 
-**Registers.** A `PairedOption` registers a primary option and a non-empty list
-of `PairOption` members. `PairedStringOption`, `PairedIntOption`,
-`PairedDoubleOption`, and `PairedChoiceOption` use the ordinary value rules;
-`RepeatablePaired*Option` types make a primary repeatable. `Pair*Option` and
-`RepeatablePair*Option` types register the companion values. With the default
-`variant: false`, members form a required-together group when any is supplied.
-With `variant: true`, members are alternatives. `required` requires a group or
-one variant.
+**Registers.** A `PairedOptions` group registers a non-empty list of
+`PairOption` members; it is not itself an option and lives in its own
+`pairedOptions` list. `PairStringOption`, `PairIntOption`, `PairDoubleOption`,
+and `PairChoiceOption` use the ordinary value rules; `RepeatablePair*Option`
+types accumulate values into typed lists. With the default `variant: false`,
+members form a required-together group when any is supplied. With
+`variant: true`, members are alternatives. `required` makes the group mandatory
+or requires one variant.
 
-**Parser.** Every primary and member accepts ordinary option syntax. A
-non-variant group requires every member and its primary when any one is passed.
-A variant permits at most one member and a required variant needs one. Values
-are returned in the same typed maps as ordinary and repeated options.
+**Parser.** Every member accepts ordinary option syntax. A non-variant group
+requires every member when any one is passed; a required non-variant group
+reports the missing member names. A variant permits at most one member and a
+required variant needs one. Values are returned in the same typed maps as
+ordinary and repeated options.
 
-**Help.** A paired registration appears once in **Options**. Grouped members
-join with ` & ` and variants with `|`. Required groups are bare, optional
-groups use compact square brackets, repeatable members use a grouped `+`
-quantifier, and member descriptions are joined with `; `.
+**Help.** A paired group appears once in **Options**. Grouped members join
+with ` & ` and variants with `|`. Required groups are bare, optional groups
+use compact square brackets, repeatable members use a grouped `+` quantifier,
+and member descriptions are joined with `; `.
 
 ```dart
 enum Format { json, text }
 
-final credentials = PairedStringOption(
-  'username',
-  description: 'Account name.',
+final credentials = PairedOptions(
+  description: 'Account credentials.',
+  required: true,
   options: [
+    PairStringOption('username', description: 'Account name.'),
     PairStringOption('password', description: 'Account password.'),
   ],
 );
 
-final outputFormat = PairedChoiceOption<Format>(
-  'json',
-  description: 'Produce JSON.',
-  choices: Format.values,
+final outputFormat = PairedOptions(
+  description: 'Output format.',
   variant: true,
   options: [
+    PairChoiceOption<Format>(
+      'json',
+      description: 'Produce JSON.',
+      choices: Format.values,
+    ),
     PairChoiceOption<Format>(
       'text',
       description: 'Produce text.',
@@ -411,7 +416,7 @@ path cannot include the group's own name.
 
 `CommandRegistry.create` turns a list-defined command surface into a validated,
 navigable command tree. It indexes boolean and count flags, single and repeated
-options, paired primaries and pair members, mandatory and discretionary
+options, pair members and paired groups, mandatory and discretionary
 positionals, and accessors in separate maps keyed by long name. This keeps each
 input category's meaning intact, supports direct lookup, and avoids scanning a
 heterogeneous list.

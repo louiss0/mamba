@@ -40,7 +40,6 @@ final class CommandRegistry {
     this.countFlags,
     this.singleOptions,
     this.repeatedOptions,
-    this.pairedOptions,
     this.pairedOptionGroups,
     this.mandatoryPositionals,
     this.discretionaryPositionals,
@@ -86,9 +85,9 @@ final class CommandRegistry {
   final Map<String, BooleanFlag>? boolFlags;
   final Map<String, SingleOption>? singleOptions;
   final Map<String, RepeatableOption>? repeatedOptions;
-  final Map<String, PairedOption>? pairedOptions;
 
-  /// Standalone pair-group definitions, including group-level metadata.
+  /// Pair groups registered directly on this level; pair groups are not
+  /// inherited.
   final List<PairedOptions>? pairedOptionGroups;
   final Map<String, Positional>? mandatoryPositionals;
   final Map<String, Positional>? discretionaryPositionals;
@@ -156,9 +155,6 @@ final class CommandRegistry {
       repeatedOptions: _indexByName<RepeatableOption>(
         options?.whereType<RepeatableOption>(),
       ),
-      pairedOptions: _indexByName<PairedOption>(
-        pairedOptions?.whereType<PairedOption>(),
-      ),
       pairedOptionGroups: pairedOptions,
       mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
       discretionaryPositionals: _indexByName<Positional>(
@@ -168,15 +164,11 @@ final class CommandRegistry {
       accessors: _indexByName<AccessorListOption>(accessors),
       parent: null,
       publishedFlags: flags,
-      publishedOptions: options == null && pairedOptions == null
-          ? null
-          : [...?options, ...?pairedOptions?.whereType<Option>()],
+      publishedOptions: options,
       commands: commands,
       parentPath: [name],
       descendantFlags: flags,
-      descendantOptions: options == null && pairedOptions == null
-          ? null
-          : [...?options, ...?pairedOptions?.whereType<Option>()],
+      descendantOptions: options,
     );
   }
 
@@ -198,26 +190,13 @@ final class CommandRegistry {
       inheritedOptions,
       ownPublishedOptions,
     );
-    final localOptions =
-        command.options == null && command.pairedOptions == null
-        ? null
-        : [...?command.options, ...?command.pairedOptions?.whereType<Option>()];
-    final standalonePairGroups = command.pairedOptions
-        ?.where((group) => group is! Option)
-        .toList();
+    final localOptions = command.options;
+    final standalonePairGroups = command.pairedOptions;
     // Inherited inputs join the validation surface so conflicts with local
     // declarations are still reported at the level that would collide.
     final registeredFlags = _mergeByName(publishedFlags, command.flags);
     final registeredOptions = _mergeByName(publishedOptions, localOptions);
-    final ordinaryOptions = registeredOptions
-        ?.where((option) => option is! PairedOption)
-        .toList();
-    final registeredPairGroups = [
-      ...?inheritedOptions?.whereType<PairedOptions>().where(
-        (group) => group is! Option,
-      ),
-      ...?standalonePairGroups,
-    ];
+    final registeredPairGroups = [...?standalonePairGroups];
 
     final commandPath = [...parentPath, command.name];
     _validateDefinition(
@@ -228,7 +207,7 @@ final class CommandRegistry {
       command.discretionaryPositionals,
       command.variadic,
       registeredFlags,
-      ordinaryOptions,
+      registeredOptions,
       registeredPairGroups,
       command.accessors,
       childCommands,
@@ -253,9 +232,6 @@ final class CommandRegistry {
       ),
       repeatedOptions: _indexByName<RepeatableOption>(
         localOptions?.whereType<RepeatableOption>(),
-      ),
-      pairedOptions: _indexByName<PairedOption>(
-        localOptions?.whereType<PairedOption>().toList(),
       ),
       pairedOptionGroups: standalonePairGroups,
       mandatoryPositionals: _indexByName<Positional>(
@@ -302,13 +278,15 @@ final class CommandRegistry {
     final localOptions = <Option>[
       ...?singleOptions?.values,
       ...?repeatedOptions?.values,
-      ...?pairedOptions?.values,
     ];
     if (localOptions.isNotEmpty ||
         singleOptions != null ||
         repeatedOptions != null ||
-        pairedOptions != null) {
-      map['options'] = _mapOptions(localOptions);
+        pairedOptionGroups != null) {
+      map['options'] = _mapOptions([
+        ...localOptions,
+        ...?pairedOptionGroups?.expand((group) => group.options),
+      ]);
     }
 
     final registeredMandatoryPositionals = mandatoryPositionals;
@@ -389,14 +367,9 @@ final class CommandRegistry {
     'description': flag.description,
   };
 
-  static Map<String, dynamic> _mapOptions(Iterable<Option> options) {
-    final pairedOptions = options.whereType<PairedOption>().toList();
-    return {
-      for (final option in options) option.name: _mapOption(option),
-      for (final pairOption in pairedOptions.expand((option) => option.options))
-        pairOption.name: _mapOption(pairOption),
-    };
-  }
+  static Map<String, dynamic> _mapOptions(Iterable<NamedInput> options) => {
+    for (final option in options) option.name: _mapOption(option),
+  };
 
   static Map<String, dynamic> _mapOption(NamedInput input) {
     final (
@@ -419,8 +392,8 @@ final class CommandRegistry {
           required,
           hidden,
           description,
-          input is RepeatableOption || input is RepeatablePairedOption,
-          input is PairedOption && input.variant,
+          input is RepeatableOption,
+          false,
           _mapChoiceData(input),
         ),
       PairOption(short: final short, description: final description) => (
@@ -443,15 +416,12 @@ final class CommandRegistry {
       if (variant) 'variant': true,
       ...choiceData,
       'valueType': _mapOptionValueType(input),
-      if (input is PairedOption)
-        'pairedOptions': input.options.map((option) => option.name).toList(),
     };
   }
 
   static Map<String, dynamic> _mapChoiceData(NamedInput input) =>
       switch (input) {
         ChoiceOption(choices: final choices, defaultValue: final value) ||
-        PairedChoiceOption(choices: final choices, defaultValue: final value) ||
         PairChoiceOption(choices: final choices, defaultValue: final value) ||
         ChoicePositional(choices: final choices, defaultValue: final value) ||
         RepeatedChoicePositional(
@@ -467,23 +437,17 @@ final class CommandRegistry {
   static String _mapOptionValueType(NamedInput input) => switch (input) {
     StringOption() ||
     RepeatableStringOption() ||
-    PairedStringOption() ||
-    RepeatablePairedStringOption() ||
     PairStringOption() ||
     RepeatablePairStringOption() => 'string',
     IntOption() ||
     RepeatableIntOption() ||
-    PairedIntOption() ||
-    RepeatablePairedIntOption() ||
     PairIntOption() ||
     RepeatablePairIntOption() => 'int',
     DoubleOption() ||
     RepeatableDoubleOption() ||
-    PairedDoubleOption() ||
-    RepeatablePairedDoubleOption() ||
     PairDoubleOption() ||
     RepeatablePairDoubleOption() => 'double',
-    ChoiceOption() || PairedChoiceOption() || PairChoiceOption() => 'choice',
+    ChoiceOption() || PairChoiceOption() => 'choice',
     _ => throw ArgumentError('Expected an option input'),
   };
 
@@ -597,18 +561,8 @@ final class CommandRegistry {
         repeatedOptions,
       );
 
-  /// Paired options available here, including inherited ones.
-  Map<String, PairedOption>? get applicablePairedOptions =>
-      _combineWithInherited(
-        _inheritableOptions.whereType<PairedOption>(),
-        pairedOptions,
-      );
-
-  /// Standalone pair groups available here, including inherited ones.
-  Iterable<PairedOptions> get applicablePairedOptionGroups sync* {
-    yield* parent?.applicablePairedOptionGroups ?? const <PairedOptions>[];
-    yield* pairedOptionGroups ?? const <PairedOptions>[];
-  }
+  /// Pair groups registered on this level.
+  List<PairedOptions>? get applicablePairedOptionGroups => pairedOptionGroups;
 
   /// A copy of this registry whose input tables include every flag and option
   /// inherited from the root and enclosing groups.
@@ -627,8 +581,7 @@ final class CommandRegistry {
     countFlags: applicableCountFlags,
     singleOptions: applicableSingleOptions,
     repeatedOptions: applicableRepeatedOptions,
-    pairedOptions: applicablePairedOptions,
-    pairedOptionGroups: applicablePairedOptionGroups.toList(),
+    pairedOptionGroups: pairedOptionGroups,
     mandatoryPositionals: mandatoryPositionals,
     discretionaryPositionals: discretionaryPositionals,
     variadic: variadic,
@@ -720,11 +673,11 @@ final class CommandRegistry {
   }
 
   /// Options available here, including inherited ones.
-  Iterable<Option> _valueOptions() sync* {
+  Iterable<NamedInput> _valueOptions() sync* {
     for (final option in [
       ...?applicableSingleOptions?.values,
       ...?applicableRepeatedOptions?.values,
-      ...?applicablePairedOptions?.values,
+      ...?applicablePairedOptionGroups?.expand((group) => group.options),
     ]) {
       yield option;
     }
@@ -743,16 +696,17 @@ final class CommandRegistry {
       return accessor is AccessorPrimitiveOption;
     }
 
-    final ordinaryOptions = <Option>[..._valueOptions()];
-    final pairOptions = applicablePairedOptions?.values.expand(
-      (option) => option.options,
-    );
+    final ordinaryOptions = <NamedInput>[..._valueOptions()];
+    bool hasShort(NamedInput option) => switch (option) {
+      Flag(short: final short) ||
+      Option(short: final short) ||
+      PairOption(short: final short) => short == name,
+      _ => false,
+    };
     if (byShortAlias) {
-      return ordinaryOptions.any((option) => option.short == name) ||
-          pairOptions?.any((option) => option.short == name) == true;
+      return ordinaryOptions.any(hasShort);
     }
     return ordinaryOptions.any((option) => option.name == name) ||
-        pairOptions?.any((option) => option.name == name) == true ||
         hasAccessorPath();
   }
 
@@ -1007,7 +961,6 @@ final class CommandRegistry {
     void validateInput(NamedInput input) {
       switch (input) {
         case ChoiceOption(:final choices, :final defaultValue) ||
-            PairedChoiceOption(:final choices, :final defaultValue) ||
             PairChoiceOption(:final choices, :final defaultValue) ||
             ChoicePositional(:final choices, :final defaultValue) ||
             RepeatedChoicePositional(:final choices, :final defaultValue) ||
@@ -1027,7 +980,6 @@ final class CommandRegistry {
 
     [
       ...?options,
-      ...?pairedOptions?.whereType<PairedOption>(),
       ...?pairedOptions?.expand((option) => option.options),
       ...?mandatoryPositionals,
       ...?discretionaryPositionals,
@@ -1048,7 +1000,6 @@ final class CommandRegistry {
   ) {
     final registeredOptions = <NamedInput>[
       ...?options,
-      ...?pairedOptions?.whereType<PairedOption>(),
       ...?pairedOptions?.expand((pairedOption) => pairedOption.options),
     ];
     _validateDuplicateNames(registeredOptions, 'option');

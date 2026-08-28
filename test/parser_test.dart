@@ -684,218 +684,6 @@ void main() {
 
       expectParseError(subject, []);
     });
-
-    test('parses paired string, int, and double options', () {
-      final subject = parser(
-        pairedOptions: [
-          PairedStringOption(
-            'firstName',
-            options: [PairStringOption('lastName')],
-          ),
-          PairedIntOption('minimum', options: [PairIntOption('maximum')]),
-          PairedDoubleOption(
-            'minimumRatio',
-            options: [PairDoubleOption('maximumRatio')],
-          ),
-        ],
-      );
-
-      final inputs = subject.parse([
-        '--firstName',
-        'Ada',
-        '--lastName',
-        'Lovelace',
-        '--minimum',
-        '1',
-        '--maximum',
-        '2',
-        '--minimumRatio',
-        '0.5',
-        '--maximumRatio',
-        '1.5',
-      ]).$3;
-
-      expect(inputs.stringOptions, {
-        'firstName': 'Ada',
-        'lastName': 'Lovelace',
-      });
-      expect(inputs.intOptions, {'minimum': 1, 'maximum': 2});
-      expect(inputs.doubleOptions, {'minimumRatio': 0.5, 'maximumRatio': 1.5});
-    });
-
-    test('parses paired repeatable string, int, and double options', () {
-      final subject = parser(
-        pairedOptions: [
-          RepeatablePairedStringOption(
-            'name',
-            options: [RepeatablePairStringOption('value')],
-          ),
-          RepeatablePairedIntOption(
-            'minimum',
-            options: [RepeatablePairIntOption('maximum')],
-          ),
-          RepeatablePairedDoubleOption(
-            'minimumWeight',
-            options: [RepeatablePairDoubleOption('maximumWeight')],
-          ),
-        ],
-      );
-
-      final inputs = subject.parse([
-        '--name',
-        'Accept',
-        '--value',
-        'application/json',
-        '--name',
-        'Cache-Control',
-        '--value',
-        'no-cache',
-        '--minimum',
-        '1',
-        '--maximum',
-        '2',
-        '--minimum',
-        '3',
-        '--maximum',
-        '4',
-        '--minimumWeight',
-        '0.5',
-        '--maximumWeight',
-        '1.5',
-        '--minimumWeight',
-        '2.5',
-        '--maximumWeight',
-        '3.5',
-      ]).$3;
-
-      expect(inputs.repeatedStringOptions, {
-        'name': ['Accept', 'Cache-Control'],
-        'value': ['application/json', 'no-cache'],
-      });
-      expect(inputs.repeatedIntOptions, {
-        'minimum': [1, 3],
-        'maximum': [2, 4],
-      });
-      expect(inputs.repeatedDoubleOptions, {
-        'minimumWeight': [0.5, 2.5],
-        'maximumWeight': [1.5, 3.5],
-      });
-    });
-
-    test('rejects a partially passed repeatable pair', () {
-      final subject = parser(
-        pairedOptions: [
-          RepeatablePairedStringOption(
-            'name',
-            options: [RepeatablePairStringOption('value')],
-          ),
-        ],
-      );
-
-      expectParseError(subject, [
-        '--name',
-        'Accept',
-        '--name',
-        'Cache-Control',
-      ]);
-    });
-
-    final pairCases = [
-      (
-        description: 'string and int options',
-        group: PairedStringOption('host', options: [PairIntOption('port')]),
-        arguments: ['--host', 'localhost', '--port', '8080'],
-        missingArguments: ['--host', 'localhost'],
-      ),
-      (
-        description: 'string and double options',
-        group: PairedStringOption(
-          'label',
-          options: [PairDoubleOption('value')],
-        ),
-        arguments: ['--label', 'warning', '--value', '0.8'],
-        missingArguments: ['--value', '0.8'],
-      ),
-      (
-        description: 'int and double options',
-        group: PairedIntOption('retries', options: [PairDoubleOption('delay')]),
-        arguments: ['--retries', '3', '--delay', '1.5'],
-        missingArguments: ['--retries', '3'],
-      ),
-    ];
-
-    for (final (:description, :group, :arguments, :missingArguments)
-        in pairCases) {
-      test('parses $description when both options are passed', () {
-        expect(
-          () => parser(pairedOptions: [group]).parse(arguments),
-          returnsNormally,
-        );
-      });
-
-      test('rejects $description when one option is missing', () {
-        expectParseError(parser(pairedOptions: [group]), missingArguments);
-      });
-    }
-  });
-
-  group('Paired option variants', () {
-    test('accepts one optional variant member', () {
-      final subject = parser(
-        pairedOptions: [
-          PairedStringOption(
-            'token',
-            variant: true,
-            options: [PairStringOption('apiKey')],
-          ),
-        ],
-      );
-
-      expect(() => subject.parse(['--token', 'secret']), returnsNormally);
-    });
-
-    test('rejects multiple variant members', () {
-      final subject = parser(
-        pairedOptions: [
-          PairedStringOption(
-            'token',
-            variant: true,
-            options: [PairStringOption('apiKey')],
-          ),
-        ],
-      );
-
-      expectParseError(subject, ['--token', 'secret', '--apiKey', 'key']);
-    });
-
-    test('accepts one repeatable variant member', () {
-      final subject = parser(
-        pairedOptions: [
-          RepeatablePairedStringOption(
-            'tag',
-            variant: true,
-            options: [RepeatablePairStringOption('label')],
-          ),
-        ],
-      );
-
-      expect(() => subject.parse(['--tag', 'first']), returnsNormally);
-    });
-
-    test('requires one member for a required variant', () {
-      final subject = parser(
-        pairedOptions: [
-          PairedStringOption(
-            'token',
-            required: true,
-            variant: true,
-            options: [PairStringOption('apiKey')],
-          ),
-        ],
-      );
-
-      expectParseError(subject, []);
-    });
   });
 
   group('Parser command discovery', () {
@@ -1076,10 +864,11 @@ void main() {
     test('parses paired primary and member short aliases', () {
       final inputs = parser(
         pairedOptions: [
-          PairedIntOption(
-            'minimum',
-            short: 'm',
-            options: [PairIntOption('maximum', short: 'x')],
+          PairedOptions(
+            options: [
+              PairIntOption('minimum', short: 'm'),
+              PairIntOption('maximum', short: 'x'),
+            ],
           ),
         ],
       ).parse(['-m', '-2', '-x', '-1']).$3;
@@ -1094,10 +883,11 @@ void main() {
           parser(
             options: [ChoiceOption('mode', choices: Mode.values)],
             pairedOptions: [
-              PairedChoiceOption(
-                'primary',
-                choices: Mode.values,
-                options: [PairChoiceOption('secondary', choices: Mode.values)],
+              PairedOptions(
+                options: [
+                  PairChoiceOption('primary', choices: Mode.values),
+                  PairChoiceOption('secondary', choices: Mode.values),
+                ],
               ),
             ],
             accessors: [

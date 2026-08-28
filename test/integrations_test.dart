@@ -17,7 +17,7 @@ enum _Sku { basic, standard }
 CommandRegistry specRegistry({
   List<Flag>? flags,
   List<Option>? options,
-  List<PairedOption>? pairedOptions,
+  List<PairedOptions>? pairedOptions,
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
   Variadic? variadic,
@@ -83,7 +83,7 @@ CommandRegistry nestedRegistry(
   int depth, {
   List<Flag>? flags,
   List<Option>? options,
-  List<PairedOption>? pairedOptions,
+  List<PairedOptions>? pairedOptions,
 }) {
   List<Command> buildChain(int remaining) {
     if (remaining <= 1) return [TestCommand('leaf', 'leaf command')];
@@ -690,118 +690,8 @@ persistentflags:
     default: true'''),
           );
         });
-
-        test("pair choice member default rendered", () {
-          final registry = specRegistry(
-            pairedOptions: [
-              PairedStringOption(
-                'auth',
-                options: [
-                  PairChoiceOption<_Level>(
-                    'level',
-                    choices: _Level.values,
-                    defaultValue: _Level.info,
-                  ),
-                ],
-              ),
-            ],
-          );
-
-          expect(
-            convertSpec(RegistryMap(registry.toMap())),
-            equalsYaml('''
-name: "spec"
-description: "spec command"
-persistentflags:
-  --auth?=: ""
-  --level?=:
-    description: ""
-    default: "info"'''),
-          );
-        });
       });
 
-      group("paired options", () {
-        test("variant paired option renders exclusiveflags", () {
-          final registry = specRegistry(
-            pairedOptions: [
-              PairedStringOption(
-                'auth',
-                description: 'credentials',
-                variant: true,
-                options: [
-                  PairStringOption('user', short: 'u'),
-                  PairIntOption('port'),
-                ],
-              ),
-            ],
-          );
-
-          expect(
-            convertSpec(RegistryMap(registry.toMap())),
-            equalsYaml('''
-name: "spec"
-description: "spec command"
-exclusiveflags:
-  - - "auth"
-    - "user"
-    - "port"'''),
-          );
-        });
-
-        test("non-variant paired options are just rendered", () {
-          final registry = specRegistry(
-            pairedOptions: [
-              PairedStringOption(
-                'auth',
-                description: 'credentials',
-                options: [
-                  PairStringOption('user', short: 'u'),
-                  PairIntOption('port'),
-                ],
-              ),
-            ],
-          );
-
-          expect(
-            convertSpec(RegistryMap(registry.toMap())),
-            equalsYaml('''
-name: "spec"
-description: "spec command"
-persistentflags:
-  --auth?=: "credentials"
-  -u, --user?=: ""
-  --port?=: ""'''),
-          );
-        });
-
-        test("required paired options are all written as required", () {
-          final registry = specRegistry(
-            pairedOptions: [
-              PairedStringOption(
-                'conn',
-                description: 'connection',
-                required: true,
-                options: [
-                  PairStringOption('host'),
-                  PairDoubleOption('timeout'),
-                ],
-              ),
-            ],
-          );
-
-          expect(
-            convertSpec(RegistryMap(registry.toMap())),
-            equalsYaml('''
-name: "spec"
-description: "spec command"
-persistentflags:
-  --conn!=: "connection"
-  --host!=: ""
-  --timeout!=: ""'''),
-          );
-        });
-      });
 
       group("modifier combos", () {
         for (final combo in modifierCombos) {
@@ -1515,38 +1405,7 @@ commands:
         });
       }
 
-      for (final depth in [2, 3, 4, 5]) {
-        test("a paired option reaches $depth nested subcommands", () {
-          final registry = nestedRegistry(
-            depth,
-            pairedOptions: [
-              PairedStringOption(
-                'auth',
-                options: [PairStringOption('user'), PairIntOption('port')],
-              ),
-            ],
-          );
-
-          expect(
-            convertSpec(RegistryMap(registry.toMap())),
-            equalsYaml(
-              nestedExpectation(
-                depth: depth,
-                rootFlagEntries: [
-                  '--auth?=: ""',
-                  '--user?=: ""',
-                  '--port?=: ""',
-                ],
-                persistentEntries: [
-                  '--auth?=: ""',
-                  '--user?=: ""',
-                  '--port?=: ""',
-                ],
-              ),
-            ),
-          );
-        });
-      }
+      for (final depth in [2, 3, 4, 5]) {}
     });
   });
 }
