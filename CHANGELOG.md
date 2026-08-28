@@ -1,3 +1,11 @@
+## 1.2.0
+
+- Added standalone `PairedOptions` groups with group-level `description`,
+  `required`, and `variant` registered in their own list.
+- Removed the legacy primary `PairedOption` types; pair members now resolve
+  directly from their group.
+- Missing required pair members are now reported by name.
+
 ## 0.1.0
 
 - Added Carapace completion-spec conversion and platform-aware spec writing.
