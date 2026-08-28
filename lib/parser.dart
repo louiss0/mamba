@@ -98,7 +98,7 @@ class Parser {
           }
           continue;
         }
-        throw MambaParseException("This isn't a registered flag");
+        throw MambaParseException('Unknown flag or option --$name.');
       }
 
       if (token.startsWith('-') && token.length > 1) {

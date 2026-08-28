@@ -992,6 +992,21 @@ void main() {
       },
     );
 
+    test('identifies unknown long inputs as flags or options', () {
+      final subject = parser();
+
+      expect(
+        () => subject.parse(['--missing']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            'Unknown flag or option --missing.',
+          ),
+        ),
+      );
+    });
+
     test('validates every required ordinary option type', () {
       final cases = <Option>[
         IntOption('integer', required: true),
