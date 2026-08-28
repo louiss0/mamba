@@ -202,6 +202,22 @@ void main() {
       expectParseError(subject, ['bogus']);
     });
 
+    test('applies an omitted repeated choice positional default', () {
+      final positionals = parser(
+        mandatoryPositionals: [
+          RepeatedChoicePositional(
+            'modes',
+            choices: Mode.values,
+            defaultValue: Mode.auto,
+          ),
+        ],
+      ).parse([]).$2;
+
+      expect(positionals.repeated, {
+        'modes': ['auto'],
+      });
+    });
+
     test('accepts only registered choices for a repeated positional', () {
       final subject = parser(
         mandatoryPositionals: [

@@ -787,6 +787,13 @@ class Parser {
               _isValidPositionalValue(positional, values[index])) {
             collected.add(values[index++]);
           }
+          final defaultValue = switch (positional) {
+            RepeatedChoicePositional(defaultValue: final value?) => value.name,
+            _ => null,
+          };
+          if (collected.isEmpty && defaultValue != null) {
+            collected.add(defaultValue);
+          }
           if (collected.isEmpty && isMandatory) {
             throw MambaParseException(
               'The ${positional.name} is required at $index after this command',
