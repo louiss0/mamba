@@ -165,6 +165,16 @@ void main() {
   });
 
   group('hook failures', () {
+    test('rethrows post-hook Errors after persistent cleanup', () async {
+      final events = <String>[];
+      final executor = Executor('mamba', 'A command-line application.', [
+        _PersistentGroup(events, [_FailingPostHookCommand(throwsError: true)]),
+      ]).fake();
+
+      await expectLater(executor.execute(['group', 'failing']), throwsA(isA<StateError>()));
+      expect(events, ['pre:group', 'post:group']);
+    });
+
     test('reports a post-hook exception as a failure result', () async {
       final executor = Executor('mamba', 'A command-line application.', [
         _FailingPostHookCommand(),
@@ -337,6 +347,10 @@ final class _HookCommand extends Command with HookRunner {
 }
 
 final class _FailingPostHookCommand extends Command with HookRunner {
+  _FailingPostHookCommand({this.throwsError = false});
+
+  final bool throwsError;
+
   @override
   String get name => 'failing';
 
@@ -360,6 +374,7 @@ final class _FailingPostHookCommand extends Command with HookRunner {
 
   @override
   Future<void> postRun(MambaReadContext context) async {
+    if (throwsError) throw StateError('cleanup failed');
     throw Exception('cleanup failed');
   }
 }

@@ -241,6 +241,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       );
     } finally {
       MambaException? postHookException;
+      Error? postHookError;
       try {
         if (hookRunner != null && context != null) {
           await hookRunner.postRun(context);
@@ -249,6 +250,8 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         postHookException = error is MambaException
             ? error
             : MambaException(error.toString());
+      } on Error catch (error) {
+        postHookError = error;
       }
 
       for (final persistentHookRunner
@@ -266,6 +269,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         }
       }
 
+      if (postHookError != null) throw postHookError;
       if (postHookException != null) return writeErr(postHookException);
     }
   }
