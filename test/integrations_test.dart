@@ -248,6 +248,149 @@ completion:
       );
     });
 
+    test('preserves required paired options through registry conversion', () {
+      final registry = specRegistry(
+        pairedOptions: [
+          PairedOptions(
+            required: true,
+            options: [
+              PairStringOption('username', description: 'Account name.'),
+              PairIntOption('port', description: 'Server port.'),
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        convertSpec(RegistryMap(registry.toMap())),
+        equalsYaml('''
+name: "spec"
+description: "spec command"
+persistentflags:
+  --username!=: "Account name."
+  --port!=: "Server port."'''),
+      );
+    });
+
+    test('renders every variant option and marks the group exclusive', () {
+      final registry = specRegistry(
+        pairedOptions: [
+          PairedOptions(
+            variant: true,
+            options: [
+              PairStringOption('json', description: 'Write JSON.'),
+              PairStringOption('yaml', description: 'Write YAML.'),
+            ],
+          ),
+        ],
+      );
+
+      final spec = convertSpec(RegistryMap(registry.toMap()));
+
+      expect(
+        spec,
+        allOf(
+          contains('--json?=: "Write JSON."'),
+          contains('--yaml?=: "Write YAML."'),
+          contains('exclusiveflags:'),
+          contains('- "json"'),
+          contains('- "yaml"'),
+        ),
+      );
+    });
+
+    test('renders typed accessor flags and their value completions', () {
+      final registry = specRegistry(
+        commands: [
+          TestCommand(
+            'serve',
+            'Serve requests.',
+            accessors: [
+              AccessorListOption(
+                'server',
+                options: [
+                  AccessorIntOption('port', description: 'Server port.'),
+                  AccessorChoiceOption<_Sku>(
+                    'sku',
+                    description: 'Server size.',
+                    choices: _Sku.values,
+                    defaultValue: _Sku.basic,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final spec = convertSpec(RegistryMap(registry.toMap()));
+
+      expect(
+        spec,
+        allOf(
+          contains('--server.port?=: "Server port."'),
+          contains('--server.sku?=:'),
+          contains('description: "Server size."'),
+          contains('default: "basic"'),
+          contains('server.port:'),
+          contains(r'$carapace.number.Range({start: 0, end: 1000})'),
+          allOf(
+            contains('server.sku:'),
+            contains('- "basic"'),
+            contains('- "standard"'),
+          ),
+        ),
+      );
+    });
+
+    test('propagates hidden accessor groups to descendant flags', () {
+      final registry = specRegistry(
+        commands: [
+          TestCommand(
+            'publish',
+            'Publish output.',
+            accessors: [
+              AccessorListOption(
+                'internal',
+                hidden: true,
+                options: [AccessorStringOption('token')],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final spec = convertSpec(RegistryMap(registry.toMap()));
+
+      expect(spec, contains('--internal.token?&='));
+    });
+
+    test('converts legacy accessor maps as string-valued flags', () {
+      final registryMap = RegistryMap({
+        'name': 'legacy',
+        'description': 'Legacy map.',
+        'accessors': {
+          'profile': {
+            'description': 'Profile settings.',
+            'options': {
+              'name': {'description': 'Profile name.'},
+            },
+          },
+        },
+      });
+
+      final spec = convertSpec(registryMap);
+
+      expect(
+        spec,
+        allOf(
+          contains('--profile.name?=: "Profile name."'),
+          contains('profile.name:'),
+          contains(r'$files'),
+        ),
+      );
+    });
+
     group("commands", () {
       test("rendered with flags", () {
         final registry = specRegistry(

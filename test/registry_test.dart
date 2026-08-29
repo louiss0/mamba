@@ -42,11 +42,17 @@ typedef PositionalExpectation = (
 
 /// Expected metadata for an accessor and its nested options.
 final class AccessorExpectation {
-  const AccessorExpectation(this.name, {this.description, this.options});
+  const AccessorExpectation(
+    this.name, {
+    this.description,
+    this.options,
+    this.hidden = false,
+  });
 
   final String name;
   final String? description;
   final List<AccessorExpectation>? options;
+  final bool hidden;
 }
 
 /// Expected metadata for a command and its nested registry categories.
@@ -1606,6 +1612,33 @@ void main() {
         expect(registry.mandatoryPositionals, {'extra': positional});
         expect(registry.variadic, same(variadic));
       });
+    });
+
+    test('rejects multiple defaults in a variant paired group', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          pairedOptions: [
+            PairedOptions(
+              variant: true,
+              options: [
+                PairChoiceOption(
+                  'json',
+                  choices: DeploymentFormat.values,
+                  defaultValue: DeploymentFormat.json,
+                ),
+                PairChoiceOption(
+                  'yaml',
+                  choices: DeploymentFormat.values,
+                  defaultValue: DeploymentFormat.yaml,
+                ),
+              ],
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
     });
 
     test('rejects standalone paired options without members', () {

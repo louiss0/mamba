@@ -22,8 +22,8 @@ The most important inconsistencies are:
 - Several input classes expose defaults that the parser never applies.
 - Accessor numeric declarations do not match the numeric parser used at
   runtime.
-- `CommandRegistry.toMap()` loses paired-option and accessor type semantics
-  that downstream integrations would need.
+- Paired-option and accessor semantics were previously lost during registry
+  export; INC-028 and INC-029 document the implemented resolution.
 - Carapace numeric completions advertise a much narrower range than the parser
   accepts.
 - Similar parse failures use different exception classes and substantially
@@ -393,9 +393,8 @@ These are observable CLI messages rather than internal-only comments.
 **Severity: Medium**
 
 The map and integration documentation imply that the serialized form carries
-the input semantics needed to reproduce the command surface. It omits regex
-constraints and, as discussed below, loses accessor types and paired-group
-relationships.
+the input semantics needed to reproduce the command surface. Paired groups and
+typed accessors are now retained, but regex constraints remain omitted.
 
 **Recommendation:** either serialize the missing semantics or describe
 `RegistryMap` as a completion-oriented approximation.
@@ -425,7 +424,6 @@ behavioral boundaries are not comparably covered:
 - Direct alias use through `GroupCommand.runChildCommand()`
 - Accessor numeric regex behavior versus parser behavior
 - Dash-prefixed separate string option values
-- Live paired-option registry serialization followed by Carapace conversion
 - Presence or absence of built-in help in generated completion metadata
 
 These gaps are important because several of the inconsistencies above occur
@@ -437,31 +435,25 @@ exactly at those untested boundaries.
 
 **Severity: High**
 
-`CarapaceSpecConverter` knows how to consume `pairedOptions` and `variant`
-metadata. `CommandRegistry.toMap()` flattens every pair member into the options
-map but does not attach its group relationship to the primary member. The
-option mapper also sets its local `variant` value to `false` for pair members.
+**Status: Resolved**
 
-Consequently, a converter receiving a map produced by the live registry cannot
-reconstruct all-or-none or mutually exclusive pair semantics.
+`CommandRegistry.toMap()` now emits first-class `optionGroups` records with
+`mode`, `required`, and `members`. `RegistryMap` validates their shape,
+membership, and uniqueness. The Carapace converter renders required all-member
+groups and emits every variant member before adding `exclusiveflags`.
 
-**Recommendation:** serialize pair groups explicitly or annotate one primary
-member with the complete member list, requiredness, and variant status. Add a
-registry-to-converter round-trip test.
+Live registry-to-converter round-trip tests cover required and variant groups.
 
 ### INC-029: Accessor value types and choices are lost during registry export
 
 **Severity: High**
 
-Accessor serialization retains names, descriptions, nesting, and some hidden
-metadata, but it does not retain whether a leaf is a string, integer, double,
-or choice. Choice members and choice defaults are also omitted.
+**Status: Resolved**
 
-This prevents a map-only integration from recreating accessor validation or
-offer type-aware accessor completions.
-
-**Recommendation:** serialize accessor leaves with the same `valueType`,
-`choices`, and `default` vocabulary used for ordinary options.
+Accessor serialization now uses a uniform recursive group/value schema with
+`valueType`, `choices`, `default`, descriptions, and hidden state. Carapace
+flattens this tree into dotted flags and type-aware completion entries while
+supporting legacy description-only accessor maps as string-valued inputs.
 
 ### INC-030: Carapace numeric completions disagree with parser ranges
 

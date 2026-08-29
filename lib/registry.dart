@@ -289,6 +289,18 @@ final class CommandRegistry {
       ]);
     }
 
+    final registeredPairedOptionGroups = pairedOptionGroups;
+    if (registeredPairedOptionGroups != null) {
+      map['optionGroups'] = [
+        for (final group in registeredPairedOptionGroups)
+          {
+            'mode': group.variant ? 'oneOf' : 'all',
+            'required': group.required,
+            'members': [for (final option in group.options) option.name],
+          },
+      ];
+    }
+
     final registeredMandatoryPositionals = mandatoryPositionals;
     final registeredDiscretionaryPositionals = discretionaryPositionals;
     if (registeredMandatoryPositionals != null ||
@@ -480,30 +492,48 @@ final class CommandRegistry {
     return map;
   }
 
-  static Object _mapAccessorList(
-    AccessorListOption accessor, {
-    bool root = true,
-  }) {
-    final nestedLists = accessor.options.whereType<AccessorListOption>();
-    if (root && nestedLists.isEmpty) {
-      return {
-        if (accessor.hidden) 'hidden': true,
-        'description': accessor.description,
-        'options': {
-          for (final option in accessor.options)
-            option.name: {'description': option.description},
+  static Object _mapAccessorList(AccessorListOption accessor) =>
+      _mapAccessor(accessor);
+
+  static Map<String, dynamic> _mapAccessor(AccessorOption accessor) =>
+      switch (accessor) {
+        AccessorListOption(:final hidden, :final description, :final options) =>
+          {
+            'kind': 'group',
+            'hidden': hidden,
+            'description': description,
+            'options': {
+              for (final option in options) option.name: _mapAccessor(option),
+            },
+          },
+        AccessorStringOption(:final description) => {
+          'kind': 'value',
+          'valueType': 'string',
+          'description': description,
         },
+        AccessorIntOption(:final description) => {
+          'kind': 'value',
+          'valueType': 'int',
+          'description': description,
+        },
+        AccessorDoubleOption(:final description) => {
+          'kind': 'value',
+          'valueType': 'double',
+          'description': description,
+        },
+        AccessorChoiceOption(
+          :final description,
+          :final choices,
+          :final defaultValue,
+        ) =>
+          {
+            'kind': 'value',
+            'valueType': 'choice',
+            'description': description,
+            'choices': [for (final choice in choices) choice.name],
+            if (defaultValue != null) 'default': defaultValue.name,
+          },
       };
-    }
-    return {
-      if (accessor.hidden) 'hidden': true,
-      for (final option in accessor.options)
-        option.name: switch (option) {
-          AccessorListOption() => _mapAccessorList(option, root: false),
-          AccessorPrimitiveOption() => option.description,
-        },
-    };
-  }
 
   /// Whether [args] request built-in help before an end-of-options separator.
   bool requestsHelp(List<String> args) {

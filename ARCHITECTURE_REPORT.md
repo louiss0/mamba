@@ -620,13 +620,11 @@ Completion behavior includes:
 Inherited root and group inputs become Carapace `persistentflags`. Local
 definitions replace inherited entries with the same name.
 
-One architectural gap is that `CommandRegistry.toMap()` flattens paired members
-into the option map without visibly attaching `pairedOptions` or `variant`
-metadata. The converter knows how to consume that metadata, but the normal
-registry exporter does not appear to produce it. Consequently,
-paired/exclusive Carapace behavior may only work for manually constructed
-registry maps. The integration tests do not directly exercise a live paired
-registry through `toMap()` and then through the converter.
+Paired options are exported through first-class `optionGroups` metadata, which
+retains group membership, requiredness, and all-or-one-of behavior. Accessors
+use a uniform recursive schema carrying leaf types, choices, defaults, and
+hidden state. The converter flattens accessor leaves into dotted Carapace flags
+and retains support for legacy description-only accessor maps.
 
 ### Carapace writing
 

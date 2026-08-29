@@ -734,6 +734,8 @@ enum RegistryMapProps {
       case RegistryMapProps.options:
       case RegistryMapProps.persistentOptions:
         _parseInputCollection(value, propertyPath, _parseOption);
+      case RegistryMapProps.optionGroups:
+        _parseOptionGroups(value, propertyPath);
       case RegistryMapProps.commands:
         _parseCommands(value, propertyPath);
       case RegistryMapProps.accessors:
@@ -775,6 +777,42 @@ void _parseCommand(Map<Object?, Object?> value, String path) {
     final propertyValue = properties[property.name];
     if (propertyValue != null || properties.containsKey(property.name)) {
       property.parse(propertyValue, _joinRegistryPath(path, property.name));
+    }
+  }
+  _validateOptionGroupMembers(properties, path);
+}
+
+void _validateOptionGroupMembers(
+  Map<String, Object?> command,
+  String commandPath,
+) {
+  final groups = command['optionGroups'];
+  if (groups is! List) return;
+  final options = command['options'] is Map
+      ? _stringMap(
+          command['options'],
+          _joinRegistryPath(commandPath, 'options'),
+        )
+      : const <String, Object?>{};
+  final groupedMembers = <Object?>{};
+  for (final (groupIndex, entry) in groups.indexed) {
+    final groupPath = _joinRegistryPath(
+      _joinRegistryPath(commandPath, 'optionGroups'),
+      groupIndex.toString(),
+    );
+    final group = _map(entry, groupPath);
+    final members = group['members'] as List;
+    for (final (memberIndex, member) in members.indexed) {
+      final memberPath = _joinRegistryPath(
+        _joinRegistryPath(groupPath, 'members'),
+        memberIndex.toString(),
+      );
+      if (!groupedMembers.add(member)) {
+        _invalid(member, memberPath, 'must belong to only one option group');
+      }
+      if (!options.containsKey(member)) {
+        _invalid(member, memberPath, 'must reference a registered option');
+      }
     }
   }
 }
@@ -887,6 +925,29 @@ void _parseOption(Map<String, Object?> value, String path) {
   }
 }
 
+void _parseOptionGroups(Object? value, String path) {
+  if (value is! List) {
+    _invalid(value, path, 'must be a List of option groups');
+  }
+  for (final (index, entry) in value.indexed) {
+    final groupPath = _joinRegistryPath(path, index.toString());
+    final group = _map(entry, groupPath);
+    const properties = {'mode', 'required', 'members'};
+    _validateProperties(group, groupPath, properties, properties);
+    final modePath = _joinRegistryPath(groupPath, 'mode');
+    _expectString(group['mode'], modePath);
+    if (group['mode'] != 'all' && group['mode'] != 'oneOf') {
+      _invalid(group['mode'], modePath, 'must be all or oneOf');
+    }
+    _expectBool(group['required'], _joinRegistryPath(groupPath, 'required'));
+    final membersPath = _joinRegistryPath(groupPath, 'members');
+    _parseStringList(group['members'], membersPath);
+    if (group['members'] case List(isEmpty: true)) {
+      _invalid(group['members'], membersPath, 'must not be empty');
+    }
+  }
+}
+
 void _parsePositional(Map<String, Object?> value, String path) {
   const requiredProperties = {'required', 'description'};
   const optionalProperties = {'choices', 'default', 'repeatable', 'times'};
@@ -951,6 +1012,10 @@ void _parseAccessors(Object? value, String path) {
 }
 
 void _parseAccessorRoot(Map<String, Object?> value, String path) {
+  if (value['kind'] == 'group' || value['kind'] == 'value') {
+    _parseTypedAccessor(value, path);
+    return;
+  }
   if (value.containsKey('options')) {
     const properties = {'hidden', 'description', 'options'};
     _validateProperties(value, path, properties, {'description', 'options'});
@@ -976,6 +1041,70 @@ void _parseAccessorRoot(Map<String, Object?> value, String path) {
     return;
   }
   _parseAccessorBranch(value, path);
+}
+
+void _parseTypedAccessor(Map<String, Object?> value, String path) {
+  final kindPath = _joinRegistryPath(path, 'kind');
+  _expectString(value['kind'], kindPath);
+  switch (value['kind']) {
+    case 'group':
+      const properties = {'kind', 'hidden', 'description', 'options'};
+      _validateProperties(value, path, properties, properties);
+      _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
+      _expectString(
+        value['description'],
+        _joinRegistryPath(path, 'description'),
+        nullable: true,
+      );
+      final optionsPath = _joinRegistryPath(path, 'options');
+      final options = _stringMap(value['options'], optionsPath);
+      for (final entry in options.entries) {
+        final optionPath = _joinRegistryPath(optionsPath, entry.key);
+        _parseTypedAccessor(_map(entry.value, optionPath), optionPath);
+      }
+    case 'value':
+      const properties = {
+        'kind',
+        'valueType',
+        'description',
+        'choices',
+        'default',
+      };
+      const requiredProperties = {'kind', 'valueType', 'description'};
+      _validateProperties(value, path, properties, requiredProperties);
+      _expectValueType(
+        value['valueType'],
+        _joinRegistryPath(path, 'valueType'),
+      );
+      final choicesPath = _joinRegistryPath(path, 'choices');
+      if (value['valueType'] == 'choice' && !value.containsKey('choices')) {
+        _invalid(value, choicesPath, 'is required for a choice accessor');
+      }
+      _expectString(
+        value['description'],
+        _joinRegistryPath(path, 'description'),
+        nullable: true,
+      );
+      if (value.containsKey('choices')) {
+        _parseStringList(value['choices'], choicesPath);
+      }
+      if (value.containsKey('default')) {
+        final defaultPath = _joinRegistryPath(path, 'default');
+        _expectString(value['default'], defaultPath);
+        final choices = value['choices'];
+        if (value['valueType'] == 'choice' &&
+            choices is List &&
+            !choices.contains(value['default'])) {
+          _invalid(
+            value['default'],
+            defaultPath,
+            'must be a registered accessor choice',
+          );
+        }
+      }
+    default:
+      _invalid(value['kind'], kindPath, 'must be group or value');
+  }
 }
 
 void _parseAccessorBranch(Map<String, Object?> value, String path) {

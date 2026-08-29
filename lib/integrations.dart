@@ -92,8 +92,15 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       );
     }
 
-    void placeOptions(Map<String, dynamic>? options, bool persistent) {
+    void placeOptions(
+      Map<String, dynamic>? options,
+      bool persistent, {
+      List<Map<String, dynamic>> optionGroups = const [],
+    }) {
       if (options == null) return;
+      final groupedMembers = {
+        for (final group in optionGroups) ..._stringList(group['members']),
+      };
       final pairedMembers = <String>{
         for (final value in options.values)
           if (value is Map) ..._stringList(_map(value)['pairedOptions']),
@@ -101,6 +108,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 
       for (final entry in options.entries) {
         final name = entry.key;
+        if (groupedMembers.contains(name)) continue;
         final option = _map(entry.value);
         final pairedOptions = _stringList(option['pairedOptions']);
         if (pairedOptions.isNotEmpty) {
@@ -126,6 +134,24 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         if (pairedMembers.contains(name)) continue;
         placeOption(name, option, persistent);
       }
+
+      for (final group in optionGroups) {
+        final members = _stringList(group['members']);
+        final mode = group['mode'] as String;
+        final required = group['required'] as bool;
+        for (final member in members) {
+          final value = options[member];
+          if (value is Map) {
+            placeOption(
+              member,
+              _map(value),
+              persistent,
+              required: mode == 'all' && required,
+            );
+          }
+        }
+        if (mode == 'oneOf') exclusiveGroups.add(members);
+      }
     }
 
     void placeFlags(Map<String, dynamic>? flags, bool persistent) {
@@ -137,6 +163,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 
     final localFlags = _mapOrNull(command['flags']);
     final localOptions = _mapOrNull(command['options']);
+    final optionGroups = _mapList(command['optionGroups']);
     final persistentFlags = _withoutLocalOverrides(
       _mapOrNull(command['persistentFlags']),
       localFlags?.keys,
@@ -147,8 +174,24 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     );
     placeFlags(localFlags, isRoot);
     placeFlags(persistentFlags, true);
-    placeOptions(localOptions, isRoot);
+    placeOptions(localOptions, isRoot, optionGroups: optionGroups);
     placeOptions(persistentOptions, true);
+    for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
+      placeEntry(
+        accessor.path,
+        false,
+        _inputKey(
+          name: accessor.path,
+          short: null,
+          repeatable: false,
+          mandatory: false,
+          hidden: accessor.hidden,
+          takesValue: true,
+        ),
+        accessor.value['description'] as String?,
+        defaultValue: accessor.value['default'],
+      );
+    }
 
     final body = <String, dynamic>{
       'description': command['description'] as String,
@@ -211,13 +254,18 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     // registry-backed converter: only ordinary local options publish values.
     final options = _mapOrNull(command['options']);
     if (options != null) {
+      final groupedMembers = {
+        for (final group in _mapList(command['optionGroups']))
+          ..._stringList(group['members']),
+      };
       final pairedMembers = <String>{
         for (final value in options.values)
           if (value is Map) ..._stringList(_map(value)['pairedOptions']),
       };
       for (final entry in options.entries) {
         final option = _map(entry.value);
-        if (option.containsKey('pairedOptions') ||
+        if (groupedMembers.contains(entry.key) ||
+            option.containsKey('pairedOptions') ||
             pairedMembers.contains(entry.key)) {
           continue;
         }
@@ -243,6 +291,20 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         dashAnyChoices.addAll(choices);
       } else {
         dashChoices.add(choicePairs(choices));
+      }
+    }
+
+    for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
+      final value = accessor.value;
+      switch (value['valueType']) {
+        case 'string':
+          flagChoices[accessor.path] = const [r'$files'];
+        case 'int':
+          flagChoices[accessor.path] = intRange;
+        case 'double':
+          flagChoices[accessor.path] = doubleRange;
+        case 'choice':
+          flagChoices[accessor.path] = _stringList(value['choices']);
       }
     }
 
@@ -283,6 +345,78 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 
   Map<String, dynamic> _map(Object? value) =>
       Map<String, dynamic>.from(value as Map);
+
+  List<Map<String, dynamic>> _mapList(Object? value) => switch (value) {
+    List() => value.map(_map).toList(),
+    _ => const [],
+  };
+
+  Iterable<({String path, Map<String, dynamic> value, bool hidden})>
+  _accessorLeaves(
+    Map<String, dynamic>? accessors, {
+    String? parentPath,
+    bool ancestorHidden = false,
+  }) sync* {
+    if (accessors == null) return;
+    for (final entry in accessors.entries) {
+      final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
+      if (entry.value is! Map) {
+        yield (
+          path: path,
+          value: <String, dynamic>{
+            'kind': 'value',
+            'valueType': 'string',
+            'description': entry.value,
+          },
+          hidden: ancestorHidden,
+        );
+        continue;
+      }
+      final value = _map(entry.value);
+      final hidden = ancestorHidden || value['hidden'] == true;
+      if (value['kind'] == 'group') {
+        yield* _accessorLeaves(
+          _mapOrNull(value['options']),
+          parentPath: path,
+          ancestorHidden: hidden,
+        );
+        continue;
+      }
+      if (value['kind'] == 'value') {
+        yield (path: path, value: value, hidden: hidden);
+        continue;
+      }
+      if (value['options'] is Map) {
+        yield* _accessorLeaves(
+          _mapOrNull(value['options']),
+          parentPath: path,
+          ancestorHidden: hidden,
+        );
+        continue;
+      }
+      if (value.keys.length == 1 && value.containsKey('description')) {
+        yield (
+          path: path,
+          value: <String, dynamic>{
+            'kind': 'value',
+            'valueType': 'string',
+            'description': value['description'],
+          },
+          hidden: hidden,
+        );
+        continue;
+      }
+      yield* _accessorLeaves(
+        {
+          for (final child in value.entries)
+            if (!(child.key == 'hidden' && child.value is bool))
+              child.key: child.value,
+        },
+        parentPath: path,
+        ancestorHidden: hidden,
+      );
+    }
+  }
 
   Map<String, dynamic>? _withoutLocalOverrides(
     Map<String, dynamic>? persistentInputs,

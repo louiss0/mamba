@@ -704,6 +704,109 @@ void main() {
       );
     });
 
+    test('rejects option groups that reference unknown members', () {
+      final map = registryMap({
+        'options': {'username': option()},
+        'optionGroups': [
+          {
+            'mode': 'all',
+            'required': false,
+            'members': ['username', 'port'],
+          },
+        ],
+      });
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('optionGroups.0.members.1', 'port'),
+      );
+    });
+
+    test('rejects option groups without members', () {
+      final map = registryMap({
+        'optionGroups': [
+          {'mode': 'all', 'required': false, 'members': <String>[]},
+        ],
+      });
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('optionGroups.0.members', <String>[]),
+      );
+    });
+
+    test('rejects options assigned to more than one group', () {
+      final map = registryMap({
+        'options': {'json': option(), 'yaml': option(), 'text': option()},
+        'optionGroups': [
+          {
+            'mode': 'oneOf',
+            'required': false,
+            'members': ['json', 'yaml'],
+          },
+          {
+            'mode': 'oneOf',
+            'required': false,
+            'members': ['yaml', 'text'],
+          },
+        ],
+      });
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('optionGroups.1.members.0', 'yaml'),
+      );
+    });
+
+    test('requires typed choice accessors to declare their choices', () {
+      final choice = {
+        'kind': 'value',
+        'valueType': 'choice',
+        'description': null,
+      };
+      final map = registryMap({
+        'accessors': {
+          'server': {
+            'kind': 'group',
+            'hidden': false,
+            'description': null,
+            'options': {'mode': choice},
+          },
+        },
+      });
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('accessors.server.options.mode.choices', choice),
+      );
+    });
+
+    test('rejects unregistered typed accessor choice defaults', () {
+      final map = registryMap({
+        'accessors': {
+          'server': {
+            'kind': 'group',
+            'hidden': false,
+            'description': null,
+            'options': {
+              'mode': {
+                'kind': 'value',
+                'valueType': 'choice',
+                'description': null,
+                'choices': ['safe'],
+                'default': 'fast',
+              },
+            },
+          },
+        },
+      });
+
+      expect(
+        () => RegistryMap(map),
+        hasInvalidProperty('accessors.server.options.mode.default', 'fast'),
+      );
+    });
+
     test('requires variadic props when variadic is present', () {
       final map = registryMap({'variadic': <String, dynamic>{}});
 
