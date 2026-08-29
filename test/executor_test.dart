@@ -175,6 +175,14 @@ void main() {
   });
 
   group('persistent hooks', () {
+    test('reports persistent post-hook exceptions as failure results', () async {
+      final executor = Executor('mamba', 'A command-line application.', [
+        _PersistentGroup(const [], [_Command('serve')], failPost: true),
+      ]).fake();
+
+      expect(await executor.execute(['group', 'serve']), isA<MambaFailureResult>());
+    });
+
     test('runs persistent cleanup after an ordinary post-hook failure', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
@@ -330,9 +338,10 @@ final class _FailingPostHookCommand extends Command with HookRunner {
 }
 
 final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
-  _PersistentGroup(this.events, super.commands);
+  _PersistentGroup(this.events, super.commands, {this.failPost = false});
 
   final List<String> events;
+  final bool failPost;
 
   @override
   final String name = 'group';
@@ -356,6 +365,7 @@ final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
     ParsedSingleOptions options,
   ) async {
     await Future<void>.delayed(Duration.zero);
+    if (failPost) throw Exception('persistent cleanup failed');
     events.add('post:$name');
   }
 }
