@@ -162,7 +162,7 @@ void main() {
       expect(
         () =>
             TestGroupCommand('git', [stashCommand], defaultSubCommandPath: []),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => TestGroupCommand(
@@ -170,7 +170,7 @@ void main() {
           [stashCommand],
           defaultSubCommandPath: ['git'],
         ),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 

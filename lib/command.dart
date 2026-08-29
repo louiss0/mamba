@@ -620,7 +620,7 @@ abstract class GroupCommand extends Command {
          defaultSubCommandPath,
        ) {
     if (this.defaultSubCommandPath?.contains(name) == true) {
-      throw ArgumentError.value(
+      throw MambaRegistryError.value(
         defaultSubCommandPath,
         'defaultSubCommandPath',
         'must be relative to the group command',
@@ -675,14 +675,14 @@ abstract class GroupCommand extends Command {
   static List<String>? _copyDefaultSubCommandPath(List<String>? path) {
     if (path == null) return null;
     if (path.isEmpty) {
-      throw ArgumentError.value(
+      throw MambaRegistryError.value(
         path,
         'defaultSubCommandPath',
         'must not be empty',
       );
     }
     if (path.any((name) => name.isEmpty)) {
-      throw ArgumentError.value(
+      throw MambaRegistryError.value(
         path,
         'defaultSubCommandPath',
         'must contain command names',
@@ -715,6 +715,7 @@ enum RegistryMapProps {
   persistentFlags,
   persistentOptions,
   options,
+  optionGroups,
   commands,
   accessors,
   aliases,
