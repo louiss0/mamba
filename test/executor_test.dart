@@ -175,6 +175,16 @@ void main() {
   });
 
   group('persistent hooks', () {
+    test('runs persistent cleanup after an ordinary post-hook failure', () async {
+      final events = <String>[];
+      final executor = Executor('mamba', 'A command-line application.', [
+        _PersistentGroup(events, [_FailingPostHookCommand()]),
+      ]).fake();
+
+      await executor.execute(['group', 'failing']);
+
+      expect(events, ['pre:group', 'post:group']);
+    });
     test(
       'run around descendant commands without ordinary command hooks',
       () async {
