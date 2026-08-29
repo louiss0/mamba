@@ -212,7 +212,7 @@ void main() {
           [stashCommand],
           defaultSubCommandPath: ['stash', ''],
         ),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
   });
