@@ -10,6 +10,7 @@ void main() {
       expect(error, isA<ArgumentError>());
       expect(error.invalidValue, 'bad');
       expect(error.name, 'name');
+      expect(error.toString(), contains('MambaRegistryError: Invalid argument'));
     });
   });
 
