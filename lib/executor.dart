@@ -251,19 +251,19 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
             : MambaException(error.toString());
       }
 
-      try {
-        await Future.forEach(
-          persistentHookRunners.toList().reversed,
-          (persistentHookRunner) => persistentHookRunner.postPersistentRun(
+      for (final persistentHookRunner
+          in persistentHookRunners.toList().reversed) {
+        try {
+          await persistentHookRunner.postPersistentRun(
             _context,
             parsedPositionals,
             options,
-          ),
-        );
-      } on Exception catch (error) {
-        postHookException ??= error is MambaException
-            ? error
-            : MambaException(error.toString());
+          );
+        } on Exception catch (error) {
+          postHookException ??= error is MambaException
+              ? error
+              : MambaException(error.toString());
+        }
       }
 
       if (postHookException != null) return writeErr(postHookException);

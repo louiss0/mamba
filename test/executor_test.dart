@@ -175,24 +175,51 @@ void main() {
   });
 
   group('persistent hooks', () {
-    test('reports persistent post-hook exceptions as failure results', () async {
-      final executor = Executor('mamba', 'A command-line application.', [
-        _PersistentGroup(const [], [_Command('serve')], failPost: true),
-      ]).fake();
-
-      expect(await executor.execute(['group', 'serve']), isA<MambaFailureResult>());
-    });
-
-    test('runs persistent cleanup after an ordinary post-hook failure', () async {
+    test('continues outer persistent cleanup after an inner failure', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
-        _PersistentGroup(events, [_FailingPostHookCommand()]),
+        _PersistentGroup(events, [
+          _PersistentGroup(
+            events,
+            [_Command('serve')],
+            failPost: true,
+            name: 'inner',
+          ),
+        ], name: 'outer'),
       ]).fake();
 
-      await executor.execute(['group', 'failing']);
+      await executor.execute(['outer', 'inner', 'serve']);
 
-      expect(events, ['pre:group', 'post:group']);
+      expect(events, ['pre:outer', 'pre:inner', 'post:outer']);
     });
+
+    test(
+      'reports persistent post-hook exceptions as failure results',
+      () async {
+        final executor = Executor('mamba', 'A command-line application.', [
+          _PersistentGroup(const [], [_Command('serve')], failPost: true),
+        ]).fake();
+
+        expect(
+          await executor.execute(['group', 'serve']),
+          isA<MambaFailureResult>(),
+        );
+      },
+    );
+
+    test(
+      'runs persistent cleanup after an ordinary post-hook failure',
+      () async {
+        final events = <String>[];
+        final executor = Executor('mamba', 'A command-line application.', [
+          _PersistentGroup(events, [_FailingPostHookCommand()]),
+        ]).fake();
+
+        await executor.execute(['group', 'failing']);
+
+        expect(events, ['pre:group', 'post:group']);
+      },
+    );
     test(
       'run around descendant commands without ordinary command hooks',
       () async {
@@ -338,13 +365,18 @@ final class _FailingPostHookCommand extends Command with HookRunner {
 }
 
 final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
-  _PersistentGroup(this.events, super.commands, {this.failPost = false});
+  _PersistentGroup(
+    this.events,
+    super.commands, {
+    this.failPost = false,
+    String name = 'group',
+  }) : name = name;
 
   final List<String> events;
   final bool failPost;
 
   @override
-  final String name = 'group';
+  final String name;
 
   @override
   String get shortDescription => 'A test group command.';
