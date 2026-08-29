@@ -715,6 +715,25 @@ void main() {
       expectParseError(subject, ['--json', 'a', '--text', 'b']);
     });
 
+    test('applies the sole default for an optional variant pair', () {
+      final inputs = parser(
+        pairedOptions: [
+          PairedOptions(
+            variant: true,
+            options: [
+              PairChoiceOption(
+                'json',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+            ],
+          ),
+        ],
+      ).parse([]).$3;
+
+      expect(inputs.stringOptions, {'json': 'auto'});
+    });
+
     test('applies defaults to every optional all-of pair member', () {
       final inputs = parser(
         pairedOptions: [
