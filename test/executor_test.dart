@@ -175,6 +175,15 @@ void main() {
       expect(events, ['pre:group', 'post:group']);
     });
 
+    test('does not return success when a post-hook fails', () async {
+      final result = await Executor('mamba', 'A command-line application.', [
+        _FailingPostHookCommand(),
+      ]).fake().execute(['failing']);
+
+      expect(result, isNot(isA<MambaSuccessResult>()));
+      expect(result, isA<MambaFailureResult>());
+    });
+
     test('reports a post-hook exception as a failure result', () async {
       final executor = Executor('mamba', 'A command-line application.', [
         _FailingPostHookCommand(),
