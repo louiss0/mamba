@@ -112,21 +112,21 @@ final class Executor {
   ) {
     if (path == null) return null;
     if (path.isEmpty) {
-      throw ArgumentError.value(
+      throw MambaRegistryError.value(
         path,
         'defaultSubCommandPath',
         'must not be empty',
       );
     }
     if (path.any((name) => name.isEmpty)) {
-      throw ArgumentError.value(
+      throw MambaRegistryError.value(
         path,
         'defaultSubCommandPath',
         'must contain command names',
       );
     }
     if (path.contains(registryName)) {
-      throw ArgumentError.value(
+      throw MambaRegistryError.value(
         path,
         'defaultSubCommandPath',
         'must be relative to the executor',

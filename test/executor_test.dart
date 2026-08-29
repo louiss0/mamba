@@ -1,5 +1,6 @@
 import 'package:mamba/command.dart';
 import 'package:mamba/context.dart';
+import 'package:mamba/errors.dart';
 import 'package:mamba/executor.dart';
 import 'package:test/test.dart';
 
@@ -109,6 +110,17 @@ void main() {
   });
 
   group('default commands', () {
+    test('rejects an empty root default path as a registry error', () {
+      expect(
+        () => Executor(
+          'mamba',
+          'A command-line application.',
+          [_Command('run')],
+          defaultCommandPath: [],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
     test('applies a root default after a value-taking option', () async {
       final executor = Executor(
         'mamba',
