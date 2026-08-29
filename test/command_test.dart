@@ -239,7 +239,7 @@ void main() {
           choices: OutputFormat.values,
           times: -1,
         ),
-        throwsArgumentError,
+        throwsA(isA<MambaRegistryError>()),
       );
     });
   });
