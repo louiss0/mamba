@@ -266,6 +266,8 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
           postHookException ??= error is MambaException
               ? error
               : MambaException(error.toString());
+        } on Error catch (error) {
+          postHookError ??= error;
         }
       }
 

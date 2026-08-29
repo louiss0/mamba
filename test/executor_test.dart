@@ -185,6 +185,26 @@ void main() {
   });
 
   group('persistent hooks', () {
+    test('rethrows persistent post-hook Errors after outer cleanup', () async {
+      final events = <String>[];
+      final executor = Executor('mamba', 'A command-line application.', [
+        _PersistentGroup(events, [
+          _PersistentGroup(
+            events,
+            [_Command('serve')],
+            errorPost: true,
+            name: 'inner',
+          ),
+        ], name: 'outer'),
+      ]).fake();
+
+      await expectLater(
+        executor.execute(['outer', 'inner', 'serve']),
+        throwsA(isA<StateError>()),
+      );
+      expect(events, ['pre:outer', 'pre:inner', 'post:outer']);
+    });
+
     test('continues outer persistent cleanup after an inner failure', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
@@ -384,11 +404,13 @@ final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
     this.events,
     super.commands, {
     this.failPost = false,
+    this.errorPost = false,
     String name = 'group',
   }) : name = name;
 
   final List<String> events;
   final bool failPost;
+  final bool errorPost;
 
   @override
   final String name;
@@ -412,6 +434,7 @@ final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
     ParsedSingleOptions options,
   ) async {
     await Future<void>.delayed(Duration.zero);
+    if (errorPost) throw StateError('persistent cleanup failed');
     if (failPost) throw Exception('persistent cleanup failed');
     events.add('post:$name');
   }
