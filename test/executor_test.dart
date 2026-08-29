@@ -112,12 +112,9 @@ void main() {
   group('default commands', () {
     test('rejects an empty root default path as a registry error', () {
       expect(
-        () => Executor(
-          'mamba',
-          'A command-line application.',
-          [_Command('run')],
-          defaultCommandPath: [],
-        ),
+        () => Executor('mamba', 'A command-line application.', [
+          _Command('run'),
+        ], defaultCommandPath: []),
         throwsA(isA<MambaRegistryError>()),
       );
     });
@@ -164,6 +161,16 @@ void main() {
           .timeout(const Duration(seconds: 1));
 
       expect(result, isA<MambaFailureResult>());
+    });
+  });
+
+  group('hook failures', () {
+    test('reports a post-hook exception as a failure result', () async {
+      final executor = Executor('mamba', 'A command-line application.', [
+        _FailingPostHookCommand(),
+      ]).fake();
+
+      expect(await executor.execute(['failing']), isA<MambaFailureResult>());
     });
   });
 
@@ -281,6 +288,34 @@ final class _HookCommand extends Command with HookRunner {
   @override
   Future<void> postRun(MambaReadContext context) async {
     events.add('post:$name');
+  }
+}
+
+final class _FailingPostHookCommand extends Command with HookRunner {
+  @override
+  String get name => 'failing';
+
+  @override
+  String get shortDescription => 'A command with a failing post-hook.';
+
+  @override
+  void preRun(
+    ProcessedStandardInput? input,
+    MambaReadContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) {}
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) => '';
+
+  @override
+  Future<void> postRun(MambaReadContext context) async {
+    throw Exception('cleanup failed');
   }
 }
 
