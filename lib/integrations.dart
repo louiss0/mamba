@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:mamba/command.dart';
+import 'package:mamba/errors.dart';
 import 'package:yaml_writer/yaml_writer.dart';
 
 /// Converts a validated [RegistryMap] into an integration-specific artifact.
@@ -225,9 +226,11 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
   Map<String, dynamic> _completionFor(Map<String, dynamic> command) {
     final positionalChoices = <List<String>>[];
     final flagChoices = <String, List<String>>{};
-    const intRange = [r'$carapace.number.Range({start: 0, end: 1000})'];
+    // Numeric ranges are illustrative suggestions, not validation bounds.
+    // The parser remains authoritative and accepts signed, unbounded values.
+    const intRange = [r'$carapace.number.Range({start: -10, end: 10})'];
     const doubleRange = [
-      r"$carapace.number.Range({format: '%.2f', start: 0, end: 1000})",
+      r"$carapace.number.Range({format: '%.2f', start: -10, end: 10})",
     ];
 
     List<String> choicePairs(List<String> choices) => [
@@ -239,43 +242,28 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         final positional = _map(positionalValue);
         final choices = _stringList(positional['choices']);
         final values = choices.isEmpty
-            ? const [r'$files']
+            ? const <String>[]
             : choicePairs(choices);
         final times = positional['repeatable'] == true
             ? positional['times'] as int? ?? 0
             : 0;
         for (var slot = 0; slot <= times; slot++) {
-          positionalChoices.add(values);
+          if (values.isNotEmpty) positionalChoices.add(values);
         }
       }
     }
 
-    // Paired option completions are intentionally unchanged from the
-    // registry-backed converter: only ordinary local options publish values.
     final options = _mapOrNull(command['options']);
     if (options != null) {
-      final groupedMembers = {
-        for (final group in _mapList(command['optionGroups']))
-          ..._stringList(group['members']),
-      };
-      final pairedMembers = <String>{
-        for (final value in options.values)
-          if (value is Map) ..._stringList(_map(value)['pairedOptions']),
-      };
       for (final entry in options.entries) {
         final option = _map(entry.value);
-        if (groupedMembers.contains(entry.key) ||
-            option.containsKey('pairedOptions') ||
-            pairedMembers.contains(entry.key)) {
-          continue;
-        }
         switch (option['valueType']) {
-          case 'string':
-            flagChoices[entry.key] = const [r'$files'];
           case 'int':
             flagChoices[entry.key] = intRange;
           case 'double':
             flagChoices[entry.key] = doubleRange;
+          case 'choice':
+            flagChoices[entry.key] = _stringList(option['choices']);
         }
       }
     }
@@ -286,7 +274,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     if (variadic != null) {
       final choices = _stringList(variadic['choices']);
       if (choices.isEmpty) {
-        dashChoices.add(const [r'$files']);
+        // Plain strings have no implied filesystem semantics.
       } else if (variadic['repeatable'] == true) {
         dashAnyChoices.addAll(choices);
       } else {
@@ -297,8 +285,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
       final value = accessor.value;
       switch (value['valueType']) {
-        case 'string':
-          flagChoices[accessor.path] = const [r'$files'];
         case 'int':
           flagChoices[accessor.path] = intRange;
         case 'double':
@@ -456,10 +442,16 @@ final class CarapaceSpecWriter {
 
   /// Writes the converted registry map and returns the created file.
   File write() {
-    final file = File(path);
-    file.parent.createSync(recursive: true);
-    file.writeAsStringSync(converter.convert());
-    return file;
+    try {
+      final file = File(path);
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync(converter.convert());
+      return file;
+    } on FileSystemException catch (error) {
+      throw MambaIntegrationException(
+        'Unable to write Carapace spec to $path: ${error.message}',
+      );
+    }
   }
 
   static String _carapaceSpecPath(String name, bool development) {
@@ -488,7 +480,7 @@ final class CarapaceSpecWriter {
             _joinHome(environment['HOME'], '.config'),
     };
     if (directory == null) {
-      throw StateError(
+      throw const MambaIntegrationException(
         'Unable to locate the Carapace configuration directory.',
       );
     }

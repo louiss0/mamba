@@ -4,7 +4,10 @@
 /// and the code that reads it.
 class MambaContextKey<T> {}
 
-/// Mutable global state shared by persistent hooks during an execution.
+/// Mutable state scoped to an executor and shared by all of its executions.
+///
+/// Reusing an executor intentionally retains values between calls to
+/// `execute`; create another executor when an isolated context is required.
 class MambaContext {
   final Map<MambaContextKey<dynamic>, dynamic> _values = {};
 

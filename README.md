@@ -476,4 +476,25 @@ Mix `HookRunner` into a command to run `preRun` before its selected command and
 Mix `PersistentHookRunner` into a group to run around a selected descendant
 path. It receives mutable `MambaContext`; its mutations are visible to
 children. Persistent post-hooks run in reverse group-path order.
-`MambaContextKey<T>` provides typed identity keys for context values.
+Both pre-hook APIs may return a `Future`, and the executor awaits setup before
+running the command. Only successfully entered hooks are unwound; every
+cleanup is attempted. Multiple cleanup exceptions are preserved in a
+`MambaExecutionException`, while Dart `Error`s remain programmer errors and
+are rethrown after cleanup.
+
+`MambaContextKey<T>` provides typed identity keys for context values. Context
+is executor-scoped: repeated calls to `execute` on the same fake or production
+executor share its values. Create a new executor when executions need isolated
+state.
+
+## Registry maps and completion integrations
+
+`CommandRegistry.toMap()` exports built-in help, regular-expression patterns,
+paired groups, typed accessor leaves, defaults, and inherited inputs.
+`RegistryMap` validates this integration boundary and reports malformed maps as
+`MambaIntegrationException`.
+
+Carapace completion does not assume that arbitrary strings are file paths.
+Choice completions are emitted for ordinary and paired options. Numeric ranges
+in generated specs are illustrative suggestions only; they do not constrain
+the signed, unbounded numeric values accepted by the parser.

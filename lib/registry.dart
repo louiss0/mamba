@@ -268,12 +268,10 @@ final class CommandRegistry {
 
     final registeredBooleanFlags = boolFlags;
     final registeredCountFlags = countFlags;
-    if (registeredBooleanFlags != null || registeredCountFlags != null) {
-      map['flags'] = _mapFlags(
-        registeredBooleanFlags?.values,
-        registeredCountFlags?.values,
-      );
-    }
+    map['flags'] = _mapFlags(
+      [helpFlag, ...?registeredBooleanFlags?.values],
+      registeredCountFlags?.values,
+    );
 
     final localOptions = <Option>[
       ...?singleOptions?.values,
@@ -428,6 +426,7 @@ final class CommandRegistry {
       if (variant) 'variant': true,
       ...choiceData,
       'valueType': _mapOptionValueType(input),
+      if (input is RegExpValidated) 'pattern': input.regex.pattern,
     };
   }
 
@@ -469,6 +468,7 @@ final class CommandRegistry {
   ) => {
     'required': required,
     'description': positional.description,
+    'pattern': positional.regex.pattern,
     ..._mapChoiceData(positional),
     if (positional is RepeatedPositional) ...{
       'repeatable': true,
@@ -484,7 +484,10 @@ final class CommandRegistry {
           'choices': choices.map((choice) => choice.name).toList(),
           'default': ?defaultValue?.name,
         },
-      NormalVariadic(:final description) => {'description': description},
+      NormalVariadic(:final description, :final regex) => {
+        'description': description,
+        'pattern': regex.pattern,
+      },
     };
     if (variadic is RepeatedChoiceVariadic) {
       map['repeatable'] = true;
@@ -510,16 +513,19 @@ final class CommandRegistry {
           'kind': 'value',
           'valueType': 'string',
           'description': description,
+          'pattern': accessor.regex.pattern,
         },
         AccessorIntOption(:final description) => {
           'kind': 'value',
           'valueType': 'int',
           'description': description,
+          'pattern': accessor.regex.pattern,
         },
         AccessorDoubleOption(:final description) => {
           'kind': 'value',
           'valueType': 'double',
           'description': description,
+          'pattern': accessor.regex.pattern,
         },
         AccessorChoiceOption(
           :final description,
@@ -826,23 +832,23 @@ final class CommandRegistry {
     if (aliases == null) return;
     final path = commandPath.join(' ');
     if (aliases.isEmpty) {
-      throw MambaException('Aliases for command path $path must not be empty.');
+      throw MambaRegistryError('Aliases for command path $path must not be empty.');
     }
     final registered = <String>{};
     for (final alias in aliases) {
       if (alias.isEmpty || alias.startsWith('-')) {
-        throw MambaException(
+        throw MambaRegistryError(
           'Alias $alias is not a usable command token for command path $path.',
         );
       }
       _validateCommandName(alias);
       if (!registered.add(alias)) {
-        throw MambaException(
+        throw MambaRegistryError(
           'Alias $alias is registered more than once for command path $path.',
         );
       }
       if (alias == commandName) {
-        throw MambaException(
+        throw MambaRegistryError(
           'Alias $alias cannot be the same as command path $path.',
         );
       }
@@ -858,10 +864,10 @@ final class CommandRegistry {
 
   static void _validateShortDescription(String shortDescription) {
     if (shortDescription.isEmpty) {
-      throw const MambaException("Short description can't be empty");
+      throw MambaRegistryError("Short description can't be empty");
     }
     if (shortDescription.length > 150) {
-      throw const MambaException(
+      throw MambaRegistryError(
         "Short description can't exceed 150 characters.",
       );
     }
@@ -902,7 +908,7 @@ final class CommandRegistry {
     final groups = pairedOptions ?? const <PairedOptions>[];
     for (final group in groups) {
       if (group.options.isEmpty) {
-        throw const MambaException(
+        throw MambaRegistryError(
           'Paired options must contain at least one pair option',
         );
       }
@@ -1035,7 +1041,7 @@ final class CommandRegistry {
       final flagIndex =
           flags?.indexWhere((flag) => flag.name == accessor.name) ?? -1;
       if (flagIndex >= 0) {
-        throw MambaException(
+        throw MambaRegistryError(
           'This accessor ${accessor.name} has the same name as a flag at index $flagIndex',
         );
       }
@@ -1043,7 +1049,7 @@ final class CommandRegistry {
         (option) => option.name == accessor.name,
       );
       if (optionIndex >= 0) {
-        throw MambaException(
+        throw MambaRegistryError(
           'This accessor ${accessor.name} has the same name as an option at index $optionIndex',
         );
       }
@@ -1053,7 +1059,7 @@ final class CommandRegistry {
     final names = <String>{};
     for (final positional in positionals) {
       if (!names.add(positional.name)) {
-        throw const MambaException(
+        throw MambaRegistryError(
           "A positional can't have the same name as another positional",
         );
       }
@@ -1062,8 +1068,8 @@ final class CommandRegistry {
     for (final positional in positionals) {
       final commandIndex = commandNames?.indexOf(positional.name) ?? -1;
       if (commandIndex >= 0) {
-        throw MambaException(
-          'This positional mesaage has the same name as a command at index $commandIndex',
+        throw MambaRegistryError(
+          'This positional message has the same name as a command at index $commandIndex',
         );
       }
     }
@@ -1081,7 +1087,7 @@ final class CommandRegistry {
       if (short == null) continue;
       final previousName = names[short];
       if (previousName != null) {
-        throw MambaException(
+        throw MambaRegistryError(
           'The short alias -$short is assigned to both $previousName and ${input.name}',
         );
       }
@@ -1093,7 +1099,7 @@ final class CommandRegistry {
     final names = <String>{};
     for (final command in commands ?? const <Command>[]) {
       if (!names.add(command.name)) {
-        throw MambaException(
+        throw MambaRegistryError(
           'There are duplicate command names: ${command.name}',
         );
       }
@@ -1113,13 +1119,13 @@ final class CommandRegistry {
       _validateAliases(command.name, command.aliases, commandPath);
       for (final alias in command.aliases ?? const <String>[]) {
         if (commandNames.contains(alias)) {
-          throw MambaException(
+          throw MambaRegistryError(
             'Alias $alias is the same as a command in command path ${commandPath.join(' ')}.',
           );
         }
         final registeredCommand = registered[alias];
         if (registeredCommand != null) {
-          throw MambaException(
+          throw MambaRegistryError(
             'Alias $alias is already registered for a command; pick another one. Command path: ${commandPath.join(' ')}.',
           );
         }
@@ -1137,7 +1143,7 @@ final class CommandRegistry {
     for (final (index, input) in inputs.indexed) {
       final duplicateIndex = names[input.name];
       if (duplicateIndex != null) {
-        throw MambaException(
+        throw MambaRegistryError(
           'There are duplicate $inputKind names at index $duplicateIndex and $index',
         );
       }
