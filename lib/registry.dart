@@ -876,6 +876,16 @@ final class CommandRegistry {
           'Paired options must contain at least one pair option',
         );
       }
+      if (group.variant &&
+          group.options
+                  .whereType<PairChoiceOption>()
+                  .where((option) => option.defaultValue != null)
+                  .length >
+              1) {
+        throw MambaRegistryError(
+          'A variant paired group may declare only one default.',
+        );
+      }
     }
     _validateNamedInputs(
       groups.expand((group) => group.options),

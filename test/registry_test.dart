@@ -114,29 +114,27 @@ Map<String, dynamic> buildRegistryExpectation(
       entry.$1: {'required': entry.required, 'description': entry.description},
   };
 
-  Object? mapAccessor(AccessorExpectation entry, {bool root = true}) {
+  Object? mapAccessor(AccessorExpectation entry) {
     final options = entry.options;
-    if (root) {
+    if (options == null) {
       return {
+        'kind': 'value',
+        'valueType': 'string',
         'description': entry.description,
-        'options': {
-          for (final option in options ?? const <AccessorExpectation>[])
-            option.name: {'description': option.description},
-        },
       };
     }
-    if (options == null) return entry.description;
     return {
-      for (final option in options)
-        option.name: mapAccessor(option, root: false),
+      'kind': 'group',
+      'hidden': entry.hidden,
+      'description': entry.description,
+      'options': {
+        for (final option in options) option.name: mapAccessor(option),
+      },
     };
   }
 
-  Map<String, dynamic> mapAccessors(
-    List<AccessorExpectation> entries, {
-    bool root = true,
-  }) => {
-    for (final entry in entries) entry.name: mapAccessor(entry, root: root),
+  Map<String, dynamic> mapAccessors(List<AccessorExpectation> entries) => {
+    for (final entry in entries) entry.name: mapAccessor(entry),
   };
 
   Map<String, dynamic> mapCommand(CommandExpectation entry) => {
