@@ -231,7 +231,7 @@ void main() {
     test('rejects negative repeated positional counts', () {
       expect(
         () => RepeatedStringPositional('files', times: -1),
-        throwsArgumentError,
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => RepeatedChoicePositional<OutputFormat>(

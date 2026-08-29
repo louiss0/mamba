@@ -126,7 +126,7 @@ sealed class RepeatedPositional extends Positional {
     this.times = 1,
   }) {
     if (times < 0) {
-      throw ArgumentError.value(times, 'times', 'must not be negative');
+      throw MambaRegistryError.value(times, 'times', 'must not be negative');
     }
   }
 }
