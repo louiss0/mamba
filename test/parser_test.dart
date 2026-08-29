@@ -715,6 +715,26 @@ void main() {
       expectParseError(subject, ['--json', 'a', '--text', 'b']);
     });
 
+    test('requires explicit input for a required variant with a default', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            required: true,
+            variant: true,
+            options: [
+              PairChoiceOption(
+                'json',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      expectParseError(subject, []);
+    });
+
     test('requires one member for a required variant', () {
       final subject = parser(
         pairedOptions: [

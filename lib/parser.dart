@@ -127,9 +127,7 @@ class Parser {
 
     _addBooleanDefaults(registry, boolFlags);
     _addCountDefaults(registry, countFlags);
-    _addChoiceDefaults(registry, stringOptions);
-    _addAccessorChoiceDefaults(registry, accessorValues);
-    _validateRequiredOptions(
+    _validatePairedOptions(
       registry,
       stringOptions,
       intOptions,
@@ -138,7 +136,9 @@ class Parser {
       repeatedIntOptions,
       repeatedDoubleOptions,
     );
-    _validatePairedOptions(
+    _addChoiceDefaults(registry, stringOptions);
+    _addAccessorChoiceDefaults(registry, accessorValues);
+    _validateRequiredOptions(
       registry,
       stringOptions,
       intOptions,
