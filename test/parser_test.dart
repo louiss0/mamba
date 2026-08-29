@@ -738,6 +738,25 @@ void main() {
       expect(inputs.stringOptions, {'first': 'auto', 'second': 'always'});
     });
 
+    test('requires explicit input for a required all-of pair with defaults', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            required: true,
+            options: [
+              PairChoiceOption(
+                'first',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      expectParseError(subject, []);
+    });
+
     test('requires explicit input for a required variant with a default', () {
       final subject = parser(
         pairedOptions: [
