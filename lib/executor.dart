@@ -215,14 +215,16 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     try {
       final executionArguments = _argumentsWithDefaultCommands(args);
       final parsed = Parser(_registry).parse(executionArguments);
-      final (commandPath, positionals, inputs, trailingArguments) =
-          parsed.value;
+      final commandPath = parsed.$1;
+      final positionals = parsed.$2;
+      final inputs = parsed.$3;
+      final trailingArguments = parsed.$4;
       final commandPathCommands = _commandsForPath(commandPath);
       final command = commandPathCommands.lastOrNull;
       final selectedRegistry = _registry
           .registryForArguments(executionArguments)
           .withInheritedInputs();
-      if (!parsed.shouldExecute || command == null) {
+      if (parsed.help || command == null) {
         output = _helpFormatter.format(selectedRegistry);
       } else {
         context = MambaReadContext(_context);

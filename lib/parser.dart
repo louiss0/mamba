@@ -7,26 +7,14 @@ class MambaParseException extends MambaException {
   MambaParseException(super.message);
 }
 
-/// The parser result for a validated command invocation.
-sealed class ParseOutcome {
-  const ParseOutcome();
-}
-
-/// A fully parsed command invocation.
-final class ParsedInvocation extends ParseOutcome {
-  const ParsedInvocation(this.value, {this.shouldExecute = true});
-
-  final (
-    List<String> command,
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  )
-  value;
-
-  /// Whether the executor should invoke the selected command.
-  final bool shouldExecute;
-}
+/// The parser result for a validated command and its typed inputs.
+typedef ParsedArguments = (
+  List<String> command,
+  ParsedPositionals positionals,
+  ParsedNamedInputs inputs,
+  List<String> trailingArguments, {
+  bool help,
+});
 
 /// Validates command-line tokens against a [CommandRegistry].
 ///
@@ -44,7 +32,7 @@ class Parser {
   ///
   /// Throws [MambaParseException] when names, values, required inputs, paired
   /// groups, or positional layout do not satisfy the registry.
-  ParsedInvocation parse(List<String> args) {
+  ParsedArguments parse(List<String> args) {
     final command = _findCommand(args);
     final commandIndexes = _commandTokenIndexes(args, command);
     // Inherited flags and options stay at their declaring level, so the parser
@@ -177,9 +165,9 @@ class Parser {
       variadic: _parseVariadic(registry, trailingArguments),
     );
     // Help controls dispatch but is not part of the command's user inputs.
-    final shouldExecute = boolFlags.remove(registry.helpFlag.name) != true;
+    final help = boolFlags.remove(registry.helpFlag.name) == true;
 
-    return ParsedInvocation((
+    return (
       command,
       parsedPositionals,
       (
@@ -207,7 +195,8 @@ class Parser {
         accessors: accessorValues.isEmpty ? null : accessorValues,
       ),
       trailingArguments,
-    ), shouldExecute: shouldExecute);
+      help: help,
+    );
   }
 
   bool _hasStringOptions(CommandRegistry registry) {

@@ -1,5 +1,12 @@
 # Migrating to 0.4.0
 
+## Parser result
+
+`Parser.parse()` now returns the `ParsedArguments` record directly. Read its
+positional fields for the command path, parsed positionals, named inputs, and
+trailing arguments. The `help` field indicates that the command should not run;
+the internal help flag is removed from the named input maps.
+
 ## Paired option defaults
 
 `PairChoiceOption` no longer accepts `defaultValue`. Paired options must be

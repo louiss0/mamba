@@ -7,15 +7,6 @@ import 'package:test/test.dart';
 
 enum Mode { auto, always }
 
-extension on ParseOutcome {
-  ParsedInvocation get invocation => this as ParsedInvocation;
-
-  List<String> get $1 => invocation.value.$1;
-  ParsedPositionals get $2 => invocation.value.$2;
-  ParsedNamedInputs get $3 => invocation.value.$3;
-  List<String> get $4 => invocation.value.$4;
-}
-
 Parser parser({
   List<Flag>? flags,
   List<Option>? options,
@@ -988,14 +979,14 @@ void main() {
 
       expectParseError(subject, ['--pattern', '--help']);
       final result = subject.parse(['--help', '--pattern', 'value']);
-      expect(result.shouldExecute, isFalse);
-      expect(result.value.$3.boolFlags, {'verbose': false});
-      expect(result.value.$3.stringOptions, {'pattern': 'value'});
+      expect(result.help, isTrue);
+      expect(result.$3.boolFlags, {'verbose': false});
+      expect(result.$3.stringOptions, {'pattern': 'value'});
       expect(
         () => subject.parse(['--pattern', '--verbose']),
         throwsA(isA<MambaParseException>()),
       );
-      expect(subject.parse(['--pattern=--verbose']).value.$3.stringOptions, {
+      expect(subject.parse(['--pattern=--verbose']).$3.stringOptions, {
         'pattern': '--verbose',
       });
     });
@@ -1549,10 +1540,10 @@ void main() {
 
       expect(subject.parse([]).$3.boolFlags, isNull);
       expect(subject.parse([]).$3.countFlags, {'verbose': 0});
-      expect(subject.parse([]).shouldExecute, isTrue);
+      expect(subject.parse([]).help, isFalse);
       expect(subject.parse(['-h']).$3.boolFlags, isNull);
       expect(subject.parse(['-h']).$3.countFlags, {'verbose': 0});
-      expect(subject.parse(['-h']).shouldExecute, isFalse);
+      expect(subject.parse(['-h']).help, isTrue);
       expect(subject.parse(['-hv']).$3.boolFlags, isNull);
       expect(subject.parse(['-hv']).$3.countFlags, {'verbose': 1});
     });
