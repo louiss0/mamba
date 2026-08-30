@@ -54,6 +54,7 @@ class Parser {
     for (var index = 0; index < args.length; index++) {
       if (commandIndexes.contains(index)) continue;
       if (consumed.contains(index)) continue;
+      if (boolFlags[registry.helpFlag.name] == true) break;
 
       final token = args[index];
       if (token == '--') {
@@ -128,44 +129,49 @@ class Parser {
       positionalValues.add(token);
     }
 
+    final help = boolFlags[registry.helpFlag.name] == true;
     _addBooleanDefaults(registry, boolFlags);
     _addCountDefaults(registry, countFlags);
-    _addChoiceDefaults(
-      registry,
-      stringOptions,
-      intOptions,
-      doubleOptions,
-      repeatedStringOptions,
-      repeatedIntOptions,
-      repeatedDoubleOptions,
-    );
-    _validatePairedOptions(
-      registry,
-      stringOptions,
-      intOptions,
-      doubleOptions,
-      repeatedStringOptions,
-      repeatedIntOptions,
-      repeatedDoubleOptions,
-    );
-    _addAccessorChoiceDefaults(registry, accessorValues);
-    _validateRequiredOptions(
-      registry,
-      stringOptions,
-      intOptions,
-      doubleOptions,
-      repeatedStringOptions,
-      repeatedIntOptions,
-      repeatedDoubleOptions,
-    );
-    final positionals = _parsePositionals(registry, positionalValues);
+    if (!help) {
+      _addChoiceDefaults(
+        registry,
+        stringOptions,
+        intOptions,
+        doubleOptions,
+        repeatedStringOptions,
+        repeatedIntOptions,
+        repeatedDoubleOptions,
+      );
+      _validatePairedOptions(
+        registry,
+        stringOptions,
+        intOptions,
+        doubleOptions,
+        repeatedStringOptions,
+        repeatedIntOptions,
+        repeatedDoubleOptions,
+      );
+      _addAccessorChoiceDefaults(registry, accessorValues);
+      _validateRequiredOptions(
+        registry,
+        stringOptions,
+        intOptions,
+        doubleOptions,
+        repeatedStringOptions,
+        repeatedIntOptions,
+        repeatedDoubleOptions,
+      );
+    }
+    final positionals = help
+        ? (singles: null, repeated: null)
+        : _parsePositionals(registry, positionalValues);
     final parsedPositionals = (
       singles: positionals.singles,
       repeated: positionals.repeated,
-      variadic: _parseVariadic(registry, trailingArguments),
+      variadic: help ? null : _parseVariadic(registry, trailingArguments),
     );
     // Help controls dispatch but is not part of the command's user inputs.
-    final help = boolFlags.remove(registry.helpFlag.name) == true;
+    boolFlags.remove(registry.helpFlag.name);
 
     return (
       command,
@@ -242,6 +248,7 @@ class Parser {
   List<String> _findCommand(List<String> args) {
     final command = <String>[];
     var registry = _registry;
+    var helpRequested = false;
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
@@ -264,7 +271,12 @@ class Parser {
       }
       final inputLength = registry.registeredInputTokenLength(token);
       if (inputLength != null) {
+        helpRequested = helpRequested || _containsHelpFlagToken(token);
         offset += inputLength;
+        continue;
+      }
+      if (helpRequested && token.startsWith('-')) {
+        offset++;
         continue;
       }
       if ((registry.commandRegistries?.isNotEmpty ?? false) &&
@@ -276,10 +288,17 @@ class Parser {
           registry.commandRegistries!.map((command) => command.name).toList(),
         );
       }
+      if (helpRequested) break;
       break;
     }
     return command;
   }
+
+  bool _containsHelpFlagToken(String token) =>
+      token == '--help' ||
+      (token.startsWith('-') &&
+          !token.startsWith('--') &&
+          token.substring(1).contains('h'));
 
   Set<int> _commandTokenIndexes(List<String> args, List<String> command) {
     final indexes = <int>{};

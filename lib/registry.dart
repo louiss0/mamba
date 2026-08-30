@@ -696,6 +696,7 @@ final class CommandRegistry {
   /// and the end-of-options separator stop traversal.
   CommandRegistry registryForArguments(List<String> args) {
     var registry = this;
+    var helpRequested = false;
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
@@ -706,7 +707,12 @@ final class CommandRegistry {
       }
       final inputLength = registry.registeredInputTokenLength(token);
       if (inputLength != null) {
+        helpRequested = helpRequested || _containsHelpFlagToken(token);
         offset += inputLength;
+        continue;
+      }
+      if (helpRequested && token.startsWith('-')) {
+        offset++;
         continue;
       }
 
@@ -716,6 +722,7 @@ final class CommandRegistry {
           .where((candidate) => candidate.name == commandName)
           .firstOrNull;
       if (command == null) {
+        if (helpRequested && children.isEmpty) break;
         throw MambaCommandNotFoundException(
           token,
           registry.fullPath,
@@ -727,6 +734,12 @@ final class CommandRegistry {
     }
     return registry;
   }
+
+  bool _containsHelpFlagToken(String token) =>
+      token == '--help' ||
+      (token.startsWith('-') &&
+          !token.startsWith('--') &&
+          token.substring(1).contains('h'));
 
   /// Whether [token] is a registered boolean or count flag.
   ///

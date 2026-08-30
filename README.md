@@ -443,8 +443,9 @@ accessor collisions, duplicate positionals, and sibling command collisions.
 the command path, positional map, typed named-input maps, trailing tokens, and a
 `help` control field. The built-in `help` boolean is parsed like any other flag,
 then removed from command inputs; executors format help and skip command
-execution when it is true. Exact `-h` and `--help` set it, and an option-owned
-value such as `--pattern --help` remains data. It supports:
+execution when it is true. Exact `-h` and `--help` set it. Once help is
+encountered, later options are not validated, while command names are still
+resolved. It supports:
 
 * root-qualified and root-omitted command paths;
 * `--long value` and `--long=value` options and accessor leaves (registered

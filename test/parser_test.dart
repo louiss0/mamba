@@ -981,7 +981,7 @@ void main() {
       final result = subject.parse(['--help', '--pattern', 'value']);
       expect(result.help, isTrue);
       expect(result.$3.boolFlags, {'verbose': false});
-      expect(result.$3.stringOptions, {'pattern': 'value'});
+      expect(result.$3.stringOptions, isEmpty);
       expect(
         () => subject.parse(['--pattern', '--verbose']),
         throwsA(isA<MambaParseException>()),
@@ -989,6 +989,35 @@ void main() {
       expect(subject.parse(['--pattern=--verbose']).$3.stringOptions, {
         'pattern': '--verbose',
       });
+    });
+
+    test('stops option parsing after help but still resolves commands', () {
+      final subject = parser(
+        commands: [
+          _ParserCommand(
+            'deploy',
+            options: [
+              StringOption('required', regex: RegExp(r'\S+'), required: true),
+            ],
+          ),
+        ],
+      );
+
+      final result = subject.parse([
+        '--help',
+        'deploy',
+        '--unknown',
+        '--required',
+      ]);
+
+      expect(result.$1, ['deploy']);
+      expect(result.help, isTrue);
+      expect(result.$3, isNotNull);
+      expect(result.$3.stringOptions, isEmpty);
+      expect(
+        () => subject.parse(['--help', 'missing']),
+        throwsA(isA<MambaCommandNotFoundException>()),
+      );
     });
 
     test('keeps equals signs after the first inline separator', () {
@@ -1610,7 +1639,7 @@ class _ParserGroupCommand extends GroupCommand {
 }
 
 class _ParserCommand extends Command {
-  _ParserCommand(this.name, {super.aliases});
+  _ParserCommand(this.name, {super.aliases, super.options});
 
   @override
   final String name;

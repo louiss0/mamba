@@ -104,6 +104,20 @@ void main() {
       expect(received, isNot(contains('help')));
     });
 
+    test('ignores options after help once the command is known', () async {
+      final executor = Executor('mamba', 'A command-line application.', [
+        _InputCommand('run'),
+      ]).fake();
+
+      final result = await executor.execute(['run', '--help', '--unknown']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(
+        _withoutAnsi((result as MambaSuccessResult).output!),
+        startsWith('run'),
+      );
+    });
+
     test('resolves command help after a value-taking option', () async {
       final executor = Executor('mamba', 'A command-line application.', [
         _InputCommand(
