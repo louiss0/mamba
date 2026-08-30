@@ -4,8 +4,10 @@ This report is based exclusively on the implementation in `lib/` and the
 behavior specified in `test/`. The README, package metadata, executables, and
 other project folders were not used to infer framework behavior.
 
-The current verification baseline is maintained with the implementation and
-behavioral test suite. See `MIGRATION.md` for the 0.3.0 breaking changes.
+The current verification baseline is:
+
+- `dart test`: 473 tests passed.
+- `dart analyze lib test`: no issues found.
 
 ## Executive summary
 
@@ -28,12 +30,11 @@ a typed invocation or a parser-owned help request. The executor then supplies
 invocation values to hooks and to the selected command.
 Help and Carapace completion output are also derived from registry metadata.
 
-The current version has notably stronger lifecycle and integration behavior
-than the previous report described. Pre-hooks are asynchronous, cleanup is
-attempted for every successfully entered hook, cleanup exceptions are
-aggregated, output is delayed until cleanup completes, and registry export now
-retains paired-option groups, accessor types, choices, defaults, and regex
-patterns.
+The current version uses a sealed parser result, deep-frozen registry maps,
+group-aware choice defaults, strict long/short option lookup, and separate
+execution aggregates for recoverable exceptions and non-recoverable errors.
+Pre-hooks are asynchronous, cleanup is attempted for every successfully
+entered hook, and output is delayed until cleanup completes.
 
 ## Architecture
 
@@ -99,8 +100,7 @@ Registry construction validates:
 - Nested accessor definitions recursively
 
 The shared long-name grammar is letter-led words separated by hyphens or
-underscores. Digits are currently rejected everywhere by the actual regular
-expression, despite some validation messages saying otherwise.
+underscores. Digits are rejected.
 
 The registry keeps locally declared inputs separate from published inputs:
 
@@ -137,22 +137,30 @@ global flag name; short-alias collisions are rejected as well.
 
 The map is the integration boundary: converters do not need to retain live
 command instances. Construction recursively copies and freezes every nested
-map and list, and validates the same canonical semantic relationships required
-by live definitions.
+map and list. It validates a broad set of canonical semantic relationships,
+although its collision and reserved-name policies do not yet exactly match
+live registration; those gaps are detailed in `FRAMEWORK_INCONSISTENCIES.md`.
+
+Live authoring objects do not provide the same ownership guarantee. Several
+command, alias, input, and choice collections retain their caller-provided
+lists. Definitions should therefore be treated as immutable after executor
+construction; later mutation can desynchronize parsing, execution lookup, and
+the frozen integration snapshot.
 
 ### Parsing pipeline
 
 [`lib/parser.dart`](lib/parser.dart) performs these stages:
 
 1. Discover the canonical command path, resolving aliases.
-2. Determine the raw token indexes occupied by command names.
-3. Select the deepest command registry and materialize inherited inputs.
-4. Parse long inputs, short inputs, flags, options, accessors, and ordinary
+2. Return `ParsedHelp` for an empty invocation or an exact help token.
+3. Determine the raw token indexes occupied by command names.
+4. Select the deepest command registry and materialize inherited inputs.
+5. Parse long inputs, short inputs, flags, options, accessors, and ordinary
    positional tokens.
-5. Stop ordinary parsing at `--` and preserve every later token.
-6. Add boolean, count, ordinary-choice, paired-choice, and accessor defaults.
-7. Validate paired groups against their final effective values.
-8. Validate required ordinary options.
+6. Stop ordinary parsing at `--` and preserve every later token.
+7. Add boolean, count, ordinary-choice, and group-aware paired-choice defaults.
+8. Validate paired groups against their final effective values.
+9. Merge accessor choice defaults and validate required ordinary options.
 10. Allocate mandatory and discretionary positionals.
 11. Validate and name trailing values through the registered variadic.
 
@@ -243,11 +251,13 @@ independent.
 `ProcessedStandardInput` stores raw bytes and exposes character-code text,
 UTF-8 text, and decoded JSON. Malformed JSON propagates `FormatException`.
 Standard input is read only when the selected command uses `HookRunner` and
-stdin is a pipe.
+stdin is a pipe. A `FileSystemException` whose message is exactly
+`Socket is closed` is treated as an absent inherited pipe; other stdin
+filesystem failures propagate into the execution error boundary.
 
 ### Error boundary
 
-The error hierarchy has four principal roles:
+The error hierarchy has six principal roles:
 
 - `MambaRegistryError extends ArgumentError` reports invalid definitions.
 - `MambaException implements Exception` is the recoverable framework base.
@@ -257,8 +267,8 @@ The error hierarchy has four principal roles:
   artifacts.
 - `MambaExecutionException` combines ordinary execution and cleanup
   exceptions.
-- `MambaExecutionError extends Error` preserves a non-Exception primary
-  failure and every cleanup failure.
+- `MambaExecutionError extends Error` reports execution paths containing an
+  `Error` or arbitrary thrown object.
 
 Registry construction occurs while `fake()` or `create()` builds the private
 executor, so definition errors are thrown before `execute()` can return a
@@ -266,9 +276,10 @@ failure result.
 
 During execution, ordinary `Exception` values become failure output. Existing
 `MambaException` values are preserved; other exceptions are wrapped in
-`MambaException`. Dart `Error` values and arbitrary thrown objects remain outside the recoverable
-result contract. After cleanup, `MambaExecutionError` rethrows them with every
-captured primary and cleanup diagnostic preserved.
+`MambaException`. Dart `Error` values and arbitrary thrown objects remain
+outside the recoverable result contract. After cleanup, they are rethrown as
+`MambaExecutionError`, which contains the primary failure, all ordinary cleanup
+exceptions, the first cleanup `Error`, and the first arbitrary cleanup object.
 
 ## Commands
 
@@ -425,9 +436,9 @@ such values.
 `PairedOptions` owns one or more `PairOption` members. Pair members can be
 string, integer, double, choice, or repeatable typed values.
 
-An all-of group behaves as a unit:
+An all-of group behaves as a unit after defaults are applied:
 
-- An optional group may be entirely absent.
+- An optional group with no effective values may be entirely absent.
 - Once one explicit member is supplied, all members must be supplied.
 - A required group requires every member explicitly.
 
@@ -437,9 +448,10 @@ A variant group represents alternatives:
 - A required group requires exactly one explicit member.
 
 Choice defaults are applied before paired validation. Optional all-of groups
-may use defaults to complete explicitly supplied members. A variant default is
-suppressed when another variant member is explicit, so the final state never
-contains two variants. Required paired choices cannot declare defaults.
+may use defaults to complete explicitly supplied members; a default can also
+make an otherwise omitted group effective. A variant default is suppressed
+when another variant member is explicit, so the final state never contains two
+variants. Required paired choices cannot declare defaults.
 
 ### Accessor options
 
@@ -490,8 +502,8 @@ Pair failures are:
 - `Variant options ... accept only one option`
 
 Definition-time option failures are `MambaRegistryError` and cover invalid
-names/aliases, duplicates, empty pair groups, invalid defaults, collisions, and
-multiple defaults in a variant group.
+names/aliases, duplicates, empty choice or pair groups, required choices with
+defaults, collisions, and multiple defaults in a variant group.
 
 ## Arguments
 
@@ -542,6 +554,8 @@ Positional and variadic invocation failures are `MambaParseException`:
   `This term isn't a registered command positional`
 - Invalid variadic value:
   `The term at index N isn't accepted by the name variadic`
+- More than one value for a single-valued `ChoiceVariadic`:
+  `The name variadic accepts only one value.`
 
 An explicitly supplied empty token is treated as a real value and validated;
 it is no longer silently discarded.
@@ -607,9 +621,10 @@ Important lifecycle properties:
 - Ordinary cleanup exceptions are collected in order.
 - If execution and cleanup both throw `Exception`,
   `MambaExecutionException.primaryFailure` preserves the execution failure and
-  `cleanupFailures` preserves every cleanup failure.
+  `cleanupFailures` preserves the cleanup exceptions in cleanup order.
 - `Error` and arbitrary thrown objects remain non-recoverable but do not skip
-  cleanup; `MambaExecutionError` retains them with every cleanup failure.
+  cleanup. `MambaExecutionError` retains the primary failure, ordinary cleanup
+  exceptions, and the first cleanup value of each non-Exception category.
 - Output and failure writers run only after cleanup completes.
 - Context mutations made by persistent hooks are visible to descendant hooks
   and commands and persist across executions of the same executor.
@@ -629,7 +644,8 @@ serialized metadata without knowing the live command subclasses.
 copies and freezes the validated map. Its failures use
 `MambaIntegrationException` with full nested paths, and it validates structural
 and semantic invariants including names, aliases, collisions, choice defaults,
-option-group membership, and repetition metadata.
+option-group membership, and repetition metadata. Its policy gaps relative to
+live registration are catalogued in `FRAMEWORK_INCONSISTENCIES.md`.
 
 ### Carapace conversion
 
@@ -655,7 +671,6 @@ Carapace ranges from `-10` to `10`; parser validation remains signed and
 unbounded. General strings do not assume filesystem completion. A normal
 choice variadic fills the first `dash` slot, while a
 `RepeatedChoiceVariadic` uses `dashany` for every subsequent slot.
-
 
 ### Carapace writing and errors
 
