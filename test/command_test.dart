@@ -345,9 +345,9 @@ void main() {
     };
 
     Matcher hasInvalidProperty(String path, Object? value) => throwsA(
-      isA<ArgumentError>()
-          .having((error) => error.name, 'argument name', path)
-          .having((error) => error.invalidValue, 'invalid value', value),
+      isA<MambaIntegrationException>()
+          .having((error) => error.message, 'message', contains(path))
+          .having((error) => error.message, 'value', contains('$value')),
     );
 
     ({Map<String, dynamic> root, Map<String, dynamic> leaf, List<String> names})

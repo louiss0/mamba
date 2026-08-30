@@ -252,7 +252,7 @@ void main() {
       'reports persistent post-hook exceptions as failure results',
       () async {
         final executor = Executor('mamba', 'A command-line application.', [
-          _PersistentGroup(const [], [_Command('serve')], failPost: true),
+          _PersistentGroup([], [_Command('serve')], failPost: true),
         ]).fake();
 
         expect(
