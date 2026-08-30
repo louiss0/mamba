@@ -155,20 +155,17 @@ void main() {
       );
     });
 
-    test(
-      'explicit group help is not redirected to its default child',
-      () async {
-        final executor = Executor('mamba', 'A command-line application.', [
-          _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['serve']),
-        ]).fake();
+    test('ordinary global help selects a group default command', () async {
+      final executor = Executor('mamba', 'A command-line application.', [
+        _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['serve']),
+      ]).fake();
 
-        final result = await executor.execute(['group', '--help']);
+      final result = await executor.execute(['group', '--help']);
 
-        expect(result, isA<MambaSuccessResult>());
-        expect((result as MambaSuccessResult).output, contains('group'));
-        expect(result.output, isNot(contains('serve command')));
-      },
-    );
+      expect(result, isA<MambaSuccessResult>());
+      expect((result as MambaSuccessResult).output, contains('serve'));
+      expect(result.output, contains('A test command.'));
+    });
 
     test('runs child hooks when a group selects its default', () async {
       final events = <String>[];

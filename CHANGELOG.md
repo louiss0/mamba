@@ -4,8 +4,8 @@
   explicit member input.
 - Made inherited option overrides resolve cardinality before typed map
   construction, preventing shadowed options from being resurrected.
-- Made help detection respect option-token ownership and stopped group defaults
-  from redirecting explicit group help.
+- Made built-in help a defaulted global boolean parsed like other flags; the
+  executor skips command execution when it is enabled.
 - Validated synthesized negated flag spellings, reserved help aliases, and
   serialized positional/name namespaces consistently.
 - Preserved every cleanup failure in callback order and broadened closed-pipe

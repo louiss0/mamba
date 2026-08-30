@@ -1772,7 +1772,7 @@ void main() {
         );
       });
 
-      test('resolves the command whose help was requested', () {
+      test('parses help after selecting the command path', () {
         final registry = CommandRegistry.create(
           'tool',
           'Tool command.',
@@ -1780,24 +1780,18 @@ void main() {
           commands: [TestGroupCommand('config', [], 'Configure the tool.')],
         );
 
-        expect(
-          Parser(registry).parse(['config', '--help']),
-          isA<ParsedHelp>().having(
-            (result) => result.registry.name,
-            'registry',
-            'config',
-          ),
-        );
-        expect(
-          Parser(registry).parse(['--', '--help']),
-          isA<ParsedInvocation>(),
-        );
-        expect(
-          (Parser(registry).parse(['--verbose', 'config', '-h']) as ParsedHelp)
-              .registry
-              .name,
-          'config',
-        );
+        final commandHelp = Parser(registry).parse(['config', '--help']);
+        expect(commandHelp.value.$1, ['config']);
+        expect(commandHelp.value.$3.boolFlags?['help'], isTrue);
+        expect(commandHelp.shouldExecute, isFalse);
+        expect(Parser(registry).parse(['--', '--help']).value.$4, ['--help']);
+
+        final bundledHelp = Parser(
+          registry,
+        ).parse(['--verbose', 'config', '-h']);
+        expect(bundledHelp.value.$1, ['config']);
+        expect(bundledHelp.value.$3.boolFlags, {'help': true});
+        expect(bundledHelp.value.$3.countFlags, {'verbose': 1});
       });
 
       test('resolves help after a registered option and its value', () {
@@ -1876,20 +1870,16 @@ void main() {
         ],
       );
 
-      final inputs =
-          (Parser(registry).parse([
-                    'tool',
-                    'config',
-                    '--no-color',
-                    'get',
-                    '--retries',
-                    '2',
-                  ])
-                  as ParsedInvocation)
-              .value
-              .$3;
+      final inputs = Parser(registry)
+          .parse(['tool', 'config', '--no-color', 'get', '--retries', '2'])
+          .value
+          .$3;
 
-      expect(inputs.boolFlags, {'color': false, 'verbose': false});
+      expect(inputs.boolFlags, {
+        'help': false,
+        'color': false,
+        'verbose': false,
+      });
       expect(inputs.intOptions, {'retries': 2});
     });
 
@@ -1908,11 +1898,9 @@ void main() {
         ],
       );
 
-      final inputs =
-          (Parser(registry).parse(['config', 'get', '--profile', 'development'])
-                  as ParsedInvocation)
-              .value
-              .$3;
+      final inputs = Parser(
+        registry,
+      ).parse(['config', 'get', '--profile', 'development']).value.$3;
       expect(inputs.stringOptions, {'profile': 'development'});
       expect(inputs.intOptions, isNull);
     });

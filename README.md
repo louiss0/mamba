@@ -441,16 +441,16 @@ accessor collisions, duplicate positionals, and sibling command collisions.
 
 `Parser.parse` accepts tokens and returns a sealed `ParseOutcome`:
 `ParsedInvocation` contains the command path, positional map, typed named-input
-maps, and trailing tokens; `ParsedHelp` identifies the registry to format.
-Exact unowned `-h` and `--help` tokens produce `ParsedHelp`; help is not a
-short-bundle member, and an option-owned value such as `--pattern --help`
-remains data. It supports:
+maps, and trailing tokens. The built-in `help` boolean is parsed like any other
+flag; executors format help and skip command execution when it is true. Exact
+`-h` and `--help` set it, and an option-owned value such as
+`--pattern --help` remains data. It supports:
 
 * root-qualified and root-omitted command paths;
 * `--long value` and `--long=value` options and accessor leaves (registered
   input-looking values use inline `--long=value` syntax);
 * `-s value` short options;
-* `--flag`, `-f`, and bundled short flags such as `-vvv`;
+* `--flag`, `-f`, and bundled short flags such as `-vvv` (including `-h`);
 * `--no-name` for negatable boolean flags;
 * positional, paired, repeated, and accessor forms;
 * `--` as an end-of-options separator; and

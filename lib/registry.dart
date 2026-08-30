@@ -110,7 +110,7 @@ final class CommandRegistry {
 
   /// Builds and validates a root registry from a list-defined command surface.
   ///
-  /// The factory indexes inputs by name, reserves the built-in help flag, and
+  /// The factory indexes inputs by name, supplies the built-in help flag, and
   /// creates child registries for [commands]. It rejects ambiguous names,
   /// aliases, positional definitions, and invalid input definitions.
   factory CommandRegistry.create(
@@ -605,12 +605,15 @@ final class CommandRegistry {
     return {for (final input in inherited) input.name: input, ...?local};
   }
 
-  /// Boolean flags available here: inherited inputs plus local declarations,
-  /// with a local same-name definition taking precedence.
-  Map<String, BooleanFlag>? get applicableBoolFlags => _combineWithInherited(
-    _inheritableFlags.whereType<BooleanFlag>(),
-    boolFlags,
-  );
+  /// Boolean flags available here: the built-in help flag plus inherited and
+  /// local declarations, with local same-name definitions taking precedence.
+  Map<String, BooleanFlag> get applicableBoolFlags => {
+    helpFlag.name: helpFlag,
+    ...?_combineWithInherited(
+      _inheritableFlags.whereType<BooleanFlag>(),
+      boolFlags,
+    ),
+  };
 
   /// Count flags available here, including inherited ones.
   Map<String, CountFlag>? get applicableCountFlags => _combineWithInherited(
@@ -696,7 +699,7 @@ final class CommandRegistry {
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
-      if (token == '--' || token == '--help' || token == '-h') break;
+      if (token == '--') break;
       if (token == registry.name && identical(registry, this)) {
         offset++;
         continue;
@@ -727,19 +730,17 @@ final class CommandRegistry {
 
   /// Whether [token] is a registered boolean or count flag.
   ///
-  /// Built-in help is an exact parser token, not a bundle member. The check
-  /// recognizes long names, valid negated boolean names, short names, and
-  /// bundles of registered short flags.
+  /// The check recognizes long names, valid negated boolean names, short
+  /// names, and bundles of registered short flags, including built-in help.
   bool isRegisteredFlagToken(String token) {
     final boolFlags = applicableBoolFlags;
     final countFlags = applicableCountFlags;
     if (token.startsWith('--') && token.length > 2) {
       final name = token.substring(2).split('=').first;
       final negativeName = name.startsWith('no-') ? name.substring(3) : null;
-      return boolFlags?.containsKey(name) == true ||
+      return boolFlags.containsKey(name) ||
           countFlags?.containsKey(name) == true ||
-          (negativeName != null &&
-              boolFlags?.containsKey(negativeName) == true);
+          (negativeName != null && boolFlags.containsKey(negativeName));
     }
     if (!token.startsWith('-') || token.length <= 1) return false;
     return token
@@ -747,7 +748,7 @@ final class CommandRegistry {
         .split('')
         .every(
           (name) =>
-              boolFlags?.values.any((flag) => flag.short == name) == true ||
+              boolFlags.values.any((flag) => flag.short == name) ||
               countFlags?.values.any((flag) => flag.short == name) == true,
         );
   }

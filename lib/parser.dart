@@ -7,14 +7,14 @@ class MambaParseException extends MambaException {
   MambaParseException(super.message);
 }
 
-/// The parser result for either an executable invocation or a help request.
+/// The parser result for a validated command invocation.
 sealed class ParseOutcome {
   const ParseOutcome();
 }
 
 /// A fully parsed command invocation.
 final class ParsedInvocation extends ParseOutcome {
-  const ParsedInvocation(this.value);
+  const ParsedInvocation(this.value, {this.shouldExecute = true});
 
   final (
     List<String> command,
@@ -23,13 +23,9 @@ final class ParsedInvocation extends ParseOutcome {
     List<String> trailingArguments,
   )
   value;
-}
 
-/// A parser-owned request to format help for [registry].
-final class ParsedHelp extends ParseOutcome {
-  const ParsedHelp(this.registry);
-
-  final CommandRegistry registry;
+  /// Whether the executor should invoke the selected command.
+  final bool shouldExecute;
 }
 
 /// Validates command-line tokens against a [CommandRegistry].
@@ -44,15 +40,12 @@ class Parser {
 
   final CommandRegistry _registry;
 
-  /// Parses [args] into a typed invocation or a parser-owned help request.
+  /// Parses [args] into a typed invocation.
   ///
   /// Throws [MambaParseException] when names, values, required inputs, paired
   /// groups, or positional layout do not satisfy the registry.
-  ParseOutcome parse(List<String> args) {
+  ParsedInvocation parse(List<String> args) {
     final command = _findCommand(args);
-    if (_requestsHelp(args) || args.isEmpty) {
-      return ParsedHelp(_registryForCommand(command).withInheritedInputs());
-    }
     final commandIndexes = _commandTokenIndexes(args, command);
     // Inherited flags and options stay at their declaring level, so the parser
     // resolves them from the root before validating the invocation.
@@ -212,48 +205,7 @@ class Parser {
         accessors: accessorValues.isEmpty ? null : accessorValues,
       ),
       trailingArguments,
-    ));
-  }
-
-  bool _requestsHelp(List<String> args) {
-    // Help is identified while walking token ownership: a token consumed as
-    // the value of a registered option stays data, and the global help token
-    // only resolves for tokens no registered input owns.
-    var registry = _registry;
-    var pathEnded = false;
-    var offset = 0;
-    while (offset < args.length) {
-      final token = args[offset];
-      if (token == '--') return false;
-      if (token == '--help' || token == '-h') return true;
-      if (!pathEnded &&
-          identical(registry, _registry) &&
-          token == _registry.name) {
-        offset++;
-        continue;
-      }
-      if (!pathEnded) {
-        final commandName = registry.aliases?[token] ?? token;
-        final child = registry.commandRegistries
-            ?.where((candidate) => candidate.name == commandName)
-            .firstOrNull;
-        if (child != null) {
-          registry = child;
-          offset++;
-          continue;
-        }
-        final inputLength = registry.registeredInputTokenLength(token);
-        if (inputLength != null) {
-          offset += inputLength;
-          continue;
-        }
-        // An unregistered token cannot be validated; keep scanning raw
-        // tokens so a later explicit help token still resolves to help.
-        pathEnded = true;
-      }
-      offset++;
-    }
-    return false;
+    ), shouldExecute: boolFlags['help'] != true);
   }
 
   bool _hasStringOptions(CommandRegistry registry) {
@@ -302,7 +254,7 @@ class Parser {
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
-      if (token == '--' || token == '--help' || token == '-h') break;
+      if (token == '--') break;
       if (token == registry.name && command.isEmpty) {
         command.add(registry.name);
         offset++;

@@ -103,7 +103,7 @@ void main() {
       ]);
       final inputs = result.$3;
 
-      expect(inputs.boolFlags, {'color': false});
+      expect(inputs.boolFlags, {'help': false, 'color': false});
       expect(inputs.countFlags, {'verbose': 2});
       expect(inputs.stringOptions, {'name': 'Ada', 'mode': 'auto'});
       expect(inputs.intOptions, {'retries': 2});
@@ -130,7 +130,7 @@ void main() {
       final result = parser().parse(['tool']);
       final inputs = result.$3;
 
-      expect(inputs.boolFlags, isNull);
+      expect(inputs.boolFlags, {'help': false});
       expect(inputs.countFlags, isNull);
       expect(inputs.stringOptions, isNull);
       expect(inputs.intOptions, isNull);
@@ -162,7 +162,7 @@ void main() {
         flags: [BooleanFlag('color', defaultValue: true), CountFlag('verbose')],
       ).parse(['tool']).$3;
 
-      expect(inputs.boolFlags, {'color': true});
+      expect(inputs.boolFlags, {'help': false, 'color': true});
       expect(inputs.countFlags, {'verbose': 0});
     });
 
@@ -849,7 +849,7 @@ void main() {
       ]);
 
       expect(result.$1, ['tool', 'config', 'get']);
-      expect(result.$3.boolFlags, {'verbose': true});
+      expect(result.$3.boolFlags, {'help': false, 'verbose': true});
       expect(result.$3.intOptions, {'retries': 2});
     });
 
@@ -927,7 +927,7 @@ void main() {
       final result = subject.parse(['config', '--no-color', 'get']);
 
       expect(result.$1, ['config', 'get']);
-      expect(result.$3.boolFlags, {'color': false});
+      expect(result.$3.boolFlags, {'help': false, 'color': false});
     });
 
     test('does not locate a command inside an option value', () {
@@ -980,23 +980,23 @@ void main() {
       },
     );
 
-    test('validated option values take priority over global help tokens', () {
+    test('registered global help retains its flag meaning', () {
       final subject = parser(
         flags: [BooleanFlag('verbose')],
         options: [StringOption('pattern', regex: RegExp(r'\S+'))],
       );
 
-      final result = subject.parse(['--pattern', '--help']);
-
-      expect(result, isA<ParsedInvocation>());
-      expect((result as ParsedInvocation).value.$3.stringOptions, {
-        'pattern': '--help',
-      });
+      expectParseError(subject, ['--pattern', '--help']);
+      final result = subject.parse(['--help', '--pattern', 'value']);
+      expect(result.value.$3.boolFlags?['help'], isTrue);
+      expect(result.value.$3.stringOptions, {'pattern': 'value'});
       expect(
         () => subject.parse(['--pattern', '--verbose']),
         throwsA(isA<MambaParseException>()),
       );
-      expect(subject.parse(['--pattern=--verbose']), isA<ParsedInvocation>());
+      expect(subject.parse(['--pattern=--verbose']).value.$3.stringOptions, {
+        'pattern': '--verbose',
+      });
     });
 
     test('keeps equals signs after the first inline separator', () {
@@ -1362,7 +1362,7 @@ void main() {
         'b',
       ]);
 
-      expect(result.$3.boolFlags, {'force': true});
+      expect(result.$3.boolFlags, {'help': false, 'force': true});
       expect(result.$3.intOptions, {'retries': 2});
       expect(result.$2.singles, isNull);
       expect(result.$2.repeated, isNull);
@@ -1543,12 +1543,17 @@ void main() {
   });
 
   group('0.3 contract fixes', () {
-    test('returns parser-owned help only for exact help tokens', () {
+    test('parses help as a defaulted global boolean flag', () {
       final subject = parser(flags: [CountFlag('verbose', short: 'v')]);
 
-      expect(subject.parse([]), isA<ParsedHelp>());
-      expect(subject.parse(['-h']), isA<ParsedHelp>());
-      expectParseError(subject, ['-hv']);
+      expect(subject.parse([]).$3.boolFlags, {'help': false});
+      expect(subject.parse([]).$3.countFlags, {'verbose': 0});
+      expect(subject.parse([]).shouldExecute, isTrue);
+      expect(subject.parse(['-h']).$3.boolFlags, {'help': true});
+      expect(subject.parse(['-h']).$3.countFlags, {'verbose': 0});
+      expect(subject.parse(['-h']).shouldExecute, isFalse);
+      expect(subject.parse(['-hv']).$3.boolFlags, {'help': true});
+      expect(subject.parse(['-hv']).$3.countFlags, {'verbose': 1});
     });
 
     test('rejects crossed long and short option forms', () {

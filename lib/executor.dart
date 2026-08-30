@@ -214,39 +214,35 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
     try {
       final executionArguments = _argumentsWithDefaultCommands(args);
-      switch (Parser(_registry).parse(executionArguments)) {
-        case ParsedHelp(:final registry):
-          output = _helpFormatter.format(registry);
-        case ParsedInvocation(:final value):
-          final (commandPath, positionals, inputs, trailingArguments) = value;
-          final commandPathCommands = _commandsForPath(commandPath);
-          final command = commandPathCommands.lastOrNull;
-          if (command == null) {
-            output = _helpFormatter.format(
-              _registry
-                  .registryForArguments(executionArguments)
-                  .withInheritedInputs(),
-            );
-            break;
-          }
-          context = MambaReadContext(_context);
-          parsedPositionals = positionals;
-          options = (
-            stringOptions: inputs.stringOptions,
-            intOptions: inputs.intOptions,
-            doubleOptions: inputs.doubleOptions,
-          );
-          for (final hook
-              in commandPathCommands.whereType<PersistentHookRunner>()) {
-            await hook.prePersistentRun(_context, positionals, options);
-            enteredPersistentHooks.add(hook);
-          }
-          if (command case final HookRunner hook) {
-            final standardInput = await _readStandardInput();
-            await hook.preRun(standardInput, context, positionals, options);
-            enteredHook = hook;
-          }
-          output = await command.run(positionals, inputs, trailingArguments);
+      final parsed = Parser(_registry).parse(executionArguments);
+      final (commandPath, positionals, inputs, trailingArguments) =
+          parsed.value;
+      final commandPathCommands = _commandsForPath(commandPath);
+      final command = commandPathCommands.lastOrNull;
+      final selectedRegistry = _registry
+          .registryForArguments(executionArguments)
+          .withInheritedInputs();
+      if (!parsed.shouldExecute || command == null) {
+        output = _helpFormatter.format(selectedRegistry);
+      } else {
+        context = MambaReadContext(_context);
+        parsedPositionals = positionals;
+        options = (
+          stringOptions: inputs.stringOptions,
+          intOptions: inputs.intOptions,
+          doubleOptions: inputs.doubleOptions,
+        );
+        for (final hook
+            in commandPathCommands.whereType<PersistentHookRunner>()) {
+          await hook.prePersistentRun(_context, positionals, options);
+          enteredPersistentHooks.add(hook);
+        }
+        if (command case final HookRunner hook) {
+          final standardInput = await _readStandardInput();
+          await hook.preRun(standardInput, context, positionals, options);
+          enteredHook = hook;
+        }
+        output = await command.run(positionals, inputs, trailingArguments);
       }
     } on Error catch (error) {
       primaryError = error;
@@ -388,9 +384,6 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     while (offset < args.length) {
       final token = args[offset];
       if (token == '--') break;
-      // Explicit help must resolve against the selected group rather than a
-      // default descendant of that group.
-      if (token == '--help' || token == '-h') return null;
       if (token == _registry.name && identical(registry, _registry)) {
         offset++;
         continue;

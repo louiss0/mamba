@@ -8,9 +8,10 @@ registry maps.
 
 ## Help and option values
 
-Help detection now respects registered option ownership. A dash-prefixed value
-that is another registered input must use inline `--option=value` syntax. Group
-default subcommands no longer redirect explicit `group --help` requests.
+The built-in help flag is now parsed as the defaulted global boolean `help`.
+Executors format help and skip command execution when it is true. `-h` can be
+included in ordinary short bundles. A dash-prefixed value that is another
+registered input must use inline `--option=value` syntax.
 
 ## Completion metadata
 
