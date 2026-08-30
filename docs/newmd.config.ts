@@ -8,6 +8,7 @@ export default defineConfig({
 	format: 'yaml',
 
 	// Schema definitions matching Starlight's docsSchema()
+	// https://starlight.astro.build/reference/frontmatter/
 	schemas: {
 		guide: z.object({
 			title: z.string(),
