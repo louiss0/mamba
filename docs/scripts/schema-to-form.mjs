@@ -13,7 +13,7 @@
  */
 
 import prompts from 'prompts';
-import { z } from 'zod';
+import { z } from 'astro/zod';
 import { parseArgs } from 'node:util';
 
 // ============================================

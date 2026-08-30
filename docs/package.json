@@ -15,7 +15,6 @@
     "sharp": "^0.35.3"
   },
   "devDependencies": {
-    "prompts": "^2.4.2",
-    "zod": "^4.5.4"
+    "prompts": "^2.4.2"
   }
 }
