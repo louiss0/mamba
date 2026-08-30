@@ -68,7 +68,7 @@ class Parser {
           continue;
         }
         if (name.contains('.')) {
-          throw MambaParseException("This isn't a registered acessor");
+          throw MambaParseException("This isn't a registered accessor");
         }
 
         final option = _findOption(registry, name);
@@ -543,7 +543,7 @@ class Parser {
   int _parseInt(String value) {
     if (!_matchesEntirely(RegExp(r'[+-]?\d+'), value)) {
       throw MambaParseException(
-        'Invalid int value: $value never have spaces in between numbers',
+        'Invalid int value: $value must not contain spaces',
       );
     }
     return int.parse(value);
@@ -552,7 +552,7 @@ class Parser {
   double _parseDouble(String value) {
     if (!_matchesEntirely(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
       throw MambaParseException(
-        'Invalid double value: $value never have spaces in between numbers',
+        'Invalid double value: $value must not contain spaces',
       );
     }
     return double.parse(value);

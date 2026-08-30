@@ -883,6 +883,7 @@ void _parseOption(Map<String, Object?> value, String path) {
     'choices',
     'default',
     'pairedOptions',
+    'pattern',
   };
   _validateProperties(value, path, {
     ...requiredProperties,
@@ -923,6 +924,9 @@ void _parseOption(Map<String, Object?> value, String path) {
       _joinRegistryPath(path, 'pairedOptions'),
     );
   }
+  if (value.containsKey('pattern')) {
+    _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
+  }
 }
 
 void _parseOptionGroups(Object? value, String path) {
@@ -950,7 +954,13 @@ void _parseOptionGroups(Object? value, String path) {
 
 void _parsePositional(Map<String, Object?> value, String path) {
   const requiredProperties = {'required', 'description'};
-  const optionalProperties = {'choices', 'default', 'repeatable', 'times'};
+  const optionalProperties = {
+    'choices',
+    'default',
+    'repeatable',
+    'times',
+    'pattern',
+  };
   _validateProperties(value, path, {
     ...requiredProperties,
     ...optionalProperties,
@@ -973,12 +983,15 @@ void _parsePositional(Map<String, Object?> value, String path) {
   if (value.containsKey('times')) {
     _expectNonNegativeInt(value['times'], _joinRegistryPath(path, 'times'));
   }
+  if (value.containsKey('pattern')) {
+    _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
+  }
 }
 
 void _parseVariadic(Object? value, String path) {
   final variadic = _map(value, path);
   const requiredProperties = {'description'};
-  const optionalProperties = {'choices', 'default', 'repeatable'};
+  const optionalProperties = {'choices', 'default', 'repeatable', 'pattern'};
   _validateProperties(variadic, path, {
     ...requiredProperties,
     ...optionalProperties,
@@ -996,6 +1009,9 @@ void _parseVariadic(Object? value, String path) {
   }
   if (variadic.containsKey('repeatable')) {
     _expectBool(variadic['repeatable'], _joinRegistryPath(path, 'repeatable'));
+  }
+  if (variadic.containsKey('pattern')) {
+    _expectString(variadic['pattern'], _joinRegistryPath(path, 'pattern'));
   }
 }
 
@@ -1069,6 +1085,7 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
         'description',
         'choices',
         'default',
+        'pattern',
       };
       const requiredProperties = {'kind', 'valueType', 'description'};
       _validateProperties(value, path, properties, requiredProperties);
@@ -1087,6 +1104,9 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
       );
       if (value.containsKey('choices')) {
         _parseStringList(value['choices'], choicesPath);
+      }
+      if (value.containsKey('pattern')) {
+        _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
       }
       if (value.containsKey('default')) {
         final defaultPath = _joinRegistryPath(path, 'default');
@@ -1207,7 +1227,7 @@ String _joinRegistryPath(String parent, String property) =>
     parent.isEmpty ? property : '$parent.$property';
 
 Never _invalid(Object? value, String path, String message) =>
-    throw ArgumentError.value(value, path, message);
+    throw MambaIntegrationException('$path $message (value: $value)');
 
 /// A command that generates output from the executor's complete command map.
 ///
@@ -1251,7 +1271,7 @@ final class ProcessedStandardInput {
 /// and non-repeated ordinary options. [postRun] runs after the command.
 mixin HookRunner on Command {
   /// Runs before the selected command.
-  void preRun(
+  FutureOr<void> preRun(
     ProcessedStandardInput? input,
     MambaReadContext context,
     ParsedPositionals positionals,
@@ -1269,7 +1289,7 @@ mixin HookRunner on Command {
 /// visible to descendant commands and hooks.
 mixin PersistentHookRunner on GroupCommand {
   /// Runs before a selected descendant command.
-  void prePersistentRun(
+  FutureOr<void> prePersistentRun(
     MambaContext context,
     ParsedPositionals positionals,
     ParsedSingleOptions options,

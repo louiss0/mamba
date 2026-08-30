@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:mamba/command.dart';
@@ -171,8 +172,8 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
   @override
   Future<ReturnType> execute(List<String> args) async {
-    HookRunner? hookRunner;
-    var persistentHookRunners = const Iterable<PersistentHookRunner>.empty();
+    final enteredPersistentHooks = <PersistentHookRunner>[];
+    HookRunner? enteredHook;
     MambaReadContext? context;
     ParsedPositionals parsedPositionals = (
       singles: null,
@@ -184,96 +185,100 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       intOptions: null,
       doubleOptions: null,
     );
+    Object? output;
+    Exception? primaryException;
+    Error? primaryError;
+
     try {
       if (_registry.requestsHelp(args)) {
-        return writeOut(
-          _helpFormatter.format(
-            _registry.registryForArguments(args).withInheritedInputs(),
-          ),
+        output = _helpFormatter.format(
+          _registry.registryForArguments(args).withInheritedInputs(),
         );
-      }
-
-      final executionArguments = _argumentsWithDefaultCommands(args);
-      if (executionArguments.isEmpty) {
-        return writeOut(
-          _helpFormatter.format(
+      } else {
+        final executionArguments = _argumentsWithDefaultCommands(args);
+        if (executionArguments.isEmpty) {
+          output = _helpFormatter.format(
             _registry.registryForArguments(args).withInheritedInputs(),
-          ),
-        );
-      }
-
-      final (commandPath, positionals, inputs, trailingArguments) = Parser(
-        _registry,
-      ).parse(executionArguments);
-
-      final commandPathCommands = _commandsForPath(commandPath);
-      final command = commandPathCommands.lastOrNull;
-      if (command == null) {
-        return writeOut(
-          _helpFormatter.format(
-            _registry.registryForArguments(args).withInheritedInputs(),
-          ),
-        );
-      }
-
-      persistentHookRunners = commandPathCommands
-          .whereType<PersistentHookRunner>();
-      hookRunner = command is HookRunner ? command : null;
-      context = MambaReadContext(_context);
-      parsedPositionals = positionals;
-      options = (
-        stringOptions: inputs.stringOptions,
-        intOptions: inputs.intOptions,
-        doubleOptions: inputs.doubleOptions,
-      );
-      for (final persistentHookRunner in persistentHookRunners) {
-        persistentHookRunner.prePersistentRun(_context, positionals, options);
-      }
-      if (hookRunner != null) {
-        final standardInput = await _readStandardInput();
-        hookRunner.preRun(standardInput, context, positionals, options);
-      }
-      final output = await command.run(positionals, inputs, trailingArguments);
-      return writeOut(output);
-    } on Exception catch (error) {
-      return writeErr(
-        error is MambaException ? error : MambaException(error.toString()),
-      );
-    } finally {
-      MambaException? postHookException;
-      Error? postHookError;
-      try {
-        if (hookRunner != null && context != null) {
-          await hookRunner.postRun(context);
-        }
-      } on Exception catch (error) {
-        postHookException = error is MambaException
-            ? error
-            : MambaException(error.toString());
-      } on Error catch (error) {
-        postHookError = error;
-      }
-
-      for (final persistentHookRunner
-          in persistentHookRunners.toList().reversed) {
-        try {
-          await persistentHookRunner.postPersistentRun(
-            _context,
-            parsedPositionals,
-            options,
           );
-        } on Exception catch (error) {
-          postHookException ??= error is MambaException
-              ? error
-              : MambaException(error.toString());
-        } on Error catch (error) {
-          postHookError ??= error;
+        } else {
+          final (commandPath, positionals, inputs, trailingArguments) = Parser(
+            _registry,
+          ).parse(executionArguments);
+          final commandPathCommands = _commandsForPath(commandPath);
+          final command = commandPathCommands.lastOrNull;
+          if (command == null) {
+            output = _helpFormatter.format(
+              _registry.registryForArguments(args).withInheritedInputs(),
+            );
+          } else {
+            context = MambaReadContext(_context);
+            parsedPositionals = positionals;
+            options = (
+              stringOptions: inputs.stringOptions,
+              intOptions: inputs.intOptions,
+              doubleOptions: inputs.doubleOptions,
+            );
+            for (final hook
+                in commandPathCommands.whereType<PersistentHookRunner>()) {
+              await hook.prePersistentRun(_context, positionals, options);
+              enteredPersistentHooks.add(hook);
+            }
+            if (command case final HookRunner hook) {
+              final standardInput = await _readStandardInput();
+              await hook.preRun(standardInput, context, positionals, options);
+              enteredHook = hook;
+            }
+            output = await command.run(positionals, inputs, trailingArguments);
+          }
         }
       }
-
-      if (postHookError != null) throw postHookError;
-      if (postHookException != null) return writeErr(postHookException);
+    } on Exception catch (error) {
+      primaryException = error;
+    } on Error catch (error) {
+      primaryError = error;
     }
+
+    final cleanupExceptions = <Exception>[];
+    Error? cleanupError;
+    Future<void> clean(FutureOr<void> Function() callback) async {
+      try {
+        await callback();
+      } on Exception catch (error) {
+        cleanupExceptions.add(error);
+      } on Error catch (error) {
+        cleanupError ??= error;
+      }
+    }
+
+    if (enteredHook != null && context != null) {
+      await clean(() => enteredHook!.postRun(context!));
+    }
+    for (final hook in enteredPersistentHooks.reversed) {
+      await clean(
+        () => hook.postPersistentRun(_context, parsedPositionals, options),
+      );
+    }
+
+    // Programmer Errors remain outside the recoverable execution-result
+    // boundary, but all entered hooks have still been given a chance to clean.
+    if (primaryError != null) throw primaryError;
+    if (cleanupError != null) throw cleanupError!;
+    if (cleanupExceptions.isNotEmpty) {
+      return writeErr(
+        MambaExecutionException(
+          primaryFailure: primaryException,
+          cleanupFailures: cleanupExceptions,
+        ),
+      );
+    }
+    if (primaryException != null) {
+      return writeErr(
+        primaryException is MambaException
+            ? primaryException
+            : MambaException(primaryException.toString()),
+      );
+    }
+    return writeOut(output);
   }
 
   void _assignCompletionRegistryMap(
