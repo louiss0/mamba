@@ -439,7 +439,7 @@ final class _FailingPostHookCommand extends Command with HookRunner {
   ) => '';
 
   @override
-  Future<void> postRun(MambaReadContext context) async {
+  void postRun(MambaReadContext context) {
     if (throwsError) throw StateError('cleanup failed');
     throw Exception('cleanup failed');
   }
