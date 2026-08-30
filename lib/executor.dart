@@ -308,10 +308,16 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
   }
 
   Future<ProcessedStandardInput?> _readStandardInput() async {
-    if (stdioType(stdin) != StdioType.pipe) return null;
-    return ProcessedStandardInput(
-      await stdin.expand((bytes) => bytes).toList(),
-    );
+    try {
+      if (stdioType(stdin) != StdioType.pipe) return null;
+      return ProcessedStandardInput(
+        await stdin.expand((bytes) => bytes).toList(),
+      );
+    } on FileSystemException catch (error) {
+      // Process.run can expose a closed inherited pipe as stdin.
+      if (error.message != 'Socket is closed') rethrow;
+      return null;
+    }
   }
 
   List<Command> _commandsForPath(List<String> path) {
