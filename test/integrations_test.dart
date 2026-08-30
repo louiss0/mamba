@@ -922,6 +922,31 @@ completion:
         );
       });
 
+      test("unconstrained positionals preserve later choice slots", () {
+        final registry = specRegistry(
+          mandatoryPositionals: [
+            NormalPositional('path'),
+            ChoicePositional<_Format>('format', choices: _Format.values),
+          ],
+        );
+
+        expect(
+          convertSpec(RegistryMap(registry.toMap())),
+          equalsYaml('''
+name: "spec"
+description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
+completion:
+  positional:
+    - []
+    - - "json"
+      - "json"
+      - "yaml"
+      - "yaml"'''),
+        );
+      });
+
       test("repeated choice positionals render bounded slots", () {
         final registry = specRegistry(
           discretionaryPositionals: [

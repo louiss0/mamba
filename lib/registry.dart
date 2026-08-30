@@ -268,10 +268,10 @@ final class CommandRegistry {
 
     final registeredBooleanFlags = boolFlags;
     final registeredCountFlags = countFlags;
-    map['flags'] = _mapFlags(
-      [helpFlag, ...?registeredBooleanFlags?.values],
-      registeredCountFlags?.values,
-    );
+    map['flags'] = _mapFlags([
+      helpFlag,
+      ...?registeredBooleanFlags?.values,
+    ], registeredCountFlags?.values);
 
     final localOptions = <Option>[
       ...?singleOptions?.values,
@@ -426,7 +426,8 @@ final class CommandRegistry {
       if (variant) 'variant': true,
       ...choiceData,
       'valueType': _mapOptionValueType(input),
-      if (input is RegExpValidated) 'pattern': input.regex.pattern,
+      if (input is RegExpValidated)
+        'pattern': (input as RegExpValidated).regex.pattern,
     };
   }
 
@@ -832,7 +833,9 @@ final class CommandRegistry {
     if (aliases == null) return;
     final path = commandPath.join(' ');
     if (aliases.isEmpty) {
-      throw MambaRegistryError('Aliases for command path $path must not be empty.');
+      throw MambaRegistryError(
+        'Aliases for command path $path must not be empty.',
+      );
     }
     final registered = <String>{};
     for (final alias in aliases) {

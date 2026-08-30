@@ -248,7 +248,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
             ? positional['times'] as int? ?? 0
             : 0;
         for (var slot = 0; slot <= times; slot++) {
-          if (values.isNotEmpty) positionalChoices.add(values);
+          positionalChoices.add(values);
         }
       }
     }
