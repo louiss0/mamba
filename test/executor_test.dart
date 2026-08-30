@@ -165,13 +165,29 @@ void main() {
   });
 
   group('hook failures', () {
+    test('unwinds persistent hooks after an arbitrary thrown object', () async {
+      final events = <String>[];
+      final executor = Executor('mamba', 'A command-line application.', [
+        _PersistentGroup(events, [_StringThrowingCommand()]),
+      ]).fake();
+
+      await expectLater(
+        executor.execute(['group', 'throwing']),
+        throwsA('run failed'),
+      );
+      expect(events, ['pre:group', 'post:group']);
+    });
+
     test('rethrows post-hook Errors after persistent cleanup', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [_FailingPostHookCommand(throwsError: true)]),
       ]).fake();
 
-      await expectLater(executor.execute(['group', 'failing']), throwsA(isA<StateError>()));
+      await expectLater(
+        executor.execute(['group', 'failing']),
+        throwsA(isA<StateError>()),
+      );
       expect(events, ['pre:group', 'post:group']);
     });
 
@@ -373,6 +389,21 @@ final class _HookCommand extends Command with HookRunner {
   Future<void> postRun(MambaReadContext context) async {
     events.add('post:$name');
   }
+}
+
+final class _StringThrowingCommand extends Command {
+  @override
+  String get name => 'throwing';
+
+  @override
+  String get shortDescription => 'A command that throws a string.';
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) => throw 'run failed';
 }
 
 final class _FailingPostHookCommand extends Command with HookRunner {

@@ -188,6 +188,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     Object? output;
     Exception? primaryException;
     Error? primaryError;
+    Object? primaryThrowable;
 
     try {
       if (_registry.requestsHelp(args)) {
@@ -236,10 +237,13 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       primaryException = error;
     } on Error catch (error) {
       primaryError = error;
+    } catch (error) {
+      primaryThrowable = error;
     }
 
     final cleanupExceptions = <Exception>[];
     Error? cleanupError;
+    Object? cleanupThrowable;
     Future<void> clean(FutureOr<void> Function() callback) async {
       try {
         await callback();
@@ -247,6 +251,8 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
         cleanupExceptions.add(error);
       } on Error catch (error) {
         cleanupError ??= error;
+      } catch (error) {
+        cleanupThrowable ??= error;
       }
     }
 
@@ -262,7 +268,9 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     // Programmer Errors remain outside the recoverable execution-result
     // boundary, but all entered hooks have still been given a chance to clean.
     if (primaryError != null) throw primaryError;
+    if (primaryThrowable != null) throw primaryThrowable;
     if (cleanupError != null) throw cleanupError!;
+    if (cleanupThrowable != null) throw cleanupThrowable!;
     if (cleanupExceptions.isNotEmpty) {
       return writeErr(
         MambaExecutionException(
