@@ -89,6 +89,21 @@ void main() {
       );
     });
 
+    test('does not pass the internal help flag to commands', () async {
+      final received = <String, bool>{};
+      final executor = Executor('mamba', 'A command-line application.', [
+        _InputCommand(
+          'run',
+          onRun: (inputs) => received.addAll(inputs.boolFlags ?? {}),
+        ),
+      ]).fake();
+
+      final result = await executor.execute(['run']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(received, isNot(contains('help')));
+    });
+
     test('resolves command help after a value-taking option', () async {
       final executor = Executor('mamba', 'A command-line application.', [
         _InputCommand(
@@ -416,7 +431,9 @@ final class _CompletionCommand extends CompletionCommand {
 }
 
 final class _InputCommand extends Command {
-  _InputCommand(this.name, {super.options});
+  _InputCommand(this.name, {super.options, this.onRun});
+
+  final void Function(ParsedNamedInputs)? onRun;
 
   @override
   final String name;
@@ -429,10 +446,12 @@ final class _InputCommand extends Command {
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
-  ) =>
-      'dry-run=${inputs.boolFlags?['dry-run']} '
-      'verbose=${inputs.countFlags?['verbose']} '
-      'config=${inputs.stringOptions?['config']}';
+  ) {
+    onRun?.call(inputs);
+    return 'dry-run=${inputs.boolFlags?['dry-run']} '
+        'verbose=${inputs.countFlags?['verbose']} '
+        'config=${inputs.stringOptions?['config']}';
+  }
 }
 
 final class _DefaultGroup extends GroupCommand {

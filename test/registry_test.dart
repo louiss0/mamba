@@ -1782,7 +1782,7 @@ void main() {
 
         final commandHelp = Parser(registry).parse(['config', '--help']);
         expect(commandHelp.value.$1, ['config']);
-        expect(commandHelp.value.$3.boolFlags?['help'], isTrue);
+        expect(commandHelp.value.$3.boolFlags, isNull);
         expect(commandHelp.shouldExecute, isFalse);
         expect(Parser(registry).parse(['--', '--help']).value.$4, ['--help']);
 
@@ -1790,7 +1790,7 @@ void main() {
           registry,
         ).parse(['--verbose', 'config', '-h']);
         expect(bundledHelp.value.$1, ['config']);
-        expect(bundledHelp.value.$3.boolFlags, {'help': true});
+        expect(bundledHelp.value.$3.boolFlags, isNull);
         expect(bundledHelp.value.$3.countFlags, {'verbose': 1});
       });
 
@@ -1875,11 +1875,7 @@ void main() {
           .value
           .$3;
 
-      expect(inputs.boolFlags, {
-        'help': false,
-        'color': false,
-        'verbose': false,
-      });
+      expect(inputs.boolFlags, {'color': false, 'verbose': false});
       expect(inputs.intOptions, {'retries': 2});
     });
 

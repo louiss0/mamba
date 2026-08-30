@@ -442,7 +442,8 @@ accessor collisions, duplicate positionals, and sibling command collisions.
 `Parser.parse` accepts tokens and returns a sealed `ParseOutcome`:
 `ParsedInvocation` contains the command path, positional map, typed named-input
 maps, and trailing tokens. The built-in `help` boolean is parsed like any other
-flag; executors format help and skip command execution when it is true. Exact
+flag, then removed from command inputs; executors format help and skip command
+execution when it is true. Exact
 `-h` and `--help` set it, and an option-owned value such as
 `--pattern --help` remains data. It supports:
 

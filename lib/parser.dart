@@ -176,12 +176,14 @@ class Parser {
       repeated: positionals.repeated,
       variadic: _parseVariadic(registry, trailingArguments),
     );
+    // Help controls dispatch but is not part of the command's user inputs.
+    final shouldExecute = boolFlags.remove(registry.helpFlag.name) != true;
 
     return ParsedInvocation((
       command,
       parsedPositionals,
       (
-        boolFlags: registry.boolFlags == null ? null : boolFlags,
+        boolFlags: boolFlags.isEmpty ? null : boolFlags,
         countFlags: registry.countFlags == null ? null : countFlags,
         stringOptions: _hasStringOptions(registry) ? stringOptions : null,
         intOptions: _hasSingleOptionType<IntOption>(registry)
@@ -205,7 +207,7 @@ class Parser {
         accessors: accessorValues.isEmpty ? null : accessorValues,
       ),
       trailingArguments,
-    ), shouldExecute: boolFlags['help'] != true);
+    ), shouldExecute: shouldExecute);
   }
 
   bool _hasStringOptions(CommandRegistry registry) {
