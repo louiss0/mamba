@@ -200,12 +200,15 @@ register one value by name. Strings use their supplied expression; integers and
 doubles select numeric values; choices accept an enum-member name.
 `RepeatableStringOption`, `RepeatableIntOption`, and `RepeatableDoubleOption`
 register accumulating forms. Ordinary options can have a one-letter short
-alias, be required or hidden, and choices can have a default enum value.
+alias, be required or hidden, and optional choices can have a default enum
+value. Required choice options must receive explicit user input and therefore
+cannot declare defaults.
 
 **Parser.** Options accept `--name value`, `--name=value`, or `-s value`. A
-separate value beginning with `-` is rejected unless it is a negative number.
-Integers accept signed decimal integers; doubles accept signed decimal integers
-or fractions. Strings must match their full expression. Choices are stored as
+separate value beginning with `-` is rejected unless it is a negative number
+or a string expression explicitly accepts it. Integers accept signed decimal
+integers; doubles accept signed decimal integers or fractions. Strings must
+match their full expression. Choices are stored as
 their enum-member names. Repeated values append to typed lists; ordinary
 options retain the last value. Missing required options and invalid values are
 errors; omitted choices receive their default when configured.
@@ -431,13 +434,15 @@ hierarchy rather than an input namespace.
 Registry construction rejects invalid command or input names, reserved help
 names, invalid short aliases, empty paired groups, duplicate names or aliases,
 accessor collisions, duplicate positionals, and sibling command collisions.
-`requestsHelp`, `registryForArguments`, and `isRegisteredFlagToken` support
-help targeting and registry navigation.
+`registryForArguments` and `isRegisteredFlagToken` support registry navigation.
 
 ## Parser syntax and results
 
-`Parser.parse` accepts tokens and returns a record containing the command path,
-positional map, typed named-input maps, and trailing tokens. It supports:
+`Parser.parse` accepts tokens and returns a sealed `ParseOutcome`:
+`ParsedInvocation` contains the command path, positional map, typed named-input
+maps, and trailing tokens; `ParsedHelp` identifies the registry to format.
+Exact `-h` and `--help` tokens produce `ParsedHelp`; help is not a short-bundle
+member. It supports:
 
 * root-qualified and root-omitted command paths;
 * `--long value` and `--long=value` options and accessor leaves;
@@ -479,8 +484,9 @@ children. Persistent post-hooks run in reverse group-path order.
 Both pre-hook APIs may return a `Future`, and the executor awaits setup before
 running the command. Only successfully entered hooks are unwound; every
 cleanup is attempted. Multiple cleanup exceptions are preserved in a
-`MambaExecutionException`, while Dart `Error`s remain programmer errors and
-are rethrown after cleanup.
+`MambaExecutionException`. Non-`Exception` failures are rethrown as
+`MambaExecutionError`, which preserves the primary failure and every cleanup
+failure.
 
 `MambaContextKey<T>` provides typed identity keys for context values. Context
 is executor-scoped: repeated calls to `execute` on the same fake or production
@@ -491,8 +497,9 @@ state.
 
 `CommandRegistry.toMap()` exports built-in help, regular-expression patterns,
 paired groups, typed accessor leaves, defaults, and inherited inputs.
-`RegistryMap` validates this integration boundary and reports malformed maps as
-`MambaIntegrationException`.
+`RegistryMap` deep-copies and freezes this integration boundary, validates its
+semantic invariants, and reports malformed maps as `MambaIntegrationException`.
+Only canonical typed accessor maps are accepted.
 
 Carapace completion does not assume that arbitrary strings are file paths.
 Choice completions are emitted for ordinary and paired options. Numeric ranges

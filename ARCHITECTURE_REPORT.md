@@ -1,180 +1,280 @@
-# Mamba CLI Framework Analysis
+# Mamba CLI Framework Architecture Report
 
 This report is based exclusively on the implementation in `lib/` and the
-behavior specified in `test/`. It does not draw conclusions from the README,
-package metadata, executables, or other project folders.
+behavior specified in `test/`. The README, package metadata, executables, and
+other project folders were not used to infer framework behavior.
+
+This report describes the pre-0.3.0 implementation. The 0.3.0 remediation
+resolved the outstanding inconsistencies identified here; see
+`MIGRATION.md` and the changelog for the current contract.
+
+The pre-0.3.0 verification baseline was:
+
+- `dart test`: 478 tests passed.
+- `dart analyze lib test`: no warnings or errors; two style-level info items.
 
 ## Executive summary
 
-Mamba is a declarative Dart CLI framework built around a staged pipeline:
+Mamba is a declarative Dart CLI framework with a clear definition-to-execution
+pipeline:
 
 ```text
-Command definitions
-        ↓
-Validated command registry
-        ↓
-Token parser
-        ↓
-Executor and hooks
-        ↓
-Command result, help, or failure
+Command objects
+    -> CommandRegistry validation and indexing
+    -> optional RegistryMap serialization
+    -> Parser token classification and typed values
+    -> Executor command selection and hook lifecycle
+    -> output, help, or a typed failure result
 ```
 
-Its strongest architectural choices are:
+Its central architectural boundary is `CommandRegistry`. Command objects are
+the authoring model, while a registry is the validated and indexed runtime
+model. The parser consumes a selected registry and produces typed record maps;
+the executor then supplies those values to hooks and to the selected command.
+Help and Carapace completion output are also derived from registry metadata.
 
-- Command definitions are separated from parsing and execution.
-- Registries provide a canonical, serializable command model.
-- Parsing produces typed maps instead of requiring commands to reinterpret raw
-  tokens.
-- Root and group-level inputs can be inherited without copying them into every
-  child registry.
-- Production execution and test execution use the same orchestration path.
-- Help and completion artifacts derive from registry metadata.
+The current version has notably stronger lifecycle and integration behavior
+than the previous report described. Pre-hooks are asynchronous, cleanup is
+attempted for every successfully entered hook, cleanup exceptions are
+aggregated, output is delayed until cleanup completes, and registry export now
+retains paired-option groups, accessor types, choices, defaults, and regex
+patterns.
 
-The principal weaknesses are error consistency, several misleading or
-misspelled messages, defaults that are declared but not always applied, and
-lifecycle edge cases around hook failures.
+The historical remaining architectural risks in this report are resolved by
+0.3.0. They are retained for context in `FRAMEWORK_INCONSISTENCIES.md`.
 
 ## Architecture
 
-The public API is re-exported through [`lib/mamba.dart`](lib/mamba.dart).
-Internally, the framework has seven conceptual layers.
+### Public API and module boundaries
+
+[`lib/mamba.dart`](lib/mamba.dart) is the package barrel. It exports the
+definition model, context, errors, executor, help formatter, integrations,
+parser, and registry.
+
+The implementation is organized by responsibility:
+
+| File | Architectural role |
+| --- | --- |
+| `lib/command.dart` | Command and input definitions, parsed record types, `RegistryMap`, completion commands, stdin wrappers, and hook contracts |
+| `lib/registry.dart` | Definition validation, name indexing, inheritance, command discovery helpers, and registry serialization |
+| `lib/parser.dart` | Token classification, typed conversion, defaults, requiredness, pairs, positionals, accessors, and variadics |
+| `lib/executor.dart` | Composition root, defaults, help routing, command lookup, hooks, output, and failure normalization |
+| `lib/help_formatter.dart` | Styled help grammar and the default ANSI formatter |
+| `lib/context.dart` | Typed executor-scoped mutable context and its read-only view |
+| `lib/errors.dart` | Registry, execution, integration, and general framework failures |
+| `lib/integrations.dart` | `RegistryMap` converters and Carapace spec writing |
 
 ### Definition model
 
-[`lib/command.dart`](lib/command.dart) contains the declarative domain model:
+[`lib/command.dart`](lib/command.dart) is the framework vocabulary. Its sealed
+input hierarchies make invalid runtime type combinations difficult to express:
 
-- Commands and command groups
-- Positionals and variadics
-- Boolean and counting flags
-- Typed, repeatable, paired, and accessor options
-- Parsed-result record types
-- Completion commands
-- Standard-input processing
-- Ordinary and persistent hooks
-- The serialized `RegistryMap` schema
+- `Flag` divides into `BooleanFlag` and `CountFlag`.
+- `Option` divides into single and repeatable typed options.
+- `PairOption` models values owned by a `PairedOptions` group.
+- `AccessorOption` divides into nested lists and primitive leaves.
+- `Positional` includes normal, choice, and bounded repeated forms.
+- `Variadic` owns values following `--`.
 
-This file is the framework's core vocabulary.
+Regex-backed definitions expose `RegExpValidated`; enum-backed definitions
+expose `ChoiceValidated<T>`. Parsing stores enum choices by their `.name`, not
+as enum instances.
 
-### Registry and validation
+Definitions are mostly passive values. Validation is intentionally deferred to
+registry construction, except for a few local invariants such as a negative
+repeated-positional count or an invalid default-command path.
 
-[`lib/registry.dart`](lib/registry.dart) converts command objects into
-`CommandRegistry` nodes. Each registry indexes its local inputs by name and
-points to its parent and child registries.
+### Registry construction and validation
 
-The registry is responsible for:
+[`lib/registry.dart`](lib/registry.dart) converts the root surface and every
+child `Command` into `CommandRegistry` nodes. A node stores local declarations
+in name-indexed maps and links to its parent and children.
 
-- Validating names, aliases, descriptions, defaults, and collisions
-- Reserving `--help` and `-h`
-- Separating local inputs from inherited inputs
-- Resolving command aliases
-- Finding the registry selected by an invocation
-- Exporting the tree through `toMap()`
+Registry construction validates:
 
-Root flags and options are published to all descendants. A `GroupCommand` can
-additionally publish `inheritedFlags` and `inheritedOptions`. Positionals,
-variadics, accessors, paired groups, and ordinary group-local inputs are not
-inherited.
+- Command, alias, input, positional, variadic, and accessor names
+- Short aliases
+- Empty and overlong descriptions
+- Reserved `help` and `-h` declarations
+- Duplicate commands, aliases, input names, and short aliases
+- Flag/option/accessor collisions
+- Positional collisions and positional/command collisions
+- Empty paired groups and duplicate pair members
+- Multiple defaults in one variant pair group
+- Choice defaults that are not members of the registered enum choices
+- Nested accessor definitions recursively
 
-Local inputs override inherited inputs with the same name. That gives
-descendants a deliberate shadowing mechanism.
+The shared long-name grammar is letter-led words separated by hyphens or
+underscores. Digits are currently rejected everywhere by the actual regular
+expression, despite some validation messages saying otherwise.
 
-### Parsing
+The registry keeps locally declared inputs separate from published inputs:
 
-[`lib/parser.dart`](lib/parser.dart) performs command discovery and input
-parsing without executing anything.
+- Root flags and options are published globally.
+- A `GroupCommand` may publish `inheritedFlags` and `inheritedOptions` to its
+  descendants.
+- Positionals, variadics, accessors, paired groups, and ordinary group-local
+  inputs are not inherited.
+- `withInheritedInputs()` materializes inherited flags and options into a copy
+  used by parsing and help formatting.
 
-Its output is a record containing:
+The design intends local declarations to override inherited declarations with
+the same name. There is, however, a current precedence defect when a group
+publishes the same name as the root; see the inconsistency report.
 
-- The canonical command path
-- Parsed single, repeated, and variadic positionals
-- Typed named-input maps
-- The unmodified arguments following `--`
+### Serialized registry boundary
 
-The parser discovers aliases but returns canonical command names. It
-understands inherited inputs while walking nested command paths, so global
-options can appear around command tokens.
+`CommandRegistry.toMap()` exports a command tree containing:
 
-### Execution
+- Names, combined descriptions, aliases, and descendants
+- Boolean/count flags and local/persistent distinction
+- Typed ordinary and repeatable options
+- Paired group mode, requiredness, and members
+- Required/discretionary and repeated positional metadata
+- Variadic metadata
+- Recursive typed accessors
+- Choices, defaults, hidden state, short aliases, and regex patterns where
+  applicable
+- The built-in help flag
 
-[`lib/executor.dart`](lib/executor.dart) is the composition root. It builds the
-registry, assigns the complete registry map to completion commands, applies
-default command paths, invokes the parser, runs hooks, executes the selected
-command, and reports the result.
+`RegistryMap` validates this structure recursively. Invalid map data throws
+`MambaIntegrationException` with a dotted property path such as
+`commands.publish.options.format.valueType` and includes the rejected value.
 
-Two adapters are supplied:
+The map is the integration boundary: converters do not need to retain live
+command instances. The root map is wrapped as unmodifiable, although nested
+maps and lists remain mutable.
 
-- `create()` writes normal output to stdout, failures to stderr, and sets exit
-  code `1`.
-- `fake()` returns `MambaSuccessResult` or `MambaFailureResult` without touching
-  process streams.
+### Parsing pipeline
+
+[`lib/parser.dart`](lib/parser.dart) performs these stages:
+
+1. Discover the canonical command path, resolving aliases.
+2. Determine the raw token indexes occupied by command names.
+3. Select the deepest command registry and materialize inherited inputs.
+4. Parse long inputs, short inputs, flags, options, accessors, and ordinary
+   positional tokens.
+5. Stop ordinary parsing at `--` and preserve every later token.
+6. Add boolean and count defaults.
+7. Validate paired groups.
+8. Add ordinary, paired, and accessor choice defaults.
+9. Validate required ordinary options.
+10. Allocate mandatory and discretionary positionals.
+11. Validate and name trailing values through the registered variadic.
+
+The returned record contains:
+
+```dart
+(
+  List<String> command,
+  ParsedPositionals positionals,
+  ParsedNamedInputs inputs,
+  List<String> trailingArguments,
+)
+```
+
+The command path always uses canonical command names. Named inputs are split
+into maps by concrete value shape: booleans, counts, strings, integers,
+doubles, repeated typed lists, and nested accessor values. Positionals are
+split into single, repeated, and variadic maps.
+
+### Execution pipeline
+
+[`lib/executor.dart`](lib/executor.dart) is the application composition root.
+`Executor` owns root metadata, root inputs, commands, an optional context,
+default command path, and help formatter.
+
+Creating a concrete executor builds and validates the registry, creates one
+validated `RegistryMap`, and assigns that complete root map recursively to all
+`CompletionCommand` instances.
+
+Two environments share the same private orchestration:
+
+- `fake()` returns `MambaSuccessResult` or `MambaFailureResult` and is intended
+  for tests.
+- `create()` writes successful output to stdout, failures to stderr, and sets
+  process exit code `1`.
+
+Execution checks for help first, applies root and nested group default command
+paths, parses the invocation, resolves the corresponding command objects, runs
+hooks, invokes `run()`, performs cleanup, and only then emits the final result.
 
 The executor automatically adds:
 
-- `--dry-run`, a boolean flag
-- `--verbose` / `-v`, a counting flag
+- `--dry-run`, a boolean flag defaulting to `false`
+- `--verbose` / `-v`, a count flag defaulting to `0`
 
-The registry separately provides `--help` / `-h`.
-
-The root itself has no `run()` implementation. If no command is selected and
-no default applies, the executor renders help.
+The registry adds `--help` / `-h` separately.
 
 ### Help formatting
 
-[`lib/help_formatter.dart`](lib/help_formatter.dart) defines a customization
-boundary and an ANSI-styled default formatter.
+[`lib/help_formatter.dart`](lib/help_formatter.dart) defines the customization
+boundary through `HelpFormatter` and provides `MambaHelpFormatter` as the
+default ANSI-styled implementation.
 
-The default output can include:
+The default formatter renders:
 
-- Command usage and short description
-- Long description
+- A command usage line and short description
+- An optional long-description block
 - Flags
 - Accessor flags
-- Options
+- Options, including paired expressions
 - Child commands
 
-Required expressions use angle brackets, optional expressions use square
-brackets, repeated values use `+` or bounded repetition syntax, and hidden
-inputs remain parseable but are omitted.
+Empty sections are omitted. Hidden flags, options, and accessor subtrees remain
+parseable but do not appear. Mandatory expressions use angle brackets,
+optional expressions use square brackets, pairs use `&`, variants use `|`,
+and repeated positionals render a bounded `{1,n}` range.
 
-### Context
+The formatted-string wrappers reject unstyled strings and invalid delimiter
+content with `FormatException`. These are formatter-programming failures, not
+invocation failures.
 
-[`lib/context.dart`](lib/context.dart) provides identity-based typed keys:
+### Context and standard input
 
-- `MambaContext` allows mutation.
-- `MambaReadContext` exposes only reads.
-- Two different key instances with the same type remain independent.
+[`lib/context.dart`](lib/context.dart) uses identity-based
+`MambaContextKey<T>` objects. Two keys with the same generic type are still
+independent.
 
-The executor owns one context for its lifetime, so context values can persist
-across multiple `execute()` calls on the same executor, not merely across hooks
-within one call.
+- `MambaContext` permits typed `set()` and `get()` operations.
+- `MambaReadContext` exposes only `get()`.
+- Context is executor-scoped and intentionally survives multiple `execute()`
+  calls on the same executor.
+
+`ProcessedStandardInput` stores raw bytes and exposes character-code text,
+UTF-8 text, and decoded JSON. Malformed JSON propagates `FormatException`.
+Standard input is read only when the selected command uses `HookRunner` and
+stdin is a pipe.
 
 ### Error boundary
 
-[`lib/errors.dart`](lib/errors.dart) defines:
+The error hierarchy has four principal roles:
 
-- `MambaRegistryError extends Error` for definition invariants
-- `MambaException implements Exception` for recoverable failures
-- `MambaParseException` for invocation failures
-- `MambaCommandNotFoundException` for failed registry traversal
+- `MambaRegistryError extends ArgumentError` reports invalid definitions.
+- `MambaException implements Exception` is the recoverable framework base.
+- `MambaParseException` and `MambaCommandNotFoundException` report invalid
+  invocations and command selection.
+- `MambaIntegrationException` reports invalid or unwritable integration
+  artifacts.
+- `MambaExecutionException` combines an ordinary execution exception with one
+  or more cleanup exceptions.
 
-During `execute()`, ordinary `Exception` values are converted into
-`MambaException` failures. `Error` values are not caught. Errors thrown while
-constructing the executor also occur outside the execution boundary.
+Registry construction occurs while `fake()` or `create()` builds the private
+executor, so definition errors are thrown before `execute()` can return a
+failure result.
 
-`MambaException.toString()` renders as:
-
-```text
-MambaParseException message
-```
-
-There is no colon between the runtime type and message.
+During execution, ordinary `Exception` values become failure output. Existing
+`MambaException` values are preserved; other exceptions are wrapped in
+`MambaException`. Dart `Error` values and arbitrary thrown objects are retained
+until cleanup finishes and are then rethrown. This keeps programming errors
+outside the recoverable result contract while still attempting hook cleanup.
 
 ## Commands
 
-### Command types
+### Command types and behavior
 
-`Command` is the leaf abstraction. A subclass declares metadata and implements:
+`Command` is the executable leaf abstraction. A subclass supplies `name`,
+`shortDescription`, optional metadata and inputs, and:
 
 ```dart
 FutureOr<String?> run(
@@ -184,150 +284,123 @@ FutureOr<String?> run(
 )
 ```
 
-Returning `null` suppresses output.
+A `null` result suppresses output.
 
-`GroupCommand` adds:
+`GroupCommand` owns child commands, inherited inputs, and an optional relative
+default path. Its `runChildCommand()` accepts canonical names or aliases and
+can descend through nested groups. Calling a group without a default returns
+an empty string.
 
-- Child commands
-- Inherited flags and options
-- An optional relative default subcommand path
-- `runChildCommand()` for direct child-path execution
+`CompletionCommand` is a command specialization whose `registryMap` is filled
+by the executor before invocation. Nested completion commands receive the same
+complete root map as top-level completion commands.
 
-`CompletionCommand` receives the entire validated root `RegistryMap`, even when
-deeply nested.
+### Discovery, aliases, and defaults
 
-### Naming and aliases
+Aliases are scoped to siblings, validated for collisions, and canonicalized by
+the parser. Unknown child tokens become `MambaCommandNotFoundException` when
+the current command has children but no positional declaration that could
+legitimately consume the token.
 
-Command names:
-
-- Cannot be empty
-- Cannot contain spaces
-- Cannot contain numbers
-- Cannot be exactly `_` or `-`
-- Cannot contain symbols other than `_` and `-`
-
-This is stricter than named inputs, which may contain numbers after the first
-letter.
-
-Aliases are sibling-scoped and canonicalized during parsing. An alias list is
-invalid when it is explicitly empty, contains an unusable token, duplicates
-itself, equals the command name, collides with a sibling command name, or is
-already assigned to another sibling.
-
-### Defaults
-
-The executor can provide a root-relative default command path. Each group can
-provide its own relative default path. Defaults are inserted after registered
-value-taking inputs, allowing an invocation such as:
-
-```text
-tool --config settings.json
-```
-
-to select a default command without treating `settings.json` as a command.
-
-Default paths must:
-
-- Be non-empty
-- Contain no empty segments
-- Be relative and therefore omit the executor or group name
-
-An unknown default path becomes an execution failure.
+The executor supports a root-relative `defaultCommandPath`; each group supports
+a relative `defaultSubCommandPath`. Default segments are inserted around
+registered value-taking inputs so an option value is not mistaken for a
+command. Group defaults are applied repeatedly down the selected group path,
+with a set preventing the same group default from being inserted twice.
 
 ### Command errors
 
-Definition-time command errors include:
+Definition and construction failures include:
 
-- `MambaException` for empty names, spaces, numbers, invalid descriptions,
-  alias violations, duplicate commands, and positional/command collisions
-- `MambaRegistryError` for unsupported command-name symbols
+- `MambaRegistryError` for an invalid name, alias, short description, duplicate
+  sibling, collision, reserved help name, or invalid default path
+- `MambaRegistryError.value` for empty, parent-qualified, or empty-segment
+  default paths
 
-Runtime command errors include:
+Direct group execution can throw:
 
-- `ArgumentError` for an empty or parent-qualified `runChildCommand()` path
-- `MambaException("command not found in …")` when a relative child cannot be
-  found
-- `MambaCommandNotFoundException` during direct registry traversal, including
-  the parent and available commands
-- Any exception thrown by `run()`, normally wrapped or preserved by the
-  executor as a `MambaException`
-- Any `Error` thrown by a command escapes the executor
+- `ArgumentError` when the runtime path is empty
+- `ArgumentError.value` when the path contains the current group name instead
+  of being relative
+- `MambaException` when a named descendant cannot be found
 
-The command validation messages need editorial work. Examples include “There
-should no spaces…” and “150 lines of code” when the code is actually validating
-a 150-character description limit.
+Normal parsing can throw `MambaCommandNotFoundException`, whose message includes
+the current parent and available children. An exception from `run()` becomes a
+failure result; an `Error` or arbitrary thrown object is rethrown after hook
+cleanup.
 
 ## Flags
 
 ### Boolean flags
 
-`BooleanFlag` supports:
+`BooleanFlag` supports long syntax, a one-letter short alias, short bundles,
+hidden help state, a boolean default, and optional negation:
 
-- `--long-name`
-- An optional single-letter short alias
-- Short flag bundles
-- A boolean default, normally `false`
-- Optional `--no-name` negation
-- Hidden help presentation
+```text
+--color
+-c
+-abc
+--no-color
+```
 
-An explicitly supplied positive or negative form overrides the default.
-Defaults are added to the returned boolean map even when the flag is omitted.
+Every registered boolean flag appears in the parsed boolean map, even when it
+is omitted. The stored value is its declared default, normally `false`.
 
 ### Count flags
 
-`CountFlag` increments for every occurrence:
+`CountFlag` increments for each occurrence, including bundled short forms:
 
 ```text
 -vv
 --verbose --verbose
 ```
 
-Both forms produce a count of `2`. Count flags do not receive implicit zero
-entries; an unused count flag is absent from its map.
+Every registered count flag also appears when omitted, with value `0`.
 
-### Scope and inheritance
+### Built-in help and scope
+
+`--help` and `-h` are reserved. The executor recognizes an exact help token
+before `--` and formats the deepest selected registry. Help after `--` is a
+trailing value.
 
 Root flags are global. Group `inheritedFlags` apply to descendants. Ordinary
-flags declared by a group or leaf are local.
-
-The help flag is recognized before `--`. Anything following `--` is never
-treated as help or another flag.
+group and leaf flags are local. Help receives a registry copy with inherited
+inputs materialized.
 
 ### Flag errors
 
-Definition-time failures include:
+Definition-time failures use `MambaRegistryError` for:
 
-- `MambaRegistryError` when a name does not begin with a letter or contains
-  characters other than letters, numbers, and hyphens
-- `MambaRegistryError` when a short alias is not one letter
-- `MambaRegistryError` when `help` or `-h` is redeclared
-- `MambaException` for duplicate names, flag/option name collisions, or
-  duplicate short aliases
+- A long name outside the shared letter-led word grammar
+- A non-letter or multi-character short alias
+- Redeclaring `help` or `-h`
+- Duplicate names or short aliases
+- Collisions with options or top-level accessors
 
-Parse-time failures include:
+Parse-time failures use `MambaParseException`:
 
 - `Flag --name does not accept a value` for `--flag=value`
-- `This isn't a registered flag` for unknown long flags or invalid negation
-- `This isn't a registered short flag or option` for an unknown bundle member
-- Excess non-flag tokens ultimately becoming positional-layout errors
+- `Unknown flag or option --name.` for an unknown long input
+- `This isn't a registered flag` for invalid negation
+- `This isn't a registered short flag or option` for an unknown short bundle
+  member
 
-There is a spelling-quality issue elsewhere in the same parser family: unknown
-dotted paths report “registered acessor.”
+The exact `-h` token is an executor concern. A direct `Parser` consumer does
+not receive help output.
 
 ## Options
 
-### Ordinary options
+### Ordinary and repeatable options
 
-Mamba supports:
+Mamba defines:
 
-- `StringOption`, validated by a complete regular-expression match
+- `StringOption`, with a full-token regex
 - `IntOption`, accepting signed decimal integers
-- `DoubleOption`, accepting signed integers or decimals with digits on both
-  sides of the decimal point
-- `ChoiceOption`, accepting an enum member's `.name`
-- Repeatable string, integer, and double variants
+- `DoubleOption`, accepting signed integer or fixed-point decimal text
+- `ChoiceOption<T>`, accepting an enum member name
+- Repeatable string, integer, and double options
 
-Accepted syntax includes:
+Accepted advertised syntax is:
 
 ```text
 --name value
@@ -335,316 +408,276 @@ Accepted syntax includes:
 -n value
 ```
 
-Only one-letter short aliases are valid. Unlike flags, options are not bundled.
+Repeatable options append values to typed lists. Supplying a single option more
+than once replaces its prior value. Choice values are stored in the string map.
 
-Repeatable options accumulate values into lists. Repeating a non-repeatable
-option replaces its previous map value.
+Signed numeric values are accepted as separate tokens. Doubles require digits
+on both sides of a decimal point when a point is present; `.5`, `1.`, and
+scientific notation are rejected.
 
-Negative numeric values are accepted as separate tokens. Values such as `.5`
-and scientific notation such as `1e2` are rejected for doubles.
+Regex-backed string options may consume a dash-prefixed following token when
+their regex accepts it. Inline syntax remains the least ambiguous form for
+such values.
 
 ### Paired options
 
-`PairedOptions` groups `PairOption` members.
+`PairedOptions` owns one or more `PairOption` members. Pair members can be
+string, integer, double, choice, or repeatable typed values.
 
-A normal pair behaves as an all-or-none unit:
+An all-of group behaves as a unit:
 
-- If none are supplied and the group is optional, parsing succeeds.
-- If some but not all are supplied, parsing fails.
-- If the group is required, every member must be present.
+- An optional group may be entirely absent.
+- Once one explicit member is supplied, all members must be supplied.
+- A required group requires every member explicitly.
 
-A variant pair represents alternatives:
+A variant group represents alternatives:
 
-- At most one member can be supplied.
-- A required variant requires exactly one.
+- An optional group accepts zero or one explicit member.
+- A required group requires exactly one explicit member.
 
-Pair members may be string, integer, double, choice, or repeatable typed
-values.
+Pair validation occurs before choice defaults are inserted. Required groups
+therefore require explicit input even when members declare defaults. Optional
+pair defaults are added afterward. This ordering has a problematic variant
+edge case documented in the inconsistency report.
 
 ### Accessor options
 
-Accessor lists model nested dotted paths:
+Accessor lists model nested long-only paths:
 
 ```text
 --server.tls.certificate cert.pem
 ```
 
-Values are returned as nested maps. Hidden accessor lists hide all descendants
-from help while leaving them parseable.
+Leaves can be string, integer, double, or enum choice values. Repeated writes
+merge into nested maps, and a later write replaces only the matching leaf.
+Choice defaults are recursively merged without replacing explicit sibling
+values. Hiding an accessor list hides its complete subtree from help and
+Carapace display while preserving parseability.
 
-Choice defaults are recursively merged into explicitly supplied accessor
-structures.
-
-### Option defaults
+### Defaults and requiredness
 
 The parser applies defaults for:
 
-- Ordinary `ChoiceOption`
-- `AccessorChoiceOption`
+- Boolean and count flags
+- Ordinary choice options
+- Pair choice options
+- Single and repeated choice positionals
+- Choice variadics
+- Nested accessor choices
 
-Although `PairChoiceOption`, `ChoicePositional`, and `ChoiceVariadic` expose and
-serialize `defaultValue`, the parser does not apply those defaults. This is an
-important semantic inconsistency.
+Required ordinary options are checked after ordinary choice defaults. Required
+paired groups are checked before pair defaults. That difference is observable
+and is one of the current framework inconsistencies.
 
 ### Option errors
 
-Missing values throw:
+Option syntax and conversion failures are `MambaParseException`:
 
-```text
-Option --name requires a value
-```
+- Missing value: `Option --name requires a value`
+- Regex rejection: `Option --name does not accept 'value'.`
+- Invalid choice: `value is not a valid choice for name` plus available names
+- Invalid integer: `Invalid int value: value must not contain spaces`
+- Invalid double: `Invalid double value: value must not contain spaces`
+- Required omission: `Option --name is required.`
+- Unknown dotted path: `This isn't a registered accessor`
 
-Type and validation errors include:
+Pair failures are:
 
-- String regex: `This value doesn't satify the requirement`
-- Invalid choice: `<value> is not a valid choice for <name>` followed by the
-  available names
-- Integer: `Invalid int value: … never have spaces in between numbers`
-- Double: `Invalid double value: … never have spaces in between numbers`
-- Unknown accessor: `This isn't a registered accessor`
+- `Required paired options are missing: ...`
+- `Paired options ... must be passed together`
+- `One variant option is required: ...`
+- `Variant options ... accept only one option`
 
-Required-option wording is inconsistent:
-
-- Required strings: `The name is required`
-- Other required types: `Option --name is required`
-
-Paired-option errors are clearer:
-
-- `Required paired options are missing: --name`
-- `Paired options … must be passed together`
-- `One variant option is required: …`
-- `Variant options … accept only one option`
-
-Accessor integer and double classes expose unsigned, narrower `regex` getters,
-but parsing bypasses those getters and uses the parser's signed numeric rules.
-The declared accessor regex and actual parser behavior therefore do not fully
-agree.
+Definition-time option failures are `MambaRegistryError` and cover invalid
+names/aliases, duplicates, empty pair groups, invalid defaults, collisions, and
+multiple defaults in a variant group.
 
 ## Arguments
 
 ### Mandatory and discretionary positionals
 
-Positionals are registered in two ordered lists:
+Positionals are registered in ordered mandatory and discretionary lists.
+Mandatory values are allocated first; discretionary values follow. A normal
+positional validates its complete token with a regex, while a choice positional
+accepts enum member names.
 
-- Mandatory positionals must receive values.
-- Discretionary positionals may be omitted.
-
-Every positional is either regex-based or enum-choice-based. Validation matches
-the entire token.
-
-Mandatory positionals are consumed before discretionary positionals. Within
-each list, registration order controls assignment.
+Choice positionals can declare defaults. The parser inserts a default when the
+value is omitted, including for a positional registered in the mandatory list.
 
 ### Repeated positionals
 
-A repeated positional greedily consumes several values. Its `times` property
-counts additional repetitions, so the default `times: 1` accepts up to two
-values.
+`RepeatedStringPositional` and `RepeatedChoicePositional` collect bounded lists.
+The `times` property means additional repetitions, so `times: 1` accepts one or
+two total values. Negative counts fail immediately with
+`MambaRegistryError.value`.
 
-The parser does not backtrack. A repeated positional may greedily consume values
-that a later positional would otherwise have accepted.
-
-Negative `times` values throw `ArgumentError` during definition.
+Allocation is registration-ordered and greedy, but a repeated mandatory
+positional reserves enough values for later mandatory positionals. It does not
+reserve values for later discretionary entries, which may legitimately remain
+absent.
 
 ### Trailing arguments and variadics
 
-`--` ends normal parsing. Every later token:
+`--` terminates ordinary parsing. Every later token is returned unchanged in
+`trailingArguments`. If a variadic is registered, the same values are also
+validated and stored under its name in `positionals.variadic`.
 
-- Is preserved in `trailingArguments`
-- Is not interpreted as a command, flag, option, or ordinary positional
-- Is optionally validated and named by a registered `Variadic`
+`NormalVariadic` uses a regex. `ChoiceVariadic` and
+`RepeatedChoiceVariadic` use enum names. Both choice classes parse all trailing
+values identically; the repeated subtype changes Carapace completion behavior.
+A choice variadic default produces one parsed variadic value when no trailing
+values are supplied.
 
-A `NormalVariadic` applies a regex to every trailing token. A `ChoiceVariadic`
-accepts enum member names. Failures identify the precise zero-based trailing
-index and variadic name.
-
-`RepeatedChoiceVariadic` parses like `ChoiceVariadic`; its distinction is used
-by completion generation to offer choices for every trailing slot.
-
-Trailing arguments are allowed even when no variadic is registered; they are
-simply not added to the variadic map.
+Trailing values are legal without a variadic; they simply remain unnamed.
 
 ### Argument errors
 
-Mandatory positional failures use:
+Positional and variadic invocation failures are `MambaParseException`:
 
-```text
-The <name> is required at <index> after this command
-```
+- Missing or invalid mandatory positional:
+  `The name is required at index after this command`
+- Invalid discretionary positional:
+  `Invalid value for positional name at index after the command`
+- Excess ordinary positional:
+  `This term isn't a registered command positional`
+- Invalid variadic value:
+  `The term at index N isn't accepted by the name variadic`
 
-Other failures include:
-
-- Excess values: `This term isn't a registered command positional`
-- Invalid variadic entry: `The term at index N isn't accepted by the <name>
-  variadic`
-- Invalid discretionary positional: a raw `ArgumentError`, unlike the
-  surrounding `MambaParseException` behavior
-
-That raw `ArgumentError` is caught and generically wrapped during executor
-execution, but direct parser consumers observe a different exception category.
+An explicitly supplied empty token is treated as a real value and validated;
+it is no longer silently discarded.
 
 ## Hooks
 
-Mamba has two hook models.
+Mamba provides two independent hook contracts.
 
-`HookRunner` applies to the final selected command:
+`HookRunner` wraps only the final selected command:
 
-- `preRun()` receives piped standard input, a read-only context, positionals,
-  and non-repeated ordinary options.
-- `postRun()` receives the read-only context.
+- `preRun()` may be synchronous or asynchronous.
+- It receives piped stdin, a read-only context, parsed positionals, and the
+  single-valued string/integer/double option maps.
+- `postRun()` receives the same read-only context.
 
-`PersistentHookRunner` applies to selected group commands along the command
-path:
+`PersistentHookRunner` is mixed into groups:
 
-- Pre-hooks run outermost group to innermost group.
-- Post-hooks run innermost group to outermost group.
-- Both receive mutable context, positionals, and non-repeated ordinary options.
+- Persistent pre-hooks run from the outermost selected group inward.
+- They receive mutable executor context, parsed positionals, and the same
+  single-valued option slice.
+- Persistent post-hooks run in reverse order for every group whose pre-hook
+  completed successfully.
 
-The option record supplied to hooks excludes boolean flags, count flags,
-repeatable options, paired repeatable values, and accessors. The command's
-`run()` method still receives the complete parsed input record.
+The hook option slice includes single-valued paired members because those share
+the ordinary string/integer/double maps. It excludes boolean flags, count
+flags, repeatable options, and accessors. `Command.run()` receives the complete
+parsed input record.
 
 ```mermaid
 flowchart TD
-    A["Executor receives arguments"] --> B{"Help or no selected command?"}
-    B -- Yes --> C["Render registry help"]
+    A["Executor receives arguments"] --> B{"Help requested or no command?"}
+    B -- Yes --> C["Format help"]
     B -- No --> D["Apply root and group defaults"]
     D --> E["Parse and validate invocation"]
-    E --> F["Outer persistent pre-hook"]
-    F --> G["Inner persistent pre-hook"]
-    G --> H{"Leaf uses HookRunner?"}
-    H -- Yes --> I["Read piped stdin"]
-    I --> J["Leaf preRun"]
-    H -- No --> K["Command run"]
-    J --> K
-    K --> L["Emit successful output"]
-
-    F -. Exception .-> M["Emit wrapped failure"]
-    G -. Exception .-> M
-    J -. Exception .-> M
-    K -. Exception .-> M
-
-    L --> N["Leaf postRun"]
-    M --> N
-    N --> O["Inner persistent post-hook"]
-    O --> P["Outer persistent post-hook"]
-    P --> Q["Execution completes"]
+    E --> F["Run outer persistent pre-hook"]
+    F --> G["Record successfully entered group"]
+    G --> H["Run inner persistent pre-hooks in order"]
+    H --> I{"Selected command uses HookRunner?"}
+    I -- Yes --> J["Read piped stdin"]
+    J --> K["Await command preRun"]
+    K --> L["Record successfully entered command hook"]
+    I -- No --> M["Run selected command"]
+    L --> M
+    M --> N["Capture output or primary failure"]
+    C --> N
+    N --> O{"Command hook entered?"}
+    O -- Yes --> P["Attempt command postRun"]
+    O -- No --> Q["Unwind entered persistent hooks"]
+    P --> Q
+    Q --> R["Attempt every post-hook, inner to outer"]
+    R --> S{"Error or arbitrary object captured?"}
+    S -- Yes --> T["Rethrow after cleanup"]
+    S -- No --> U{"Cleanup exceptions captured?"}
+    U -- Yes --> V["Return MambaExecutionException failure"]
+    U -- No --> W{"Primary exception captured?"}
+    W -- Yes --> X["Return normalized failure"]
+    W -- No --> Y["Emit successful output"]
 ```
 
-Important lifecycle details:
+Important lifecycle properties:
 
-- Pre-hooks are synchronous; post-hooks may be asynchronous and are awaited.
-- Standard input is read only for a final command using `HookRunner`.
-- Output or failure is emitted before post-hooks run.
-- Post-hooks run from `finally`, so they run after a pre-hook or command
-  exception.
-- Because the persistent runner list is established before pre-hooks begin, all
-  persistent post-hooks are attempted even if an earlier persistent pre-hook
-  failed.
-- An ordinary post-hook runs even if its own `preRun()` failed.
-- A post-hook exception occurs outside the executor's catch block and therefore
-  escapes instead of becoming `MambaFailureResult`.
-- If an inner persistent post-hook throws, iteration stops and outer cleanup
-  hooks may not run.
-- The tests cover normal hook order and group defaults, but do not cover nested
-  hook ordering or these failure paths.
-
-These cleanup semantics deserve explicit tests and probably a more defensive
-implementation.
-
-## Guideline compliance observations
-
-Several points conflict with the project's documented code guidelines:
-
-- Framework failures primarily use thrown exceptions and `Error`, rather than
-  explicit error return values.
-- `MambaRegistryError` has no custom `toString()`, making it less useful as a
-  user-facing failure.
-- Error categories are inconsistent: comparable invalid invocations can produce
-  `MambaParseException`, `ArgumentError`, `FormatException`, `StateError`, or an
-  uncaught `Error`.
-- User-visible messages contain spelling and wording defects: “acessor,”
-  “satify,” “postionals,” “mesaage,” and the inaccurate “150 lines of code.”
-- The hook tests do not cover failure cleanup, nested persistent order, or
-  post-hook failures.
-- Declared choice defaults are not applied uniformly.
-- There is a duplicated documentation comment above `PairStringOption`.
-
-On the positive side, state mutation is generally kept close to its owning
-parser or context, the command model is strongly typed, files are organized by
-cohesive concepts, and tests focus predominantly on behavior.
+- A post-hook is scheduled only after its matching pre-hook completes.
+- Failure in one cleanup hook does not prevent later cleanup attempts.
+- Ordinary cleanup exceptions are collected in order.
+- If execution and cleanup both throw `Exception`,
+  `MambaExecutionException.primaryFailure` preserves the execution failure and
+  `cleanupFailures` preserves every cleanup failure.
+- `Error` and arbitrary thrown objects remain non-recoverable but do not skip
+  cleanup.
+- Output and failure writers run only after cleanup completes.
+- Context mutations made by persistent hooks are visible to descendant hooks
+  and commands and persist across executions of the same executor.
 
 ## Integrations
 
-[`lib/integrations.dart`](lib/integrations.dart) contains a deliberately narrow
-integration layer.
+Integrations are intentionally last because they consume the framework model
+rather than participate in parsing or execution.
 
-### Registry map boundary
+### RegistryMap contract
 
-`RegistryMap` is a deeply validated, immutable serialized command description.
-It requires `name` and `description` at every command level and validates
-optional flags, options, positionals, variadics, accessors, aliases, and
-descendants.
+`RegistryMapConverter` accepts a validated `RegistryMap` and returns an
+integration-specific string artifact. This lets a completion command work from
+serialized metadata without knowing the live command subclasses.
 
-Malformed maps throw `ArgumentError.value()` with a dotted path such as:
-
-```text
-commands.publish.options.format.valueType
-```
-
-This is a good integration boundary because converters do not need live command
-objects.
+`RegistryMap` accepts current typed accessor data and legacy accessor maps. Its
+structural failures use `MambaIntegrationException` with full nested paths. It
+validates supported properties, collection types, primitive property types,
+option-group membership, typed accessor kinds, and accessor choice defaults.
 
 ### Carapace conversion
 
-`CarapaceSpecConverter` converts a `RegistryMap` into YAML containing:
+`CarapaceSpecConverter` emits YAML for:
 
-- Command names, descriptions, aliases, and descendants
+- Root and nested command names, descriptions, and aliases
 - Local and persistent flags
-- Required, optional, repeatable, and hidden modifiers
-- Exclusive flag groups
-- Boolean defaults
-- Positional and option completions
-- Dash and repeated-dash completions
+- Boolean defaults and repeatable count flags
+- Required, optional, repeatable, and hidden value-taking options
+- Paired all-of and exclusive variant groups
+- Positionals and bounded repeated positional slots
+- Ordinary and repeated dash completions
+- Typed dotted accessors
+- Integer, double, and enum-choice completion suggestions
+- Built-in help
 
-Completion behavior includes:
+Root inputs become Carapace `persistentflags`. A group's published inputs are
+emitted once at that group. Local declarations are removed from inherited
+entries with the same name.
 
-- File completion for general string values
-- Enum values for choice positionals
-- One bounded completion slot per repeated positional occurrence
-- Integer ranges from `0` to `1000`
-- Two-decimal numeric ranges for doubles
-- `dash` completion for a single variadic choice set
-- `dashany` completion for repeated choice variadics
+Choice completions use enum names. Numeric inputs receive illustrative
+Carapace ranges from `-10` to `10`; parser validation remains signed and
+unbounded. General strings do not assume filesystem completion. A normal
+choice variadic fills the first `dash` slot, while a
+`RepeatedChoiceVariadic` uses `dashany` for every subsequent slot.
 
-Inherited root and group inputs become Carapace `persistentflags`. Local
-definitions replace inherited entries with the same name.
+The converter retains legacy support for older description-only accessor maps
+by treating their leaves as string-valued flags.
 
-Paired options are exported through first-class `optionGroups` metadata, which
-retains group membership, requiredness, and all-or-one-of behavior. Accessors
-use a uniform recursive schema carrying leaf types, choices, defaults, and
-hidden state. The converter flattens accessor leaves into dotted Carapace flags
-and retains support for legacy description-only accessor maps.
+### Carapace writing and errors
 
-### Carapace writing
+`CarapaceSpecWriter` creates missing parent directories and writes
+`<command>.yaml` below:
 
-`CarapaceSpecWriter` writes synchronously and creates missing parent
-directories.
+- Development: the system temporary directory
+- Windows production: `%APPDATA%/carapace/specs`
+- macOS production: `$HOME/Library/Application Support/carapace/specs`
+- Other production platforms: `$XDG_CONFIG_HOME/carapace/specs`, falling back
+  to `$HOME/.config/carapace/specs`
+- An explicit `outputPath`, when supplied
 
-Default destinations are:
+Failure to locate a production configuration directory throws
+`MambaIntegrationException`. Directory and file-write failures are caught and
+translated into `MambaIntegrationException` containing the target path and the
+filesystem message.
 
-- Development: system temp directory
-- Windows production: `%APPDATA%`
-- macOS production: `$HOME/Library/Application Support`
-- Other platforms: `$XDG_CONFIG_HOME` or `$HOME/.config`
-
-All destinations end in:
-
-```text
-carapace/specs/<command>.yaml
-```
-
-If a production configuration directory cannot be located, the writer throws
-`StateError`. Directory creation or writing can also propagate
-`FileSystemException`. These integration failures are not translated into
-Mamba's error hierarchy.
+Carapace currently cannot reproduce every runtime constraint. In particular,
+negatable flag aliases are not emitted, required variant groups lose their
+at-least-one rule, and regex patterns are metadata rather than completion
+constraints. These limitations are detailed in the separate inconsistency
+report.

@@ -577,39 +577,6 @@ void main() {
             write: (map) => map['aliases'] = ['t', 1],
           ),
           (
-            description: 'a non-boolean accessor hidden value',
-            invalidValue: 'no',
-            suffix: 'accessors.config.hidden',
-            write: (map) => map['accessors'] = {
-              'config': {
-                'hidden': 'no',
-                'description': null,
-                'options': <String, dynamic>{},
-              },
-            },
-          ),
-          (
-            description: 'a non-map accessor options value',
-            invalidValue: 'not a map',
-            suffix: 'accessors.config.options',
-            write: (map) => map['accessors'] = {
-              'config': {'description': null, 'options': 'not a map'},
-            },
-          ),
-          (
-            description: 'a non-string accessor description',
-            invalidValue: 1,
-            suffix: 'accessors.config.options.port.description',
-            write: (map) => map['accessors'] = {
-              'config': {
-                'description': null,
-                'options': {
-                  'port': {'description': 1},
-                },
-              },
-            },
-          ),
-          (
             description: 'an unsupported command property',
             invalidValue: true,
             suffix: 'unsupported',
@@ -632,6 +599,21 @@ void main() {
             },
           ),
         ];
+
+    test('deeply freezes validated nested data', () {
+      final source = registryMap({
+        'options': {'output': option()},
+      });
+      final parsed = RegistryMap(source);
+
+      (source['options'] as Map)['output']['required'] = true;
+
+      expect((parsed.map['options'] as Map)['output']['required'], isFalse);
+      expect(
+        () => (parsed.map['options'] as Map)['output']['required'] = true,
+        throwsUnsupportedError,
+      );
+    });
 
     test('requires name and description', () {
       for (final property in ['name', 'description']) {

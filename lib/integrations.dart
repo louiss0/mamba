@@ -68,6 +68,21 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         flag['description'] as String?,
         defaultValue: booleanFlag && flag['default'] == true ? true : null,
       );
+      if (booleanFlag && flag['negatable'] == true) {
+        placeEntry(
+          'no-$name',
+          persistent,
+          _inputKey(
+            name: 'no-$name',
+            short: null,
+            repeatable: false,
+            mandatory: false,
+            hidden: flag['hidden'] as bool,
+            takesValue: false,
+          ),
+          flag['description'] as String?,
+        );
+      }
     }
 
     void placeOption(
@@ -151,6 +166,8 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
             );
           }
         }
+        // Carapace can express variant exclusivity but not its at-least-one
+        // constraint, so required variants intentionally remain optional here.
         if (mode == 'oneOf') exclusiveGroups.add(members);
       }
     }

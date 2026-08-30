@@ -1,3 +1,22 @@
+## 0.3.0
+
+- Made `Parser.parse` return a sealed `ParseOutcome`: `ParsedInvocation` or
+  parser-owned `ParsedHelp`.
+- Made `-h` and `--help` exact parser tokens; help is not valid inside bundles.
+- Rejected required choice inputs that declare defaults and empty choice sets.
+- Enforced documented long/short option dash forms.
+- Applied paired defaults before final group validation, including all-of
+  completion and variant-default suppression.
+- Made `ChoiceVariadic` single-valued; use `RepeatedChoiceVariadic` for many
+  trailing choices.
+- Deep-froze and semantically strengthened `RegistryMap`; removed legacy
+  description-only accessor maps.
+- Added negated boolean flags to Carapace specs.
+- Added `MambaExecutionError` to preserve non-recoverable primary and cleanup
+  failures together.
+
+See `MIGRATION.md` for breaking-change guidance.
+
 ## 0.2.0
 
 - Added standalone `PairedOptions` groups with group-level `description`,

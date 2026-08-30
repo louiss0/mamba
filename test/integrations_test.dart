@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:mamba/command.dart';
+import 'package:mamba/errors.dart';
 import 'package:mamba/integrations.dart';
 import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
@@ -215,6 +216,17 @@ void main() {
   });
 
   group("CarapaceSpecConverter", () {
+    test('emits negated boolean flag forms', () {
+      final registry = specRegistry(
+        flags: [BooleanFlag('color', negatable: true)],
+      );
+
+      expect(
+        convertSpec(RegistryMap(registry.toMap())),
+        contains('--no-color: ""'),
+      );
+    });
+
     test('renders a RegistryMap without a CommandRegistry', () {
       final registryMap = RegistryMap({
         'name': 'from-map',
@@ -376,29 +388,21 @@ completion:
       expect(spec, contains('--internal.token?&='));
     });
 
-    test('converts legacy accessor maps as string-valued flags', () {
-      final registryMap = RegistryMap({
-        'name': 'legacy',
-        'description': 'Legacy map.',
-        'accessors': {
-          'profile': {
-            'description': 'Profile settings.',
-            'options': {
-              'name': {'description': 'Profile name.'},
+    test('rejects legacy description-only accessor maps', () {
+      expect(
+        () => RegistryMap({
+          'name': 'legacy',
+          'description': 'Legacy map.',
+          'accessors': {
+            'profile': {
+              'description': 'Profile settings.',
+              'options': {
+                'name': {'description': 'Profile name.'},
+              },
             },
           },
-        },
-      });
-
-      final spec = convertSpec(registryMap);
-
-      expect(
-        spec,
-        allOf(
-          contains('flags:'),
-          contains('--profile.name?=: "Profile name."'),
-          isNot(contains('completion:')),
-        ),
+        }),
+        throwsA(isA<MambaIntegrationException>()),
       );
     });
 

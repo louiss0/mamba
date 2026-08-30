@@ -9,7 +9,7 @@ final class MambaCommandNotFoundException extends MambaException {
     List<String> parentPath,
     List<String> availableCommands,
   ) : super(
-        "Command $name was not found under ${parentPath.join(' ')}."
+        "Command $name was not found under ${parentPath.join(' ')}. "
         "${availableCommands.isEmpty ? 'This command has no subcommands.' : 'Available commands: ${availableCommands.join(', ')}'}",
       );
 }
@@ -542,26 +542,23 @@ final class CommandRegistry {
           },
       };
 
-  /// Whether [args] request built-in help before an end-of-options separator.
-  bool requestsHelp(List<String> args) {
-    for (final argument in args) {
-      if (argument == '--') return false;
-      if (argument == '--help' || argument == '-h') return true;
-    }
-    return false;
-  }
-
   /// Flags and options published by this level and every ancestor, ordered
-  /// from the root down.
+  /// from the root down so nearer declarations replace earlier ones.
   List<Flag> get _inheritableFlags => [
-    for (CommandRegistry? level = this; level != null; level = level.parent)
-      ...?level.publishedFlags,
+    for (final level in _ancestorChain) ...?level.publishedFlags,
   ];
 
   List<Option> get _inheritableOptions => [
-    for (CommandRegistry? level = this; level != null; level = level.parent)
-      ...?level.publishedOptions,
+    for (final level in _ancestorChain) ...?level.publishedOptions,
   ];
+
+  Iterable<CommandRegistry> get _ancestorChain sync* {
+    final chain = <CommandRegistry>[];
+    for (CommandRegistry? level = this; level != null; level = level.parent) {
+      chain.add(level);
+    }
+    yield* chain.reversed;
+  }
 
   static Map<String, T>? _combineWithInherited<T extends NamedInput>(
     Iterable<T> inherited,
@@ -635,7 +632,7 @@ final class CommandRegistry {
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
-      if (token == '--' || requestsHelp([token])) break;
+      if (token == '--' || token == '--help' || token == '-h') break;
       if (token == registry.name && identical(registry, this)) {
         offset++;
         continue;
@@ -662,18 +659,18 @@ final class CommandRegistry {
     return registry;
   }
 
-  /// Whether [token] is a registered boolean, count, or built-in help flag.
+  /// Whether [token] is a registered boolean or count flag.
   ///
-  /// The check recognizes long names, valid negated boolean names, short names,
-  /// and bundles of short flags.
+  /// Built-in help is an exact parser token, not a bundle member. The check
+  /// recognizes long names, valid negated boolean names, short names, and
+  /// bundles of registered short flags.
   bool isRegisteredFlagToken(String token) {
     final boolFlags = applicableBoolFlags;
     final countFlags = applicableCountFlags;
     if (token.startsWith('--') && token.length > 2) {
       final name = token.substring(2).split('=').first;
       final negativeName = name.startsWith('no-') ? name.substring(3) : null;
-      return name == helpFlag.name ||
-          boolFlags?.containsKey(name) == true ||
+      return boolFlags?.containsKey(name) == true ||
           countFlags?.containsKey(name) == true ||
           (negativeName != null &&
               boolFlags?.containsKey(negativeName) == true);
@@ -684,7 +681,6 @@ final class CommandRegistry {
         .split('')
         .every(
           (name) =>
-              helpFlag.short == name ||
               boolFlags?.values.any((flag) => flag.short == name) == true ||
               countFlags?.values.any((flag) => flag.short == name) == true,
         );
@@ -891,7 +887,7 @@ final class CommandRegistry {
       }
       if (!_inputName.hasMatch(input.name)) {
         throw MambaRegistryError(
-          '$inputKind names must use letters, numbers, or hyphens and start with a letter',
+          '$inputKind names must contain letter-led words separated by hyphens or underscores.',
         );
       }
       final short = switch (input) {
@@ -913,6 +909,14 @@ final class CommandRegistry {
       if (group.options.isEmpty) {
         throw MambaRegistryError(
           'Paired options must contain at least one pair option',
+        );
+      }
+      if (group.required &&
+          group.options.whereType<PairChoiceOption>().any(
+            (option) => option.defaultValue != null,
+          )) {
+        throw MambaRegistryError(
+          'Required paired choice options must not declare defaults.',
         );
       }
       if (group.variant &&
@@ -968,7 +972,7 @@ final class CommandRegistry {
   static void _validatePositionalName(String name) {
     if (!_inputName.hasMatch(name)) {
       throw MambaRegistryError(
-        'Positional names must use letters, numbers, or hyphens and start with a letter',
+        'Positional names must contain letter-led words separated by hyphens or underscores.',
       );
     }
   }
@@ -982,6 +986,9 @@ final class CommandRegistry {
     List<AccessorListOption>? accessors,
   ) {
     void validate(Iterable<Enum> choices, Enum? defaultValue, String name) {
+      if (choices.isEmpty) {
+        throw MambaRegistryError('Choices for $name must not be empty.');
+      }
       if (defaultValue != null && !choices.contains(defaultValue)) {
         throw MambaRegistryError(
           'Default ${defaultValue.name} is not a registered choice for $name',
@@ -1009,10 +1016,28 @@ final class CommandRegistry {
       }
     }
 
+    for (final option in options ?? const <Option>[]) {
+      if (option is ChoiceOption &&
+          option.required &&
+          option.defaultValue != null) {
+        throw MambaRegistryError(
+          'Required choice option ${option.name} must not declare a default.',
+        );
+      }
+      validateInput(option);
+    }
+    for (final positional in mandatoryPositionals ?? const <Positional>[]) {
+      if ((positional is ChoicePositional && positional.defaultValue != null) ||
+          (positional is RepeatedChoicePositional &&
+              positional.defaultValue != null)) {
+        throw MambaRegistryError(
+          'Required choice positional ${positional.name} must not declare a default.',
+        );
+      }
+      validateInput(positional);
+    }
     [
-      ...?options,
       ...?pairedOptions?.expand((option) => option.options),
-      ...?mandatoryPositionals,
       ...?discretionaryPositionals,
     ].forEach(validateInput);
     if (variadic != null) validateInput(variadic);

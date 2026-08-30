@@ -173,7 +173,13 @@ void main() {
 
       await expectLater(
         executor.execute(['group', 'throwing']),
-        throwsA('run failed'),
+        throwsA(
+          isA<MambaExecutionError>().having(
+            (error) => error.primaryFailure,
+            'primary failure',
+            'run failed',
+          ),
+        ),
       );
       expect(events, ['pre:group', 'post:group']);
     });
@@ -186,7 +192,7 @@ void main() {
 
       await expectLater(
         executor.execute(['group', 'failing']),
-        throwsA(isA<StateError>()),
+        throwsA(isA<MambaExecutionError>()),
       );
       expect(events, ['pre:group', 'post:group']);
     });
@@ -225,7 +231,7 @@ void main() {
 
       await expectLater(
         executor.execute(['outer', 'inner', 'serve']),
-        throwsA(isA<StateError>()),
+        throwsA(isA<MambaExecutionError>()),
       );
       expect(events, ['pre:outer', 'pre:inner', 'post:outer']);
     });
@@ -445,8 +451,8 @@ final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
     super.commands, {
     this.failPost = false,
     this.errorPost = false,
-    String name = 'group',
-  }) : name = name;
+    this.name = 'group',
+  });
 
   final List<String> events;
   final bool failPost;

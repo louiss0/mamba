@@ -2,8 +2,8 @@
 class MambaRegistryError extends ArgumentError {
   MambaRegistryError([super.message]);
 
-  MambaRegistryError.value(Object? value, [String? name, String? message])
-    : super.value(value, name, message);
+  MambaRegistryError.value(super.value, [super.name, super.message])
+    : super.value();
 
   @override
   String toString() => 'MambaRegistryError: ${super.toString()}';
@@ -44,6 +44,30 @@ final class MambaExecutionException extends MambaException {
       'Cleanup failed ${failures.length} time${failures.length == 1 ? '' : 's'}: '
           '${failures.join('; ')}',
     ].join(' ');
+  }
+}
+
+/// A non-recoverable execution failure that preserves every phase failure.
+///
+/// The original non-Exception primary failure, when present, remains available
+/// through [primaryFailure]. Cleanup failures are retained in cleanup order.
+final class MambaExecutionError extends Error {
+  MambaExecutionError({
+    this.primaryFailure,
+    required Iterable<Object> cleanupFailures,
+  }) : cleanupFailures = List.unmodifiable(cleanupFailures);
+
+  final Object? primaryFailure;
+  final List<Object> cleanupFailures;
+
+  @override
+  String toString() {
+    final failures = [
+      if (primaryFailure != null) 'Execution failed: $primaryFailure.',
+      if (cleanupFailures.isNotEmpty)
+        'Cleanup failed ${cleanupFailures.length} time${cleanupFailures.length == 1 ? '' : 's'}: ${cleanupFailures.join('; ')}',
+    ];
+    return 'MambaExecutionError: ${failures.join(' ')}';
   }
 }
 

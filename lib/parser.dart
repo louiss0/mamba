@@ -7,6 +7,31 @@ class MambaParseException extends MambaException {
   MambaParseException(super.message);
 }
 
+/// The parser result for either an executable invocation or a help request.
+sealed class ParseOutcome {
+  const ParseOutcome();
+}
+
+/// A fully parsed command invocation.
+final class ParsedInvocation extends ParseOutcome {
+  const ParsedInvocation(this.value);
+
+  final (
+    List<String> command,
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  )
+  value;
+}
+
+/// A parser-owned request to format help for [registry].
+final class ParsedHelp extends ParseOutcome {
+  const ParsedHelp(this.registry);
+
+  final CommandRegistry registry;
+}
+
 /// Validates command-line tokens against a [CommandRegistry].
 ///
 /// It accepts command paths, long and short options, bundled flags, negatable
@@ -19,19 +44,15 @@ class Parser {
 
   final CommandRegistry _registry;
 
-  /// Parses [args] into a command path, positional map, typed inputs, and
-  /// arguments after `--`.
+  /// Parses [args] into a typed invocation or a parser-owned help request.
   ///
   /// Throws [MambaParseException] when names, values, required inputs, paired
   /// groups, or positional layout do not satisfy the registry.
-  (
-    List<String> command,
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  )
-  parse(List<String> args) {
+  ParseOutcome parse(List<String> args) {
     final command = _findCommand(args);
+    if (_requestsHelp(args) || args.isEmpty) {
+      return ParsedHelp(_registryForCommand(command).withInheritedInputs());
+    }
     final commandIndexes = _commandTokenIndexes(args, command);
     // Inherited flags and options stay at their declaring level, so the parser
     // resolves them from the root before validating the invocation.
@@ -71,7 +92,7 @@ class Parser {
           throw MambaParseException("This isn't a registered accessor");
         }
 
-        final option = _findOption(registry, name);
+        final option = _findLongOption(registry, name);
         if (option != null) {
           final value = _takeOptionValue(
             args,
@@ -127,6 +148,15 @@ class Parser {
 
     _addBooleanDefaults(registry, boolFlags);
     _addCountDefaults(registry, countFlags);
+    _addChoiceDefaults(
+      registry,
+      stringOptions,
+      intOptions,
+      doubleOptions,
+      repeatedStringOptions,
+      repeatedIntOptions,
+      repeatedDoubleOptions,
+    );
     _validatePairedOptions(
       registry,
       stringOptions,
@@ -136,7 +166,6 @@ class Parser {
       repeatedIntOptions,
       repeatedDoubleOptions,
     );
-    _addChoiceDefaults(registry, stringOptions);
     _addAccessorChoiceDefaults(registry, accessorValues);
     _validateRequiredOptions(
       registry,
@@ -154,7 +183,7 @@ class Parser {
       variadic: _parseVariadic(registry, trailingArguments),
     );
 
-    return (
+    return ParsedInvocation((
       command,
       parsedPositionals,
       (
@@ -182,7 +211,15 @@ class Parser {
         accessors: accessorValues.isEmpty ? null : accessorValues,
       ),
       trailingArguments,
-    );
+    ));
+  }
+
+  bool _requestsHelp(List<String> args) {
+    for (final argument in args) {
+      if (argument == '--') return false;
+      if (argument == '--help' || argument == '-h') return true;
+    }
+    return false;
   }
 
   bool _hasStringOptions(CommandRegistry registry) {
@@ -231,7 +268,7 @@ class Parser {
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
-      if (token == '--') break;
+      if (token == '--' || token == '--help' || token == '-h') break;
       if (token == registry.name && command.isEmpty) {
         command.add(registry.name);
         offset++;
@@ -307,18 +344,22 @@ class Parser {
     return registry;
   }
 
-  NamedInput? _findOption(CommandRegistry registry, String name) {
+  NamedInput? _findLongOption(CommandRegistry registry, String name) {
     final pairOptions = _registeredPairOptions(registry);
     return registry.singleOptions?[name] ??
         registry.repeatedOptions?[name] ??
-        pairOptions.where((option) => option.name == name).firstOrNull ??
-        registry.singleOptions?.values
-            .where((option) => option.short == name)
+        pairOptions.where((option) => option.name == name).firstOrNull;
+  }
+
+  NamedInput? _findShortOption(CommandRegistry registry, String short) {
+    final pairOptions = _registeredPairOptions(registry);
+    return registry.singleOptions?.values
+            .where((option) => option.short == short)
             .firstOrNull ??
         registry.repeatedOptions?.values
-            .where((option) => option.short == name)
+            .where((option) => option.short == short)
             .firstOrNull ??
-        pairOptions.where((option) => option.short == name).firstOrNull;
+        pairOptions.where((option) => option.short == short).firstOrNull;
   }
 
   Iterable<PairOption> _registeredPairOptions(CommandRegistry registry) =>
@@ -396,7 +437,7 @@ class Parser {
     Map<String, List<int>> repeatedIntOptions,
     Map<String, List<double>> repeatedDoubleOptions,
   ) {
-    final option = _findOption(registry, names);
+    final option = _findShortOption(registry, names);
     if (option != null) {
       _addOptionValue(
         option,
@@ -584,16 +625,36 @@ class Parser {
   void _addChoiceDefaults(
     CommandRegistry registry,
     Map<String, String> values,
+    Map<String, int> intValues,
+    Map<String, double> doubleValues,
+    Map<String, List<String>> repeatedStringValues,
+    Map<String, List<int>> repeatedIntValues,
+    Map<String, List<double>> repeatedDoubleValues,
   ) {
-    final options = [
-      ...?registry.singleOptions?.values,
-      ..._registeredPairOptions(registry),
-    ];
-    for (final option in options) {
-      if (option
-          case ChoiceOption(defaultValue: final defaultValue?) ||
-              PairChoiceOption(defaultValue: final defaultValue?)) {
+    for (final option
+        in registry.singleOptions?.values ?? const <SingleOption>[]) {
+      if (option case ChoiceOption(defaultValue: final defaultValue?)) {
         values.putIfAbsent(option.name, () => defaultValue.name);
+      }
+    }
+    for (final group
+        in registry.pairedOptionGroups ?? const <PairedOptions>[]) {
+      final hasExplicitMember = group.options.any(
+        (option) => _isPairedOptionPresent(
+          option,
+          values,
+          intValues,
+          doubleValues,
+          repeatedStringValues,
+          repeatedIntValues,
+          repeatedDoubleValues,
+        ),
+      );
+      if (group.variant && hasExplicitMember) continue;
+      for (final option in group.options) {
+        if (option case PairChoiceOption(defaultValue: final defaultValue?)) {
+          values.putIfAbsent(option.name, () => defaultValue.name);
+        }
       }
     }
   }
@@ -863,6 +924,13 @@ class Parser {
         },
         _ => null,
       };
+    }
+    if (variadic is ChoiceVariadic &&
+        variadic is! RepeatedChoiceVariadic &&
+        values.length > 1) {
+      throw MambaParseException(
+        'The ${variadic.name} variadic accepts only one value.',
+      );
     }
     return {
       variadic.name: [

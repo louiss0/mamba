@@ -1,10 +1,20 @@
 import 'package:mamba/command.dart';
+import 'package:mamba/errors.dart';
 import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
 
 enum Mode { auto, always }
+
+extension on ParseOutcome {
+  ParsedInvocation get invocation => this as ParsedInvocation;
+
+  List<String> get $1 => invocation.value.$1;
+  ParsedPositionals get $2 => invocation.value.$2;
+  ParsedNamedInputs get $3 => invocation.value.$3;
+  List<String> get $4 => invocation.value.$4;
+}
 
 Parser parser({
   List<Flag>? flags,
@@ -117,7 +127,7 @@ void main() {
     });
 
     test('returns nullable maps according to registered content', () {
-      final result = parser().parse([]);
+      final result = parser().parse(['tool']);
       final inputs = result.$3;
 
       expect(inputs.boolFlags, isNull);
@@ -142,7 +152,7 @@ void main() {
             defaultValue: Mode.auto,
           ),
         ],
-      ).parse([]).$3;
+      ).parse(['tool']).$3;
 
       expect(inputs.stringOptions, {'mode': 'auto'});
     });
@@ -150,7 +160,7 @@ void main() {
     test('adds defaults to Boolean and count flag maps', () {
       final inputs = parser(
         flags: [BooleanFlag('color', defaultValue: true), CountFlag('verbose')],
-      ).parse([]).$3;
+      ).parse(['tool']).$3;
 
       expect(inputs.boolFlags, {'color': true});
       expect(inputs.countFlags, {'verbose': 0});
@@ -177,18 +187,19 @@ void main() {
   });
 
   group('Choice positionals', () {
-    test('applies an omitted mandatory choice positional default', () {
-      final positionals = parser(
-        mandatoryPositionals: [
-          ChoicePositional(
-            'mode',
-            choices: Mode.values,
-            defaultValue: Mode.auto,
-          ),
-        ],
-      ).parse([]).$2;
-
-      expect(positionals.singles, {'mode': 'auto'});
+    test('rejects a default for a mandatory choice positional', () {
+      expect(
+        () => parser(
+          mandatoryPositionals: [
+            ChoicePositional(
+              'mode',
+              choices: Mode.values,
+              defaultValue: Mode.auto,
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
     });
 
     test('accepts only registered choices for a single positional', () {
@@ -202,20 +213,19 @@ void main() {
       expectParseError(subject, ['bogus']);
     });
 
-    test('applies an omitted repeated choice positional default', () {
-      final positionals = parser(
-        mandatoryPositionals: [
-          RepeatedChoicePositional(
-            'modes',
-            choices: Mode.values,
-            defaultValue: Mode.auto,
-          ),
-        ],
-      ).parse([]).$2;
-
-      expect(positionals.repeated, {
-        'modes': ['auto'],
-      });
+    test('rejects a default for a mandatory repeated choice positional', () {
+      expect(
+        () => parser(
+          mandatoryPositionals: [
+            RepeatedChoicePositional(
+              'modes',
+              choices: Mode.values,
+              defaultValue: Mode.auto,
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
     });
 
     test('accepts only registered choices for a repeated positional', () {
@@ -262,7 +272,7 @@ void main() {
     test('requires at least one value for a mandatory repeated positional', () {
       expectParseError(
         parser(mandatoryPositionals: [RepeatedStringPositional('files')]),
-        [],
+        ['tool'],
       );
     });
 
@@ -282,7 +292,7 @@ void main() {
     test('omits a discretionary repeated positional without values', () {
       final inputs = parser(
         discretionaryPositionals: [RepeatedStringPositional('files')],
-      ).parse([]).$2;
+      ).parse(['tool']).$2;
 
       expect(inputs.singles, isNull);
       expect(inputs.repeated, isNull);
@@ -729,7 +739,7 @@ void main() {
             ],
           ),
         ],
-      ).parse([]).$3;
+      ).parse(['tool']).$3;
 
       expect(inputs.stringOptions, {'json': 'auto'});
     });
@@ -752,15 +762,14 @@ void main() {
             ],
           ),
         ],
-      ).parse([]).$3;
+      ).parse(['tool']).$3;
 
       expect(inputs.stringOptions, {'first': 'auto', 'second': 'always'});
     });
 
-    test(
-      'requires explicit input for a required all-of pair with defaults',
-      () {
-        final subject = parser(
+    test('rejects defaults for required all-of pairs', () {
+      expect(
+        () => parser(
           pairedOptions: [
             PairedOptions(
               required: true,
@@ -773,30 +782,30 @@ void main() {
               ],
             ),
           ],
-        );
-
-        expectParseError(subject, []);
-      },
-    );
-
-    test('requires explicit input for a required variant with a default', () {
-      final subject = parser(
-        pairedOptions: [
-          PairedOptions(
-            required: true,
-            variant: true,
-            options: [
-              PairChoiceOption(
-                'json',
-                choices: Mode.values,
-                defaultValue: Mode.auto,
-              ),
-            ],
-          ),
-        ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
       );
+    });
 
-      expectParseError(subject, []);
+    test('rejects defaults for required variants', () {
+      expect(
+        () => parser(
+          pairedOptions: [
+            PairedOptions(
+              required: true,
+              variant: true,
+              options: [
+                PairChoiceOption(
+                  'json',
+                  choices: Mode.values,
+                  defaultValue: Mode.auto,
+                ),
+              ],
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
     });
 
     test('requires one member for a required variant', () {
@@ -810,7 +819,7 @@ void main() {
         ],
       );
 
-      expectParseError(subject, []);
+      expectParseError(subject, ['tool']);
     });
   });
 
@@ -1119,7 +1128,7 @@ void main() {
             ],
           ),
         ],
-      ).parse([]).$3;
+      ).parse(['tool']).$3;
 
       expect(inputs.stringOptions, {'format': 'auto'});
     });
@@ -1143,7 +1152,7 @@ void main() {
         ],
       );
 
-      expectParseError(subject, []);
+      expectParseError(subject, ['tool']);
       expectParseError(subject, ['--word', 'wrong']);
       expectParseError(subject, ['--word', 'word', '--integer', '1.5']);
       expectParseError(subject, ['--word', 'word', '--decimal', 'one']);
@@ -1206,7 +1215,7 @@ void main() {
       ];
 
       for (final option in cases) {
-        expectParseError(parser(options: [option]), []);
+        expectParseError(parser(options: [option]), ['tool']);
       }
     });
 
@@ -1218,7 +1227,7 @@ void main() {
       );
 
       expect(
-        () => subject.parse([]),
+        () => subject.parse(['tool']),
         throwsA(
           isA<MambaParseException>().having(
             (error) => error.message,
@@ -1258,7 +1267,7 @@ void main() {
         ],
       );
 
-      expectParseError(subject, []);
+      expectParseError(subject, ['tool']);
       expectParseError(subject, ['invalid']);
       expectParseError(subject, ['valid']);
     });
@@ -1308,7 +1317,7 @@ void main() {
     });
 
     test('leaves the variadic map empty without arguments', () {
-      final result = parser(variadic: NormalVariadic('extra')).parse([]);
+      final result = parser(variadic: NormalVariadic('extra')).parse(['tool']);
 
       expect(result.$2.variadic, isNull);
     });
@@ -1390,7 +1399,7 @@ void main() {
 
     test('accepts only enum member names for a ChoiceVariadic', () {
       final subject = parser(
-        variadic: ChoiceVariadic<Mode>(
+        variadic: RepeatedChoiceVariadic<Mode>(
           'modes',
           choices: Mode.values,
           defaultValue: Mode.auto,
@@ -1406,7 +1415,7 @@ void main() {
 
     test('reports the exact failing index for a ChoiceVariadic value', () {
       final subject = parser(
-        variadic: ChoiceVariadic<Mode>('modes', choices: Mode.values),
+        variadic: RepeatedChoiceVariadic<Mode>('modes', choices: Mode.values),
       );
 
       expect(
@@ -1513,6 +1522,86 @@ void main() {
       final subject = parser(mandatoryPositionals: [Positional('source')]);
 
       expectParseError(subject, ['source', 'extra']);
+    });
+  });
+
+  group('0.3 contract fixes', () {
+    test('returns parser-owned help only for exact help tokens', () {
+      final subject = parser(flags: [CountFlag('verbose', short: 'v')]);
+
+      expect(subject.parse([]), isA<ParsedHelp>());
+      expect(subject.parse(['-h']), isA<ParsedHelp>());
+      expectParseError(subject, ['-hv']);
+    });
+
+    test('rejects crossed long and short option forms', () {
+      final subject = parser(
+        options: [StringOption('output', short: 'o', regex: RegExp(r'\S+'))],
+      );
+
+      expectParseError(subject, ['--o', 'file']);
+      expectParseError(subject, ['-output', 'file']);
+      expect(subject.parse(['--output', 'file']).$3.stringOptions, {
+        'output': 'file',
+      });
+      expect(subject.parse(['-o', 'file']).$3.stringOptions, {
+        'output': 'file',
+      });
+    });
+
+    test('suppresses a variant default when another member is explicit', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            variant: true,
+            options: [
+              PairChoiceOption(
+                'json',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+              PairStringOption('text', regex: RegExp(r'\S+')),
+            ],
+          ),
+        ],
+      );
+
+      expect(subject.parse(['--text', 'plain']).$3.stringOptions, {
+        'text': 'plain',
+      });
+    });
+
+    test('uses optional all-of defaults to complete explicit members', () {
+      final subject = parser(
+        pairedOptions: [
+          PairedOptions(
+            options: [
+              PairStringOption('host', regex: RegExp(r'\S+')),
+              PairChoiceOption(
+                'mode',
+                choices: Mode.values,
+                defaultValue: Mode.auto,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      expect(subject.parse(['--host', 'localhost']).$3.stringOptions, {
+        'host': 'localhost',
+        'mode': 'auto',
+      });
+    });
+
+    test('makes ChoiceVariadic single-valued', () {
+      final subject = parser(
+        variadic: ChoiceVariadic<Mode>('mode', choices: Mode.values),
+      );
+
+      expect(subject.parse(['--', 'auto']).$2.variadic, {
+        'mode': ['auto'],
+      });
+      expectParseError(subject, ['--', 'auto', 'always']);
     });
   });
 }

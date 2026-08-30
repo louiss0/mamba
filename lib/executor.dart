@@ -83,6 +83,8 @@ final class Executor {
 
   /// Creates an executor for tests that returns success or failure values.
   ///
+  /// Invalid command definitions throw [MambaRegistryError] during this setup
+  /// step; only invocation and execution failures use the returned result.
   /// Call this in one shared test-support file and import the resulting fake
   /// into test files. Unlike [create], it does not write to process streams.
   MambaExecutor<MambaExecutionResult> fake() => _Executor(
@@ -93,6 +95,7 @@ final class Executor {
 
   /// Creates the production executor that writes output and failures to stdio.
   ///
+  /// Invalid command definitions throw [MambaRegistryError] during setup.
   /// A command may return `null` to suppress successful output.
   /// Call this where the executable is built, then pass command-line arguments
   /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
@@ -191,47 +194,40 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     Object? primaryThrowable;
 
     try {
-      if (_registry.requestsHelp(args)) {
-        output = _helpFormatter.format(
-          _registry.registryForArguments(args).withInheritedInputs(),
-        );
-      } else {
-        final executionArguments = _argumentsWithDefaultCommands(args);
-        if (executionArguments.isEmpty) {
-          output = _helpFormatter.format(
-            _registry.registryForArguments(args).withInheritedInputs(),
-          );
-        } else {
-          final (commandPath, positionals, inputs, trailingArguments) = Parser(
-            _registry,
-          ).parse(executionArguments);
+      final executionArguments = _argumentsWithDefaultCommands(args);
+      switch (Parser(_registry).parse(executionArguments)) {
+        case ParsedHelp(:final registry):
+          output = _helpFormatter.format(registry);
+        case ParsedInvocation(:final value):
+          final (commandPath, positionals, inputs, trailingArguments) = value;
           final commandPathCommands = _commandsForPath(commandPath);
           final command = commandPathCommands.lastOrNull;
           if (command == null) {
             output = _helpFormatter.format(
-              _registry.registryForArguments(args).withInheritedInputs(),
+              _registry
+                  .registryForArguments(executionArguments)
+                  .withInheritedInputs(),
             );
-          } else {
-            context = MambaReadContext(_context);
-            parsedPositionals = positionals;
-            options = (
-              stringOptions: inputs.stringOptions,
-              intOptions: inputs.intOptions,
-              doubleOptions: inputs.doubleOptions,
-            );
-            for (final hook
-                in commandPathCommands.whereType<PersistentHookRunner>()) {
-              await hook.prePersistentRun(_context, positionals, options);
-              enteredPersistentHooks.add(hook);
-            }
-            if (command case final HookRunner hook) {
-              final standardInput = await _readStandardInput();
-              await hook.preRun(standardInput, context, positionals, options);
-              enteredHook = hook;
-            }
-            output = await command.run(positionals, inputs, trailingArguments);
+            break;
           }
-        }
+          context = MambaReadContext(_context);
+          parsedPositionals = positionals;
+          options = (
+            stringOptions: inputs.stringOptions,
+            intOptions: inputs.intOptions,
+            doubleOptions: inputs.doubleOptions,
+          );
+          for (final hook
+              in commandPathCommands.whereType<PersistentHookRunner>()) {
+            await hook.prePersistentRun(_context, positionals, options);
+            enteredPersistentHooks.add(hook);
+          }
+          if (command case final HookRunner hook) {
+            final standardInput = await _readStandardInput();
+            await hook.preRun(standardInput, context, positionals, options);
+            enteredHook = hook;
+          }
+          output = await command.run(positionals, inputs, trailingArguments);
       }
     } on Exception catch (error) {
       primaryException = error;
@@ -265,12 +261,21 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       );
     }
 
-    // Programmer Errors remain outside the recoverable execution-result
-    // boundary, but all entered hooks have still been given a chance to clean.
-    if (primaryError != null) throw primaryError;
-    if (primaryThrowable != null) throw primaryThrowable;
-    if (cleanupError != null) throw cleanupError!;
-    if (cleanupThrowable != null) throw cleanupThrowable!;
+    // Non-Exception failures remain outside the recoverable result boundary,
+    // but their primary and cleanup diagnostics must never be discarded.
+    if (primaryError != null ||
+        primaryThrowable != null ||
+        cleanupError != null ||
+        cleanupThrowable != null) {
+      throw MambaExecutionError(
+        primaryFailure: primaryError ?? primaryThrowable ?? primaryException,
+        cleanupFailures: [
+          ...cleanupExceptions,
+          if (cleanupError != null) cleanupError!,
+          if (cleanupThrowable != null) cleanupThrowable!,
+        ],
+      );
+    }
     if (cleanupExceptions.isNotEmpty) {
       return writeErr(
         MambaExecutionException(

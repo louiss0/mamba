@@ -1749,10 +1749,19 @@ void main() {
         commands: [TestGroupCommand('config', [], 'Configure the tool.')],
       );
 
-      expect(registry.requestsHelp(['config', '--help']), isTrue);
-      expect(registry.requestsHelp(['--', '--help']), isFalse);
       expect(
-        registry.registryForArguments(['--verbose', 'config', '-h']).name,
+        Parser(registry).parse(['config', '--help']),
+        isA<ParsedHelp>().having(
+          (result) => result.registry.name,
+          'registry',
+          'config',
+        ),
+      );
+      expect(Parser(registry).parse(['--', '--help']), isA<ParsedInvocation>());
+      expect(
+        (Parser(registry).parse(['--verbose', 'config', '-h']) as ParsedHelp)
+            .registry
+            .name,
         'config',
       );
     });
@@ -1832,12 +1841,45 @@ void main() {
         ],
       );
 
-      final inputs = Parser(
-        registry,
-      ).parse(['tool', 'config', '--no-color', 'get', '--retries', '2']).$3;
+      final inputs =
+          (Parser(registry).parse([
+                    'tool',
+                    'config',
+                    '--no-color',
+                    'get',
+                    '--retries',
+                    '2',
+                  ])
+                  as ParsedInvocation)
+              .value
+              .$3;
 
       expect(inputs.boolFlags, {'color': false, 'verbose': false});
       expect(inputs.intOptions, {'retries': 2});
+    });
+
+    test('nearer published inputs override root inputs at descendants', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        options: [IntOption('profile')],
+        commands: [
+          TestGroupCommand(
+            'config',
+            [TestCommand('get', 'Get configuration.')],
+            'Configure.',
+            inheritedOptions: [StringOption('profile', regex: RegExp(r'\S+'))],
+          ),
+        ],
+      );
+
+      final inputs =
+          (Parser(registry).parse(['config', 'get', '--profile', 'development'])
+                  as ParsedInvocation)
+              .value
+              .$3;
+      expect(inputs.stringOptions, {'profile': 'development'});
+      expect(inputs.intOptions, isNull);
     });
 
     test('only group commands register child commands', () {

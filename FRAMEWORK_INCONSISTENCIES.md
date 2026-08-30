@@ -1,519 +1,487 @@
-
 # Mamba Framework Inconsistencies
 
-This report is based exclusively on `lib/` and `test/`. It focuses on places
-where the framework's public model, runtime behavior, error handling, help
-output, tests, or serialized integration model disagree with one another.
+This report is based exclusively on `lib/` and `test/`. It described the
+pre-0.3.0 project. All findings INC-001 through INC-018 below are resolved in
+0.3.0 and retained here as the historical change record; earlier findings that
+were fixed before this report remain listed separately near the end.
+
+The pre-0.3.0 suite passed 478 tests. The findings below were therefore
+mostly untested interactions between individually tested features, metadata
+contracts that are weaker than their documentation, or behavior that is
+internally consistent but conflicts with the project's stated coding rules.
 
 ## Severity guide
 
-- **High**: can produce incorrect behavior, bypass the advertised failure
-  boundary, or lose framework semantics.
-- **Medium**: produces surprising or inconsistent public behavior that callers
-  must work around.
-- **Low**: primarily affects clarity, diagnostics, or maintainability.
+- **High**: can produce a parsed state that violates the declaration, select
+  the wrong value, or make an integration advertise materially incorrect
+  syntax.
+- **Medium**: creates surprising public behavior or requires a caller-specific
+  workaround.
+- **Low**: primarily affects diagnostics, discoverability, documentation, or
+  maintainability.
 
-## Summary
+## Historical high-priority findings (resolved in 0.3.0)
 
-The most important inconsistencies are:
+The most important current issues are:
 
-- The executor catches `Exception`, while registry failures use `Error` and
-  post-hook failures occur outside the catch boundary.
-- Several input classes expose defaults that the parser never applies.
-- Accessor numeric declarations do not match the numeric parser used at
-  runtime.
-- Paired-option and accessor semantics were previously lost during registry
-  export; INC-028 and INC-029 document the implemented resolution.
-- Carapace numeric completions advertise a much narrower range than the parser
-  accepts.
-- Similar parse failures use different exception classes and substantially
-  different message styles.
+- Required choice inputs can become optional when they declare defaults.
+- An optional variant pair can return two members after one explicit member
+  and one default are combined.
+- A root input can override a same-named group-published input even though the
+  inheritance code and documentation say the nearer group should win.
+- Option names and short aliases are accepted with the wrong dash prefix.
+- `RegistryMap` is only shallowly immutable and does not validate several
+  semantic relationships.
+- Carapace loses the at-least-one rule for required variant groups.
 
-## Error model inconsistencies
+## Error and execution inconsistencies
 
-### INC-001: Registry failures are outside the normal execution contract
-
-**Severity: High**
-
-`MambaRegistryError` extends `Error`, while recoverable framework failures
-implement `Exception`. The executor catches only `Exception`.
-
-Registry construction also happens in the private executor constructor, before
-`execute()` begins. Therefore both `MambaRegistryError` and ordinary definition
-exceptions can be thrown by `fake()` or `create()` instead of becoming a
-`MambaFailureResult` or console failure.
-
-This conflicts with the apparent abstraction that fake execution returns one
-of the two `MambaExecutionResult` variants.
-
-**Recommendation:** represent all definition failures with one documented
-exception family, or make executor creation return an explicit result. If
-registry errors are intentionally programmer errors, document that
-`fake()`/`create()` may throw before execution.
-
-### INC-002: Post-hook failures bypass executor failure handling
-
-**Severity: High**
-
-The main execution body is wrapped in `try`/`catch`, but ordinary and persistent
-post-hooks run in `finally`. An exception from `postRun()` or
-`postPersistentRun()` therefore escapes instead of being passed to `writeErr()`.
-
-This means an exception from `run()` becomes `MambaFailureResult`, while an
-exception from cleanup can reject the returned future directly.
-
-**Recommendation:** place post-hook execution inside a dedicated error boundary
-and define how command and cleanup failures are combined or prioritized.
-
-### INC-003: Similar positional failures use different exception types
+### INC-001: Definition failures bypass the fake-executor result contract
 
 **Severity: Medium**
 
-Invalid or missing mandatory positionals throw `MambaParseException`. An
-invalid discretionary positional throws raw `ArgumentError`. Excess
-positionals return to `MambaParseException` again.
+`MambaRegistryError` extends `ArgumentError`, and registry construction occurs
+inside `fake()` or `create()`, before `execute()` is called. An invalid command
+surface therefore throws while the executor is being created instead of
+returning `MambaFailureResult`.
 
-Direct parser consumers must consequently catch multiple exception categories
-for the same class of invalid invocation. Through the executor, the
-`ArgumentError` is generically converted to `MambaException`, losing the
-specific parse type.
+This is defensible because the class documentation calls registry failures
+unrecoverable definition errors. It still means the apparent fake-executor
+contract—success or failure as a result value—begins only after construction,
+and callers need a separate error boundary around setup.
 
-**Recommendation:** make every invocation-shape failure a
-`MambaParseException`.
+**Recommendation:** document the construction boundary prominently, or expose
+a validating factory that returns a setup result before producing an executor.
 
-### INC-004: Unknown commands do not consistently use the command-not-found
-exception
+### INC-002: Non-Exception failures discard secondary diagnostics
 
 **Severity: Medium**
 
-`MambaCommandNotFoundException` is used by registry traversal, particularly
-while resolving help. Normal parser execution can stop command discovery and
-treat the unknown token as a positional instead. The resulting message may be
-`This term isn't a registered command positional` rather than a command-not-
-found message listing available commands.
+The executor correctly attempts cleanup after `Error` values and arbitrary
+thrown objects. It then rethrows the first primary `Error`/object, or the first
+cleanup `Error`/object. Any ordinary exceptions collected from the other phase
+are no longer observable through `MambaExecutionException`.
 
-**Recommendation:** let command discovery identify tokens that occur where only
-a child command is valid and consistently throw `MambaCommandNotFoundException`.
+For example, a command `Exception` followed by a cleanup `StateError` rethrows
+the `StateError`; the original command failure is lost to the caller. The
+reverse situation similarly hides cleanup exceptions behind a primary
+`Error`.
 
-### INC-005: `MambaRegistryError` has weaker formatting than exceptions
+**Recommendation:** attach all secondary failures to a common diagnostic
+object before rethrowing, or provide a logging callback that receives every
+captured failure.
+
+## Registry and inheritance inconsistencies
+
+### INC-003: Group-published inputs lose to root inputs with the same name
+
+**Severity: High**
+
+Registry construction uses `_mergeByName(inherited, ownPublished)`, where the
+nearer group's declaration replaces the inherited root declaration. The public
+documentation also says inherited inputs are ordered from the root downward
+and local or nearer declarations win.
+
+At parse/help time, `_inheritableFlags` and `_inheritableOptions` actually walk
+from the current registry toward the root. When those lists become maps, the
+later root entry overwrites the earlier group entry. Consequently:
+
+```text
+root --profile (definition A)
+  group publishes --profile (definition B)
+    leaf sees definition A
+```
+
+This can change type, short alias, requiredness, default, and description. The
+Carapace export retains the group-published declaration separately, so runtime
+and generated completion can also disagree.
+
+**Recommendation:** reverse the ancestor traversal or build an explicit
+root-to-leaf chain before applying `_combineWithInherited`. Add paired flag and
+option tests where root, group, and leaf reuse one name.
+
+### INC-004: Name-validation messages do not describe the accepted grammar
 
 **Severity: Low**
 
-`MambaException` overrides `toString()` to include its runtime type and message.
-`MambaRegistryError` stores a message but does not override `toString()`.
+The actual grammar is:
 
-**Recommendation:** give every public error type consistent string formatting.
+```text
+^[A-Za-z]+(?:[-_][A-Za-z]+)*$
+```
+
+It accepts letter-only words separated by hyphens or underscores and rejects
+all digits. Input and positional errors instead say names may use “letters,
+numbers, or hyphens,” omitting underscores and claiming numbers are valid.
+
+**Recommendation:** centralize the grammar description and use the same text
+for commands, flags, options, accessors, positionals, and variadics.
+
+### INC-005: Empty choice sets are valid definitions but unusable inputs
+
+**Severity: Medium**
+
+The registry checks that a declared default belongs to its choice list, but it
+does not require the list itself to contain a member. Empty choices can be
+registered for ordinary options, paired options, positionals, variadics, and
+accessor choices.
+
+A required empty-choice input can never parse successfully. An optional one is
+dead public surface and produces empty completion metadata.
+
+**Recommendation:** reject empty choice lists with `MambaRegistryError` and
+reject empty `choices` arrays in `RegistryMap` whenever the value type is
+choice-based.
 
 ## Command inconsistencies
 
-### INC-006: Command and input naming rules disagree
-
-**Severity: Medium**
-
-Command names reject every digit, but named flags, options, positionals, and
-accessors allow digits after the first letter. Commands also permit internal
-underscores, while named inputs reject underscores and otherwise encourage
-hyphenated names.
-
-As a result, `release2` is a valid input name but not a valid command name, and
-`release_build` can be a command but not an input.
-
-**Recommendation:** define one token grammar for commands and long input names,
-preferably letter-led kebab-case, unless the difference is intentional and
-documented.
-
-### INC-007: Direct group execution does not resolve aliases
-
-**Severity: Medium**
-
-The parser and registry resolve aliases to canonical command names.
-`GroupCommand.runChildCommand()`, however, searches children only by
-`candidate.name`. A path that works through the executor can therefore fail
-when passed directly to the group API using an alias.
-
-**Recommendation:** either resolve aliases in `runChildCommand()` or explicitly
-state that its path must contain canonical names.
-
-### INC-008: Description validation and its message describe different units
+### INC-006: Command-not-found text joins sentences without whitespace
 
 **Severity: Low**
 
-The registry rejects a short description whose character length is at least
-150, but the error says the description cannot exceed “150 lines of code.”
+`MambaCommandNotFoundException` concatenates:
 
-**Recommendation:** say that the description must contain fewer than 150
-characters, or revise the validation to match the intended unit.
+```text
+Command x was not found under parent.This command has no subcommands.
+```
+
+or:
+
+```text
+Command x was not found under parent.Available commands: ...
+```
+
+The first string ends with a period and the next starts immediately.
+
+**Recommendation:** insert one space between the sentence fragments and add
+exact-message tests for empty and non-empty child lists.
 
 ## Flag inconsistencies
 
-### INC-009: Unknown options are reported as unknown flags
+### INC-007: The registry recognizes bundled help but the executor/parser do not
 
 **Severity: Medium**
 
-After failing to locate a long option or flag, the parser throws
-`This isn't a registered flag`. An invocation such as `--missing value` cannot
-tell the user whether an option or flag was expected.
+`CommandRegistry.isRegisteredFlagToken()` treats the built-in `-h` as a valid
+member of a short bundle. A token such as `-hv` can therefore be classified as
+a registered flag token during command discovery.
 
-The short-form error combines both concepts—`registered short flag or option`—
-which is more accurate than the long-form message.
+`requestsHelp()` recognizes only exact `-h` and `--help`. The parser's short
+flag maps do not contain the built-in help flag, so parsing the same `-hv`
+eventually throws `This isn't a registered short flag or option`.
 
-**Recommendation:** use “named input” for the shared failure or report the
-specific token as an unknown option/flag.
+Direct `Parser` use also rejects exact `-h`; only the executor intercepts it.
 
-### INC-010: Count flags and boolean flags have different omitted-value shapes
-
-**Severity: Low**
-
-Every registered boolean flag is placed in the parsed map using its default,
-normally `false`. An unused count flag has no `0` entry and is absent from the
-count map.
-
-The distinction may be intentional, but it makes equivalent lookups asymmetric
-for command authors.
-
-**Recommendation:** document the asymmetry or populate count defaults with
-zero.
+**Recommendation:** either reserve help as an exact, non-bundleable executor
+token and make the registry helper agree, or let parser/executor detect `h`
+inside valid bundles.
 
 ## Option inconsistencies
 
-### INC-011: Choice defaults are declared more broadly than they are applied
+### INC-008: Short aliases and long option names cross dash forms
 
 **Severity: High**
 
-The following entities expose `defaultValue`:
+The parser uses `_findOption()` for both long and short syntax. That function
+looks up both the full option name and every short alias regardless of which
+syntax called it. As a result, an option declared as `output` with short alias
+`o` accepts all of these forms:
 
-- `ChoiceOption`
-- `PairChoiceOption`
-- `ChoicePositional`
-- `RepeatedChoicePositional`
-- `ChoiceVariadic`
-- `AccessorChoiceOption`
+```text
+--output value   # documented long form
+-o value         # documented short form
+--o value         # undocumented short alias with two dashes
+-output value     # undocumented long name with one dash
+```
 
-The parser applies defaults only to ordinary `ChoiceOption` and nested
-`AccessorChoiceOption`. Pair choices, positionals, repeated positionals, and
-variadics serialize their defaults but do not use them during parsing.
+Flags do not have this behavior. Registry token-length discovery also checks
+only real short aliases for one-dash tokens, so `-output` can behave differently
+depending on whether command discovery must skip it before reaching a child.
+Help and Carapace advertise only the two documented forms.
 
-This makes the same property name mean different things depending on the input
-subtype.
+**Recommendation:** split lookup into `_findLongOption(name)` and
+`_findShortOption(alias)` and add rejection tests for the crossed forms.
 
-**Recommendation:** either apply defaults consistently or remove
-`defaultValue` from entities where omission should remain omission.
-
-### INC-012: Accessor numeric declarations do not control runtime validation
+### INC-009: Required choice inputs can be omitted when they have defaults
 
 **Severity: High**
 
-`AccessorIntOption.regex` describes unsigned digits. `AccessorDoubleOption.regex`
-describes an unsigned decimal containing a decimal point. Runtime parsing does
-not use either getter: it dispatches to the general integer and double parsers.
+Ordinary choice defaults are inserted before `_validateRequiredOptions()`. A
+`ChoiceOption(required: true, defaultValue: ...)` therefore passes requiredness
+without an explicit token. Registry metadata, help grammar, and Carapace still
+mark it mandatory.
 
-Consequently, accessor parsing accepts signed integers, signed doubles, and
-integer-shaped double values that the accessor's own regex does not describe.
+The same conceptual conflict exists for positional registration. A
+`ChoicePositional` or `RepeatedChoicePositional` placed in
+`mandatoryPositionals` accepts omission when it has a default, even though help
+uses required angle brackets and serialized metadata says `required: true`.
 
-**Recommendation:** use the accessor regex during parsing or remove the getters
-and document that accessor numerics share ordinary option syntax.
+Paired required choices behave differently: pair requiredness is checked
+before defaults, and tests explicitly require user input there.
 
-### INC-013: Required-option messages vary by value type
+**Recommendation:** choose one contract:
 
-**Severity: Low**
+- Treat a default as satisfying omission and serialize/render the input as
+  optional, or
+- Treat `required` as requiring explicit user input and apply defaults only to
+  optional inputs.
 
-A missing required `StringOption` reports `The <name> is required`. Other
-required option types report `Option --<name> is required`.
+Rejecting `required + default` during registry construction would be the least
+ambiguous API.
 
-**Recommendation:** use one message template for every required option type.
+### INC-010: Variant pair defaults can violate variant exclusivity
 
-### INC-014: Dash-prefixed string values depend on syntax form
+**Severity: High**
+
+Pair validation runs before pair choice defaults are inserted. Consider an
+optional variant group with one defaulted member and another explicit member:
+
+```text
+variant: [--json (default auto), --text]
+invocation: --text plain
+```
+
+Validation sees one explicit member and succeeds. `_addChoiceDefaults()` then
+adds the omitted `json` default. The returned string option map contains both
+variant members, even though the group promises at most one.
+
+The same ordering gives all-of defaults uneven behavior: a completely omitted
+optional all-of group receives every default, while a partially explicit group
+fails before a missing default can complete it.
+
+**Recommendation:** build effective values and validate the final group once,
+or apply group-aware defaults that suppress a variant default whenever another
+member was explicit. Add an explicit-member-plus-default regression test.
+
+### INC-011: Regex-approved dash values can consume real input tokens
 
 **Severity: Medium**
 
-When an option value is in the following token, any dash-prefixed value is
-treated as another input unless it looks like a negative number. The same
-string can be accepted with inline syntax:
+To support values such as `-pattern`, `_takeOptionValue()` accepts a
+dash-prefixed following token when a string option's regex matches it. With a
+broad regex such as `\S+`, this also accepts registered-looking tokens:
 
 ```text
---pattern=-value
+--pattern --verbose
 ```
 
-but rejected with separate syntax:
+`--verbose` becomes the pattern value instead of a flag. This is especially
+surprising because numeric options use a narrower special case while string
+options delegate the decision to arbitrary regexes.
 
-```text
---pattern -value
-```
-
-This is especially surprising for string options whose regex explicitly
-accepts a leading dash.
-
-**Recommendation:** support an escaping rule, use `--name=-value`, or let the
-registered option type determine whether the next token can be consumed.
-
-### INC-015: Regex failure messages omit the input name and rejected value
-
-**Severity: Low**
-
-Every regex-backed option failure reports only
-`This value doesn't satify the requirement`. Besides the spelling error, the
-message does not identify the option, value, or expected pattern.
-
-**Recommendation:** include the option name and rejected value while avoiding
-exposing an unreadable raw expression unless verbose diagnostics are enabled.
+**Recommendation:** prioritize exact registered input tokens over regex-based
+consumption and require inline syntax (`--pattern=--verbose`) when the intended
+value looks like another input.
 
 ## Argument inconsistencies
 
-### INC-016: `times` represents additional values rather than total values
+### INC-012: `RepeatedChoiceVariadic` changes completion, not parsing or help
 
 **Severity: Medium**
 
-A repeated positional with `times: 1` accepts two values: the original plus one
-repetition. The property name can reasonably be read as either total
-occurrences or repetitions, while help renders the computed total range.
+`ChoiceVariadic` and `RepeatedChoiceVariadic` both parse every token after `--`
+into an unbounded list, and help renders both with `*`. The subtype exists only
+to switch Carapace from one `dash` completion slot to `dashany`.
 
-**Recommendation:** rename it to `additionalValues`, replace it with
-`maxValues`, or make the public documentation especially explicit.
+Thus a non-repeated `ChoiceVariadic` accepts many runtime values even though
+completion suggests only the first, while the class names imply a runtime
+cardinality distinction that does not exist.
 
-### INC-017: Repeated positional parsing is greedy without backtracking
+**Recommendation:** either make ordinary `ChoiceVariadic` accept one trailing
+value, or rename the subtype around completion behavior and document why the
+runtime cardinality is deliberately identical.
 
-**Severity: Medium**
+## RegistryMap inconsistencies
 
-Repeated positionals consume as many matching values as allowed before later
-positionals are considered. They do not reserve tokens for later mandatory
-positionals and do not backtrack after a later failure.
+### INC-013: `RegistryMap` is shallowly, not deeply, immutable
 
-The declared positional sequence can therefore be syntactically ambiguous even
-when one allocation of the supplied tokens would satisfy all definitions.
+**Severity: High**
 
-**Recommendation:** reject ambiguous layouts during registry validation,
-reserve the minimum number of tokens needed by later mandatory positionals, or
-document strict greedy behavior.
+`RegistryMap._parse()` wraps only the root map with
+`Map.unmodifiable`. Nested maps and lists are the same mutable objects supplied
+by the caller. After validation, caller code can mutate an option property,
+remove a required nested field, change a choice to a non-string, or alter an
+option-group member.
 
-### INC-018: Empty argument tokens are silently ignored
+The converter then receives data that no longer satisfies the validation that
+supposedly guards its casts. This can produce invalid YAML or raw type errors.
 
-**Severity: Medium**
+**Recommendation:** recursively copy and freeze maps and lists during parsing.
+The validated copy, rather than the caller's source graph, should become
+`registryMap.map`.
 
-The parser skips `""` before positional collection. An explicitly supplied
-empty argument is therefore indistinguishable from no argument for mandatory
-positionals and cannot be accepted by a regex that permits an empty string.
+### INC-014: RegistryMap structural validation is stronger than semantic validation
 
-**Recommendation:** treat empty strings as real positional values or reject them
-with a targeted validation error.
+**Severity: High**
 
-### INC-019: Variadic defaults are serialized but omission returns `null`
+The map validator has good recursive property/type checking and validates
+option-group references. Several cross-property constraints remain unchecked:
 
-**Severity: Medium**
+- A command collection key need not equal the nested command's `name`.
+- Ordinary `valueType: choice` options do not have to declare `choices`.
+- Ordinary option, positional, and variadic defaults need not belong to their
+  choices.
+- Choice arrays may be empty.
+- `times` can appear without meaningful repeated semantics, and repeated
+  metadata can omit a coherent bound.
+- Names, aliases, and short aliases are type-checked but do not receive the
+  live registry's grammar and collision validation.
 
-`ChoiceVariadic.defaultValue` is exported in the registry map, but an invocation
-without trailing arguments produces no variadic map. This is a specific example
-of the broader choice-default inconsistency and can mislead integrations that
-observe a default in metadata.
+This matters because `CarapaceSpecConverter` explicitly supports maps that did
+not originate from `CommandRegistry.toMap()`.
 
-**Recommendation:** align serialized metadata with parser behavior.
+**Recommendation:** make `RegistryMap` validate the same semantic invariants as
+the live registry, ideally by sharing validation helpers or by defining a
+single serializable schema model.
 
 ## Hook and context inconsistencies
 
-### INC-020: Post-hooks may run when their corresponding pre-hook did not
-complete
+The earlier hook lifecycle findings are now resolved: pre-hooks are awaitable,
+only successfully entered hooks unwind, every entered cleanup is attempted,
+cleanup exceptions become failures, and output is delayed until cleanup
+finishes.
 
-**Severity: High**
-
-The executor selects all persistent runners before calling any pre-hook. Its
-`finally` block then calls every selected post-hook in reverse order. If an
-outer persistent pre-hook throws, post-hooks for inner groups that were never
-entered are still scheduled. An ordinary post-hook also runs if its own
-`preRun()` throws.
-
-This differs from conventional enter/exit or acquire/release lifecycle
-semantics.
-
-**Recommendation:** record each successfully entered hook and unwind only that
-stack.
-
-### INC-021: One post-hook failure prevents remaining cleanup
-
-**Severity: High**
-
-Persistent post-hooks are awaited sequentially. If an inner post-hook throws,
-the remaining outer hooks do not run.
-
-**Recommendation:** attempt every cleanup hook, collect failures, and report an
-aggregate or primary-plus-suppressed error.
-
-### INC-022: Output is emitted before cleanup completes
-
-**Severity: Medium**
-
-`writeOut()` or `writeErr()` is evaluated before entering `finally`. Production
-stdout/stderr can therefore announce success or failure before post-hooks have
-completed. A subsequent post-hook failure can make an already printed success
-incorrect.
-
-**Recommendation:** complete cleanup before emitting the final observable
-result, or explicitly define post-hooks as non-transactional notifications.
-
-### INC-023: Pre-hooks cannot be asynchronous, but post-hooks can
-
-**Severity: Medium**
-
-Both `preRun()` and `prePersistentRun()` return `void`. Their post-hook
-counterparts return `FutureOr<void>` and are awaited. Async setup must therefore
-be forced elsewhere even though async cleanup is supported.
-
-**Recommendation:** make pre-hooks return `FutureOr<void>` and await them.
-
-### INC-024: Context lifetime is broader than its documentation suggests
-
-**Severity: Medium**
-
-`MambaContext` is described as mutable global state shared during an execution,
-but `_Executor` creates it once and reuses it across every call to `execute()`.
-State can leak between invocations of the same fake or production executor.
-
-**Recommendation:** clarify that the context is executor-scoped, or create a new
-context per invocation while allowing an explicit application-scoped store.
-
-## Help and documentation inconsistencies
-
-### INC-025: Several public error messages contain spelling or wording defects
+One documentation risk remains: `ParsedSingleOptions` is described as ordinary
+non-repeated options, but its maps also contain single-valued paired members
+because paired values share the same parser maps. Hook authors can observe pair
+members even though the typedef description does not mention them.
 
 **Severity: Low**
 
-Examples in parser and registry output include:
-
-- `acessor`
-- `satify`
-- `postionals`
-- `mesaage`
-- `There should no spaces`
-- `never have spaces in between numbers`
-
-These are observable CLI messages rather than internal-only comments.
-
-**Recommendation:** centralize message templates and add exact-message tests.
-
-### INC-026: Public documentation overstates `RegistryMap` fidelity
-
-**Severity: Medium**
-
-The map and integration documentation imply that the serialized form carries
-the input semantics needed to reproduce the command surface. Paired groups and
-typed accessors are now retained, but regex constraints remain omitted.
-
-**Recommendation:** either serialize the missing semantics or describe
-`RegistryMap` as a completion-oriented approximation.
-
-### INC-027: Duplicate and misleading comments reduce API clarity
-
-**Severity: Low**
-
-The `PairStringOption` documentation comment is duplicated. Some documentation
-also describes parser failures uniformly as `MambaParseException` even though
-the discretionary positional path throws `ArgumentError`.
-
-**Recommendation:** remove the duplicate comment and make API documentation
-match actual exception behavior.
-
-## Test coverage inconsistencies
-
-The existing tests are broad, especially around registry mapping, positional
-layouts, inheritance, help output, and Carapace generation. The following
-behavioral boundaries are not comparably covered:
-
-- Nested persistent hook order beyond one group
-- Pre-hook, command, and post-hook failure combinations
-- Whether unentered hooks should receive post callbacks
-- Context reuse across separate `execute()` calls
-- Application of every declared choice default subtype
-- Direct alias use through `GroupCommand.runChildCommand()`
-- Accessor numeric regex behavior versus parser behavior
-- Dash-prefixed separate string option values
-- Presence or absence of built-in help in generated completion metadata
-
-These gaps are important because several of the inconsistencies above occur
-exactly at those untested boundaries.
+**Recommendation:** describe the hook record as “all parsed single-valued
+string, integer, and double option members,” explicitly including pairs and
+choices.
 
 ## Integration inconsistencies
 
-### INC-028: Paired-option relationships are lost during registry export
+### INC-015: Carapace omits negated boolean flag forms
+
+**Severity: Medium**
+
+Registry export preserves a boolean flag's `negatable` property, but
+`CarapaceSpecConverter` never reads it when building flag keys. A runtime flag
+that accepts both `--color` and `--no-color` advertises only `--color` in the
+generated spec.
+
+**Recommendation:** emit the negated spelling as a second completion entry or
+use the relevant Carapace-native negation representation.
+
+### INC-016: Required variant groups lose their at-least-one constraint
 
 **Severity: High**
 
-**Status: Resolved**
+The converter reads an option group's `required` value, but applies it only
+when `mode == all`. Both required and optional `oneOf` groups emit optional
+member keys plus the same `exclusiveflags` list.
 
-`CommandRegistry.toMap()` now emits first-class `optionGroups` records with
-`mode`, `required`, and `members`. `RegistryMap` validates their shape,
-membership, and uniqueness. The Carapace converter renders required all-member
-groups and emits every variant member before adding `exclusiveflags`.
+The resulting specs preserve “at most one” but not “exactly one.” Carapace
+therefore advertises the required variant group as omittable even though the
+Mamba parser rejects omission.
 
-Live registry-to-converter round-trip tests cover required and variant groups.
+**Recommendation:** map required variants to a Carapace construct that enforces
+one member, or document the completion limitation and avoid claiming complete
+semantic reproduction.
 
-### INC-029: Accessor value types and choices are lost during registry export
-
-**Severity: High**
-
-**Status: Resolved**
-
-Accessor serialization now uses a uniform recursive group/value schema with
-`valueType`, `choices`, `default`, descriptions, and hidden state. Carapace
-flattens this tree into dotted flags and type-aware completion entries while
-supporting legacy description-only accessor maps as string-valued inputs.
-
-### INC-030: Carapace numeric completions disagree with parser ranges
-
-**Severity: Medium**
-
-The parser accepts signed integers and signed decimal values without a
-`0..1000` bound. Carapace completion advertises only non-negative values from
-`0` through `1000`. Double completion additionally formats values to two
-decimal places, while the parser accepts integers and arbitrary decimal
-precision.
-
-**Recommendation:** either describe these as example completions rather than
-constraints or generate completions that reflect the parser's actual numeric
-domain.
-
-### INC-031: String completion assumes filesystem semantics
-
-**Severity: Medium**
-
-Ordinary string options and non-choice positionals are exported as `$files`
-completions regardless of their name or regex. A username, URL, query, token,
-or other non-path string therefore receives file suggestions.
-
-**Recommendation:** add explicit completion metadata to string inputs and omit
-completions when no semantic source is declared.
-
-### INC-032: Paired option completions are intentionally skipped
-
-**Severity: Medium**
-
-The converter deliberately avoids value completions for paired members. Even if
-pair relationships are supplied manually, choice and type information for
-those members does not result in the same completion behavior as ordinary
-options.
-
-**Recommendation:** generate member-specific completion entries after pair
-metadata is preserved reliably.
-
-### INC-033: Built-in help is absent from the exported registry map
+### INC-017: Numeric completion ranges are unrelated to parser bounds
 
 **Severity: Low**
 
-The help flag is stored separately from registered boolean and count flags.
-`toMap()` exports the registered collections but not the built-in help flag.
-Help output displays `--help`, while a map-derived integration does not receive
-that declaration from Mamba.
+The parser accepts signed, unbounded integer and fixed-point text. Carapace
+suggests only `-10..10`; double suggestions additionally force two-decimal
+formatting. The implementation now correctly comments that these are
+illustrative suggestions, not validation bounds, but users still see a narrow
+domain that has no basis in the input declaration.
 
-**Recommendation:** include built-in inputs in the serialized command surface
-or explicitly delegate help completion to the target integration.
+**Recommendation:** add explicit completion-range metadata, or omit numeric
+range suggestions when the command author did not declare a domain.
 
-### INC-034: Integration failures do not use the Mamba error hierarchy
+### INC-018: Serialized regex patterns are not used by Carapace
 
-**Severity: Medium**
+**Severity: Low**
 
-`RegistryMap` validation throws `ArgumentError`, missing platform configuration
-throws `StateError`, and filesystem operations can throw
-`FileSystemException`. These failures are not translated into
-`MambaException`, and completion generation commonly happens while the executor
-is being constructed or from command code with different catch behavior.
+`toMap()` now preserves regex patterns for string options, positionals,
+variadics, and accessor strings. The Carapace converter does not use them to
+choose or constrain completions. This is safer than the old unconditional
+`$files` assumption, but it means pattern metadata currently has no integration
+effect.
 
-**Recommendation:** define an integration-specific Mamba exception with clear
-path and platform diagnostics, then consistently return or translate failures
-at the integration boundary.
+**Recommendation:** add author-supplied completion metadata rather than trying
+to infer semantic completion from arbitrary regular expressions.
+
+## Code-guideline warnings
+
+The project-specific instructions ask reviews to warn when code conflicts with
+the supplied guidelines. The following conflicts remain:
+
+- The guideline requires errors to be explicit return values, while the
+  framework deliberately uses thrown `Error`, `Exception`, and arbitrary
+  throwable handling. Fake execution converts recoverable exceptions to
+  values, but parsing, registry construction, formatting, and integrations
+  still throw directly.
+- The guideline says errors should be logged for monitoring or history. The
+  framework has no logging callback; some secondary hook failures can become
+  inaccessible when an `Error` takes precedence.
+- Comments should stay synchronized with behavior. The inherited-input order
+  comment says root-down while the implementation walks leaf-to-root, and the
+  `ParsedSingleOptions` description omits paired members.
+- `PairStringOption` still has a duplicated documentation comment.
+- Static analysis reports two style infos: `MambaRegistryError.value` could use
+  super parameters, and one executor-test helper could use an initializing
+  formal.
+
+The rest of the code generally follows the supplied guidance well: names are
+mostly behavior-oriented, mutation is localized, stateful entities are
+cohesive, formatting is automated, and the test suite emphasizes behavior.
+
+## Current test-coverage gaps
+
+The suite is broad and now covers defaults, positional allocation, aliases,
+registry-map paths, integration output, and hook cleanup much more deeply.
+These important boundaries still lack direct regression tests:
+
+- Required ordinary choice option plus a default
+- Mandatory choice positional help/metadata versus its omission behavior
+- Variant pair with one explicit member and a different defaulted member
+- Root and group publishing the same flag or option name
+- `--o` and `-long-name` crossed option syntax
+- Bundled built-in help such as `-hv`
+- Empty choice collections
+- Mutation of nested `RegistryMap` data after construction
+- Registry-map command key/name mismatch and ordinary invalid choice defaults
+- Negatable flags and required variants in generated Carapace YAML
+- Primary execution failure combined with a cleanup `Error`
+- A failing asynchronous pre-hook proving that its own post-hook is not called
+
+## Findings resolved since the previous report
+
+The following earlier inconsistencies no longer describe the current code:
+
+- `MambaRegistryError` now has consistent string formatting and preserves
+  `ArgumentError` diagnostics.
+- Command and input names use one shared grammar, although two messages remain
+  inaccurate.
+- `GroupCommand.runChildCommand()` resolves aliases.
+- Short-description validation and its 150-character message agree.
+- Unknown long inputs identify both flags and options.
+- Omitted count flags now receive `0`.
+- Choice defaults are applied to ordinary options, pairs, positionals,
+  variadics, and accessors.
+- Accessor integer/double regex declarations match parser numeric syntax.
+- Required ordinary options use one message.
+- Regex failures identify the option and rejected value.
+- Invalid discretionary positionals use `MambaParseException`.
+- Empty positional tokens are validated rather than skipped.
+- Repeated mandatory positionals reserve values for later mandatory entries.
+- Pre-hooks support `FutureOr<void>`.
+- Post-hooks run only for successfully entered hooks.
+- One cleanup failure no longer prevents remaining cleanup.
+- Cleanup exceptions become failure results and can be aggregated with a
+  primary exception.
+- Output is emitted only after cleanup succeeds.
+- Executor-scoped context lifetime is explicitly documented and tested.
+- Registry export retains option groups, accessor types, choices, defaults,
+  regex patterns, and built-in help.
+- Carapace emits typed completions for paired members and accessors.
+- General string inputs no longer assume filesystem completion.
+- Integration validation and writer failures use
+  `MambaIntegrationException`.
