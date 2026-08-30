@@ -1879,7 +1879,7 @@ void main() {
       for (final name in ['', 'tool1', '_', '-', 'tool!']) {
         expect(
           () => CommandRegistry.create(name, 'Tool command.'),
-          throwsA(anyOf(isA<MambaRegistryError>(), isA<MambaRegistryError>())),
+          throwsA(isA<MambaRegistryError>()),
         );
       }
       expect(
@@ -2161,24 +2161,27 @@ void main() {
       expect(registry.registryForArguments(['check']).name, 'checkout');
     });
 
-    test('throws a Mamba error for duplicate aliases on one command', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          commands: [
-            TestCommand('checkout', 'Checkout.', aliases: ['co', 'co']),
-          ],
-        ),
-        throwsA(
-          isA<MambaRegistryError>().having(
-            (error) => error.message,
-            'message',
-            contains('tool checkout'),
+    test(
+      'throws a MambaRegistryError for duplicate aliases on one command',
+      () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            commands: [
+              TestCommand('checkout', 'Checkout.', aliases: ['co', 'co']),
+            ],
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<MambaRegistryError>().having(
+              (error) => error.message,
+              'message',
+              contains('tool checkout'),
+            ),
+          ),
+        );
+      },
+    );
 
     test('rejects an alias already registered by another command', () {
       expect(

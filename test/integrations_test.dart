@@ -116,6 +116,8 @@ List<String> nestedCommandLines(
   final lines = <String>[
     '$indent- name: "$name"',
     '$indent  description: "$name command"',
+    '$indent  flags:',
+    '$indent    -h, --help: "Show this help message."',
   ];
   if (remaining.isNotEmpty) {
     lines
@@ -143,9 +145,13 @@ String nestedExpectation({
     for (var index = 0; index < depth - 1; index++) nestedGroupNames[index],
     'leaf',
   ];
-  final lines = <String>['name: "spec"', 'description: "spec command"'];
+  final lines = <String>[
+    'name: "spec"',
+    'description: "spec command"',
+    'persistentflags:',
+    '  -h, --help: "Show this help message."',
+  ];
   if (rootFlagEntries.isNotEmpty) {
-    lines.add('persistentflags:');
     lines.addAll([for (final entry in rootFlagEntries) '  $entry']);
   }
   if (rootCompletionLines != null) lines.addAll(rootCompletionLines);
@@ -244,7 +250,7 @@ persistentflags:
 completion:
   flag:
     retries:
-      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+      - "\$carapace.number.Range({start: -10, end: 10})"'''),
       );
     });
 
@@ -267,8 +273,13 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --username!=: "Account name."
-  --port!=: "Server port."'''),
+  --port!=: "Server port."
+completion:
+  flag:
+    port:
+      - "\$carapace.number.Range({start: -10, end: 10})"'''),
       );
     });
 
@@ -333,7 +344,7 @@ persistentflags:
           contains('description: "Server size."'),
           contains('default: "basic"'),
           contains('server.port:'),
-          contains(r'$carapace.number.Range({start: 0, end: 1000})'),
+          contains(r'$carapace.number.Range({start: -10, end: 10})'),
           allOf(
             contains('server.sku:'),
             contains('- "basic"'),
@@ -384,9 +395,9 @@ persistentflags:
       expect(
         spec,
         allOf(
+          contains('flags:'),
           contains('--profile.name?=: "Profile name."'),
-          contains('profile.name:'),
-          contains(r'$files'),
+          isNot(contains('completion:')),
         ),
       );
     });
@@ -404,10 +415,13 @@ persistentflags:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 commands:
   - name: "sub"
     description: "a subcommand"
     flags:
+      -h, --help: "Show this help message."
       --force: ""'''),
         );
       });
@@ -424,12 +438,16 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 commands:
   - name: "sub"
     description: "a subcommand"
     aliases:
       - "s"
-      - "b"'''),
+      - "b"
+    flags:
+      -h, --help: "Show this help message."'''),
         );
       });
 
@@ -445,15 +463,18 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 commands:
   - name: "sub"
     description: "a subcommand"
     flags:
+      -h, --help: "Show this help message."
       --retries?=: ""
     completion:
       flag:
         retries:
-          - "\$carapace.number.Range({start: 0, end: 1000})"
+          - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
         );
       });
@@ -474,12 +495,16 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 commands:
   - name: "sub"
     description: |-
       a subcommand
 
-      does the subs work'''),
+      does the subs work
+    flags:
+      -h, --help: "Show this help message."'''),
         );
       });
     });
@@ -497,6 +522,7 @@ commands:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --verbose*: "increase verbosity"'''),
           );
         });
@@ -512,6 +538,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -v, --verbose*: ""'''),
           );
         });
@@ -530,6 +557,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --force: "overwrite existing files"
   --verbose*: "increase verbosity"'''),
           );
@@ -544,6 +572,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --force: ""'''),
           );
         });
@@ -559,6 +588,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -f, --force: ""'''),
           );
         });
@@ -574,6 +604,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --trace*&: ""'''),
           );
         });
@@ -589,6 +620,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --quiet&: ""'''),
           );
         });
@@ -604,6 +636,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --force: ""'''),
           );
         });
@@ -619,11 +652,12 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --retries?=: ""
 completion:
   flag:
     retries:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
           );
         });
@@ -639,11 +673,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -r, --retries?=: ""
 completion:
   flag:
     retries:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
           );
         });
@@ -662,14 +697,15 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --retries?=: "attempts before giving up"
   --include*?=: "globs to include"
 completion:
   flag:
     retries:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
     include:
-      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+      - "\$carapace.number.Range({start: -10, end: 10})"'''),
           );
         });
 
@@ -684,11 +720,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --include*?=: ""
 completion:
   flag:
     include:
-      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+      - "\$carapace.number.Range({start: -10, end: 10})"'''),
           );
         });
 
@@ -703,11 +740,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -i, --include*?=: ""
 completion:
   flag:
     include:
-      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+      - "\$carapace.number.Range({start: -10, end: 10})"'''),
           );
         });
 
@@ -722,11 +760,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --debug-level?&=: ""
 completion:
   flag:
     debug-level:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
           );
         });
@@ -742,11 +781,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -d, --debug-level?&=: ""
 completion:
   flag:
     debug-level:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
           );
         });
@@ -762,11 +802,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --token!=: ""
 completion:
   flag:
     token:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
           );
         });
@@ -782,11 +823,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -t, --token!=: ""
 completion:
   flag:
     token:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 '''),
           );
         });
@@ -811,9 +853,15 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --format?=:
     description: "output format"
-    default: "json"'''),
+    default: "json"
+completion:
+  flag:
+    format:
+      - "json"
+      - "yaml"'''),
           );
         });
 
@@ -828,6 +876,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --assumeyes:
     description: ""
     default: true'''),
@@ -852,7 +901,7 @@ persistentflags:
                 ? '\ncompletion:\n'
                       '  flag:\n'
                       '    combo:\n'
-                      '      - "\$carapace.number.Range({start: 0, end: 1000})"\n'
+                      '      - "\$carapace.number.Range({start: -10, end: 10})"\n'
                 : '';
             final registry = combo.arity
                 ? specRegistry(
@@ -886,6 +935,7 @@ persistentflags:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --combo$suffix: ""$completion'''),
             );
           });
@@ -909,6 +959,8 @@ persistentflags:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 completion:
   positional:
     - - "json"
@@ -963,6 +1015,8 @@ completion:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 completion:
   positional:
     - - "json"
@@ -992,6 +1046,8 @@ completion:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 completion:
   dash:
     - - "json"
@@ -1014,6 +1070,8 @@ completion:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 completion:
   dashany:
     - "json"
@@ -1034,6 +1092,8 @@ completion:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 completion:
   positional:
     - - "json"
@@ -1059,11 +1119,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --retries?=: ""
 completion:
   flag:
     retries:
-      - "\$carapace.number.Range({start: 0, end: 1000})"'''),
+      - "\$carapace.number.Range({start: -10, end: 10})"'''),
         );
       });
       test("double options complete money-style with two decimals", () {
@@ -1075,11 +1136,12 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --price?=: ""
 completion:
   flag:
     price:
-      - "\$carapace.number.Range({format: '%.2f', start: 0, end: 1000})"'''),
+      - "\$carapace.number.Range({format: '%.2f', start: -10, end: 10})"'''),
         );
       });
     });
@@ -1104,18 +1166,23 @@ completion:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -f, --force: ""
   --verbose*: ""
   -r, --retries!=: ""
 completion:
   flag:
     retries:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 commands:
   - name: "push"
     description: "push changes"
+    flags:
+      -h, --help: "Show this help message."
   - name: "pull"
-    description: "pull changes"'''),
+    description: "pull changes"
+    flags:
+      -h, --help: "Show this help message."'''),
         );
       });
 
@@ -1142,16 +1209,22 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 commands:
   - name: "container"
     description: "manage containers"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --color: ""
       -v, --verbose*&: ""
       -n, --namespace!=: ""
     commands:
       - name: "list"
-        description: "list containers"'''),
+        description: "list containers"
+        flags:
+          -h, --help: "Show this help message."'''),
         );
       });
 
@@ -1176,15 +1249,20 @@ commands:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -g, --global-flag: ""
 commands:
   - name: "container"
     description: "manage containers"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --color: ""
     commands:
       - name: "list"
-        description: "list containers"'''),
+        description: "list containers"
+        flags:
+          -h, --help: "Show this help message."'''),
           );
         },
       );
@@ -1209,11 +1287,13 @@ commands:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   --global-flag: ""
 commands:
   - name: "child"
     description: "child command"
     flags:
+      -h, --help: "Show this help message."
       --own-flag: ""'''),
           );
         },
@@ -1239,19 +1319,24 @@ commands:
           equalsYaml('''
 name: "spec"
 description: "spec command"
+persistentflags:
+  -h, --help: "Show this help message."
 commands:
   - name: "container"
     description: "manage containers"
     flags:
+      -h, --help: "Show this help message."
       -F, --force: ""
       -R, --retries?=: ""
     completion:
       flag:
         retries:
-          - "\$carapace.number.Range({start: 0, end: 1000})"
+          - "\$carapace.number.Range({start: -10, end: 10})"
     commands:
       - name: "list"
-        description: "list containers"'''),
+        description: "list containers"
+        flags:
+          -h, --help: "Show this help message."'''),
         );
       });
     });
@@ -1292,31 +1377,42 @@ commands:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -v, --verbose: "increase output"
   --trace*: ""
   -j, --jobs?=: ""
 completion:
   flag:
     jobs:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 commands:
   - name: "remote"
     description: "manage remotes"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --force: ""
       -d, --depth!=: ""
     commands:
       - name: "add"
         description: "add a remote"
+        flags:
+          -h, --help: "Show this help message."
       - name: "remove"
         description: "remove a remote"
+        flags:
+          -h, --help: "Show this help message."
   - name: "auth"
     description: "manage credentials"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --attempts*: ""
     commands:
       - name: "login"
-        description: "log in"'''),
+        description: "log in"
+        flags:
+          -h, --help: "Show this help message."'''),
         );
       });
     });
@@ -1400,6 +1496,7 @@ commands:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -v, --verbose: ""
   --debug: ""
   -o, --output?=: ""
@@ -1407,49 +1504,67 @@ persistentflags:
 completion:
   flag:
     output:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
-    subscription:
-      - "\$files"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 commands:
   - name: "vm"
     description: "manage virtual machines"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --no-wait: ""
     commands:
       - name: "list"
         description: "list virtual machines"
+        flags:
+          -h, --help: "Show this help message."
   - name: "storage"
     description: "manage storage accounts"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --https-only: ""
       --account-name?=: ""
     commands:
       - name: "check-name"
         description: "check name availability"
+        flags:
+          -h, --help: "Show this help message."
   - name: "network"
     description: "manage networks"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --timeout?=: ""
     commands:
       - name: "dns"
         description: "manage dns zones"
+        flags:
+          -h, --help: "Show this help message."
         persistentflags:
           --zone-name?=: ""
         commands:
           - name: "record-set"
             description: "manage record sets"
+            flags:
+              -h, --help: "Show this help message."
             persistentflags:
               --relative-name?=: ""
             commands:
               - name: "a"
                 description: "manage a record sets"
+                flags:
+                  -h, --help: "Show this help message."
                 persistentflags:
                   --ttl?=: ""
                 commands:
                   - name: "add-record"
                     description: "add an a record"
+                    flags:
+                      -h, --help: "Show this help message."
                   - name: "remove-record"
-                    description: "remove an a record"'''),
+                    description: "remove an a record"
+                    flags:
+                      -h, --help: "Show this help message."'''),
           );
         },
       );
@@ -1488,15 +1603,18 @@ commands:
 name: "spec"
 description: "spec command"
 persistentflags:
+  -h, --help: "Show this help message."
   -v, --verbose: ""
   -o, --output?=: ""
 completion:
   flag:
     output:
-      - "\$carapace.number.Range({start: 0, end: 1000})"
+      - "\$carapace.number.Range({start: -10, end: 10})"
 commands:
   - name: "vm"
     description: "manage virtual machines"
+    flags:
+      -h, --help: "Show this help message."
     persistentflags:
       --no-wait: ""
     completion:
@@ -1508,6 +1626,8 @@ commands:
     commands:
       - name: "show"
         description: "show a virtual machine"
+        flags:
+          -h, --help: "Show this help message."
         completion:
           positional:
             - - "basic"
@@ -1564,7 +1684,7 @@ commands:
                   'completion:',
                   '  flag:',
                   '    include:',
-                  '      - "\$carapace.number.Range({start: 0, end: 1000})"',
+                  '      - "\$carapace.number.Range({start: -10, end: 10})"',
                 ],
               ),
             ),
