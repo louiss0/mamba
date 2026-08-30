@@ -1647,31 +1647,22 @@ void main() {
       });
     });
 
-    test('rejects multiple defaults in a variant paired group', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          pairedOptions: [
-            PairedOptions(
-              variant: true,
-              options: [
-                PairChoiceOption(
-                  'json',
-                  choices: DeploymentFormat.values,
-                  defaultValue: DeploymentFormat.json,
-                ),
-                PairChoiceOption(
-                  'yaml',
-                  choices: DeploymentFormat.values,
-                  defaultValue: DeploymentFormat.yaml,
-                ),
-              ],
-            ),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
+    test('paired choice options do not expose defaults', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        pairedOptions: [
+          PairedOptions(
+            variant: true,
+            options: [
+              PairChoiceOption('json', choices: DeploymentFormat.values),
+              PairChoiceOption('yaml', choices: DeploymentFormat.values),
+            ],
+          ),
+        ],
       );
+
+      expect(registry.pairedOptionGroups, isNotEmpty);
     });
 
     test('rejects standalone paired options without members', () {
@@ -2368,6 +2359,112 @@ void main() {
         });
       }
     }
+  });
+
+  group('framework consistency fixes', () {
+    test('allows RegistryMap positional and named names to overlap', () {
+      expect(
+        () => RegistryMap({
+          'name': 'tool',
+          'description': 'Tool command.',
+          'flags': {
+            'value': {'hidden': false, 'description': null},
+          },
+          'positionals': {
+            'value': {'required': false, 'description': null},
+          },
+        }),
+        returnsNormally,
+      );
+    });
+
+    test('rejects synthesized negated flag collisions', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [
+            BooleanFlag('color', negatable: true),
+            BooleanFlag('no-color'),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects pair members claiming the reserved help alias', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          pairedOptions: [
+            PairedOptions(options: [PairStringOption('value', short: 'h')]),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('RegistryMap rejects nested accessor help names', () {
+      expect(
+        () => RegistryMap({
+          'name': 'tool',
+          'description': 'Tool command.',
+          'accessors': {
+            'server': {
+              'kind': 'group',
+              'hidden': false,
+              'description': null,
+              'options': {
+                'help': {
+                  'kind': 'value',
+                  'valueType': 'string',
+                  'description': null,
+                },
+              },
+            },
+          },
+        }),
+        throwsA(isA<MambaIntegrationException>()),
+      );
+    });
+
+    test('direct registry creation snapshots caller-owned collections', () {
+      final commands = <Command>[TestCommand('initial', 'Initial.')];
+      final flags = <Flag>[BooleanFlag('visible')];
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: flags,
+        commands: commands,
+      );
+      commands.add(TestCommand('later', 'Later.'));
+      flags.add(BooleanFlag('later-flag'));
+
+      expect(registry.commandRegistries, hasLength(1));
+      expect(registry.boolFlags, contains('visible'));
+      expect(registry.boolFlags, isNot(contains('later-flag')));
+      expect(registry.toMap()['commands'], isNot(contains('later')));
+    });
+
+    test('cardinality overrides replace the inherited option shape', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        options: [RepeatableStringOption('profile')],
+        commands: [
+          TestCommand(
+            'run',
+            'Run command.',
+            options: [StringOption('profile', regex: RegExp(r'\\S+'))],
+          ),
+        ],
+      );
+      final run = registry.commandRegistries!.single.withInheritedInputs();
+
+      expect(run.singleOptions, contains('profile'));
+      expect(run.repeatedOptions, isNot(contains('profile')));
+    });
   });
 }
 

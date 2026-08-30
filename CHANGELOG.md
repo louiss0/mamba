@@ -1,3 +1,19 @@
+## 0.4.0
+
+- Removed defaults from `PairChoiceOption`; paired groups are completed only by
+  explicit member input.
+- Made inherited option overrides resolve cardinality before typed map
+  construction, preventing shadowed options from being resurrected.
+- Made help detection respect option-token ownership and stopped group defaults
+  from redirecting explicit group help.
+- Validated synthesized negated flag spellings, reserved help aliases, and
+  serialized positional/name namespaces consistently.
+- Preserved every cleanup failure in callback order and broadened closed-pipe
+  stdin detection.
+- Replaced guessed numeric completion ranges with explicit completion metadata.
+
+See `MIGRATION.md` for breaking-change guidance.
+
 ## 0.3.0
 
 - Made `Parser.parse` return a sealed `ParseOutcome`: `ParsedInvocation` or
@@ -5,8 +21,8 @@
 - Made `-h` and `--help` exact parser tokens; help is not valid inside bundles.
 - Rejected required choice inputs that declare defaults and empty choice sets.
 - Enforced documented long/short option dash forms.
-- Applied paired defaults before final group validation, including all-of
-  completion and variant-default suppression.
+- Added paired default handling (superseded in 0.4.0, where pair members no
+  longer accept defaults).
 - Made `ChoiceVariadic` single-valued; use `RepeatedChoiceVariadic` for many
   trailing choices.
 - Deep-froze and semantically strengthened `RegistryMap`; removed legacy

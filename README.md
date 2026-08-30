@@ -211,7 +211,7 @@ integers; doubles accept signed decimal integers or fractions. Strings must
 match their full expression. Choices are stored as
 their enum-member names. Repeated values append to typed lists; ordinary
 options retain the last value. Missing required options and invalid values are
-errors; omitted choices receive their default when configured.
+errors; omitted ordinary choice options receive their default when configured.
 
 **Help.** Visible entries appear in **Options**. Required entries are bare and
 red; optional entries use dim square brackets. The formatter prints literal
@@ -272,7 +272,8 @@ final class Commit extends Command {
 `PairOption` members; it is not itself an option and lives in its own
 `pairedOptions` list. `PairStringOption`, `PairIntOption`, `PairDoubleOption`,
 and `PairChoiceOption` use the ordinary value rules; `RepeatablePair*Option`
-types accumulate values into typed lists. With the default `variant: false`,
+types accumulate values into typed lists. Pair options never accept member
+defaults. With the default `variant: false`,
 members form a required-together group when any is supplied. With
 `variant: true`, members are alternatives. `required` makes the group mandatory
 or requires one variant.
@@ -441,11 +442,13 @@ accessor collisions, duplicate positionals, and sibling command collisions.
 `Parser.parse` accepts tokens and returns a sealed `ParseOutcome`:
 `ParsedInvocation` contains the command path, positional map, typed named-input
 maps, and trailing tokens; `ParsedHelp` identifies the registry to format.
-Exact `-h` and `--help` tokens produce `ParsedHelp`; help is not a short-bundle
-member. It supports:
+Exact unowned `-h` and `--help` tokens produce `ParsedHelp`; help is not a
+short-bundle member, and an option-owned value such as `--pattern --help`
+remains data. It supports:
 
 * root-qualified and root-omitted command paths;
-* `--long value` and `--long=value` options and accessor leaves;
+* `--long value` and `--long=value` options and accessor leaves (registered
+  input-looking values use inline `--long=value` syntax);
 * `-s value` short options;
 * `--flag`, `-f`, and bundled short flags such as `-vvv`;
 * `--no-name` for negatable boolean flags;
@@ -496,12 +499,13 @@ state.
 ## Registry maps and completion integrations
 
 `CommandRegistry.toMap()` exports built-in help, regular-expression patterns,
-paired groups, typed accessor leaves, defaults, and inherited inputs.
+paired groups, typed accessor leaves, explicit completion values, defaults,
+and inherited inputs.
 `RegistryMap` deep-copies and freezes this integration boundary, validates its
 semantic invariants, and reports malformed maps as `MambaIntegrationException`.
 Only canonical typed accessor maps are accepted.
 
 Carapace completion does not assume that arbitrary strings are file paths.
-Choice completions are emitted for ordinary and paired options. Numeric ranges
-in generated specs are illustrative suggestions only; they do not constrain
-the signed, unbounded numeric values accepted by the parser.
+Choice completions are emitted for ordinary and paired options. String inputs
+can provide explicit `completions` metadata; regexes and unbounded numeric
+inputs do not produce guessed completion ranges.

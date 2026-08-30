@@ -725,89 +725,33 @@ void main() {
       expectParseError(subject, ['--json', 'a', '--text', 'b']);
     });
 
-    test('applies the sole default for an optional variant pair', () {
+    test('does not apply defaults to optional variant pairs', () {
       final inputs = parser(
         pairedOptions: [
           PairedOptions(
             variant: true,
-            options: [
-              PairChoiceOption(
-                'json',
-                choices: Mode.values,
-                defaultValue: Mode.auto,
-              ),
-            ],
+            options: [PairChoiceOption('json', choices: Mode.values)],
           ),
         ],
       ).parse(['tool']).$3;
 
-      expect(inputs.stringOptions, {'json': 'auto'});
+      expect(inputs.stringOptions, {});
     });
 
-    test('applies defaults to every optional all-of pair member', () {
+    test('does not apply defaults to optional all-of pairs', () {
       final inputs = parser(
         pairedOptions: [
           PairedOptions(
             options: [
-              PairChoiceOption(
-                'first',
-                choices: Mode.values,
-                defaultValue: Mode.auto,
-              ),
-              PairChoiceOption(
-                'second',
-                choices: Mode.values,
-                defaultValue: Mode.always,
-              ),
+              PairChoiceOption('first', choices: Mode.values),
+              PairChoiceOption('second', choices: Mode.values),
             ],
           ),
         ],
       ).parse(['tool']).$3;
 
-      expect(inputs.stringOptions, {'first': 'auto', 'second': 'always'});
+      expect(inputs.stringOptions, {});
     });
-
-    test('rejects defaults for required all-of pairs', () {
-      expect(
-        () => parser(
-          pairedOptions: [
-            PairedOptions(
-              required: true,
-              options: [
-                PairChoiceOption(
-                  'first',
-                  choices: Mode.values,
-                  defaultValue: Mode.auto,
-                ),
-              ],
-            ),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('rejects defaults for required variants', () {
-      expect(
-        () => parser(
-          pairedOptions: [
-            PairedOptions(
-              required: true,
-              variant: true,
-              options: [
-                PairChoiceOption(
-                  'json',
-                  choices: Mode.values,
-                  defaultValue: Mode.auto,
-                ),
-              ],
-            ),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
     test('requires one member for a required variant', () {
       final subject = parser(
         pairedOptions: [
@@ -976,6 +920,25 @@ void main() {
       },
     );
 
+    test('validated option values take priority over global help tokens', () {
+      final subject = parser(
+        flags: [BooleanFlag('verbose')],
+        options: [StringOption('pattern', regex: RegExp(r'\S+'))],
+      );
+
+      final result = subject.parse(['--pattern', '--help']);
+
+      expect(result, isA<ParsedInvocation>());
+      expect((result as ParsedInvocation).value.$3.stringOptions, {
+        'pattern': '--help',
+      });
+      expect(
+        () => subject.parse(['--pattern', '--verbose']),
+        throwsA(isA<MambaParseException>()),
+      );
+      expect(subject.parse(['--pattern=--verbose']), isA<ParsedInvocation>());
+    });
+
     test('keeps equals signs after the first inline separator', () {
       final inputs = parser(
         options: [StringOption('query', regex: RegExp(r'.+'))],
@@ -1115,22 +1078,16 @@ void main() {
       });
     });
 
-    test('applies omitted paired choice defaults', () {
+    test('leaves omitted paired choice options unset', () {
       final inputs = parser(
         pairedOptions: [
           PairedOptions(
-            options: [
-              PairChoiceOption(
-                'format',
-                choices: Mode.values,
-                defaultValue: Mode.auto,
-              ),
-            ],
+            options: [PairChoiceOption('format', choices: Mode.values)],
           ),
         ],
       ).parse(['tool']).$3;
 
-      expect(inputs.stringOptions, {'format': 'auto'});
+      expect(inputs.stringOptions, {});
     });
 
     test('rejects invalid choice values', () {
@@ -1549,17 +1506,13 @@ void main() {
       });
     });
 
-    test('suppresses a variant default when another member is explicit', () {
+    test('explicit pair members are validated without defaults', () {
       final subject = parser(
         pairedOptions: [
           PairedOptions(
             variant: true,
             options: [
-              PairChoiceOption(
-                'json',
-                choices: Mode.values,
-                defaultValue: Mode.auto,
-              ),
+              PairChoiceOption('json', choices: Mode.values),
               PairStringOption('text', regex: RegExp(r'\S+')),
             ],
           ),
@@ -1568,28 +1521,6 @@ void main() {
 
       expect(subject.parse(['--text', 'plain']).$3.stringOptions, {
         'text': 'plain',
-      });
-    });
-
-    test('uses optional all-of defaults to complete explicit members', () {
-      final subject = parser(
-        pairedOptions: [
-          PairedOptions(
-            options: [
-              PairStringOption('host', regex: RegExp(r'\S+')),
-              PairChoiceOption(
-                'mode',
-                choices: Mode.values,
-                defaultValue: Mode.auto,
-              ),
-            ],
-          ),
-        ],
-      );
-
-      expect(subject.parse(['--host', 'localhost']).$3.stringOptions, {
-        'host': 'localhost',
-        'mode': 'auto',
       });
     });
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:mamba/command.dart';
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
@@ -110,6 +112,23 @@ void main() {
   });
 
   group('default commands', () {
+    test(
+      'snapshots caller-owned command collections at factory creation',
+      () async {
+        final commands = <Command>[_Command('initial')];
+        final factory = Executor(
+          'mamba',
+          'A command-line application.',
+          commands,
+        );
+        commands.add(_Command('later'));
+
+        final result = await factory.fake().execute(['later']);
+
+        expect(result, isA<MambaFailureResult>());
+      },
+    );
+
     test('rejects an empty root default path as a registry error', () {
       expect(
         () => Executor('mamba', 'A command-line application.', [
@@ -135,6 +154,21 @@ void main() {
         contains('config=settings.json'),
       );
     });
+
+    test(
+      'explicit group help is not redirected to its default child',
+      () async {
+        final executor = Executor('mamba', 'A command-line application.', [
+          _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['serve']),
+        ]).fake();
+
+        final result = await executor.execute(['group', '--help']);
+
+        expect(result, isA<MambaSuccessResult>());
+        expect((result as MambaSuccessResult).output, contains('group'));
+        expect(result.output, isNot(contains('serve command')));
+      },
+    );
 
     test('runs child hooks when a group selects its default', () async {
       final events = <String>[];
@@ -165,6 +199,60 @@ void main() {
   });
 
   group('hook failures', () {
+    test(
+      'preserves every non-Exception cleanup failure in callback order',
+      () async {
+        final events = <String>[];
+        final executor = Executor('mamba', 'A command-line application.', [
+          _PersistentGroup(
+            events,
+            [
+              _PersistentGroup(
+                events,
+                [_Command('serve')],
+                errorPost: true,
+                name: 'inner',
+              ),
+            ],
+            errorPost: true,
+            name: 'outer',
+          ),
+        ]).fake();
+
+        await expectLater(
+          executor.execute(['outer', 'inner', 'serve']),
+          throwsA(
+            isA<MambaExecutionError>().having(
+              (error) => error.cleanupFailures.length,
+              'cleanup failure count',
+              2,
+            ),
+          ),
+        );
+      },
+    );
+
+    test('recognizes platform variants of closed inherited pipes', () {
+      expect(
+        isClosedPipeFileSystemException(
+          FileSystemException('Socket is closed'),
+        ),
+        isTrue,
+      );
+      expect(
+        isClosedPipeFileSystemException(
+          FileSystemException('pipe closed', '', OSError('pipe closed', 109)),
+        ),
+        isTrue,
+      );
+      expect(
+        isClosedPipeFileSystemException(
+          FileSystemException('permission denied'),
+        ),
+        isFalse,
+      );
+    });
+
     test('unwinds persistent hooks after an arbitrary thrown object', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [

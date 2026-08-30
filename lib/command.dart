@@ -29,6 +29,20 @@ mixin ChoiceValidated<T extends Enum> {
   List<T> get choices;
 }
 
+/// Exposes explicit completion values for integration converters.
+///
+/// Carapace conversion does not infer suggestions from validation regexes or
+/// numeric ranges; inputs that want completion values declare them explicitly
+/// through this interface.
+mixin CompletionSuggestions {
+  /// Values a completion generator may suggest; `null` when the input
+  /// declares none.
+  List<String>? get completions;
+}
+
+List<T>? _copyList<T>(List<T>? items) =>
+    items == null ? null : List.unmodifiable(items);
+
 /// A regex-validated value registered in a command's positional sequence.
 ///
 /// Register it in `mandatoryPositionals` or `discretionaryPositionals`; the
@@ -45,9 +59,17 @@ class Positional extends NamedInput with RegExpValidated {
   RegExp get regex => _regExp;
 }
 
-final class NormalPositional extends Positional {
-  NormalPositional(super.name, {super.description, RegExp? regExp})
-    : super(regex: regExp);
+final class NormalPositional extends Positional with CompletionSuggestions {
+  NormalPositional(
+    super.name, {
+    super.description,
+    RegExp? regExp,
+    List<String>? completions,
+  }) : completions = _copyList(completions),
+       super(regex: regExp);
+
+  @override
+  final List<String>? completions;
 }
 
 final class ChoicePositional<T extends Enum> extends Positional
@@ -58,9 +80,9 @@ final class ChoicePositional<T extends Enum> extends Positional
   ChoicePositional(
     super.name, {
     super.description,
-    required this.choices,
+    required List<T> choices,
     this.defaultValue,
-  });
+  }) : choices = List.unmodifiable(choices);
 }
 
 /// A named, validated sequence of values supplied after `--`.
@@ -72,14 +94,23 @@ sealed class Variadic extends NamedInput {
   const Variadic(String name, {String? description}) : super(name, description);
 }
 
-final class NormalVariadic extends Variadic with RegExpValidated {
+final class NormalVariadic extends Variadic
+    with RegExpValidated, CompletionSuggestions {
   final RegExp regExp;
 
-  NormalVariadic(super.name, {super.description, RegExp? regExp})
-    : regExp = regExp ?? RegExpValidated.anyToken;
+  NormalVariadic(
+    super.name, {
+    super.description,
+    RegExp? regExp,
+    List<String>? completions,
+  }) : regExp = regExp ?? RegExpValidated.anyToken,
+       completions = _copyList(completions);
 
   @override
   RegExp get regex => regExp;
+
+  @override
+  final List<String>? completions;
 }
 
 final class ChoiceVariadic<T extends Enum> extends Variadic
@@ -87,12 +118,12 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
   @override
   final List<T> choices;
   final T? defaultValue;
-  const ChoiceVariadic(
+  ChoiceVariadic(
     super.name, {
     super.description,
-    required this.choices,
+    required List<T> choices,
     this.defaultValue,
-  });
+  }) : choices = List.unmodifiable(choices);
 }
 
 /// A choice variadic whose strict choices repeat across dash arguments.
@@ -100,7 +131,7 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
 /// [ChoiceVariadic] accepts one trailing choice. This subtype accepts every
 /// trailing choice and renders completions as an unbounded series.
 final class RepeatedChoiceVariadic<T extends Enum> extends ChoiceVariadic<T> {
-  const RepeatedChoiceVariadic(
+  RepeatedChoiceVariadic(
     super.name, {
     super.description,
     required super.choices,
@@ -149,10 +180,10 @@ final class RepeatedChoicePositional<T extends Enum> extends RepeatedPositional
   RepeatedChoicePositional(
     super.name, {
     super.description,
-    required this.choices,
+    required List<T> choices,
     this.defaultValue,
     super.times = 1,
-  });
+  }) : choices = List.unmodifiable(choices);
 }
 
 /// A valueless named input registered in a command's flag collection.
@@ -237,8 +268,9 @@ class PairedOptions {
 /// A companion value registered as a member of a [PairedOptions].
 ///
 /// Pair members inherit group requiredness and variant behavior from their
-/// primary option. The parser stores their values in the same typed maps as
-/// ordinary options, and help renders them within the group's expression.
+/// [PairedOptions] group. The parser stores their values in the same typed
+/// maps as ordinary options, and help renders them within the group's
+/// expression.
 sealed class PairOption extends NamedInput {
   final String? short;
   const PairOption(String name, {required this.short, String? description})
@@ -246,14 +278,22 @@ sealed class PairOption extends NamedInput {
 }
 
 /// A regex-validated string companion in a paired option registration.
-
-/// A regex-validated string companion in a paired option registration.
-final class PairStringOption extends PairOption with RegExpValidated {
-  PairStringOption(super.name, {RegExp? regex, super.short, super.description})
-    : regex = regex ?? RegExp(r'\S+');
+final class PairStringOption extends PairOption
+    with RegExpValidated, CompletionSuggestions {
+  PairStringOption(
+    super.name, {
+    RegExp? regex,
+    super.short,
+    super.description,
+    List<String>? completions,
+  }) : regex = regex ?? RegExp(r'\S+'),
+       completions = _copyList(completions);
 
   @override
   final RegExp regex;
+
+  @override
+  final List<String>? completions;
 }
 
 /// An integer companion in a paired option registration.
@@ -267,19 +307,20 @@ final class PairDoubleOption extends PairOption {
 }
 
 /// An enum-choice companion in a paired option registration.
+///
+/// Pair options never declare defaults; an omitted pair group stays unset
+/// instead of being completed through member defaults.
 final class PairChoiceOption<T extends Enum> extends PairOption
     with ChoiceValidated<T> {
-  const PairChoiceOption(
+  PairChoiceOption(
     super.name, {
-    required this.choices,
-    this.defaultValue,
+    required List<T> choices,
     super.short,
     super.description,
-  });
+  }) : choices = List.unmodifiable(choices);
 
   @override
   final List<T> choices;
-  final T? defaultValue;
 }
 
 /// A paired companion that accumulates each supplied value into a typed list.
@@ -289,16 +330,21 @@ sealed class RepeatablePairOption extends PairOption {
 
 /// A repeatable string companion in a paired option registration.
 final class RepeatablePairStringOption extends RepeatablePairOption
-    with RegExpValidated {
+    with RegExpValidated, CompletionSuggestions {
   RepeatablePairStringOption(
     super.name, {
     RegExp? regex,
     super.short,
     super.description,
-  }) : regex = regex ?? RegExp(r'\S+');
+    List<String>? completions,
+  }) : regex = regex ?? RegExp(r'\S+'),
+       completions = _copyList(completions);
 
   @override
   final RegExp regex;
+
+  @override
+  final List<String>? completions;
 }
 
 /// A repeatable integer companion in a paired option registration.
@@ -327,18 +373,23 @@ sealed class SingleOption extends Option {
 }
 
 /// A single string option validated by [regex].
-final class StringOption extends SingleOption with RegExpValidated {
-  const StringOption(
+final class StringOption extends SingleOption
+    with RegExpValidated, CompletionSuggestions {
+  StringOption(
     super.name, {
     required this.regex,
     super.short,
     super.description,
     super.required,
     super.hidden,
-  });
+    List<String>? completions,
+  }) : completions = _copyList(completions);
 
   @override
   final RegExp regex;
+
+  @override
+  final List<String>? completions;
 }
 
 /// A single option that accepts a signed decimal integer.
@@ -369,15 +420,15 @@ final class DoubleOption extends SingleOption {
 /// the option is omitted.
 final class ChoiceOption<T extends Enum> extends SingleOption
     with ChoiceValidated<T> {
-  const ChoiceOption(
+  ChoiceOption(
     super.name, {
     this.defaultValue,
-    required this.choices,
+    required List<T> choices,
     super.short,
     super.description,
     super.required,
     super.hidden,
-  });
+  }) : choices = List.unmodifiable(choices);
 
   @override
   final List<T> choices;
@@ -397,7 +448,7 @@ sealed class RepeatableOption extends Option {
 
 /// A repeatable string option validated by [regex].
 final class RepeatableStringOption extends RepeatableOption
-    with RegExpValidated {
+    with RegExpValidated, CompletionSuggestions {
   RepeatableStringOption(
     super.name, {
     super.required = false,
@@ -405,10 +456,15 @@ final class RepeatableStringOption extends RepeatableOption
     super.short,
     super.description,
     super.hidden,
-  }) : regex = regex ?? RegExp(r'\S+');
+    List<String>? completions,
+  }) : regex = regex ?? RegExp(r'\S+'),
+       completions = _copyList(completions);
 
   @override
   final RegExp regex;
+
+  @override
+  final List<String>? completions;
 }
 
 /// A repeatable option that accepts signed decimal integers.
@@ -466,13 +522,22 @@ final class AccessorListOption extends AccessorOption {
 
 /// A regex-validated string leaf in a dotted accessor path.
 final class AccessorStringOption extends AccessorPrimitiveOption
-    with RegExpValidated {
-  AccessorStringOption(super.name, {super.description, RegExp? regex})
-    : _regExp = regex ?? RegExp(r'\S+');
+    with RegExpValidated, CompletionSuggestions {
+  AccessorStringOption(
+    super.name, {
+    super.description,
+    RegExp? regex,
+    List<String>? completions,
+  }) : _regExp = regex ?? RegExp(r'\S+'),
+       completions = _copyList(completions);
 
   final RegExp _regExp;
+
   @override
   RegExp get regex => _regExp;
+
+  @override
+  final List<String>? completions;
 }
 
 /// An integer leaf in a dotted accessor path.
@@ -497,10 +562,10 @@ final class AccessorChoiceOption<T extends Enum> extends AccessorPrimitiveOption
     with ChoiceValidated<T> {
   AccessorChoiceOption(
     super.name, {
-    required this.choices,
+    required List<T> choices,
     this.defaultValue,
     super.description,
-  });
+  }) : choices = List.unmodifiable(choices);
 
   @override
   final List<T> choices;
@@ -568,15 +633,21 @@ abstract class Command {
 
   Command({
     this.longDescription,
-    this.aliases,
-    this.mandatoryPositionals,
-    this.discretionaryPositionals,
+    List<String>? aliases,
+    List<Positional>? mandatoryPositionals,
+    List<Positional>? discretionaryPositionals,
     this.variadic,
-    this.flags,
-    this.options,
-    this.pairedOptions,
-    this.accessors,
-  });
+    List<Flag>? flags,
+    List<Option>? options,
+    List<PairedOptions>? pairedOptions,
+    List<AccessorListOption>? accessors,
+  }) : aliases = _copyList(aliases),
+       mandatoryPositionals = _copyList(mandatoryPositionals),
+       discretionaryPositionals = _copyList(discretionaryPositionals),
+       flags = _copyList(flags),
+       options = _copyList(options),
+       pairedOptions = _copyList(pairedOptions),
+       accessors = _copyList(accessors);
 
   String get name;
   String get shortDescription;
@@ -604,11 +675,11 @@ abstract class GroupCommand extends Command {
   final List<Command> commands;
 
   GroupCommand(
-    this.commands, {
+    List<Command> commands, {
     List<String>? defaultSubCommandPath,
     super.aliases,
-    this.inheritedFlags,
-    this.inheritedOptions,
+    List<Flag>? inheritedFlags,
+    List<Option>? inheritedOptions,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
@@ -617,7 +688,10 @@ abstract class GroupCommand extends Command {
     super.options,
     super.pairedOptions,
     super.accessors,
-  }) : defaultSubCommandPath = _copyDefaultSubCommandPath(
+  }) : commands = List.unmodifiable(commands),
+       inheritedFlags = _copyList(inheritedFlags),
+       inheritedOptions = _copyList(inheritedOptions),
+       defaultSubCommandPath = _copyDefaultSubCommandPath(
          defaultSubCommandPath,
        ) {
     if (this.defaultSubCommandPath?.contains(name) == true) {
@@ -707,8 +781,8 @@ abstract class GroupCommand extends Command {
 /// Properties accepted in a serialised [CommandRegistry] map.
 ///
 /// Each property validates the shape written by [CommandRegistry.toMap]. The
-/// optional [path] preserves the full location of malformed nested data in an
-/// [ArgumentError].
+/// optional [path] preserves the full location of malformed nested data in a
+/// [MambaIntegrationException].
 enum RegistryMapProps {
   name,
   description,
@@ -791,6 +865,22 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
   final namePath = _joinRegistryPath(path, 'name');
   _validateRegistryName(command['name'] as String, namePath);
 
+  final descriptionPath = _joinRegistryPath(path, 'description');
+  final description = command['description'] as String;
+  if (description.isEmpty) {
+    _invalid(description, descriptionPath, 'must not be empty');
+  }
+  // The serialized description starts with the live short description, which
+  // live registration rejects when empty or longer than 150 characters.
+  final shortDescription = description.split('\n\n').first;
+  if (shortDescription.length > 150) {
+    _invalid(
+      shortDescription,
+      descriptionPath,
+      'must not exceed 150 characters before the long description',
+    );
+  }
+
   final inputCollections = [
     'flags',
     'persistentFlags',
@@ -799,10 +889,14 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
     'positionals',
     'accessors',
   ];
+  // Positional names occupy a separate namespace: token syntax keeps their
+  // values unambiguous, so live registration permits cross-category sharing.
+  final positionalNames = <String>{};
   final localNames = <String>{};
   final persistentNames = <String>{};
   final localShorts = <String>{};
   final persistentShorts = <String>{};
+  final negatedFlagNames = <String>{};
   for (final collectionName in inputCollections) {
     final value = command[collectionName];
     if (value is! Map) continue;
@@ -816,10 +910,15 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
         entry.key,
       );
       _validateRegistryName(entry.key, inputPath);
+      final isPositional = collectionName == 'positionals';
       final isPersistent =
           collectionName == 'persistentFlags' ||
           collectionName == 'persistentOptions';
-      final names = isPersistent ? persistentNames : localNames;
+      final names = isPositional
+          ? positionalNames
+          : isPersistent
+          ? persistentNames
+          : localNames;
       final shorts = isPersistent ? persistentShorts : localShorts;
       if (!names.add(entry.key)) {
         _invalid(
@@ -827,6 +926,20 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
           inputPath,
           'collides with another registered input',
         );
+      }
+      // The built-in help flag is the only input allowed to claim the
+      // reserved help name or its -h short alias.
+      final helpInput = entry.value is Map
+          ? _map(entry.value, inputPath)
+          : const <String, Object?>{};
+      final isHelpFlagEntry =
+          collectionName == 'flags' &&
+          entry.key == 'help' &&
+          helpInput['short'] == 'h' &&
+          helpInput.containsKey('default') &&
+          helpInput.containsKey('negatable');
+      if (entry.key == 'help' && !isHelpFlagEntry) {
+        _invalid(entry.key, inputPath, 'is reserved by the built-in help flag');
       }
       if (entry.value is Map) {
         final input = _map(entry.value, inputPath);
@@ -839,6 +952,13 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
               'must be a single letter',
             );
           }
+          if (short == 'h' && !isHelpFlagEntry) {
+            _invalid(
+              short,
+              _joinRegistryPath(inputPath, 'short'),
+              'is reserved by the built-in help flag',
+            );
+          }
           if (!shorts.add(short)) {
             _invalid(
               short,
@@ -847,7 +967,23 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
             );
           }
         }
+        if (input['negatable'] == true) {
+          negatedFlagNames.add('no-${entry.key}');
+        }
       }
+    }
+  }
+  // A negatable boolean flag also accepts --no-<name>; that synthesized
+  // spelling belongs to the command token namespace and must not collide
+  // with another registered input.
+  final declaredNames = {...localNames, ...persistentNames};
+  for (final negatedName in negatedFlagNames) {
+    if (declaredNames.contains(negatedName)) {
+      _invalid(
+        negatedName,
+        _joinRegistryPath(path, 'flags'),
+        'collides with a synthesized negated flag spelling',
+      );
     }
   }
   final positionals = command['positionals'];
@@ -925,13 +1061,13 @@ void _validateOptionGroupMembers(
         _invalid(member, memberPath, 'must reference a registered option');
       }
       final option = options[member];
-      if (group['required'] == true &&
-          option is Map &&
-          _map(option, memberPath).containsKey('default')) {
+      // Pair options never declare defaults, so no member of any option
+      // group may carry serialized default metadata.
+      if (option is Map && _map(option, memberPath).containsKey('default')) {
         _invalid(
           _map(option, memberPath)['default'],
           _joinRegistryPath(memberPath, 'default'),
-          'must not be declared for a required option group',
+          'must not be declared for pair options',
         );
       }
     }
@@ -1024,6 +1160,7 @@ void _parseOption(Map<String, Object?> value, String path) {
     'default',
     'pairedOptions',
     'pattern',
+    'completions',
   };
   _validateProperties(value, path, {
     ...requiredProperties,
@@ -1081,9 +1218,22 @@ void _parseOption(Map<String, Object?> value, String path) {
     }
   }
   if (value.containsKey('pairedOptions')) {
-    _parseStringList(
-      value['pairedOptions'],
-      _joinRegistryPath(path, 'pairedOptions'),
+    final pairedOptionsPath = _joinRegistryPath(path, 'pairedOptions');
+    _parseStringList(value['pairedOptions'], pairedOptionsPath);
+    if (value['pairedOptions'] is List &&
+        (value['pairedOptions'] as List).isNotEmpty &&
+        value.containsKey('default')) {
+      _invalid(
+        value['default'],
+        _joinRegistryPath(path, 'default'),
+        'must not be declared for pair options',
+      );
+    }
+  }
+  if (value.containsKey('completions')) {
+    _parseNonEmptyStringList(
+      value['completions'],
+      _joinRegistryPath(path, 'completions'),
     );
   }
   if (value.containsKey('pattern')) {
@@ -1183,12 +1333,24 @@ void _parsePositional(Map<String, Object?> value, String path) {
   if (value.containsKey('pattern')) {
     _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
   }
+  if (value.containsKey('completions')) {
+    _parseNonEmptyStringList(
+      value['completions'],
+      _joinRegistryPath(path, 'completions'),
+    );
+  }
 }
 
 void _parseVariadic(Object? value, String path) {
   final variadic = _map(value, path);
   const requiredProperties = {'description'};
-  const optionalProperties = {'choices', 'default', 'repeatable', 'pattern'};
+  const optionalProperties = {
+    'choices',
+    'default',
+    'repeatable',
+    'pattern',
+    'completions',
+  };
   _validateProperties(variadic, path, {
     ...requiredProperties,
     ...optionalProperties,
@@ -1222,6 +1384,12 @@ void _parseVariadic(Object? value, String path) {
   }
   if (variadic.containsKey('pattern')) {
     _expectString(variadic['pattern'], _joinRegistryPath(path, 'pattern'));
+  }
+  if (variadic.containsKey('completions')) {
+    _parseNonEmptyStringList(
+      variadic['completions'],
+      _joinRegistryPath(path, 'completions'),
+    );
   }
 }
 
@@ -1258,6 +1426,13 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
       for (final entry in options.entries) {
         final optionPath = _joinRegistryPath(optionsPath, entry.key);
         _validateRegistryName(entry.key, optionPath);
+        if (entry.key == 'help') {
+          _invalid(
+            entry.key,
+            optionPath,
+            'is reserved by the built-in help flag',
+          );
+        }
         _parseTypedAccessor(_map(entry.value, optionPath), optionPath);
       }
     case 'value':
@@ -1268,6 +1443,7 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
         'choices',
         'default',
         'pattern',
+        'completions',
       };
       const requiredProperties = {'kind', 'valueType', 'description'};
       _validateProperties(value, path, properties, requiredProperties);
@@ -1289,6 +1465,12 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
       }
       if (value.containsKey('pattern')) {
         _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
+      }
+      if (value.containsKey('completions')) {
+        _parseNonEmptyStringList(
+          value['completions'],
+          _joinRegistryPath(path, 'completions'),
+        );
       }
       if (value.containsKey('default')) {
         final defaultPath = _joinRegistryPath(path, 'default');

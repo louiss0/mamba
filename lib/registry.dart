@@ -141,34 +141,46 @@ final class CommandRegistry {
       [name],
     );
 
+    final copiedMandatoryPositionals = _copyList(mandatoryPositionals);
+    final copiedDiscretionaryPositionals = _copyList(discretionaryPositionals);
+    final copiedFlags = _copyList(flags);
+    final copiedOptions = _copyList(options);
+    final copiedPairedOptions = _copyList(pairedOptions);
+    final copiedAccessors = _copyList(accessors);
+    final copiedCommands = _copyList(commands);
+
     return CommandRegistry._(
       name: name,
       shortDescription: shortDescription,
       helpFlag: _helpFlag,
       longDescription: longDescription,
-      aliases: _indexAliases(commands),
-      boolFlags: _indexByName<BooleanFlag>(flags?.whereType<BooleanFlag>()),
-      countFlags: _indexByName<CountFlag>(flags?.whereType<CountFlag>()),
+      aliases: _indexAliases(copiedCommands),
+      boolFlags: _indexByName<BooleanFlag>(
+        copiedFlags?.whereType<BooleanFlag>(),
+      ),
+      countFlags: _indexByName<CountFlag>(copiedFlags?.whereType<CountFlag>()),
       singleOptions: _indexByName<SingleOption>(
-        options?.whereType<SingleOption>(),
+        copiedOptions?.whereType<SingleOption>(),
       ),
       repeatedOptions: _indexByName<RepeatableOption>(
-        options?.whereType<RepeatableOption>(),
+        copiedOptions?.whereType<RepeatableOption>(),
       ),
-      pairedOptionGroups: pairedOptions,
-      mandatoryPositionals: _indexByName<Positional>(mandatoryPositionals),
+      pairedOptionGroups: copiedPairedOptions,
+      mandatoryPositionals: _indexByName<Positional>(
+        copiedMandatoryPositionals,
+      ),
       discretionaryPositionals: _indexByName<Positional>(
-        discretionaryPositionals,
+        copiedDiscretionaryPositionals,
       ),
       variadic: variadic,
-      accessors: _indexByName<AccessorListOption>(accessors),
+      accessors: _indexByName<AccessorListOption>(copiedAccessors),
       parent: null,
-      publishedFlags: flags,
-      publishedOptions: options,
-      commands: commands,
+      publishedFlags: copiedFlags,
+      publishedOptions: copiedOptions,
+      commands: copiedCommands,
       parentPath: [name],
-      descendantFlags: flags,
-      descendantOptions: options,
+      descendantFlags: copiedFlags,
+      descendantOptions: copiedOptions,
     );
   }
 
@@ -430,13 +442,16 @@ final class CommandRegistry {
       'valueType': _mapOptionValueType(input),
       if (input is RegExpValidated)
         'pattern': (input as RegExpValidated).regex.pattern,
+      if (input case CompletionSuggestions(
+        :final completions?,
+      ) when completions.isNotEmpty)
+        'completions': [...completions],
     };
   }
 
   static Map<String, dynamic> _mapChoiceData(NamedInput input) =>
       switch (input) {
         ChoiceOption(choices: final choices, defaultValue: final value) ||
-        PairChoiceOption(choices: final choices, defaultValue: final value) ||
         ChoicePositional(choices: final choices, defaultValue: final value) ||
         RepeatedChoicePositional(
           choices: final choices,
@@ -444,6 +459,9 @@ final class CommandRegistry {
         ) => {
           'choices': choices.map((choice) => choice.name).toList(),
           if (value != null) 'default': value.name,
+        },
+        PairChoiceOption(:final choices) => {
+          'choices': choices.map((choice) => choice.name).toList(),
         },
         _ => const <String, dynamic>{},
       };
@@ -477,6 +495,10 @@ final class CommandRegistry {
       'repeatable': true,
       'times': positional.times,
     },
+    if (positional case CompletionSuggestions(
+      :final completions?,
+    ) when completions.isNotEmpty)
+      'completions': [...completions],
   };
 
   static Map<String, dynamic> _mapVariadic(Variadic variadic) {
@@ -494,6 +516,11 @@ final class CommandRegistry {
     };
     if (variadic is RepeatedChoiceVariadic) {
       map['repeatable'] = true;
+    }
+    if (variadic case CompletionSuggestions(
+      :final completions?,
+    ) when completions.isNotEmpty) {
+      map['completions'] = [...completions];
     }
     return map;
   }
@@ -517,6 +544,10 @@ final class CommandRegistry {
           'valueType': 'string',
           'description': description,
           'pattern': accessor.regex.pattern,
+          if (accessor case CompletionSuggestions(
+            :final completions?,
+          ) when completions.isNotEmpty)
+            'completions': [...completions],
         },
         AccessorIntOption(:final description) => {
           'kind': 'value',
@@ -562,6 +593,10 @@ final class CommandRegistry {
     yield* chain.reversed;
   }
 
+  /// The registry names from the root down to this level, so command-not-found
+  /// diagnostics can report the exact location of a failed lookup.
+  List<String> get fullPath => [for (final level in _ancestorChain) level.name];
+
   static Map<String, T>? _combineWithInherited<T extends NamedInput>(
     Iterable<T> inherited,
     Map<String, T>? local,
@@ -583,19 +618,46 @@ final class CommandRegistry {
     countFlags,
   );
 
+  /// Local option declarations with single and repeatable shapes combined.
+  List<Option>? get _localOptions =>
+      singleOptions == null && repeatedOptions == null
+      ? null
+      : [...?singleOptions?.values, ...?repeatedOptions?.values];
+
+  /// Every option available here, resolved across the root-to-leaf chain so
+  /// a nearer same-name definition fully replaces shadowed ones regardless
+  /// of single/repeatable cardinality. Resolving before splitting keeps a
+  /// type-changing override from resurrecting the shadowed definition in the
+  /// other cardinality map.
+  Map<String, Option> get _resolvedApplicableOptions => {
+    for (final option in [..._inheritableOptions, ...?_localOptions])
+      option.name: option,
+  };
+
+  bool _hasInheritedOption<T extends Option>() =>
+      _inheritableOptions.any((option) => option is T);
+
   /// Single options available here, including inherited ones.
-  Map<String, SingleOption>? get applicableSingleOptions =>
-      _combineWithInherited(
-        _inheritableOptions.whereType<SingleOption>(),
-        singleOptions,
-      );
+  Map<String, SingleOption>? get applicableSingleOptions {
+    if (singleOptions == null && !_hasInheritedOption<SingleOption>()) {
+      return null;
+    }
+    return {
+      for (final option in _resolvedApplicableOptions.values)
+        if (option is SingleOption) option.name: option,
+    };
+  }
 
   /// Repeatable options available here, including inherited ones.
-  Map<String, RepeatableOption>? get applicableRepeatedOptions =>
-      _combineWithInherited(
-        _inheritableOptions.whereType<RepeatableOption>(),
-        repeatedOptions,
-      );
+  Map<String, RepeatableOption>? get applicableRepeatedOptions {
+    if (repeatedOptions == null && !_hasInheritedOption<RepeatableOption>()) {
+      return null;
+    }
+    return {
+      for (final option in _resolvedApplicableOptions.values)
+        if (option is RepeatableOption) option.name: option,
+    };
+  }
 
   /// Pair groups registered on this level.
   List<PairedOptions>? get applicablePairedOptionGroups => pairedOptionGroups;
@@ -651,9 +713,11 @@ final class CommandRegistry {
           .where((candidate) => candidate.name == commandName)
           .firstOrNull;
       if (command == null) {
-        throw MambaCommandNotFoundException(token, [
-          registry.name,
-        ], children.map((child) => child.name).toList());
+        throw MambaCommandNotFoundException(
+          token,
+          registry.fullPath,
+          children.map((child) => child.name).toList(),
+        );
       }
       registry = command;
       offset++;
@@ -777,6 +841,9 @@ final class CommandRegistry {
   static final RegExp _inputName = RegExp(r'^[A-Za-z]+(?:[-_][A-Za-z]+)*$');
   static final RegExp _shortInputName = RegExp(r'^[A-Za-z]$');
 
+  static List<T>? _copyList<T>(List<T>? inputs) =>
+      inputs == null ? null : List.unmodifiable(inputs);
+
   static Map<String, T>? _indexByName<T extends NamedInput>(
     Iterable<T>? inputs,
   ) => inputs == null ? null : {for (final input in inputs) input.name: input};
@@ -897,7 +964,8 @@ final class CommandRegistry {
     for (final input in inputs) {
       if (input.name == 'help' ||
           (input is Flag && input.short == 'h') ||
-          (input is Option && input.short == 'h')) {
+          (input is Option && input.short == 'h') ||
+          (input is PairOption && input.short == 'h')) {
         throw MambaRegistryError(
           'The help flag and -h alias are reserved by the executor',
         );
@@ -926,24 +994,6 @@ final class CommandRegistry {
       if (group.options.isEmpty) {
         throw MambaRegistryError(
           'Paired options must contain at least one pair option',
-        );
-      }
-      if (group.required &&
-          group.options.whereType<PairChoiceOption>().any(
-            (option) => option.defaultValue != null,
-          )) {
-        throw MambaRegistryError(
-          'Required paired choice options must not declare defaults.',
-        );
-      }
-      if (group.variant &&
-          group.options
-                  .whereType<PairChoiceOption>()
-                  .where((option) => option.defaultValue != null)
-                  .length >
-              1) {
-        throw MambaRegistryError(
-          'A variant paired group may declare only one default.',
         );
       }
     }
@@ -1016,12 +1066,13 @@ final class CommandRegistry {
     void validateInput(NamedInput input) {
       switch (input) {
         case ChoiceOption(:final choices, :final defaultValue) ||
-            PairChoiceOption(:final choices, :final defaultValue) ||
             ChoicePositional(:final choices, :final defaultValue) ||
             RepeatedChoicePositional(:final choices, :final defaultValue) ||
             ChoiceVariadic(:final choices, :final defaultValue) ||
             AccessorChoiceOption(:final choices, :final defaultValue):
           validate(choices, defaultValue, input.name);
+        case PairChoiceOption(:final choices):
+          validate(choices, null, input.name);
         default:
       }
     }
@@ -1079,6 +1130,7 @@ final class CommandRegistry {
     _validateDuplicateNames(flags, 'flag');
     _validateDuplicateNames([...?flags, ...registeredOptions], 'input');
     _validateDuplicateShortAliases([...?flags, ...registeredOptions]);
+    _validateNegatableSpellings(flags, registeredOptions, accessors);
     _validateDuplicateCommandNames(commands);
     _validateDuplicateAliases(commands, commandPath);
 
@@ -1137,6 +1189,30 @@ final class CommandRegistry {
         );
       }
       names[short] = input.name;
+    }
+  }
+
+  static void _validateNegatableSpellings(
+    List<Flag>? flags,
+    List<NamedInput> registeredOptions,
+    List<AccessorListOption>? accessors,
+  ) {
+    // A negatable boolean flag also accepts --no-<name>; that synthesized
+    // spelling belongs to the command token namespace and must not collide
+    // with another registered input.
+    final declaredNames = {
+      for (final input in [...?flags, ...registeredOptions]) input.name,
+      for (final accessor in accessors ?? const <AccessorListOption>[])
+        accessor.name,
+    };
+    for (final flag in [...?flags]) {
+      if (flag is! BooleanFlag || !flag.negatable) continue;
+      final negatedName = 'no-${flag.name}';
+      if (declaredNames.contains(negatedName)) {
+        throw MambaRegistryError(
+          'Flag spelling --$negatedName collides with a registered input.',
+        );
+      }
     }
   }
 

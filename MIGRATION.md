@@ -1,3 +1,22 @@
+# Migrating to 0.4.0
+
+## Paired option defaults
+
+`PairChoiceOption` no longer accepts `defaultValue`. Paired options must be
+provided explicitly; remove pair-member defaults from definitions and serialized
+registry maps.
+
+## Help and option values
+
+Help detection now respects registered option ownership. A dash-prefixed value
+that is another registered input must use inline `--option=value` syntax. Group
+default subcommands no longer redirect explicit `group --help` requests.
+
+## Completion metadata
+
+Carapace no longer invents numeric ranges. Add explicit `completions` values to
+string inputs when completion suggestions are desired.
+
 # Migrating to 0.3.0
 
 ## Parser outcomes

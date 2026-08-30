@@ -25,6 +25,21 @@ final class MambaFailureResult extends MambaExecutionResult {
   const MambaFailureResult(this.exception);
 }
 
+/// Whether a filesystem failure represents a closed inherited input pipe.
+///
+/// Operating systems expose this condition through different error codes and
+/// message text, so both structural OS codes and known platform messages are
+/// accepted.
+bool isClosedPipeFileSystemException(FileSystemException error) {
+  final code = error.osError?.errorCode;
+  if (code == 32 || code == 109 || code == 232) return true;
+  final message = '${error.message} ${error.osError?.message ?? ''}'
+      .toLowerCase();
+  return message.contains('socket is closed') ||
+      message.contains('pipe is being closed') ||
+      message.contains('broken pipe');
+}
+
 /// Executes an argument list and delivers its result through an environment.
 abstract interface class MambaExecutor<ReturnType> {
   /// Selects, validates, and runs the command addressed by [args].
@@ -68,15 +83,19 @@ final class Executor {
   Executor(
     this.name,
     this.shortDescription,
-    this.commands, {
+    List<Command> commands, {
     this.longDescription,
-    this.accessors,
-    this.flags,
-    this.options,
+    List<AccessorListOption>? accessors,
+    List<Flag>? flags,
+    List<Option>? options,
     List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
-  }) : defaultCommandPath = _copyDefaultSubCommandPath(
+  }) : commands = List.unmodifiable(commands),
+       accessors = accessors == null ? null : List.unmodifiable(accessors),
+       flags = flags == null ? null : List.unmodifiable(flags),
+       options = options == null ? null : List.unmodifiable(options),
+       defaultCommandPath = _copyDefaultSubCommandPath(
          name,
          defaultCommandPath,
        );
@@ -168,7 +187,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
         commands: factory.commands,
       ),
-      commands = factory.commands {
+      commands = List.unmodifiable(factory.commands) {
     final registryMap = RegistryMap(_registry.toMap());
     _assignCompletionRegistryMap(commands, registryMap);
   }
@@ -237,18 +256,13 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       primaryThrowable = error;
     }
 
-    final cleanupExceptions = <Exception>[];
-    Error? cleanupError;
-    Object? cleanupThrowable;
+    final cleanupFailures = <Object>[];
     Future<void> clean(FutureOr<void> Function() callback) async {
       try {
         await callback();
-      } on Error catch (error) {
-        cleanupError ??= error;
-      } on Exception catch (error) {
-        cleanupExceptions.add(error);
       } catch (error) {
-        cleanupThrowable ??= error;
+        // Preserve every cleanup failure immediately in callback order.
+        cleanupFailures.add(error);
       }
     }
 
@@ -262,25 +276,20 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     }
 
     // Non-Exception failures remain outside the recoverable result boundary,
-    // but their primary and cleanup diagnostics must never be discarded.
+    // but every cleanup diagnostic remains available in cleanup order.
     if (primaryError != null ||
         primaryThrowable != null ||
-        cleanupError != null ||
-        cleanupThrowable != null) {
+        cleanupFailures.any((failure) => failure is! Exception)) {
       throw MambaExecutionError(
         primaryFailure: primaryError ?? primaryThrowable ?? primaryException,
-        cleanupFailures: [
-          ...cleanupExceptions,
-          if (cleanupError != null) cleanupError!,
-          if (cleanupThrowable != null) cleanupThrowable!,
-        ],
+        cleanupFailures: cleanupFailures,
       );
     }
-    if (cleanupExceptions.isNotEmpty) {
+    if (cleanupFailures.isNotEmpty) {
       return writeErr(
         MambaExecutionException(
           primaryFailure: primaryException,
-          cleanupFailures: cleanupExceptions,
+          cleanupFailures: cleanupFailures.cast<Exception>(),
         ),
       );
     }
@@ -315,7 +324,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
       );
     } on FileSystemException catch (error) {
       // Process.run can expose a closed inherited pipe as stdin.
-      if (error.message != 'Socket is closed') rethrow;
+      if (!isClosedPipeFileSystemException(error)) rethrow;
       return null;
     }
   }
@@ -379,6 +388,9 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     while (offset < args.length) {
       final token = args[offset];
       if (token == '--') break;
+      // Explicit help must resolve against the selected group rather than a
+      // default descendant of that group.
+      if (token == '--help' || token == '-h') return null;
       if (token == _registry.name && identical(registry, _registry)) {
         offset++;
         continue;

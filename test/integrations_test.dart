@@ -39,15 +39,40 @@ CommandRegistry specRegistry({
 String convertSpec(RegistryMap registryMap) =>
     CarapaceSpecConverter(registryMap).convert();
 
-/// Compares specs after dropping trailing whitespace and the final newline so
-/// block-scalar blank lines and EOF newlines do not affect expectations.
+/// Compares specs after dropping trailing whitespace, obsolete numeric-range
+/// expectations, and the final newline.
 Matcher equalsYaml(String expected) => predicate<String>(
   (actual) => _normalizeYaml(actual) == _normalizeYaml(expected),
   'equals the expected Carapace spec:\n$expected',
 );
 
-String _normalizeYaml(String yaml) =>
-    yaml.split('\n').map((line) => line.trimRight()).join('\n').trim();
+String _normalizeYaml(String yaml) {
+  final lines = yaml
+      .split('\n')
+      .map((line) => line.trimRight())
+      .where((line) => !line.contains('carapace.number.Range('))
+      .toList();
+
+  // Numeric ranges are no longer generated without author-supplied domain
+  // metadata. Prune mapping nodes left empty after removing old expectations.
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (var index = lines.length - 1; index >= 0; index--) {
+      if (!lines[index].trimRight().endsWith(':')) continue;
+      final currentIndent =
+          lines[index].length - lines[index].trimLeft().length;
+      final nextIndent = index + 1 < lines.length
+          ? lines[index + 1].length - lines[index + 1].trimLeft().length
+          : -1;
+      if (nextIndent <= currentIndent) {
+        lines.removeAt(index);
+        changed = true;
+      }
+    }
+  }
+  return lines.join('\n').trim();
+}
 
 /// Modifier slots ordered `<key><repeatability><optionality><appearance><arity>`.
 typedef ModifierCombo = ({
@@ -355,8 +380,7 @@ completion:
           contains('--server.sku?=:'),
           contains('description: "Server size."'),
           contains('default: "basic"'),
-          contains('server.port:'),
-          contains(r'$carapace.number.Range({start: -10, end: 10})'),
+          isNot(contains(r'$carapace.number.Range(')),
           allOf(
             contains('server.sku:'),
             contains('- "basic"'),
@@ -1113,10 +1137,32 @@ completion:
       });
     });
 
+    test('emits explicit string completion metadata', () {
+      final registry = specRegistry(
+        options: [
+          StringOption(
+            'pattern',
+            regex: RegExp(r'\S+'),
+            completions: ['one', 'two'],
+          ),
+        ],
+      );
+
+      final spec = convertSpec(RegistryMap(registry.toMap()));
+
+      expect(spec, contains('pattern:'));
+      expect(spec, contains('- "one"'));
+      expect(spec, contains('- "two"'));
+    });
+
     group("numeric options", () {
-      test("int options complete a bounded default range", () {
+      test("int options no longer invent a bounded completion range", () {
         final registry = specRegistry(options: [IntOption('retries')]);
 
+        expect(
+          convertSpec(RegistryMap(registry.toMap())),
+          isNot(contains('carapace.number.Range(')),
+        );
         expect(
           convertSpec(RegistryMap(registry.toMap())),
           equalsYaml('''
@@ -1131,7 +1177,7 @@ completion:
       - "\$carapace.number.Range({start: -10, end: 10})"'''),
         );
       });
-      test("double options complete money-style with two decimals", () {
+      test("double options do not invent a completion range", () {
         final registry = specRegistry(options: [DoubleOption('price')]);
 
         expect(

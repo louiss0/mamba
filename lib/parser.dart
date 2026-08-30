@@ -100,6 +100,7 @@ class Parser {
             consumed,
             option.name,
             inlineValue,
+            registry,
             allowedDashValueRegex: option is RegExpValidated
                 ? (option as RegExpValidated).regex
                 : null,
@@ -215,9 +216,42 @@ class Parser {
   }
 
   bool _requestsHelp(List<String> args) {
-    for (final argument in args) {
-      if (argument == '--') return false;
-      if (argument == '--help' || argument == '-h') return true;
+    // Help is identified while walking token ownership: a token consumed as
+    // the value of a registered option stays data, and the global help token
+    // only resolves for tokens no registered input owns.
+    var registry = _registry;
+    var pathEnded = false;
+    var offset = 0;
+    while (offset < args.length) {
+      final token = args[offset];
+      if (token == '--') return false;
+      if (token == '--help' || token == '-h') return true;
+      if (!pathEnded &&
+          identical(registry, _registry) &&
+          token == _registry.name) {
+        offset++;
+        continue;
+      }
+      if (!pathEnded) {
+        final commandName = registry.aliases?[token] ?? token;
+        final child = registry.commandRegistries
+            ?.where((candidate) => candidate.name == commandName)
+            .firstOrNull;
+        if (child != null) {
+          registry = child;
+          offset++;
+          continue;
+        }
+        final inputLength = registry.registeredInputTokenLength(token);
+        if (inputLength != null) {
+          offset += inputLength;
+          continue;
+        }
+        // An unregistered token cannot be validated; keep scanning raw
+        // tokens so a later explicit help token still resolves to help.
+        pathEnded = true;
+      }
+      offset++;
     }
     return false;
   }
@@ -295,7 +329,7 @@ class Parser {
           registry.discretionaryPositionals == null) {
         throw MambaCommandNotFoundException(
           token,
-          [registry.name],
+          registry.fullPath,
           registry.commandRegistries!.map((command) => command.name).toList(),
         );
       }
@@ -381,7 +415,8 @@ class Parser {
     int index,
     Set<int> consumed,
     String name,
-    String? inlineValue, {
+    String? inlineValue,
+    CommandRegistry registry, {
     RegExp? allowedDashValueRegex,
   }) {
     if (inlineValue != null) return inlineValue;
@@ -389,11 +424,14 @@ class Parser {
       throw MambaParseException('Option --$name requires a value');
     }
     final value = args[index + 1];
-    if (value.startsWith('-') &&
-        !_isNegativeNumber(value) &&
-        (allowedDashValueRegex == null ||
-            !_matchesEntirely(allowedDashValueRegex, value))) {
-      throw MambaParseException('Option --$name requires a value');
+    if (value.startsWith('-') && !_isNegativeNumber(value)) {
+      // An exact registered token retains its input meaning. Use inline
+      // syntax when a value intentionally begins with another input token.
+      if (registry.registeredInputTokenLength(value) != null ||
+          allowedDashValueRegex == null ||
+          !_matchesEntirely(allowedDashValueRegex, value)) {
+        throw MambaParseException('Option --$name requires a value');
+      }
     }
     consumed.add(index + 1);
     return value;
@@ -447,6 +485,7 @@ class Parser {
           consumed,
           option.name,
           null,
+          registry,
           allowedDashValueRegex: option is RegExpValidated
               ? (option as RegExpValidated).regex
               : null,
@@ -584,7 +623,7 @@ class Parser {
   int _parseInt(String value) {
     if (!_matchesEntirely(RegExp(r'[+-]?\d+'), value)) {
       throw MambaParseException(
-        'Invalid int value: $value must not contain spaces',
+        'Invalid int value: $value must be a signed decimal integer',
       );
     }
     return int.parse(value);
@@ -593,7 +632,7 @@ class Parser {
   double _parseDouble(String value) {
     if (!_matchesEntirely(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
       throw MambaParseException(
-        'Invalid double value: $value must not contain spaces',
+        'Invalid double value: $value must be a signed decimal number',
       );
     }
     return double.parse(value);
@@ -635,26 +674,6 @@ class Parser {
         in registry.singleOptions?.values ?? const <SingleOption>[]) {
       if (option case ChoiceOption(defaultValue: final defaultValue?)) {
         values.putIfAbsent(option.name, () => defaultValue.name);
-      }
-    }
-    for (final group
-        in registry.pairedOptionGroups ?? const <PairedOptions>[]) {
-      final hasExplicitMember = group.options.any(
-        (option) => _isPairedOptionPresent(
-          option,
-          values,
-          intValues,
-          doubleValues,
-          repeatedStringValues,
-          repeatedIntValues,
-          repeatedDoubleValues,
-        ),
-      );
-      if (group.variant && hasExplicitMember) continue;
-      for (final option in group.options) {
-        if (option case PairChoiceOption(defaultValue: final defaultValue?)) {
-          values.putIfAbsent(option.name, () => defaultValue.name);
-        }
       }
     }
   }
@@ -865,13 +884,8 @@ class Parser {
           }
         } else if (index < values.length) {
           if (!_isValidPositionalValue(positional, values[index])) {
-            if (!isMandatory) {
-              throw MambaParseException(
-                'Invalid value for positional ${positional.name} at $index after the command',
-              );
-            }
             throw MambaParseException(
-              'The ${positional.name} is required at $index after this command',
+              'Invalid value for positional ${positional.name} at $index after the command',
             );
           }
           singles[positional.name] = values[index++];
@@ -976,7 +990,7 @@ class Parser {
     final parts = path.split('.');
     final value = _parseAccessorValue(
       _accessorForPath(path, registry)!,
-      _takeOptionValue(args, index, consumed, path, inlineValue),
+      _takeOptionValue(args, index, consumed, path, inlineValue, registry),
     );
     Map<String, dynamic> values = {parts.last: value};
     for (final segment in parts.reversed.skip(1)) {

@@ -91,6 +91,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       bool persistent, {
       bool? required,
       bool? hidden,
+      String? description,
     }) {
       placeEntry(
         name,
@@ -103,7 +104,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
           hidden: hidden ?? option['hidden'] as bool,
           takesValue: true,
         ),
-        option['description'] as String?,
+        description ?? option['description'] as String?,
         defaultValue: option['default'],
       );
     }
@@ -155,19 +156,27 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         final members = _stringList(group['members']);
         final mode = group['mode'] as String;
         final required = group['required'] as bool;
+        final requirement = mode == 'oneOf' && required
+            ? 'Runtime requires exactly one of: ${members.map((member) => '--$member').join(', ')}.'
+            : null;
         for (final member in members) {
           final value = options[member];
           if (value is Map) {
+            final option = _map(value);
             placeOption(
               member,
-              _map(value),
+              option,
               persistent,
               required: mode == 'all' && required,
+              description: requirement == null
+                  ? null
+                  : '${option['description'] ?? ''} $requirement',
             );
           }
         }
-        // Carapace can express variant exclusivity but not its at-least-one
-        // constraint, so required variants intentionally remain optional here.
+        // Carapace expresses exclusivity but not the at-least-one part of a
+        // required variant group, so retain the runtime constraint in each
+        // generated member description.
         if (mode == 'oneOf') exclusiveGroups.add(members);
       }
     }
@@ -243,12 +252,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
   Map<String, dynamic> _completionFor(Map<String, dynamic> command) {
     final positionalChoices = <List<String>>[];
     final flagChoices = <String, List<String>>{};
-    // Numeric ranges are illustrative suggestions, not validation bounds.
-    // The parser remains authoritative and accepts signed, unbounded values.
-    const intRange = [r'$carapace.number.Range({start: -10, end: 10})'];
-    const doubleRange = [
-      r"$carapace.number.Range({format: '%.2f', start: -10, end: 10})",
-    ];
 
     List<String> choicePairs(List<String> choices) => [
       for (final choice in choices) ...[choice, choice],
@@ -258,9 +261,8 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       for (final positionalValue in positionals.values) {
         final positional = _map(positionalValue);
         final choices = _stringList(positional['choices']);
-        final values = choices.isEmpty
-            ? const <String>[]
-            : choicePairs(choices);
+        final completions = _stringList(positional['completions']);
+        final values = choices.isNotEmpty ? choicePairs(choices) : completions;
         final times = positional['repeatable'] == true
             ? positional['times'] as int? ?? 0
             : 0;
@@ -275,10 +277,11 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       for (final entry in options.entries) {
         final option = _map(entry.value);
         switch (option['valueType']) {
-          case 'int':
-            flagChoices[entry.key] = intRange;
-          case 'double':
-            flagChoices[entry.key] = doubleRange;
+          case 'string':
+            final completions = _stringList(option['completions']);
+            if (completions.isNotEmpty) {
+              flagChoices[entry.key] = completions;
+            }
           case 'choice':
             flagChoices[entry.key] = _stringList(option['choices']);
         }
@@ -290,22 +293,23 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     final variadic = _mapOrNull(command['variadic']);
     if (variadic != null) {
       final choices = _stringList(variadic['choices']);
-      if (choices.isEmpty) {
-        // Plain strings have no implied filesystem semantics.
-      } else if (variadic['repeatable'] == true) {
-        dashAnyChoices.addAll(choices);
-      } else {
-        dashChoices.add(choicePairs(choices));
+      final completions = _stringList(variadic['completions']);
+      final values = choices.isNotEmpty ? choices : completions;
+      if (values.isNotEmpty && variadic['repeatable'] == true) {
+        dashAnyChoices.addAll(values);
+      } else if (values.isNotEmpty) {
+        dashChoices.add(choicePairs(values));
       }
     }
 
     for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
       final value = accessor.value;
       switch (value['valueType']) {
-        case 'int':
-          flagChoices[accessor.path] = intRange;
-        case 'double':
-          flagChoices[accessor.path] = doubleRange;
+        case 'string':
+          final completions = _stringList(value['completions']);
+          if (completions.isNotEmpty) {
+            flagChoices[accessor.path] = completions;
+          }
         case 'choice':
           flagChoices[accessor.path] = _stringList(value['choices']);
       }
@@ -363,18 +367,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     if (accessors == null) return;
     for (final entry in accessors.entries) {
       final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
-      if (entry.value is! Map) {
-        yield (
-          path: path,
-          value: <String, dynamic>{
-            'kind': 'value',
-            'valueType': 'string',
-            'description': entry.value,
-          },
-          hidden: ancestorHidden,
-        );
-        continue;
-      }
       final value = _map(entry.value);
       final hidden = ancestorHidden || value['hidden'] == true;
       if (value['kind'] == 'group') {
@@ -389,35 +381,9 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         yield (path: path, value: value, hidden: hidden);
         continue;
       }
-      if (value['options'] is Map) {
-        yield* _accessorLeaves(
-          _mapOrNull(value['options']),
-          parentPath: path,
-          ancestorHidden: hidden,
-        );
-        continue;
-      }
-      if (value.keys.length == 1 && value.containsKey('description')) {
-        yield (
-          path: path,
-          value: <String, dynamic>{
-            'kind': 'value',
-            'valueType': 'string',
-            'description': value['description'],
-          },
-          hidden: hidden,
-        );
-        continue;
-      }
-      yield* _accessorLeaves(
-        {
-          for (final child in value.entries)
-            if (!(child.key == 'hidden' && child.value is bool))
-              child.key: child.value,
-        },
-        parentPath: path,
-        ancestorHidden: hidden,
-      );
+      // RegistryMap validation guarantees every accessor is a canonical group
+      // or value node, so no legacy fallback conversion is required.
+      throw StateError('Unsupported canonical accessor kind');
     }
   }
 

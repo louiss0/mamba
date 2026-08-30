@@ -50,7 +50,8 @@ final class MambaExecutionException extends MambaException {
 /// A non-recoverable execution failure that preserves every phase failure.
 ///
 /// The original non-Exception primary failure, when present, remains available
-/// through [primaryFailure]. Cleanup failures are retained in cleanup order.
+/// through [primaryFailure]. Cleanup failures, including non-Exception thrown
+/// objects, are retained in cleanup order.
 final class MambaExecutionError extends Error {
   MambaExecutionError({
     this.primaryFailure,
