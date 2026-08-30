@@ -4,14 +4,8 @@ This report is based exclusively on the implementation in `lib/` and the
 behavior specified in `test/`. The README, package metadata, executables, and
 other project folders were not used to infer framework behavior.
 
-This report describes the pre-0.3.0 implementation. The 0.3.0 remediation
-resolved the outstanding inconsistencies identified here; see
-`MIGRATION.md` and the changelog for the current contract.
-
-The pre-0.3.0 verification baseline was:
-
-- `dart test`: 478 tests passed.
-- `dart analyze lib test`: no warnings or errors; two style-level info items.
+The current verification baseline is maintained with the implementation and
+behavioral test suite. See `MIGRATION.md` for the 0.3.0 breaking changes.
 
 ## Executive summary
 
@@ -29,8 +23,9 @@ Command objects
 
 Its central architectural boundary is `CommandRegistry`. Command objects are
 the authoring model, while a registry is the validated and indexed runtime
-model. The parser consumes a selected registry and produces typed record maps;
-the executor then supplies those values to hooks and to the selected command.
+model. The parser consumes a selected registry and produces a sealed outcome:
+a typed invocation or a parser-owned help request. The executor then supplies
+invocation values to hooks and to the selected command.
 Help and Carapace completion output are also derived from registry metadata.
 
 The current version has notably stronger lifecycle and integration behavior
@@ -39,9 +34,6 @@ attempted for every successfully entered hook, cleanup exceptions are
 aggregated, output is delayed until cleanup completes, and registry export now
 retains paired-option groups, accessor types, choices, defaults, and regex
 patterns.
-
-The historical remaining architectural risks in this report are resolved by
-0.3.0. They are retained for context in `FRAMEWORK_INCONSISTENCIES.md`.
 
 ## Architecture
 
@@ -101,7 +93,9 @@ Registry construction validates:
 - Positional collisions and positional/command collisions
 - Empty paired groups and duplicate pair members
 - Multiple defaults in one variant pair group
-- Choice defaults that are not members of the registered enum choices
+- Empty choice sets and defaults that are not registered enum choices
+- Required choice inputs that declare defaults
+- Descendant attempts to override published global flags
 - Nested accessor definitions recursively
 
 The shared long-name grammar is letter-led words separated by hyphens or
@@ -118,9 +112,9 @@ The registry keeps locally declared inputs separate from published inputs:
 - `withInheritedInputs()` materializes inherited flags and options into a copy
   used by parsing and help formatting.
 
-The design intends local declarations to override inherited declarations with
-the same name. There is, however, a current precedence defect when a group
-publishes the same name as the root; see the inconsistency report.
+Local options override same-named inherited options. Published flags are
+immutable at descendant levels: a group or leaf may not redeclare a published
+global flag name; short-alias collisions are rejected as well.
 
 ### Serialized registry boundary
 
@@ -142,8 +136,9 @@ publishes the same name as the root; see the inconsistency report.
 `commands.publish.options.format.valueType` and includes the rejected value.
 
 The map is the integration boundary: converters do not need to retain live
-command instances. The root map is wrapped as unmodifiable, although nested
-maps and lists remain mutable.
+command instances. Construction recursively copies and freezes every nested
+map and list, and validates the same canonical semantic relationships required
+by live definitions.
 
 ### Parsing pipeline
 
@@ -155,14 +150,14 @@ maps and lists remain mutable.
 4. Parse long inputs, short inputs, flags, options, accessors, and ordinary
    positional tokens.
 5. Stop ordinary parsing at `--` and preserve every later token.
-6. Add boolean and count defaults.
-7. Validate paired groups.
-8. Add ordinary, paired, and accessor choice defaults.
-9. Validate required ordinary options.
+6. Add boolean, count, ordinary-choice, paired-choice, and accessor defaults.
+7. Validate paired groups against their final effective values.
+8. Validate required ordinary options.
 10. Allocate mandatory and discretionary positionals.
 11. Validate and name trailing values through the registered variadic.
 
-The returned record contains:
+`Parser.parse()` returns `ParsedInvocation` for an executable invocation. Its
+`value` record contains:
 
 ```dart
 (
@@ -172,6 +167,9 @@ The returned record contains:
   List<String> trailingArguments,
 )
 ```
+
+It returns `ParsedHelp` for exact `-h`/`--help` tokens or an empty invocation.
+The executor applies configured default commands before invoking the parser.
 
 The command path always uses canonical command names. Named inputs are split
 into maps by concrete value shape: booleans, counts, strings, integers,
@@ -195,9 +193,10 @@ Two environments share the same private orchestration:
 - `create()` writes successful output to stdout, failures to stderr, and sets
   process exit code `1`.
 
-Execution checks for help first, applies root and nested group default command
-paths, parses the invocation, resolves the corresponding command objects, runs
-hooks, invokes `run()`, performs cleanup, and only then emits the final result.
+Execution applies root and nested group default command paths, then dispatches
+the parser outcome. `ParsedHelp` is formatted directly; `ParsedInvocation` is
+resolved to command objects, runs hooks and `run()`, performs cleanup, and only
+then emits the final result.
 
 The executor automatically adds:
 
@@ -256,8 +255,10 @@ The error hierarchy has four principal roles:
   invocations and command selection.
 - `MambaIntegrationException` reports invalid or unwritable integration
   artifacts.
-- `MambaExecutionException` combines an ordinary execution exception with one
-  or more cleanup exceptions.
+- `MambaExecutionException` combines ordinary execution and cleanup
+  exceptions.
+- `MambaExecutionError extends Error` preserves a non-Exception primary
+  failure and every cleanup failure.
 
 Registry construction occurs while `fake()` or `create()` builds the private
 executor, so definition errors are thrown before `execute()` can return a
@@ -265,9 +266,9 @@ failure result.
 
 During execution, ordinary `Exception` values become failure output. Existing
 `MambaException` values are preserved; other exceptions are wrapped in
-`MambaException`. Dart `Error` values and arbitrary thrown objects are retained
-until cleanup finishes and are then rethrown. This keeps programming errors
-outside the recoverable result contract while still attempting hook cleanup.
+`MambaException`. Dart `Error` values and arbitrary thrown objects remain outside the recoverable
+result contract. After cleanup, `MambaExecutionError` rethrows them with every
+captured primary and cleanup diagnostic preserved.
 
 ## Commands
 
@@ -326,8 +327,8 @@ Direct group execution can throw:
 
 Normal parsing can throw `MambaCommandNotFoundException`, whose message includes
 the current parent and available children. An exception from `run()` becomes a
-failure result; an `Error` or arbitrary thrown object is rethrown after hook
-cleanup.
+failure result; a non-Exception failure is rethrown as `MambaExecutionError`
+after cleanup with all diagnostics preserved.
 
 ## Flags
 
@@ -359,13 +360,13 @@ Every registered count flag also appears when omitted, with value `0`.
 
 ### Built-in help and scope
 
-`--help` and `-h` are reserved. The executor recognizes an exact help token
-before `--` and formats the deepest selected registry. Help after `--` is a
-trailing value.
+`--help` and `-h` are reserved exact parser tokens. The parser returns
+`ParsedHelp` for the deepest selected registry; help after `--` is a trailing
+value. Help is not valid inside a short bundle.
 
-Root flags are global. Group `inheritedFlags` apply to descendants. Ordinary
-group and leaf flags are local. Help receives a registry copy with inherited
-inputs materialized.
+Root flags are global and group `inheritedFlags` apply to descendants. Neither
+may be redeclared by descendants; ordinary group and leaf flags are otherwise
+local. Help receives a registry copy with inherited inputs materialized.
 
 ### Flag errors
 
@@ -385,8 +386,8 @@ Parse-time failures use `MambaParseException`:
 - `This isn't a registered short flag or option` for an unknown short bundle
   member
 
-The exact `-h` token is an executor concern. A direct `Parser` consumer does
-not receive help output.
+The exact `-h` token is a parser concern. A direct `Parser` consumer receives
+`ParsedHelp` and can format its selected registry with any formatter.
 
 ## Options
 
@@ -435,10 +436,10 @@ A variant group represents alternatives:
 - An optional group accepts zero or one explicit member.
 - A required group requires exactly one explicit member.
 
-Pair validation occurs before choice defaults are inserted. Required groups
-therefore require explicit input even when members declare defaults. Optional
-pair defaults are added afterward. This ordering has a problematic variant
-edge case documented in the inconsistency report.
+Choice defaults are applied before paired validation. Optional all-of groups
+may use defaults to complete explicitly supplied members. A variant default is
+suppressed when another variant member is explicit, so the final state never
+contains two variants. Required paired choices cannot declare defaults.
 
 ### Accessor options
 
@@ -465,9 +466,9 @@ The parser applies defaults for:
 - Choice variadics
 - Nested accessor choices
 
-Required ordinary options are checked after ordinary choice defaults. Required
-paired groups are checked before pair defaults. That difference is observable
-and is one of the current framework inconsistencies.
+Required choice options and mandatory choice positionals cannot declare
+defaults, so `required` consistently means explicit user input. Optional choice
+inputs receive configured defaults before final validation.
 
 ### Option errors
 
@@ -501,8 +502,8 @@ Mandatory values are allocated first; discretionary values follow. A normal
 positional validates its complete token with a regex, while a choice positional
 accepts enum member names.
 
-Choice positionals can declare defaults. The parser inserts a default when the
-value is omitted, including for a positional registered in the mandatory list.
+Optional choice positionals can declare defaults. Mandatory choice positionals
+must be supplied explicitly and cannot declare defaults.
 
 ### Repeated positionals
 
@@ -522,11 +523,10 @@ absent.
 `trailingArguments`. If a variadic is registered, the same values are also
 validated and stored under its name in `positionals.variadic`.
 
-`NormalVariadic` uses a regex. `ChoiceVariadic` and
-`RepeatedChoiceVariadic` use enum names. Both choice classes parse all trailing
-values identically; the repeated subtype changes Carapace completion behavior.
-A choice variadic default produces one parsed variadic value when no trailing
-values are supplied.
+`NormalVariadic` uses a regex. `ChoiceVariadic` accepts one enum-named
+trailing value, while `RepeatedChoiceVariadic` accepts every enum-named
+trailing value. A choice variadic default produces one parsed variadic value
+when no trailing values are supplied.
 
 Trailing values are legal without a variadic; they simply remain unnamed.
 
@@ -572,13 +572,12 @@ parsed input record.
 
 ```mermaid
 flowchart TD
-    A["Executor receives arguments"] --> B{"Help requested or no command?"}
-    B -- Yes --> C["Format help"]
-    B -- No --> D["Apply root and group defaults"]
-    D --> E["Parse and validate invocation"]
-    E --> F["Run outer persistent pre-hook"]
-    F --> G["Record successfully entered group"]
-    G --> H["Run inner persistent pre-hooks in order"]
+    A["Executor receives arguments"] --> B["Apply root and group defaults"]
+    B --> C{"Parser outcome"}
+    C -- ParsedHelp --> D["Format help"]
+    C -- ParsedInvocation --> E["Run outer persistent pre-hook"]
+    E --> F["Record successfully entered group"]
+    F --> H["Run inner persistent pre-hooks in order"]
     H --> I{"Selected command uses HookRunner?"}
     I -- Yes --> J["Read piped stdin"]
     J --> K["Await command preRun"]
@@ -586,14 +585,14 @@ flowchart TD
     I -- No --> M["Run selected command"]
     L --> M
     M --> N["Capture output or primary failure"]
-    C --> N
+    D --> N
     N --> O{"Command hook entered?"}
     O -- Yes --> P["Attempt command postRun"]
     O -- No --> Q["Unwind entered persistent hooks"]
     P --> Q
     Q --> R["Attempt every post-hook, inner to outer"]
-    R --> S{"Error or arbitrary object captured?"}
-    S -- Yes --> T["Rethrow after cleanup"]
+    R --> S{"Non-Exception failure captured?"}
+    S -- Yes --> T["Throw MambaExecutionError"]
     S -- No --> U{"Cleanup exceptions captured?"}
     U -- Yes --> V["Return MambaExecutionException failure"]
     U -- No --> W{"Primary exception captured?"}
@@ -610,7 +609,7 @@ Important lifecycle properties:
   `MambaExecutionException.primaryFailure` preserves the execution failure and
   `cleanupFailures` preserves every cleanup failure.
 - `Error` and arbitrary thrown objects remain non-recoverable but do not skip
-  cleanup.
+  cleanup; `MambaExecutionError` retains them with every cleanup failure.
 - Output and failure writers run only after cleanup completes.
 - Context mutations made by persistent hooks are visible to descendant hooks
   and commands and persist across executions of the same executor.
@@ -626,10 +625,11 @@ rather than participate in parsing or execution.
 integration-specific string artifact. This lets a completion command work from
 serialized metadata without knowing the live command subclasses.
 
-`RegistryMap` accepts current typed accessor data and legacy accessor maps. Its
-structural failures use `MambaIntegrationException` with full nested paths. It
-validates supported properties, collection types, primitive property types,
-option-group membership, typed accessor kinds, and accessor choice defaults.
+`RegistryMap` accepts only current canonical typed accessor data. It recursively
+copies and freezes the validated map. Its failures use
+`MambaIntegrationException` with full nested paths, and it validates structural
+and semantic invariants including names, aliases, collisions, choice defaults,
+option-group membership, and repetition metadata.
 
 ### Carapace conversion
 
@@ -656,8 +656,6 @@ unbounded. General strings do not assume filesystem completion. A normal
 choice variadic fills the first `dash` slot, while a
 `RepeatedChoiceVariadic` uses `dashany` for every subsequent slot.
 
-The converter retains legacy support for older description-only accessor maps
-by treating their leaves as string-valued flags.
 
 ### Carapace writing and errors
 
@@ -676,8 +674,8 @@ Failure to locate a production configuration directory throws
 translated into `MambaIntegrationException` containing the target path and the
 filesystem message.
 
-Carapace currently cannot reproduce every runtime constraint. In particular,
-negatable flag aliases are not emitted, required variant groups lose their
-at-least-one rule, and regex patterns are metadata rather than completion
-constraints. These limitations are detailed in the separate inconsistency
-report.
+Carapace emits both spellings of a negatable boolean flag. It cannot express
+the at-least-one constraint of a required variant group, so those members are
+intentionally emitted as optional exclusive flags and the CLI remains
+responsible for enforcement. Regex patterns remain validation metadata rather
+than completion constraints.

@@ -1722,72 +1722,116 @@ void main() {
       expect(config.accessors!['server']!.options.single.name, 'port');
     });
 
-    test('reserves the built-in help flag name and alias', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          flags: [BooleanFlag('help')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          flags: [BooleanFlag('custom', short: 'h')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('resolves the command whose help was requested', () {
-      final registry = CommandRegistry.create(
-        'tool',
-        'Tool command.',
-        flags: [CountFlag('verbose', short: 'v')],
-        commands: [TestGroupCommand('config', [], 'Configure the tool.')],
-      );
-
-      expect(
-        Parser(registry).parse(['config', '--help']),
-        isA<ParsedHelp>().having(
-          (result) => result.registry.name,
-          'registry',
-          'config',
-        ),
-      );
-      expect(Parser(registry).parse(['--', '--help']), isA<ParsedInvocation>());
-      expect(
-        (Parser(registry).parse(['--verbose', 'config', '-h']) as ParsedHelp)
-            .registry
-            .name,
-        'config',
-      );
-    });
-
-    test('resolves help after a registered option and its value', () {
-      final registry = CommandRegistry.create(
-        'tool',
-        'Tool command.',
-        commands: [
-          TestCommand(
-            'config',
-            'Configure the tool.',
-            options: [StringOption('file', regex: RegExp(r'\S+'))],
+    group('global flags', () {
+      test('rejects descendant flags that override a global flag name', () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: [BooleanFlag('color', short: 'c')],
+            commands: [
+              TestGroupCommand('config', [
+                TestCommand(
+                  'get',
+                  'Get configuration.',
+                  flags: [BooleanFlag('color', short: 'x')],
+                ),
+              ], 'Configure.'),
+            ],
           ),
-        ],
-      );
+          throwsA(isA<MambaRegistryError>()),
+        );
+      });
 
-      expect(
-        registry.registryForArguments([
+      test('rejects group-published aliases that override global aliases', () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: [BooleanFlag('color', short: 'c')],
+            commands: [
+              TestGroupCommand(
+                'config',
+                [TestCommand('get', 'Get configuration.')],
+                'Configure.',
+                inheritedFlags: [BooleanFlag('theme', short: 'c')],
+              ),
+            ],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      });
+
+      test('reserves the built-in help flag name and alias', () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: [BooleanFlag('help')],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: [BooleanFlag('custom', short: 'h')],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      });
+
+      test('resolves the command whose help was requested', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [CountFlag('verbose', short: 'v')],
+          commands: [TestGroupCommand('config', [], 'Configure the tool.')],
+        );
+
+        expect(
+          Parser(registry).parse(['config', '--help']),
+          isA<ParsedHelp>().having(
+            (result) => result.registry.name,
+            'registry',
+            'config',
+          ),
+        );
+        expect(
+          Parser(registry).parse(['--', '--help']),
+          isA<ParsedInvocation>(),
+        );
+        expect(
+          (Parser(registry).parse(['--verbose', 'config', '-h']) as ParsedHelp)
+              .registry
+              .name,
           'config',
-          '--file',
-          'settings.json',
-          '--help',
-        ]).name,
-        'config',
-      );
+        );
+      });
+
+      test('resolves help after a registered option and its value', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand(
+              'config',
+              'Configure the tool.',
+              options: [StringOption('file', regex: RegExp(r'\S+'))],
+            ),
+          ],
+        );
+
+        expect(
+          registry.registryForArguments([
+            'config',
+            '--file',
+            'settings.json',
+            '--help',
+          ]).name,
+          'config',
+        );
+      });
     });
 
     test('descendant registries keep only local inputs', () {
@@ -1881,7 +1925,6 @@ void main() {
       expect(inputs.stringOptions, {'profile': 'development'});
       expect(inputs.intOptions, isNull);
     });
-
     test('only group commands register child commands', () {
       final registry = CommandRegistry.create(
         'tool',

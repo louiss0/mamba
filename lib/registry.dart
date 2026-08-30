@@ -185,6 +185,8 @@ final class CommandRegistry {
     // resolved by walking from the root rather than being merged downward.
     final ownPublishedFlags = group?.inheritedFlags;
     final ownPublishedOptions = group?.inheritedOptions;
+    _validateGlobalFlagOverrides(inheritedFlags, ownPublishedFlags);
+    _validateGlobalFlagOverrides(inheritedFlags, command.flags);
     final publishedFlags = _mergeByName(inheritedFlags, ownPublishedFlags);
     final publishedOptions = _mergeByName(
       inheritedOptions,
@@ -741,6 +743,21 @@ final class CommandRegistry {
     }
     return ordinaryOptions.any((option) => option.name == name) ||
         hasAccessorPath();
+  }
+
+  static void _validateGlobalFlagOverrides(
+    List<Flag>? globalFlags,
+    List<Flag>? descendantFlags,
+  ) {
+    if (globalFlags == null || descendantFlags == null) return;
+    final globalNames = globalFlags.map((flag) => flag.name).toSet();
+    for (final flag in descendantFlags) {
+      if (globalNames.contains(flag.name)) {
+        throw MambaRegistryError(
+          'Global flag --${flag.name} cannot be overridden by a descendant.',
+        );
+      }
+    }
   }
 
   static List<T>? _mergeByName<T extends NamedInput>(
