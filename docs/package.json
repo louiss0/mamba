@@ -12,9 +12,10 @@
   "dependencies": {
     "@astrojs/starlight": "^0.41.9",
     "astro": "^7.1.6",
-    "newmd": "^0.1.0",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
     "prompts": "^2.4.2",
-    "sharp": "^0.35.3",
     "zod": "^4.5.4"
   }
 }
