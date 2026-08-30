@@ -90,6 +90,13 @@ Map<String, dynamic> buildRegistryExpectation(
   List<CommandExpectation>? commands,
 }) {
   Map<String, dynamic> mapFlags(List<FlagExpectation> entries) => {
+    'help': {
+      'short': 'h',
+      'default': false,
+      'negatable': false,
+      'hidden': false,
+      'description': 'Show this help message.',
+    },
     for (final entry in entries)
       entry.$1: {
         if (entry.short != null || entry.defaultValue != null)
@@ -146,7 +153,7 @@ Map<String, dynamic> buildRegistryExpectation(
   Map<String, dynamic> mapCommand(CommandExpectation entry) => {
     'name': entry.name,
     'description': entry.description,
-    if (entry.flags case final flags?) 'flags': mapFlags(flags),
+    'flags': mapFlags(entry.flags ?? const []),
     if (entry.options case final options?) 'options': mapOptions(options),
     if (entry.positionals case final positionals?)
       'positionals': mapPositionals(positionals),
@@ -162,7 +169,7 @@ Map<String, dynamic> buildRegistryExpectation(
     'name': name,
     'description': description,
     'aliases': ?aliases,
-    if (flags case final flags?) 'flags': mapFlags(flags),
+    'flags': mapFlags(flags ?? const []),
     if (options case final options?) 'options': mapOptions(options),
     if (positionals case final positionals?)
       'positionals': mapPositionals(positionals),
@@ -188,7 +195,8 @@ Map<String, dynamic> withoutIntegrationMetadata(Map<String, dynamic> source) {
       for (final entry in options.entries)
         entry.key as String: Map<String, dynamic>.from(entry.value as Map)
           ..remove('valueType')
-          ..remove('pairedOptions'),
+          ..remove('pairedOptions')
+          ..remove('pattern'),
     };
   }
 
@@ -200,13 +208,38 @@ Map<String, dynamic> withoutIntegrationMetadata(Map<String, dynamic> source) {
           ..remove('choices')
           ..remove('default')
           ..remove('repeatable')
-          ..remove('times'),
+          ..remove('times')
+          ..remove('pattern'),
     };
   }
 
   final variadic = map['variadic'];
   if (variadic is Map) {
-    map['variadic'] = Map<String, dynamic>.from(variadic)..remove('repeatable');
+    map['variadic'] = Map<String, dynamic>.from(variadic)
+      ..remove('repeatable')
+      ..remove('pattern');
+  }
+
+  Map<String, dynamic> withoutAccessorPattern(Object source) {
+    final accessor = Map<String, dynamic>.from(source as Map);
+    final options = accessor['options'];
+    if (options is Map) {
+      accessor['options'] = <String, dynamic>{
+        for (final entry in options.entries)
+          entry.key as String: withoutAccessorPattern(entry.value),
+      };
+    } else {
+      accessor.remove('pattern');
+    }
+    return accessor;
+  }
+
+  final accessors = map['accessors'];
+  if (accessors is Map) {
+    map['accessors'] = <String, dynamic>{
+      for (final entry in accessors.entries)
+        entry.key as String: withoutAccessorPattern(entry.value),
+    };
   }
 
   final commands = map['commands'];
@@ -1648,7 +1681,7 @@ void main() {
           'Tool command.',
           pairedOptions: [PairedOptions(options: [])],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -1662,7 +1695,7 @@ void main() {
             PairedOptions(options: [PairStringOption('username')]),
           ],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -1846,17 +1879,17 @@ void main() {
       for (final name in ['', 'tool1', '_', '-', 'tool!']) {
         expect(
           () => CommandRegistry.create(name, 'Tool command.'),
-          throwsA(anyOf(isA<MambaException>(), isA<MambaRegistryError>())),
+          throwsA(anyOf(isA<MambaRegistryError>(), isA<MambaRegistryError>())),
         );
       }
       expect(
         () => CommandRegistry.create('tool', ''),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(() => CommandRegistry.create('tool', 'x' * 150), returnsNormally);
       expect(
         () => CommandRegistry.create('tool', 'x' * 151),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -1993,7 +2026,7 @@ void main() {
           ],
           flags: [BooleanFlag('profile')],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => CommandRegistry.create(
@@ -2007,7 +2040,7 @@ void main() {
           ],
           options: [StringOption('profile', regex: RegExp(r'.+'))],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -2019,7 +2052,7 @@ void main() {
           mandatoryPositionals: [Positional('source')],
           discretionaryPositionals: [Positional('source')],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => CommandRegistry.create(
@@ -2028,7 +2061,7 @@ void main() {
           mandatoryPositionals: [Positional('config')],
           commands: [TestCommand('config', 'Configure.')],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -2042,7 +2075,7 @@ void main() {
             TestCommand('config', 'Configure again.'),
           ],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -2054,7 +2087,7 @@ void main() {
           flags: [BooleanFlag('verbose')],
           options: [IntOption('verbose')],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -2066,7 +2099,7 @@ void main() {
           flags: [BooleanFlag('verbose', short: 'v')],
           options: [IntOption('version', short: 'v')],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
 
@@ -2081,7 +2114,7 @@ void main() {
           'Tool command.',
           flags: [BooleanFlag('verbose'), BooleanFlag('verbose')],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => CommandRegistry.create(
@@ -2092,7 +2125,7 @@ void main() {
             RepeatableStringOption('name'),
           ],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
       expect(
         () => CommandRegistry.create(
@@ -2108,7 +2141,7 @@ void main() {
             ),
           ],
         ),
-        throwsA(isA<MambaException>()),
+        throwsA(isA<MambaRegistryError>()),
       );
     });
   });
@@ -2138,7 +2171,7 @@ void main() {
           ],
         ),
         throwsA(
-          isA<MambaException>().having(
+          isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
             contains('tool checkout'),
@@ -2158,7 +2191,7 @@ void main() {
           ],
         ),
         throwsA(
-          isA<MambaException>().having(
+          isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
             allOf(contains('already registered'), contains('pick another one')),
@@ -2177,7 +2210,7 @@ void main() {
           ],
         ),
         throwsA(
-          isA<MambaException>().having(
+          isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
             contains('tool checkout'),
@@ -2194,7 +2227,7 @@ void main() {
           commands: [TestCommand('checkout', 'Checkout.', aliases: const [])],
         ),
         throwsA(
-          isA<MambaException>().having(
+          isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
             contains('tool checkout'),
@@ -2213,7 +2246,7 @@ void main() {
               TestCommand('checkout', 'Checkout.', aliases: [alias]),
             ],
           ),
-          throwsA(isA<MambaException>()),
+          throwsA(isA<MambaRegistryError>()),
         );
       }
     });
@@ -2237,7 +2270,7 @@ void main() {
               commands: [invalidCommand],
             ),
             throwsA(
-              isA<MambaException>().having(
+              isA<MambaRegistryError>().having(
                 (error) => error.message,
                 'message',
                 contains(path.join(' ')),
