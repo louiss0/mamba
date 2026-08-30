@@ -229,10 +229,10 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
           }
           output = await command.run(positionals, inputs, trailingArguments);
       }
-    } on Exception catch (error) {
-      primaryException = error;
     } on Error catch (error) {
       primaryError = error;
+    } on Exception catch (error) {
+      primaryException = error;
     } catch (error) {
       primaryThrowable = error;
     }
@@ -243,10 +243,10 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     Future<void> clean(FutureOr<void> Function() callback) async {
       try {
         await callback();
-      } on Exception catch (error) {
-        cleanupExceptions.add(error);
       } on Error catch (error) {
         cleanupError ??= error;
+      } on Exception catch (error) {
+        cleanupExceptions.add(error);
       } catch (error) {
         cleanupThrowable ??= error;
       }
