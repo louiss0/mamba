@@ -626,6 +626,66 @@ void main() {
       });
     });
 
+    test('parses accessor paths with five dots and shared branches', () {
+      final subject = parser(
+        accessors: [
+          AccessorListOption(
+            'cloud',
+            options: [
+              AccessorListOption(
+                'provider',
+                options: [
+                  AccessorListOption(
+                    'credentials',
+                    options: [
+                      AccessorListOption(
+                        'oauth',
+                        options: [
+                          AccessorListOption(
+                            'client',
+                            options: [
+                              AccessorStringOption('token'),
+                              AccessorIntOption('timeout'),
+                            ],
+                          ),
+                        ],
+                      ),
+                      AccessorStringOption('region'),
+                    ],
+                  ),
+                  AccessorStringOption('endpoint'),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final inputs = subject.parse([
+        '--cloud.provider.credentials.oauth.client.token=secret',
+        '--cloud.provider.credentials.oauth.client.timeout',
+        '30',
+        '--cloud.provider.credentials.region',
+        'eu-west',
+        '--cloud.provider.endpoint',
+        'api.example.com',
+      ]).$3;
+
+      expect(inputs.accessors, {
+        'cloud': {
+          'provider': {
+            'credentials': {
+              'oauth': {
+                'client': {'token': 'secret', 'timeout': 30},
+              },
+              'region': 'eu-west',
+            },
+            'endpoint': 'api.example.com',
+          },
+        },
+      });
+    });
+
     test('renders list-defined inputs in help', () {
       final registry = CommandRegistry.create(
         'tool',

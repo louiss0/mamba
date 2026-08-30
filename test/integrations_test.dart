@@ -22,6 +22,7 @@ CommandRegistry specRegistry({
   List<Positional>? mandatoryPositionals,
   List<Positional>? discretionaryPositionals,
   Variadic? variadic,
+  List<AccessorListOption>? accessors,
   List<Command>? commands,
 }) => CommandRegistry.create(
   'spec',
@@ -32,6 +33,7 @@ CommandRegistry specRegistry({
   mandatoryPositionals: mandatoryPositionals,
   discretionaryPositionals: discretionaryPositionals,
   variadic: variadic,
+  accessors: accessors,
   commands: commands,
 );
 
@@ -386,6 +388,64 @@ completion:
             contains('- "basic"'),
             contains('- "standard"'),
           ),
+        ),
+      );
+    });
+
+    test('renders accessor paths with five dots and shared branches', () {
+      final registry = specRegistry(
+        accessors: [
+          AccessorListOption(
+            'profile',
+            options: [AccessorStringOption('name')],
+          ),
+          AccessorListOption(
+            'cloud',
+            options: [
+              AccessorListOption(
+                'provider',
+                options: [
+                  AccessorListOption(
+                    'credentials',
+                    options: [
+                      AccessorListOption(
+                        'oauth',
+                        options: [
+                          AccessorListOption(
+                            'client',
+                            options: [
+                              AccessorStringOption(
+                                'token',
+                                completions: ['access-token'],
+                              ),
+                              AccessorIntOption('timeout'),
+                            ],
+                          ),
+                        ],
+                      ),
+                      AccessorStringOption('region'),
+                    ],
+                  ),
+                  AccessorStringOption('endpoint'),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final spec = convertSpec(RegistryMap(registry.toMap()));
+
+      expect(
+        spec,
+        allOf(
+          contains('--profile.name?=: ""'),
+          contains('--cloud.provider.endpoint?=: ""'),
+          contains('--cloud.provider.credentials.region?=: ""'),
+          contains('--cloud.provider.credentials.oauth.client.token?=: ""'),
+          contains('--cloud.provider.credentials.oauth.client.timeout?=: ""'),
+          contains('cloud.provider.credentials.oauth.client.token:'),
+          contains('- "access-token"'),
         ),
       );
     });
