@@ -443,6 +443,8 @@ final class CommandRegistry {
       'valueType': _mapOptionValueType(input),
       if (input is RegExpValidated)
         'pattern': (input as RegExpValidated).regex.pattern,
+      if (input case NumericRangeValidated(:final min?)) 'min': min,
+      if (input case NumericRangeValidated(:final max?)) 'max': max,
     };
   }
 
@@ -879,6 +881,10 @@ final class CommandRegistry {
     _validateAccessors(accessors);
     _validatePositionals(mandatoryPositionals, discretionaryPositionals);
     _validateVariadic(variadic);
+    _validateNumericRanges([
+      ...?options,
+      ...?pairedOptions?.expand((group) => group.options),
+    ]);
     _validateChoiceDefaults(
       options,
       pairedOptions,
@@ -1040,6 +1046,20 @@ final class CommandRegistry {
       throw MambaRegistryError(
         'Positional names must contain letter-led words separated by hyphens or underscores.',
       );
+    }
+  }
+
+  static void _validateNumericRanges(Iterable<NamedInput> inputs) {
+    for (final input in inputs) {
+      if (input is! NumericRangeValidated) continue;
+      final range = input as NumericRangeValidated;
+      final min = range.min;
+      final max = range.max;
+      if (min != null && max != null && min > max) {
+        throw MambaRegistryError(
+          'Minimum $min for ${input.name} must not exceed maximum $max.',
+        );
+      }
     }
   }
 

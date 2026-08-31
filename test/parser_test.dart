@@ -1197,6 +1197,46 @@ void main() {
     });
   });
 
+  group('numeric ranges', () {
+    test('accepts inclusive int and double bounds', () {
+      final inputs = parser(
+        options: [
+          IntOption('count', min: 1, max: 3),
+          DoubleOption('ratio', min: 0.5, max: 1.5),
+        ],
+      ).parse(['--count', '3', '--ratio', '0.5']).$3;
+
+      expect(inputs.intOptions, {'count': 3});
+      expect(inputs.doubleOptions, {'ratio': 0.5});
+    });
+
+    test('rejects numeric values outside their declared range', () {
+      final subject = parser(options: [IntOption('count', min: 1, max: 3)]);
+
+      expect(
+        () => subject.parse(['--count', '4']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            'Option --count must be at least 1 and at most 3 (received 4).',
+          ),
+        ),
+      );
+    });
+
+    test('rejects inverted numeric ranges during registry construction', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [DoubleOption('ratio', min: 2, max: 1)],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+  });
+
   group('Parser validation', () {
     test('rejects invalid values and missing required options', () {
       final subject = parser(

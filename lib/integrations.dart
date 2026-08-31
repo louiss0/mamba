@@ -277,6 +277,15 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         switch (option['valueType']) {
           case 'choice':
             flagChoices[entry.key] = _stringList(option['choices']);
+          case 'int' || 'double':
+            final min = option['min'];
+            final max = option['max'];
+            if (min is num && max is num) {
+              flagChoices[entry.key] = [
+                r'$carapace.number.Range({start: '
+                    '$min, end: $max})',
+              ];
+            }
         }
       }
     }

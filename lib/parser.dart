@@ -499,9 +499,9 @@ class Parser {
       case StringOption():
         stringOptions[option.name] = _parseRegExpValidated(option, value);
       case IntOption():
-        intOptions[option.name] = _parseInt(value);
+        intOptions[option.name] = _parseInt(value, option);
       case DoubleOption():
-        doubleOptions[option.name] = _parseDouble(value);
+        doubleOptions[option.name] = _parseDouble(value, option);
       case ChoiceOption():
         stringOptions[option.name] = _parseChoiceValidated(
           option.name,
@@ -511,9 +511,9 @@ class Parser {
       case PairStringOption():
         stringOptions[option.name] = _parseRegExpValidated(option, value);
       case PairIntOption():
-        intOptions[option.name] = _parseInt(value);
+        intOptions[option.name] = _parseInt(value, option);
       case PairDoubleOption():
-        doubleOptions[option.name] = _parseDouble(value);
+        doubleOptions[option.name] = _parseDouble(value, option);
       case PairChoiceOption():
         stringOptions[option.name] = _parseChoiceValidated(
           option.name,
@@ -527,11 +527,15 @@ class Parser {
           repeatedStringOptions,
         );
       case RepeatableIntOption():
-        _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
+        _addRepeatedValue(
+          option.name,
+          _parseInt(value, option),
+          repeatedIntOptions,
+        );
       case RepeatableDoubleOption():
         _addRepeatedValue(
           option.name,
-          _parseDouble(value),
+          _parseDouble(value, option),
           repeatedDoubleOptions,
         );
       case RepeatablePairStringOption():
@@ -541,11 +545,15 @@ class Parser {
           repeatedStringOptions,
         );
       case RepeatablePairIntOption():
-        _addRepeatedValue(option.name, _parseInt(value), repeatedIntOptions);
+        _addRepeatedValue(
+          option.name,
+          _parseInt(value, option),
+          repeatedIntOptions,
+        );
       case RepeatablePairDoubleOption():
         _addRepeatedValue(
           option.name,
-          _parseDouble(value),
+          _parseDouble(value, option),
           repeatedDoubleOptions,
         );
       // Registry construction prevents non-option inputs from reaching here.
@@ -582,22 +590,45 @@ class Parser {
     return value;
   }
 
-  int _parseInt(String value) {
+  int _parseInt(String value, [NumericRangeValidated<int>? range]) {
     if (!_matchesEntirely(RegExp(r'[+-]?\d+'), value)) {
       throw MambaParseException(
         'Invalid int value: $value must be a signed decimal integer',
       );
     }
-    return int.parse(value);
+    final parsed = int.parse(value);
+    _validateNumericRange(parsed, range);
+    return parsed;
   }
 
-  double _parseDouble(String value) {
+  double _parseDouble(String value, [NumericRangeValidated<double>? range]) {
     if (!_matchesEntirely(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
       throw MambaParseException(
         'Invalid double value: $value must be a signed decimal number',
       );
     }
-    return double.parse(value);
+    final parsed = double.parse(value);
+    _validateNumericRange(parsed, range);
+    return parsed;
+  }
+
+  void _validateNumericRange<T extends num>(
+    T value,
+    NumericRangeValidated<T>? range,
+  ) {
+    if (range == null) return;
+    final min = range.min;
+    final max = range.max;
+    if ((min != null && value < min) || (max != null && value > max)) {
+      final input = range as NamedInput;
+      final bounds = [
+        if (min != null) 'at least $min',
+        if (max != null) 'at most $max',
+      ].join(' and ');
+      throw MambaParseException(
+        'Option --${input.name} must be $bounds (received $value).',
+      );
+    }
   }
 
   bool _matchesEntirely(RegExp regex, String value) {

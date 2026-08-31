@@ -29,6 +29,12 @@ mixin ChoiceValidated<T extends Enum> {
   List<T> get choices;
 }
 
+/// Exposes optional inclusive bounds for a numeric input.
+mixin NumericRangeValidated<T extends num> {
+  T? get min;
+  T? get max;
+}
+
 List<T>? _copyList<T>(List<T>? items) =>
     items == null ? null : List.unmodifiable(items);
 
@@ -259,13 +265,36 @@ final class PairStringOption extends PairOption with RegExpValidated {
 }
 
 /// An integer companion in a paired option registration.
-final class PairIntOption extends PairOption {
-  const PairIntOption(super.name, {super.short, super.description});
+final class PairIntOption extends PairOption with NumericRangeValidated<int> {
+  const PairIntOption(
+    super.name, {
+    this.min,
+    this.max,
+    super.short,
+    super.description,
+  });
+
+  @override
+  final int? min;
+  @override
+  final int? max;
 }
 
 /// A double companion in a paired option registration.
-final class PairDoubleOption extends PairOption {
-  const PairDoubleOption(super.name, {super.short, super.description});
+final class PairDoubleOption extends PairOption
+    with NumericRangeValidated<double> {
+  const PairDoubleOption(
+    super.name, {
+    this.min,
+    this.max,
+    super.short,
+    super.description,
+  });
+
+  @override
+  final double? min;
+  @override
+  final double? max;
 }
 
 /// An enum-choice companion in a paired option registration.
@@ -305,17 +334,37 @@ final class RepeatablePairStringOption extends RepeatablePairOption
 }
 
 /// A repeatable integer companion in a paired option registration.
-final class RepeatablePairIntOption extends RepeatablePairOption {
-  const RepeatablePairIntOption(super.name, {super.short, super.description});
-}
-
-/// A repeatable double companion in a paired option registration.
-final class RepeatablePairDoubleOption extends RepeatablePairOption {
-  const RepeatablePairDoubleOption(
+final class RepeatablePairIntOption extends RepeatablePairOption
+    with NumericRangeValidated<int> {
+  const RepeatablePairIntOption(
     super.name, {
+    this.min,
+    this.max,
     super.short,
     super.description,
   });
+
+  @override
+  final int? min;
+  @override
+  final int? max;
+}
+
+/// A repeatable double companion in a paired option registration.
+final class RepeatablePairDoubleOption extends RepeatablePairOption
+    with NumericRangeValidated<double> {
+  const RepeatablePairDoubleOption(
+    super.name, {
+    this.min,
+    this.max,
+    super.short,
+    super.description,
+  });
+
+  @override
+  final double? min;
+  @override
+  final double? max;
 }
 
 /// A non-repeatable option that stores one typed value by name.
@@ -345,25 +394,40 @@ final class StringOption extends SingleOption with RegExpValidated {
 }
 
 /// A single option that accepts a signed decimal integer.
-final class IntOption extends SingleOption {
+final class IntOption extends SingleOption with NumericRangeValidated<int> {
   const IntOption(
     super.name, {
+    this.min,
+    this.max,
     super.short,
     super.required,
     super.description,
     super.hidden,
   });
+
+  @override
+  final int? min;
+  @override
+  final int? max;
 }
 
 /// A single option that accepts a signed decimal number.
-final class DoubleOption extends SingleOption {
+final class DoubleOption extends SingleOption
+    with NumericRangeValidated<double> {
   const DoubleOption(
     super.name, {
+    this.min,
+    this.max,
     super.short,
     super.required,
     super.description,
     super.hidden,
   });
+
+  @override
+  final double? min;
+  @override
+  final double? max;
 }
 
 /// A single option that accepts one registered enum-member name.
@@ -415,25 +479,41 @@ final class RepeatableStringOption extends RepeatableOption
 }
 
 /// A repeatable option that accepts signed decimal integers.
-final class RepeatableIntOption extends RepeatableOption {
+final class RepeatableIntOption extends RepeatableOption
+    with NumericRangeValidated<int> {
   const RepeatableIntOption(
     super.name, {
+    this.min,
+    this.max,
     super.required = false,
     super.short,
     super.description,
     super.hidden,
   });
+
+  @override
+  final int? min;
+  @override
+  final int? max;
 }
 
 /// A repeatable option that accepts signed decimal numbers.
-final class RepeatableDoubleOption extends RepeatableOption {
+final class RepeatableDoubleOption extends RepeatableOption
+    with NumericRangeValidated<double> {
   const RepeatableDoubleOption(
     super.name, {
+    this.min,
+    this.max,
     super.required = false,
     super.short,
     super.description,
     super.hidden,
   });
+
+  @override
+  final double? min;
+  @override
+  final double? max;
 }
 
 /// A named leaf or object registered for dotted accessor syntax.
@@ -1207,6 +1287,8 @@ void _parseOption(Map<String, Object?> value, String path) {
     'default',
     'pairedOptions',
     'pattern',
+    'min',
+    'max',
   };
   _validateProperties(value, path, {
     ...requiredProperties,
@@ -1278,6 +1360,31 @@ void _parseOption(Map<String, Object?> value, String path) {
   }
   if (value.containsKey('pattern')) {
     _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
+  }
+  _validateNumericRangeProperties(value, path);
+}
+
+void _validateNumericRangeProperties(Map<String, Object?> value, String path) {
+  final valueType = value['valueType'];
+  final min = value['min'];
+  final max = value['max'];
+  if (min == null && max == null) return;
+  if (valueType != 'int' && valueType != 'double') {
+    _invalid(value, path, 'numeric bounds require an int or double value type');
+  }
+  final isInt = valueType == 'int';
+  for (final entry in {'min': min, 'max': max}.entries) {
+    if (entry.value != null &&
+        (entry.value is! num || (isInt && entry.value is! int))) {
+      _invalid(
+        entry.value,
+        _joinRegistryPath(path, entry.key),
+        'must match the numeric value type',
+      );
+    }
+  }
+  if (min is num && max is num && min > max) {
+    _invalid(max, _joinRegistryPath(path, 'max'), 'must not be less than min');
   }
 }
 

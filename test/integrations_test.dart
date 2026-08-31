@@ -1189,6 +1189,25 @@ completion:
       });
     });
 
+    test('renders bounded numeric options as Carapace ranges', () {
+      final registry = specRegistry(
+        options: [
+          IntOption('retries', min: 1, max: 3),
+          DoubleOption('ratio', min: 0.5, max: 1.5),
+        ],
+      );
+
+      final spec = convertSpec(RegistryMap(registry.toMap()));
+
+      expect(
+        spec,
+        allOf(
+          contains(r'$carapace.number.Range({start: 1, end: 3})'),
+          contains(r'$carapace.number.Range({start: 0.5, end: 1.5})'),
+        ),
+      );
+    });
+
     group("numeric options", () {
       test("int options no longer invent a bounded completion range", () {
         final registry = specRegistry(options: [IntOption('retries')]);

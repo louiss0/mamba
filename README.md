@@ -508,7 +508,10 @@ Only canonical typed accessor maps are accepted.
 
 Carapace completion does not assume that arbitrary strings are file paths.
 Choice completions are emitted for ordinary and paired options, positionals,
-and variadics. Regex-backed and numeric inputs do not supply completion values
-or produce guessed completion ranges. Carapace can represent variant members as
-exclusive but cannot require one of them, so required variant descriptions
-retain that parser-enforced requirement.
+and variadics. Integer and double options, including repeated and paired
+options, accept optional inclusive `min` and `max` bounds. A complete numeric
+range is emitted as a Carapace range completion. Carapace has no multiplier or
+step setting, so Mamba does not expose one. Regex-backed inputs do not supply
+completion values. Carapace can represent variant members as exclusive but
+cannot require one of them, so required variant descriptions retain that
+parser-enforced requirement.
