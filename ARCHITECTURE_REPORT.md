@@ -6,7 +6,7 @@ other project folders were not used to infer framework behavior.
 
 The current verification baseline is:
 
-- `dart test`: 487 tests passed.
+- `dart test`: 494 tests passed.
 - `dart analyze lib test`: no issues found.
 
 ## Executive summary
@@ -32,11 +32,11 @@ command dispatch.
 Help and Carapace completion output are also derived from registry metadata.
 
 The current version uses a typed parser record, deep-frozen registry maps,
-strict long/short option lookup, immutable definition collections, explicit
-string completion suggestions, and separate execution aggregates for
-recoverable exceptions and non-recoverable errors. Pre-hooks are asynchronous,
-cleanup is attempted for every successfully entered hook, and output is
-delayed until cleanup completes.
+strict long/short option lookup, immutable definition collections, bounded
+numeric options, and separate execution aggregates for recoverable exceptions
+and non-recoverable errors. Pre-hooks are asynchronous, cleanup is attempted
+for every successfully entered hook, and output is delayed until cleanup
+completes.
 
 ## Architecture
 
@@ -73,14 +73,16 @@ input hierarchies make invalid runtime type combinations difficult to express:
 
 Regex-backed definitions expose `RegExpValidated`; enum-backed definitions
 expose `ChoiceValidated<T>`. Parsing stores enum choices by their `.name`, not
-as enum instances. Choice values are the only completion domain exported to
-integrations; regex patterns remain runtime validation rules rather than
-inferred completion domains.
+as enum instances. Integer and double option definitions expose optional
+inclusive bounds through `NumericRangeValidated<T>`. Choice values and fully
+bounded numeric ranges are the completion domains exported to integrations;
+regex patterns remain runtime validation rules rather than inferred
+completion domains.
 
 Definitions are mostly passive values. Public authoring collections are copied
-into unmodifiable lists at command, group, executor, pair, accessor, choice,
-and completion boundaries. Validation is intentionally deferred to registry
-construction, except for a few local invariants such as a negative
+into unmodifiable lists at command, group, executor, pair, accessor, and choice
+boundaries. Validation is intentionally deferred to registry construction,
+except for a few local invariants such as a negative
 repeated-positional count or an invalid default-command path.
 
 ### Registry construction and validation
@@ -101,6 +103,7 @@ Registry construction validates:
 - Empty paired groups and duplicate pair members
 - Empty choice sets and defaults that are not registered enum choices
 - Required choice inputs that declare defaults
+- Numeric ranges whose minimum exceeds their maximum
 - Descendant attempts to override published global flags
 - Collisions with synthesized `--no-*` flag spellings
 - Nested accessor definitions recursively
@@ -145,8 +148,8 @@ The map is the integration boundary: converters do not need to retain live
 command instances. Construction recursively copies and freezes every nested
 map and list. It validates names, descriptions, aliases, reserved help names,
 negated flag spellings, collisions, defaults, option groups, and repetition
-metadata. A few manual-map validation gaps remain and are detailed in
-`FRAMEWORK_INCONSISTENCIES.md`.
+metadata. It also synthesizes canonical built-in help metadata when a manual
+map omits it and rejects attempts to redefine that behavior.
 
 ### Parsing pipeline
 
@@ -207,12 +210,11 @@ Two environments share the same private orchestration:
 - `create()` writes successful output to stdout, failures to stderr, and sets
   process exit code `1`.
 
-Execution applies root and nested group default command paths, then dispatches
-the parser record. A true `help` field or an absent selected command formats
-the selected registry; otherwise the command runs hooks and `run()`, performs
-cleanup, and only then emits the final result. Because defaults are inserted
-first, conventional help on a defaulted root or group selects the default
-descendant.
+Execution preserves the explicitly named path when help is present; otherwise
+it applies root and nested group default command paths before parsing. A true
+`help` field or an absent selected command formats the selected registry;
+otherwise the command runs hooks and `run()`, performs cleanup, and only then
+emits the final result.
 
 The executor automatically adds:
 
@@ -326,9 +328,9 @@ The executor supports a root-relative `defaultCommandPath`; each group supports
 a relative `defaultSubCommandPath`. Default segments are inserted around
 registered value-taking inputs so an option value is not mistaken for a
 command. Group defaults are applied repeatedly down the selected group path,
-with a set preventing the same group default from being inserted twice. Help
-does not suppress this insertion: a defaulted group followed by `--help`
-selects its default descendant before help is formatted.
+with a set preventing the same group default from being inserted twice.
+Explicit help suppresses default insertion and therefore targets the root or
+group path named by the user.
 
 ### Command errors
 
@@ -419,8 +421,9 @@ parser itself does not format help.
 Mamba defines:
 
 - `StringOption`, with a full-token regex
-- `IntOption`, accepting signed decimal integers
-- `DoubleOption`, accepting signed integer or fixed-point decimal text
+- `IntOption`, accepting signed decimal integers and optional inclusive bounds
+- `DoubleOption`, accepting signed integer or fixed-point decimal text and
+  optional inclusive bounds
 - `ChoiceOption<T>`, accepting an enum member name
 - Repeatable string, integer, and double options
 
@@ -437,16 +440,13 @@ than once replaces its prior value. Choice values are stored in the string map.
 
 Signed numeric values are accepted as separate tokens. Doubles require digits
 on both sides of a decimal point when a point is present; `.5`, `1.`, and
-scientific notation are rejected.
+scientific notation are rejected. Registry construction rejects an inverted
+numeric range.
 
 Regex-backed string options may consume a dash-prefixed following token when
 their regex accepts it, but an exact registered input token retains its input
 meaning. Inline syntax is required when a value intentionally looks like a
 registered flag or option.
-
-String, repeatable-string, paired-string, positional, variadic, and accessor
-string definitions may declare explicit completion suggestions. These do not
-alter runtime validation.
 
 ### Paired options
 
@@ -506,6 +506,8 @@ Option syntax and conversion failures are `MambaParseException`:
 - Invalid choice: `value is not a valid choice for name` plus available names
 - Invalid integer: `Invalid int value: value must be a signed decimal integer`
 - Invalid double: `Invalid double value: value must be a signed decimal number`
+- Out-of-range number:
+  `Option --name must be at least min and at most max (received value).`
 - Required omission: `Option --name is required.`
 - Unknown dotted path: `This isn't a registered accessor`
 
@@ -662,8 +664,8 @@ copies and freezes the validated map. Its failures use
 `MambaIntegrationException` with full nested paths, and it validates structural
 and semantic invariants including names, descriptions, aliases, help
 reservations, negated spellings, collisions, choice defaults, option-group
-membership, and repetition metadata. Its remaining manual-map gaps are
-catalogued in `FRAMEWORK_INCONSISTENCIES.md`.
+membership, numeric ranges, local/persistent overrides, and repetition
+metadata.
 
 ### Carapace conversion
 
@@ -677,16 +679,17 @@ catalogued in `FRAMEWORK_INCONSISTENCIES.md`.
 - Positionals and bounded repeated positional slots
 - Ordinary and repeated dash completions
 - Typed dotted accessors
-- Enum-choice completion suggestions
+- Enum-choice and bounded numeric completion suggestions
 - Built-in help
 
 Root inputs become Carapace `persistentflags`. A group's published inputs are
 emitted once at that group. Local declarations are removed from inherited
 entries with the same name.
 
-Choice completions use enum names. Regex-backed and numeric inputs do not
-imply filesystem or domain completion, and numeric inputs do not invent ranges.
-A normal choice variadic fills the first `dash` slot, while a
+Choice completions use enum names. Regex-backed inputs do not imply filesystem
+or domain completion. Numeric options emit a Carapace range only when both
+inclusive bounds are present; unbounded and one-sided numeric inputs do not
+invent limits. A normal choice variadic fills the first `dash` slot, while a
 `RepeatedChoiceVariadic` uses `dashany` for every subsequent slot.
 
 ### Carapace writing and errors
