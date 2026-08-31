@@ -218,20 +218,23 @@ void main() {
       );
     });
 
-    test('runs child hooks when a group selects its default', () async {
-      final events = <String>[];
-      final executor = Executor('mamba', 'A command-line application.', [
-        _DefaultGroup(
-          [_HookCommand('serve', events)],
-          defaultSubCommandPath: ['serve'],
-        ),
-      ]).fake();
+    test(
+      'does not run child post-hooks when a group selects its default',
+      () async {
+        final events = <String>[];
+        final executor = Executor('mamba', 'A command-line application.', [
+          _DefaultGroup(
+            [_HookCommand('serve', events)],
+            defaultSubCommandPath: ['serve'],
+          ),
+        ]).fake();
 
-      final result = await executor.execute(['group']);
+        final result = await executor.execute(['group']);
 
-      expect(result, isA<MambaSuccessResult>());
-      expect(events, ['pre:serve', 'run:serve', 'post:serve']);
-    });
+        expect(result, isA<MambaSuccessResult>());
+        expect(events, ['pre:serve', 'run:serve']);
+      },
+    );
 
     test('returns a failure for an unknown group default path', () async {
       final executor = Executor('mamba', 'A command-line application.', [
@@ -281,30 +284,30 @@ void main() {
       expect(events, ['pre:group']);
     });
 
-    test('does not track Errors thrown by hooks', () async {
+    test('does not run post-hooks that throw Errors', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [_FailingPostHookCommand(throwsError: true)]),
       ]).fake();
 
-      await expectLater(
-        executor.execute(['group', 'failing']),
-        throwsA(isA<StateError>()),
+      expect(
+        await executor.execute(['group', 'failing']),
+        isA<MambaSuccessResult>(),
       );
       expect(events, ['pre:group']);
     });
 
-    test('returns a failure result for a post-hook exception', () async {
+    test('does not run post-hooks', () async {
       final executor = Executor('mamba', 'A command-line application.', [
         _FailingPostHookCommand(),
       ]).fake();
 
-      expect(await executor.execute(['failing']), isA<MambaFailureResult>());
+      expect(await executor.execute(['failing']), isA<MambaSuccessResult>());
     });
   });
 
   group('persistent hooks', () {
-    test('stops post-hooks after an inner Error', () async {
+    test('does not run persistent post-hooks that throw Errors', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [
@@ -317,14 +320,14 @@ void main() {
         ], name: 'outer'),
       ]).fake();
 
-      await expectLater(
-        executor.execute(['outer', 'inner', 'serve']),
-        throwsA(isA<StateError>()),
+      expect(
+        await executor.execute(['outer', 'inner', 'serve']),
+        isA<MambaSuccessResult>(),
       );
       expect(events, ['pre:outer', 'pre:inner']);
     });
 
-    test('stops post-hooks after an inner exception', () async {
+    test('does not run persistent post-hooks', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [
@@ -339,7 +342,7 @@ void main() {
 
       expect(
         await executor.execute(['outer', 'inner', 'serve']),
-        isA<MambaFailureResult>(),
+        isA<MambaSuccessResult>(),
       );
       expect(events, ['pre:outer', 'pre:inner']);
     });
@@ -355,7 +358,7 @@ void main() {
 
         await executor.execute(['group', 'serve']);
 
-        expect(events, ['pre:group', 'post:group']);
+        expect(events, ['pre:group']);
       },
     );
   });

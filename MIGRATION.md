@@ -63,5 +63,6 @@ value nodes before constructing `RegistryMap`.
 ## Execution failures
 
 Executors now report only thrown `Exception` values. Other thrown objects,
-including `Error` values, propagate unchanged. Hook failures stop execution;
-remaining post-hooks are not run.
+including `Error` values, propagate unchanged. Production executors run
+post-hooks after writing output and report each hook exception. Fake executors
+do not run post-hooks.

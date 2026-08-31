@@ -40,6 +40,13 @@ bool isClosedPipeFileSystemException(FileSystemException error) {
       message.contains('broken pipe');
 }
 
+/// Post-execution work captured while running a command.
+typedef _ExecutionResult = ({
+  String? output,
+  FutureOr<void> Function()? postRun,
+  List<FutureOr<void> Function()> postPersistentRuns,
+});
+
 /// Executes an argument list and delivers its result through an environment.
 abstract interface class MambaExecutor<ReturnType> {
   /// Selects, validates, and runs the command addressed by [args].
@@ -104,16 +111,17 @@ final class Executor {
   ///
   /// Invalid command definitions throw [MambaRegistryError] during this setup
   /// step; only thrown [Exception] values use the returned result. Other
-  /// thrown objects propagate unchanged. Call this in one shared test-support
-  /// file and import the resulting fake
-  /// into test files. Unlike [create], it does not write to process streams.
+  /// thrown objects propagate unchanged. Post-hooks are not run. Call this in
+  /// one shared test-support file and import the resulting fake into test
+  /// files. Unlike [create], it does not write to process streams.
   MambaExecutor<MambaExecutionResult> fake() => _FakeExecutor(_Execution(this));
 
   /// Creates the production executor that writes output and exceptions to stdio.
   ///
   /// Invalid command definitions throw [MambaRegistryError] during setup.
-  /// Other thrown objects propagate unchanged.
-  /// A command may return `null` to suppress successful output.
+  /// It runs post-hooks after writing output and reports their thrown
+  /// [Exception] values to standard error. Other thrown objects propagate
+  /// unchanged. A command may return `null` to suppress successful output.
   /// Call this where the executable is built, then pass command-line arguments
   /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
   MambaExecutor<void> create() => _CreateExecutor(_Execution(this));
@@ -156,7 +164,8 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
   @override
   Future<MambaExecutionResult> execute(List<String> args) async {
     try {
-      return MambaSuccessResult(await _execution.execute(args));
+      final result = await _execution.execute(args);
+      return MambaSuccessResult(result.output);
     } on Exception catch (exception) {
       return MambaFailureResult(
         exception is MambaException
@@ -174,12 +183,31 @@ final class _CreateExecutor implements MambaExecutor<void> {
 
   @override
   Future<void> execute(List<String> args) async {
+    late final _ExecutionResult result;
     try {
-      final output = await _execution.execute(args);
-      if (output != null) stdout.writeln(output);
+      result = await _execution.execute(args);
+      if (result.output != null) stdout.writeln(result.output);
     } on Exception catch (exception) {
       stderr.writeln(exception);
       exitCode = 1;
+      return;
+    }
+
+    if (result.postRun case final postRun?) {
+      try {
+        await postRun();
+      } on Exception catch (exception) {
+        stderr.writeln(exception);
+        exitCode = 1;
+      }
+    }
+    for (final postPersistentRun in result.postPersistentRuns) {
+      try {
+        await postPersistentRun();
+      } on Exception catch (exception) {
+        stderr.writeln(exception);
+        exitCode = 1;
+      }
     }
   }
 }
@@ -214,7 +242,7 @@ final class _Execution {
     _assignCompletionRegistryMap(commands, registryMap);
   }
 
-  Future<String?> execute(List<String> args) async {
+  Future<_ExecutionResult> execute(List<String> args) async {
     final executionArguments = _argumentsWithDefaultCommands(args);
     final parsed = Parser(_registry).parse(executionArguments);
     final commandPath = parsed.$1;
@@ -227,7 +255,11 @@ final class _Execution {
         .registryForArguments(executionArguments)
         .withInheritedInputs();
     if (parsed.help || command == null) {
-      return _helpFormatter.format(selectedRegistry);
+      return (
+        output: _helpFormatter.format(selectedRegistry),
+        postRun: null,
+        postPersistentRuns: const <FutureOr<void> Function()>[],
+      );
     }
 
     final context = MambaReadContext(_context);
@@ -242,22 +274,21 @@ final class _Execution {
     for (final hook in persistentHooks) {
       await hook.prePersistentRun(_context, positionals, options);
     }
+    FutureOr<void> Function()? postRun;
     if (command case final HookRunner hook) {
       final standardInput = await _readStandardInput();
       await hook.preRun(standardInput, context, positionals, options);
-      final output = await command.run(positionals, inputs, trailingArguments);
-      await hook.postRun(context);
-      for (final persistentHook in persistentHooks.reversed) {
-        await persistentHook.postPersistentRun(_context, positionals, options);
-      }
-      return output;
+      postRun = () => hook.postRun(context);
     }
-
     final output = await command.run(positionals, inputs, trailingArguments);
-    for (final persistentHook in persistentHooks.reversed) {
-      await persistentHook.postPersistentRun(_context, positionals, options);
-    }
-    return output;
+    return (
+      output: output,
+      postRun: postRun,
+      postPersistentRuns: [
+        for (final hook in persistentHooks.reversed)
+          () => hook.postPersistentRun(_context, positionals, options),
+      ],
+    );
   }
 
   void _assignCompletionRegistryMap(

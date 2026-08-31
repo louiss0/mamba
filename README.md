@@ -46,7 +46,7 @@ Future<void> main(List<String> args) => executor.execute(args);
 For tests, call `fake()` in one shared test-support file and import that fake
 executor into test files. It returns a `MambaSuccessResult` or
 `MambaFailureResult` for a thrown `Exception` instead of writing to process
-streams.
+streams. It does not run post-hooks.
 
 ```dart
 // test/support/git_executor.dart
@@ -487,9 +487,10 @@ Mix `PersistentHookRunner` into a group to run around a selected descendant
 path. It receives mutable `MambaContext`; its mutations are visible to
 children. Persistent post-hooks run in reverse group-path order.
 Both pre-hook APIs may return a `Future`, and the executor awaits setup before
-running the command. Post-hooks run only after the preceding execution step
-succeeds. The fake and production executors report thrown `Exception` values;
-other thrown objects propagate unchanged.
+running the command. Production executors write command output before running
+post-hooks, and report each post-hook `Exception` to standard error. Fake
+executors do not run post-hooks, so hook behavior can be tested directly.
+Other thrown objects propagate unchanged.
 
 `MambaContextKey<T>` provides typed identity keys for context values. Context
 is executor-scoped: repeated calls to `execute` on the same fake or production
