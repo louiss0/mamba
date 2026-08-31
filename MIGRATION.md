@@ -60,8 +60,8 @@ typed accessor representation exported by `CommandRegistry`. Migrate legacy
 accessor maps with description-only leaves to `{kind, valueType, description}`
 value nodes before constructing `RegistryMap`.
 
-## Errors
+## Execution failures
 
-Non-`Exception` failures during command execution or hook cleanup now throw
-`MambaExecutionError`. Inspect `primaryFailure` and `cleanupFailures` rather
-than expecting the raw thrown object.
+Executors now report only thrown `Exception` values. Other thrown objects,
+including `Error` values, propagate unchanged. Hook failures stop execution;
+remaining post-hooks are not run.

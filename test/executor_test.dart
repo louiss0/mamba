@@ -247,39 +247,6 @@ void main() {
   });
 
   group('hook failures', () {
-    test(
-      'preserves every non-Exception cleanup failure in callback order',
-      () async {
-        final events = <String>[];
-        final executor = Executor('mamba', 'A command-line application.', [
-          _PersistentGroup(
-            events,
-            [
-              _PersistentGroup(
-                events,
-                [_Command('serve')],
-                errorPost: true,
-                name: 'inner',
-              ),
-            ],
-            errorPost: true,
-            name: 'outer',
-          ),
-        ]).fake();
-
-        await expectLater(
-          executor.execute(['outer', 'inner', 'serve']),
-          throwsA(
-            isA<MambaExecutionError>().having(
-              (error) => error.cleanupFailures.length,
-              'cleanup failure count',
-              2,
-            ),
-          ),
-        );
-      },
-    );
-
     test('recognizes platform variants of closed inherited pipes', () {
       expect(
         isClosedPipeFileSystemException(
@@ -301,7 +268,7 @@ void main() {
       );
     });
 
-    test('unwinds persistent hooks after an arbitrary thrown object', () async {
+    test('does not track non-Exception command failures', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [_StringThrowingCommand()]),
@@ -309,18 +276,12 @@ void main() {
 
       await expectLater(
         executor.execute(['group', 'throwing']),
-        throwsA(
-          isA<MambaExecutionError>().having(
-            (error) => error.primaryFailure,
-            'primary failure',
-            'run failed',
-          ),
-        ),
+        throwsA('run failed'),
       );
-      expect(events, ['pre:group', 'post:group']);
+      expect(events, ['pre:group']);
     });
 
-    test('rethrows post-hook Errors after persistent cleanup', () async {
+    test('does not track Errors thrown by hooks', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [_FailingPostHookCommand(throwsError: true)]),
@@ -328,21 +289,12 @@ void main() {
 
       await expectLater(
         executor.execute(['group', 'failing']),
-        throwsA(isA<MambaExecutionError>()),
+        throwsA(isA<StateError>()),
       );
-      expect(events, ['pre:group', 'post:group']);
+      expect(events, ['pre:group']);
     });
 
-    test('does not return success when a post-hook fails', () async {
-      final result = await Executor('mamba', 'A command-line application.', [
-        _FailingPostHookCommand(),
-      ]).fake().execute(['failing']);
-
-      expect(result, isNot(isA<MambaSuccessResult>()));
-      expect(result, isA<MambaFailureResult>());
-    });
-
-    test('reports a post-hook exception as a failure result', () async {
+    test('returns a failure result for a post-hook exception', () async {
       final executor = Executor('mamba', 'A command-line application.', [
         _FailingPostHookCommand(),
       ]).fake();
@@ -352,7 +304,7 @@ void main() {
   });
 
   group('persistent hooks', () {
-    test('rethrows persistent post-hook Errors after outer cleanup', () async {
+    test('stops post-hooks after an inner Error', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [
@@ -367,12 +319,12 @@ void main() {
 
       await expectLater(
         executor.execute(['outer', 'inner', 'serve']),
-        throwsA(isA<MambaExecutionError>()),
+        throwsA(isA<StateError>()),
       );
-      expect(events, ['pre:outer', 'pre:inner', 'post:outer']);
+      expect(events, ['pre:outer', 'pre:inner']);
     });
 
-    test('continues outer persistent cleanup after an inner failure', () async {
+    test('stops post-hooks after an inner exception', () async {
       final events = <String>[];
       final executor = Executor('mamba', 'A command-line application.', [
         _PersistentGroup(events, [
@@ -385,40 +337,15 @@ void main() {
         ], name: 'outer'),
       ]).fake();
 
-      await executor.execute(['outer', 'inner', 'serve']);
-
-      expect(events, ['pre:outer', 'pre:inner', 'post:outer']);
+      expect(
+        await executor.execute(['outer', 'inner', 'serve']),
+        isA<MambaFailureResult>(),
+      );
+      expect(events, ['pre:outer', 'pre:inner']);
     });
 
     test(
-      'reports persistent post-hook exceptions as failure results',
-      () async {
-        final executor = Executor('mamba', 'A command-line application.', [
-          _PersistentGroup([], [_Command('serve')], failPost: true),
-        ]).fake();
-
-        expect(
-          await executor.execute(['group', 'serve']),
-          isA<MambaFailureResult>(),
-        );
-      },
-    );
-
-    test(
-      'runs persistent cleanup after an ordinary post-hook failure',
-      () async {
-        final events = <String>[];
-        final executor = Executor('mamba', 'A command-line application.', [
-          _PersistentGroup(events, [_FailingPostHookCommand()]),
-        ]).fake();
-
-        await executor.execute(['group', 'failing']);
-
-        expect(events, ['pre:group', 'post:group']);
-      },
-    );
-    test(
-      'run around descendant commands without ordinary command hooks',
+      'runs around descendant commands without ordinary command hooks',
       () async {
         final events = <String>[];
         final group = _PersistentGroup(events, [_Command('serve')]);

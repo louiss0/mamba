@@ -103,31 +103,20 @@ final class Executor {
   /// Creates an executor for tests that returns success or failure values.
   ///
   /// Invalid command definitions throw [MambaRegistryError] during this setup
-  /// step; only invocation and execution failures use the returned result.
-  /// Call this in one shared test-support file and import the resulting fake
+  /// step; only thrown [Exception] values use the returned result. Other
+  /// thrown objects propagate unchanged. Call this in one shared test-support
+  /// file and import the resulting fake
   /// into test files. Unlike [create], it does not write to process streams.
-  MambaExecutor<MambaExecutionResult> fake() => _Executor(
-    this,
-    (output) => MambaSuccessResult(output),
-    (exception) => MambaFailureResult(exception),
-  );
+  MambaExecutor<MambaExecutionResult> fake() => _FakeExecutor(_Execution(this));
 
-  /// Creates the production executor that writes output and failures to stdio.
+  /// Creates the production executor that writes output and exceptions to stdio.
   ///
   /// Invalid command definitions throw [MambaRegistryError] during setup.
+  /// Other thrown objects propagate unchanged.
   /// A command may return `null` to suppress successful output.
   /// Call this where the executable is built, then pass command-line arguments
   /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
-  MambaExecutor<void> create() => _Executor(
-    this,
-    (output) {
-      if (output != null) stdout.writeln(output);
-    },
-    (exception) {
-      stderr.writeln(exception);
-      exitCode = 1;
-    },
-  );
+  MambaExecutor<void> create() => _CreateExecutor(_Execution(this));
 
   static List<String>? _copyDefaultSubCommandPath(
     String registryName,
@@ -159,7 +148,43 @@ final class Executor {
   }
 }
 
-final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
+final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
+  _FakeExecutor(this._execution);
+
+  final _Execution _execution;
+
+  @override
+  Future<MambaExecutionResult> execute(List<String> args) async {
+    try {
+      return MambaSuccessResult(await _execution.execute(args));
+    } on Exception catch (exception) {
+      return MambaFailureResult(
+        exception is MambaException
+            ? exception
+            : MambaException(exception.toString()),
+      );
+    }
+  }
+}
+
+final class _CreateExecutor implements MambaExecutor<void> {
+  _CreateExecutor(this._execution);
+
+  final _Execution _execution;
+
+  @override
+  Future<void> execute(List<String> args) async {
+    try {
+      final output = await _execution.execute(args);
+      if (output != null) stdout.writeln(output);
+    } on Exception catch (exception) {
+      stderr.writeln(exception);
+      exitCode = 1;
+    }
+  }
+}
+
+final class _Execution {
   final HelpFormatter _helpFormatter;
 
   final CommandRegistry _registry;
@@ -170,10 +195,7 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
 
   final List<Command>? commands;
 
-  final ReturnType Function(dynamic) writeOut;
-  final ReturnType Function(dynamic) writeErr;
-
-  _Executor(Executor factory, this.writeOut, this.writeErr)
+  _Execution(Executor factory)
     : _helpFormatter = factory.helpFormatter ?? MambaHelpFormatter(),
       _context = factory.context ?? MambaContext(),
       _defaultSubCommandPath = factory.defaultCommandPath,
@@ -192,113 +214,50 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     _assignCompletionRegistryMap(commands, registryMap);
   }
 
-  @override
-  Future<ReturnType> execute(List<String> args) async {
-    final enteredPersistentHooks = <PersistentHookRunner>[];
-    HookRunner? enteredHook;
-    MambaReadContext? context;
-    ParsedPositionals parsedPositionals = (
-      singles: null,
-      repeated: null,
-      variadic: null,
+  Future<String?> execute(List<String> args) async {
+    final executionArguments = _argumentsWithDefaultCommands(args);
+    final parsed = Parser(_registry).parse(executionArguments);
+    final commandPath = parsed.$1;
+    final positionals = parsed.$2;
+    final inputs = parsed.$3;
+    final trailingArguments = parsed.$4;
+    final commandPathCommands = _commandsForPath(commandPath);
+    final command = commandPathCommands.lastOrNull;
+    final selectedRegistry = _registry
+        .registryForArguments(executionArguments)
+        .withInheritedInputs();
+    if (parsed.help || command == null) {
+      return _helpFormatter.format(selectedRegistry);
+    }
+
+    final context = MambaReadContext(_context);
+    final options = (
+      stringOptions: inputs.stringOptions,
+      intOptions: inputs.intOptions,
+      doubleOptions: inputs.doubleOptions,
     );
-    ParsedSingleOptions options = (
-      stringOptions: null,
-      intOptions: null,
-      doubleOptions: null,
-    );
-    Object? output;
-    Exception? primaryException;
-    Error? primaryError;
-    Object? primaryThrowable;
-
-    try {
-      final executionArguments = _argumentsWithDefaultCommands(args);
-      final parsed = Parser(_registry).parse(executionArguments);
-      final commandPath = parsed.$1;
-      final positionals = parsed.$2;
-      final inputs = parsed.$3;
-      final trailingArguments = parsed.$4;
-      final commandPathCommands = _commandsForPath(commandPath);
-      final command = commandPathCommands.lastOrNull;
-      final selectedRegistry = _registry
-          .registryForArguments(executionArguments)
-          .withInheritedInputs();
-      if (parsed.help || command == null) {
-        output = _helpFormatter.format(selectedRegistry);
-      } else {
-        context = MambaReadContext(_context);
-        parsedPositionals = positionals;
-        options = (
-          stringOptions: inputs.stringOptions,
-          intOptions: inputs.intOptions,
-          doubleOptions: inputs.doubleOptions,
-        );
-        for (final hook
-            in commandPathCommands.whereType<PersistentHookRunner>()) {
-          await hook.prePersistentRun(_context, positionals, options);
-          enteredPersistentHooks.add(hook);
-        }
-        if (command case final HookRunner hook) {
-          final standardInput = await _readStandardInput();
-          await hook.preRun(standardInput, context, positionals, options);
-          enteredHook = hook;
-        }
-        output = await command.run(positionals, inputs, trailingArguments);
+    final persistentHooks = commandPathCommands
+        .whereType<PersistentHookRunner>()
+        .toList();
+    for (final hook in persistentHooks) {
+      await hook.prePersistentRun(_context, positionals, options);
+    }
+    if (command case final HookRunner hook) {
+      final standardInput = await _readStandardInput();
+      await hook.preRun(standardInput, context, positionals, options);
+      final output = await command.run(positionals, inputs, trailingArguments);
+      await hook.postRun(context);
+      for (final persistentHook in persistentHooks.reversed) {
+        await persistentHook.postPersistentRun(_context, positionals, options);
       }
-    } on Error catch (error) {
-      primaryError = error;
-    } on Exception catch (error) {
-      primaryException = error;
-    } catch (error) {
-      primaryThrowable = error;
+      return output;
     }
 
-    final cleanupFailures = <Object>[];
-    Future<void> clean(FutureOr<void> Function() callback) async {
-      try {
-        await callback();
-      } catch (error) {
-        // Preserve every cleanup failure immediately in callback order.
-        cleanupFailures.add(error);
-      }
+    final output = await command.run(positionals, inputs, trailingArguments);
+    for (final persistentHook in persistentHooks.reversed) {
+      await persistentHook.postPersistentRun(_context, positionals, options);
     }
-
-    if (enteredHook != null && context != null) {
-      await clean(() => enteredHook!.postRun(context!));
-    }
-    for (final hook in enteredPersistentHooks.reversed) {
-      await clean(
-        () => hook.postPersistentRun(_context, parsedPositionals, options),
-      );
-    }
-
-    // Non-Exception failures remain outside the recoverable result boundary,
-    // but every cleanup diagnostic remains available in cleanup order.
-    if (primaryError != null ||
-        primaryThrowable != null ||
-        cleanupFailures.any((failure) => failure is! Exception)) {
-      throw MambaExecutionError(
-        primaryFailure: primaryError ?? primaryThrowable ?? primaryException,
-        cleanupFailures: cleanupFailures,
-      );
-    }
-    if (cleanupFailures.isNotEmpty) {
-      return writeErr(
-        MambaExecutionException(
-          primaryFailure: primaryException,
-          cleanupFailures: cleanupFailures.cast<Exception>(),
-        ),
-      );
-    }
-    if (primaryException != null) {
-      return writeErr(
-        primaryException is MambaException
-            ? primaryException
-            : MambaException(primaryException.toString()),
-      );
-    }
-    return writeOut(output);
+    return output;
   }
 
   void _assignCompletionRegistryMap(
