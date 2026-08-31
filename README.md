@@ -500,13 +500,15 @@ state.
 ## Registry maps and completion integrations
 
 `CommandRegistry.toMap()` exports built-in help, regular-expression patterns,
-paired groups, typed accessor leaves, explicit completion values, defaults,
-and inherited inputs.
+paired groups, typed accessor leaves, choice values, defaults, and inherited
+inputs.
 `RegistryMap` deep-copies and freezes this integration boundary, validates its
 semantic invariants, and reports malformed maps as `MambaIntegrationException`.
 Only canonical typed accessor maps are accepted.
 
 Carapace completion does not assume that arbitrary strings are file paths.
-Choice completions are emitted for ordinary and paired options. String inputs
-can provide explicit `completions` metadata; regexes and unbounded numeric
-inputs do not produce guessed completion ranges.
+Choice completions are emitted for ordinary and paired options, positionals,
+and variadics. Regex-backed and numeric inputs do not supply completion values
+or produce guessed completion ranges. Carapace can represent variant members as
+exclusive but cannot require one of them, so required variant descriptions
+retain that parser-enforced requirement.

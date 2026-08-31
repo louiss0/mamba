@@ -260,9 +260,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     if (positionals != null) {
       for (final positionalValue in positionals.values) {
         final positional = _map(positionalValue);
-        final choices = _stringList(positional['choices']);
-        final completions = _stringList(positional['completions']);
-        final values = choices.isNotEmpty ? choicePairs(choices) : completions;
+        final values = choicePairs(_stringList(positional['choices']));
         final times = positional['repeatable'] == true
             ? positional['times'] as int? ?? 0
             : 0;
@@ -277,11 +275,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       for (final entry in options.entries) {
         final option = _map(entry.value);
         switch (option['valueType']) {
-          case 'string':
-            final completions = _stringList(option['completions']);
-            if (completions.isNotEmpty) {
-              flagChoices[entry.key] = completions;
-            }
           case 'choice':
             flagChoices[entry.key] = _stringList(option['choices']);
         }
@@ -292,9 +285,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     final dashAnyChoices = <String>[];
     final variadic = _mapOrNull(command['variadic']);
     if (variadic != null) {
-      final choices = _stringList(variadic['choices']);
-      final completions = _stringList(variadic['completions']);
-      final values = choices.isNotEmpty ? choices : completions;
+      final values = _stringList(variadic['choices']);
       if (values.isNotEmpty && variadic['repeatable'] == true) {
         dashAnyChoices.addAll(values);
       } else if (values.isNotEmpty) {
@@ -305,11 +296,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
       final value = accessor.value;
       switch (value['valueType']) {
-        case 'string':
-          final completions = _stringList(value['completions']);
-          if (completions.isNotEmpty) {
-            flagChoices[accessor.path] = completions;
-          }
         case 'choice':
           flagChoices[accessor.path] = _stringList(value['choices']);
       }

@@ -267,6 +267,25 @@ void main() {
       );
     });
 
+    test('reports an invalid first mandatory repeated positional value', () {
+      final subject = parser(
+        mandatoryPositionals: [
+          RepeatedStringPositional('files', regExp: RegExp(r'^\\w+\\.txt$')),
+        ],
+      );
+
+      expect(
+        () => subject.parse(['notes.md']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            contains('Invalid value for positional files at 0'),
+          ),
+        ),
+      );
+    });
+
     test(
       'collects available values for a discretionary repeated positional',
       () {
@@ -1014,10 +1033,9 @@ void main() {
       expect(result.help, isTrue);
       expect(result.$3, isNotNull);
       expect(result.$3.stringOptions, isEmpty);
-      expect(
-        () => subject.parse(['--help', 'missing']),
-        throwsA(isA<MambaCommandNotFoundException>()),
-      );
+      final unknownTarget = subject.parse(['--help', 'missing']);
+      expect(unknownTarget.$1, isEmpty);
+      expect(unknownTarget.help, isTrue);
     });
 
     test('keeps equals signs after the first inline separator', () {

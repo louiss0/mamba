@@ -114,7 +114,7 @@ void main() {
       expect(result, isA<MambaSuccessResult>());
       expect(
         _withoutAnsi((result as MambaSuccessResult).output!),
-        startsWith('run'),
+        startsWith('mamba run'),
       );
     });
 
@@ -136,7 +136,7 @@ void main() {
       expect(result, isA<MambaSuccessResult>());
       final output = (result as MambaSuccessResult).output;
       expect(output, isNotNull);
-      expect(_withoutAnsi(output!), startsWith('run'));
+      expect(_withoutAnsi(output!), startsWith('mamba run'));
     });
   });
 
@@ -184,16 +184,38 @@ void main() {
       );
     });
 
-    test('ordinary global help selects a group default command', () async {
-      final executor = Executor('mamba', 'A command-line application.', [
-        _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['serve']),
-      ]).fake();
+    test(
+      'help targets the explicitly named group before its default',
+      () async {
+        final executor = Executor('mamba', 'A command-line application.', [
+          _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['serve']),
+        ]).fake();
 
-      final result = await executor.execute(['group', '--help']);
+        final result = await executor.execute(['group', '--help']);
+
+        expect(result, isA<MambaSuccessResult>());
+        expect(
+          (result as MambaSuccessResult).output,
+          contains('mamba group  \'A default command group.\''),
+        );
+      },
+    );
+
+    test('root help targets the root before its default', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        [_Command('run')],
+        defaultCommandPath: ['run'],
+      ).fake();
+
+      final result = await executor.execute(['--help']);
 
       expect(result, isA<MambaSuccessResult>());
-      expect((result as MambaSuccessResult).output, contains('serve'));
-      expect(result.output, contains('A test command.'));
+      expect(
+        (result as MambaSuccessResult).output,
+        contains('mamba  \'A command-line application.\''),
+      );
     });
 
     test('runs child hooks when a group selects its default', () async {

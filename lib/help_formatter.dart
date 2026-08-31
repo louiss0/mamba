@@ -156,7 +156,7 @@ final class MambaHelpFormatter extends HelpFormatter {
         .map((positional) => positional.string)
         .join(' ');
     final commandLine =
-        '${registry.name}${positionals.isEmpty ? '' : ' $positionalExpression'}';
+        '${registry.fullPath.join(' ')}${positionals.isEmpty ? '' : ' $positionalExpression'}';
 
     buffer.writeln(
       MambaColors.primary("$commandLine  '${registry.shortDescription}'"),

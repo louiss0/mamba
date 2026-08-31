@@ -22,8 +22,8 @@ registered input must use inline `--option=value` syntax.
 
 ## Completion metadata
 
-Carapace no longer invents numeric ranges. Add explicit `completions` values to
-string inputs when completion suggestions are desired.
+String inputs no longer accept `completions`. Use a choice input when values
+form a finite completion domain. Carapace does not invent numeric ranges.
 
 # Migrating to 0.3.0
 

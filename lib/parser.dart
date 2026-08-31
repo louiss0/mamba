@@ -275,7 +275,7 @@ class Parser {
         offset += inputLength;
         continue;
       }
-      if (helpRequested && token.startsWith('-')) {
+      if (helpRequested) {
         offset++;
         continue;
       }
@@ -837,6 +837,12 @@ class Parser {
             collected.add(defaultValue);
           }
           if (collected.isEmpty && isMandatory) {
+            if (index < values.length &&
+                !_isValidPositionalValue(positional, values[index])) {
+              throw MambaParseException(
+                'Invalid value for positional ${positional.name} at $index after the command',
+              );
+            }
             throw MambaParseException(
               'The ${positional.name} is required at $index after this command',
             );

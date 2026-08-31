@@ -285,11 +285,8 @@ name: "from-map"
 description: "A map-defined command."
 persistentflags:
   -f, --force: ""
-  --retries!=: "Retry attempts."
-completion:
-  flag:
-    retries:
-      - "\$carapace.number.Range({start: -10, end: 10})"'''),
+  -h, --help: "Show this help message."
+  --retries!=: "Retry attempts."'''),
       );
     });
 
@@ -414,10 +411,7 @@ completion:
                           AccessorListOption(
                             'client',
                             options: [
-                              AccessorStringOption(
-                                'token',
-                                completions: ['access-token'],
-                              ),
+                              AccessorStringOption('token'),
                               AccessorIntOption('timeout'),
                             ],
                           ),
@@ -444,8 +438,6 @@ completion:
           contains('--cloud.provider.credentials.region?=: ""'),
           contains('--cloud.provider.credentials.oauth.client.token?=: ""'),
           contains('--cloud.provider.credentials.oauth.client.timeout?=: ""'),
-          contains('cloud.provider.credentials.oauth.client.token:'),
-          contains('- "access-token"'),
         ),
       );
     });
@@ -1197,24 +1189,6 @@ completion:
       });
     });
 
-    test('emits explicit string completion metadata', () {
-      final registry = specRegistry(
-        options: [
-          StringOption(
-            'pattern',
-            regex: RegExp(r'\S+'),
-            completions: ['one', 'two'],
-          ),
-        ],
-      );
-
-      final spec = convertSpec(RegistryMap(registry.toMap()));
-
-      expect(spec, contains('pattern:'));
-      expect(spec, contains('- "one"'));
-      expect(spec, contains('- "two"'));
-    });
-
     group("numeric options", () {
       test("int options no longer invent a bounded completion range", () {
         final registry = specRegistry(options: [IntOption('retries')]);
@@ -1418,7 +1392,7 @@ commands:
               'manage containers',
               inheritedFlags: [BooleanFlag('force', short: 'f')],
               inheritedOptions: [IntOption('retries', short: 'r')],
-              flags: [BooleanFlag('force', short: 'F')],
+              flags: [BooleanFlag('local-force', short: 'F')],
               options: [IntOption('retries', short: 'R')],
             ),
           ],
@@ -1436,12 +1410,10 @@ commands:
     description: "manage containers"
     flags:
       -h, --help: "Show this help message."
-      -F, --force: ""
+      -F, --local-force: ""
       -R, --retries?=: ""
-    completion:
-      flag:
-        retries:
-          - "\$carapace.number.Range({start: -10, end: 10})"
+    persistentflags:
+      -f, --force: ""
     commands:
       - name: "list"
         description: "list containers"

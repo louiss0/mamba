@@ -2361,6 +2361,56 @@ void main() {
       );
     });
 
+    test('synthesizes canonical help and rejects caller redefinitions', () {
+      final map = RegistryMap({'name': 'tool', 'description': 'Tool command.'});
+      expect((map.map['flags'] as Map)['help']['short'], 'h');
+      expect(
+        () => RegistryMap({
+          'name': 'tool',
+          'description': 'Tool command.',
+          'flags': {
+            'help': {
+              'short': 'h',
+              'default': true,
+              'negatable': false,
+              'hidden': false,
+              'description': 'Show this help message.',
+            },
+          },
+        }),
+        throwsA(isA<MambaIntegrationException>()),
+      );
+    });
+
+    test('rejects local and persistent cross-kind collisions', () {
+      expect(
+        () => RegistryMap({
+          'name': 'tool',
+          'description': 'Tool command.',
+          'flags': {
+            'help': {
+              'short': 'h',
+              'default': false,
+              'negatable': false,
+              'hidden': false,
+              'description': 'Show this help message.',
+            },
+            'color': {'hidden': false, 'description': null},
+          },
+          'persistentOptions': {
+            'color': {
+              'short': null,
+              'required': false,
+              'hidden': false,
+              'description': null,
+              'valueType': 'string',
+            },
+          },
+        }),
+        throwsA(isA<MambaIntegrationException>()),
+      );
+    });
+
     test('rejects synthesized negated flag collisions', () {
       expect(
         () => CommandRegistry.create(

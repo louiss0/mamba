@@ -199,6 +199,7 @@ final class CommandRegistry {
     final ownPublishedOptions = group?.inheritedOptions;
     _validateGlobalFlagOverrides(inheritedFlags, ownPublishedFlags);
     _validateGlobalFlagOverrides(inheritedFlags, command.flags);
+    _validateGlobalFlagOverrides(ownPublishedFlags, command.flags);
     final publishedFlags = _mergeByName(inheritedFlags, ownPublishedFlags);
     final publishedOptions = _mergeByName(
       inheritedOptions,
@@ -442,10 +443,6 @@ final class CommandRegistry {
       'valueType': _mapOptionValueType(input),
       if (input is RegExpValidated)
         'pattern': (input as RegExpValidated).regex.pattern,
-      if (input case CompletionSuggestions(
-        :final completions?,
-      ) when completions.isNotEmpty)
-        'completions': [...completions],
     };
   }
 
@@ -495,10 +492,6 @@ final class CommandRegistry {
       'repeatable': true,
       'times': positional.times,
     },
-    if (positional case CompletionSuggestions(
-      :final completions?,
-    ) when completions.isNotEmpty)
-      'completions': [...completions],
   };
 
   static Map<String, dynamic> _mapVariadic(Variadic variadic) {
@@ -516,11 +509,6 @@ final class CommandRegistry {
     };
     if (variadic is RepeatedChoiceVariadic) {
       map['repeatable'] = true;
-    }
-    if (variadic case CompletionSuggestions(
-      :final completions?,
-    ) when completions.isNotEmpty) {
-      map['completions'] = [...completions];
     }
     return map;
   }
@@ -544,10 +532,6 @@ final class CommandRegistry {
           'valueType': 'string',
           'description': description,
           'pattern': accessor.regex.pattern,
-          if (accessor case CompletionSuggestions(
-            :final completions?,
-          ) when completions.isNotEmpty)
-            'completions': [...completions],
         },
         AccessorIntOption(:final description) => {
           'kind': 'value',
@@ -687,6 +671,7 @@ final class CommandRegistry {
     discretionaryPositionals: discretionaryPositionals,
     variadic: variadic,
     accessors: accessors,
+    parent: parent,
     childRegistries: commandRegistries,
   );
 
@@ -711,7 +696,7 @@ final class CommandRegistry {
         offset += inputLength;
         continue;
       }
-      if (helpRequested && token.startsWith('-')) {
+      if (helpRequested) {
         offset++;
         continue;
       }

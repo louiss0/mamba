@@ -343,6 +343,9 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
   }
 
   List<String> _argumentsWithDefaultCommands(List<String> args) {
+    // Help describes the command path the user explicitly named. Defaults are
+    // dispatch behavior, not an implicit rewrite of that help target.
+    if (_containsHelpFlag(args)) return args;
     var arguments = _argumentsWithRootDefaultCommand(args);
     final appliedGroupDefaults = <GroupCommand>{};
     while (true) {
@@ -442,6 +445,14 @@ final class _Executor<ReturnType> implements MambaExecutor<ReturnType> {
     }
     return true;
   }
+
+  bool _containsHelpFlag(Iterable<String> args) => args.any(
+    (token) =>
+        token == '--help' ||
+        (token.startsWith('-') &&
+            !token.startsWith('--') &&
+            token.substring(1).contains('h')),
+  );
 
   bool _isRootCommand(String name) =>
       _registry.commandRegistries?.any((command) => command.name == name) ==

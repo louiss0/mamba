@@ -29,17 +29,6 @@ mixin ChoiceValidated<T extends Enum> {
   List<T> get choices;
 }
 
-/// Exposes explicit completion values for integration converters.
-///
-/// Carapace conversion does not infer suggestions from validation regexes or
-/// numeric ranges; inputs that want completion values declare them explicitly
-/// through this interface.
-mixin CompletionSuggestions {
-  /// Values a completion generator may suggest; `null` when the input
-  /// declares none.
-  List<String>? get completions;
-}
-
 List<T>? _copyList<T>(List<T>? items) =>
     items == null ? null : List.unmodifiable(items);
 
@@ -59,17 +48,9 @@ class Positional extends NamedInput with RegExpValidated {
   RegExp get regex => _regExp;
 }
 
-final class NormalPositional extends Positional with CompletionSuggestions {
-  NormalPositional(
-    super.name, {
-    super.description,
-    RegExp? regExp,
-    List<String>? completions,
-  }) : completions = _copyList(completions),
-       super(regex: regExp);
-
-  @override
-  final List<String>? completions;
+final class NormalPositional extends Positional {
+  NormalPositional(super.name, {super.description, RegExp? regExp})
+    : super(regex: regExp);
 }
 
 final class ChoicePositional<T extends Enum> extends Positional
@@ -94,23 +75,14 @@ sealed class Variadic extends NamedInput {
   const Variadic(String name, {String? description}) : super(name, description);
 }
 
-final class NormalVariadic extends Variadic
-    with RegExpValidated, CompletionSuggestions {
+final class NormalVariadic extends Variadic with RegExpValidated {
   final RegExp regExp;
 
-  NormalVariadic(
-    super.name, {
-    super.description,
-    RegExp? regExp,
-    List<String>? completions,
-  }) : regExp = regExp ?? RegExpValidated.anyToken,
-       completions = _copyList(completions);
+  NormalVariadic(super.name, {super.description, RegExp? regExp})
+    : regExp = regExp ?? RegExpValidated.anyToken;
 
   @override
   RegExp get regex => regExp;
-
-  @override
-  final List<String>? completions;
 }
 
 final class ChoiceVariadic<T extends Enum> extends Variadic
@@ -278,22 +250,12 @@ sealed class PairOption extends NamedInput {
 }
 
 /// A regex-validated string companion in a paired option registration.
-final class PairStringOption extends PairOption
-    with RegExpValidated, CompletionSuggestions {
-  PairStringOption(
-    super.name, {
-    RegExp? regex,
-    super.short,
-    super.description,
-    List<String>? completions,
-  }) : regex = regex ?? RegExp(r'\S+'),
-       completions = _copyList(completions);
+final class PairStringOption extends PairOption with RegExpValidated {
+  PairStringOption(super.name, {RegExp? regex, super.short, super.description})
+    : regex = regex ?? RegExp(r'\S+');
 
   @override
   final RegExp regex;
-
-  @override
-  final List<String>? completions;
 }
 
 /// An integer companion in a paired option registration.
@@ -330,21 +292,16 @@ sealed class RepeatablePairOption extends PairOption {
 
 /// A repeatable string companion in a paired option registration.
 final class RepeatablePairStringOption extends RepeatablePairOption
-    with RegExpValidated, CompletionSuggestions {
+    with RegExpValidated {
   RepeatablePairStringOption(
     super.name, {
     RegExp? regex,
     super.short,
     super.description,
-    List<String>? completions,
-  }) : regex = regex ?? RegExp(r'\S+'),
-       completions = _copyList(completions);
+  }) : regex = regex ?? RegExp(r'\S+');
 
   @override
   final RegExp regex;
-
-  @override
-  final List<String>? completions;
 }
 
 /// A repeatable integer companion in a paired option registration.
@@ -373,8 +330,7 @@ sealed class SingleOption extends Option {
 }
 
 /// A single string option validated by [regex].
-final class StringOption extends SingleOption
-    with RegExpValidated, CompletionSuggestions {
+final class StringOption extends SingleOption with RegExpValidated {
   StringOption(
     super.name, {
     required this.regex,
@@ -382,14 +338,10 @@ final class StringOption extends SingleOption
     super.description,
     super.required,
     super.hidden,
-    List<String>? completions,
-  }) : completions = _copyList(completions);
+  });
 
   @override
   final RegExp regex;
-
-  @override
-  final List<String>? completions;
 }
 
 /// A single option that accepts a signed decimal integer.
@@ -448,7 +400,7 @@ sealed class RepeatableOption extends Option {
 
 /// A repeatable string option validated by [regex].
 final class RepeatableStringOption extends RepeatableOption
-    with RegExpValidated, CompletionSuggestions {
+    with RegExpValidated {
   RepeatableStringOption(
     super.name, {
     super.required = false,
@@ -456,15 +408,10 @@ final class RepeatableStringOption extends RepeatableOption
     super.short,
     super.description,
     super.hidden,
-    List<String>? completions,
-  }) : regex = regex ?? RegExp(r'\S+'),
-       completions = _copyList(completions);
+  }) : regex = regex ?? RegExp(r'\S+');
 
   @override
   final RegExp regex;
-
-  @override
-  final List<String>? completions;
 }
 
 /// A repeatable option that accepts signed decimal integers.
@@ -522,22 +469,14 @@ final class AccessorListOption extends AccessorOption {
 
 /// A regex-validated string leaf in a dotted accessor path.
 final class AccessorStringOption extends AccessorPrimitiveOption
-    with RegExpValidated, CompletionSuggestions {
-  AccessorStringOption(
-    super.name, {
-    super.description,
-    RegExp? regex,
-    List<String>? completions,
-  }) : _regExp = regex ?? RegExp(r'\S+'),
-       completions = _copyList(completions);
+    with RegExpValidated {
+  AccessorStringOption(super.name, {super.description, RegExp? regex})
+    : _regExp = regex ?? RegExp(r'\S+');
 
   final RegExp _regExp;
 
   @override
   RegExp get regex => _regExp;
-
-  @override
-  final List<String>? completions;
 }
 
 /// An integer leaf in a dotted accessor path.
@@ -834,9 +773,46 @@ extension type RegistryMap._(Map<String, dynamic> map) {
   RegistryMap(Map<String, dynamic> map) : this._(_parse(map));
 
   static Map<String, dynamic> _parse(Map<String, dynamic> map) {
+    // Validate the caller's original map first so diagnostics preserve the
+    // malformed value rather than an implementation-added help entry.
     _parseCommand(map, '');
-    return _freezeMap(map);
+    final normalizedMap = _withBuiltInHelp(map);
+    _parseCommand(normalizedMap, '');
+    return _freezeMap(normalizedMap);
   }
+
+  /// Makes parser-owned help metadata available to every map-defined command.
+  /// Callers cannot omit or redefine behavior that the parser always owns.
+  static Map<String, dynamic> _withBuiltInHelp(Map<String, dynamic> command) {
+    final normalized = Map<String, dynamic>.from(command);
+    final flags = normalized['flags'];
+    if (flags == null) {
+      normalized['flags'] = {'help': _builtInHelpMap()};
+    } else if (flags is Map) {
+      normalized['flags'] = {
+        ...Map<Object?, Object?>.from(flags),
+        if (!flags.containsKey('help')) 'help': _builtInHelpMap(),
+      };
+    }
+    final commands = normalized['commands'];
+    if (commands is Map) {
+      normalized['commands'] = {
+        for (final entry in commands.entries)
+          entry.key: entry.value is Map
+              ? _withBuiltInHelp(Map<String, dynamic>.from(entry.value))
+              : entry.value,
+      };
+    }
+    return normalized;
+  }
+
+  static Map<String, dynamic> _builtInHelpMap() => {
+    'short': 'h',
+    'default': false,
+    'negatable': false,
+    'hidden': false,
+    'description': 'Show this help message.',
+  };
 }
 
 void _parseCommand(Map<Object?, Object?> value, String path) {
@@ -973,6 +949,77 @@ void _validateCommandSemantics(Map<String, Object?> command, String path) {
       }
     }
   }
+  // Local options may replace persistent options of the same name, but every
+  // other local/persistent name collision is ambiguous in the live registry.
+  final localOptions = command['options'] is Map
+      ? _stringMap(command['options'], _joinRegistryPath(path, 'options'))
+      : const <String, Object?>{};
+  final persistentOptions = command['persistentOptions'] is Map
+      ? _stringMap(
+          command['persistentOptions'],
+          _joinRegistryPath(path, 'persistentOptions'),
+        )
+      : const <String, Object?>{};
+  final persistentFlags = command['persistentFlags'] is Map
+      ? _stringMap(
+          command['persistentFlags'],
+          _joinRegistryPath(path, 'persistentFlags'),
+        )
+      : const <String, Object?>{};
+  final localFlags = command['flags'] is Map
+      ? _stringMap(command['flags'], _joinRegistryPath(path, 'flags'))
+      : const <String, Object?>{};
+  for (final name in localNames.intersection(persistentNames)) {
+    if (localOptions.containsKey(name) && persistentOptions.containsKey(name)) {
+      continue;
+    }
+    _invalid(name, path, 'collides between local and persistent inputs');
+  }
+  Map<String, String> shortNames(Map<String, Object?> inputs) => {
+    for (final entry in inputs.entries)
+      if (_map(entry.value, path)['short'] case final String short)
+        short: entry.key,
+  };
+  final localShortNames = shortNames({...localFlags, ...localOptions});
+  final persistentShortNames = shortNames({
+    ...persistentFlags,
+    ...persistentOptions,
+  });
+  for (final short in localShorts.intersection(persistentShorts)) {
+    if (localShortNames[short] == persistentShortNames[short]) continue;
+    _invalid(
+      short,
+      path,
+      'collides between local and persistent short aliases',
+    );
+  }
+
+  // Every map represents the live built-in help flag exactly, rather than a
+  // caller-defined approximation of parser-owned behavior.
+  final help = localFlags['help'];
+  const helpDescription = 'Show this help message.';
+  if ((help != null && help is! Map) ||
+      persistentFlags.containsKey('help') ||
+      (help is Map &&
+          (_map(help, _joinRegistryPath(path, 'flags.help'))['short'] != 'h' ||
+              _map(help, _joinRegistryPath(path, 'flags.help'))['default'] !=
+                  false ||
+              _map(help, _joinRegistryPath(path, 'flags.help'))['negatable'] !=
+                  false ||
+              _map(help, _joinRegistryPath(path, 'flags.help'))['hidden'] !=
+                  false ||
+              _map(
+                    help,
+                    _joinRegistryPath(path, 'flags.help'),
+                  )['description'] !=
+                  helpDescription))) {
+    _invalid(
+      help,
+      _joinRegistryPath(path, 'flags.help'),
+      'must be the canonical built-in help flag',
+    );
+  }
+
   // A negatable boolean flag also accepts --no-<name>; that synthesized
   // spelling belongs to the command token namespace and must not collide
   // with another registered input.
@@ -1160,7 +1207,6 @@ void _parseOption(Map<String, Object?> value, String path) {
     'default',
     'pairedOptions',
     'pattern',
-    'completions',
   };
   _validateProperties(value, path, {
     ...requiredProperties,
@@ -1229,12 +1275,6 @@ void _parseOption(Map<String, Object?> value, String path) {
         'must not be declared for pair options',
       );
     }
-  }
-  if (value.containsKey('completions')) {
-    _parseNonEmptyStringList(
-      value['completions'],
-      _joinRegistryPath(path, 'completions'),
-    );
   }
   if (value.containsKey('pattern')) {
     _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
@@ -1333,24 +1373,12 @@ void _parsePositional(Map<String, Object?> value, String path) {
   if (value.containsKey('pattern')) {
     _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
   }
-  if (value.containsKey('completions')) {
-    _parseNonEmptyStringList(
-      value['completions'],
-      _joinRegistryPath(path, 'completions'),
-    );
-  }
 }
 
 void _parseVariadic(Object? value, String path) {
   final variadic = _map(value, path);
   const requiredProperties = {'description'};
-  const optionalProperties = {
-    'choices',
-    'default',
-    'repeatable',
-    'pattern',
-    'completions',
-  };
+  const optionalProperties = {'choices', 'default', 'repeatable', 'pattern'};
   _validateProperties(variadic, path, {
     ...requiredProperties,
     ...optionalProperties,
@@ -1384,12 +1412,6 @@ void _parseVariadic(Object? value, String path) {
   }
   if (variadic.containsKey('pattern')) {
     _expectString(variadic['pattern'], _joinRegistryPath(path, 'pattern'));
-  }
-  if (variadic.containsKey('completions')) {
-    _parseNonEmptyStringList(
-      variadic['completions'],
-      _joinRegistryPath(path, 'completions'),
-    );
   }
 }
 
@@ -1443,7 +1465,6 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
         'choices',
         'default',
         'pattern',
-        'completions',
       };
       const requiredProperties = {'kind', 'valueType', 'description'};
       _validateProperties(value, path, properties, requiredProperties);
@@ -1465,12 +1486,6 @@ void _parseTypedAccessor(Map<String, Object?> value, String path) {
       }
       if (value.containsKey('pattern')) {
         _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
-      }
-      if (value.containsKey('completions')) {
-        _parseNonEmptyStringList(
-          value['completions'],
-          _joinRegistryPath(path, 'completions'),
-        );
       }
       if (value.containsKey('default')) {
         final defaultPath = _joinRegistryPath(path, 'default');
