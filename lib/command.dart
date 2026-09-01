@@ -381,17 +381,18 @@ sealed class SingleOption extends Option {
 
 /// A single string option validated by [regex].
 final class StringOption extends SingleOption with RegExpValidated {
+  final RegExp _regex;
   StringOption(
     super.name, {
-    required this.regex,
+    RegExp? regex,
     super.short,
     super.description,
     super.required,
     super.hidden,
-  });
+  }) : _regex = regex ?? RegExpValidated.anyToken;
 
   @override
-  final RegExp regex;
+  RegExp get regex => _regex;
 }
 
 /// A single option that accepts a signed decimal integer.
