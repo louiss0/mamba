@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/registry.dart';
 import 'package:yaml_writer/yaml_writer.dart';
 
 /// Converts a validated [RegistryMap] into an integration-specific artifact.
@@ -13,8 +13,8 @@ abstract class RegistryMapConverter {
   String convert();
 }
 
-class BashConverter extends RegistryMapConverter {
-  BashConverter(super.registryMap);
+class BashCompletionConverter extends RegistryMapConverter {
+  BashCompletionConverter(super.registryMap);
 
   @override
   String convert() {
@@ -22,8 +22,8 @@ class BashConverter extends RegistryMapConverter {
   }
 }
 
-class ZshConverter extends RegistryMapConverter {
-  ZshConverter(super.registryMap);
+class ZshCompletionConverter extends RegistryMapConverter {
+  ZshCompletionConverter(super.registryMap);
 
   @override
   String convert() {
@@ -31,8 +31,8 @@ class ZshConverter extends RegistryMapConverter {
   }
 }
 
-class FishConverter extends RegistryMapConverter {
-  FishConverter(super.registryMap);
+class FishCompletionConverter extends RegistryMapConverter {
+  FishCompletionConverter(super.registryMap);
 
   @override
   String convert() {
