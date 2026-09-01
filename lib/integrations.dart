@@ -13,6 +13,33 @@ abstract class RegistryMapConverter {
   String convert();
 }
 
+class BashConverter extends RegistryMapConverter {
+  BashConverter(super.registryMap);
+
+  @override
+  String convert() {
+    return "";
+  }
+}
+
+class ZshConverter extends RegistryMapConverter {
+  ZshConverter(super.registryMap);
+
+  @override
+  String convert() {
+    return "";
+  }
+}
+
+class FishConverter extends RegistryMapConverter {
+  FishConverter(super.registryMap);
+
+  @override
+  String convert() {
+    return "";
+  }
+}
+
 /// Converts a [RegistryMap] into a Carapace completion spec.
 ///
 /// The map carries all input semantics needed to reproduce the complete
