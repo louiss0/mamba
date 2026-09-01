@@ -238,7 +238,7 @@ final class _Execution {
         commands: factory.commands,
       ),
       commands = List.unmodifiable(factory.commands) {
-    final registryMap = RegistryMap(_registry.toMap());
+    final registryMap = _registry.toMap();
     _assignCompletionRegistryMap(commands, registryMap);
   }
 
