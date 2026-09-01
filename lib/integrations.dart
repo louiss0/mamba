@@ -13,8 +13,8 @@ abstract class RegistryMapConverter {
   String convert();
 }
 
-class BashCompletionConverter extends RegistryMapConverter {
-  BashCompletionConverter(super.registryMap);
+class ToBashCompletionConverter extends RegistryMapConverter {
+  ToBashCompletionConverter(super.registryMap);
 
   @override
   String convert() {
@@ -22,8 +22,8 @@ class BashCompletionConverter extends RegistryMapConverter {
   }
 }
 
-class ZshCompletionConverter extends RegistryMapConverter {
-  ZshCompletionConverter(super.registryMap);
+class ToZshCompletionConverter extends RegistryMapConverter {
+  ToZshCompletionConverter(super.registryMap);
 
   @override
   String convert() {
@@ -31,8 +31,8 @@ class ZshCompletionConverter extends RegistryMapConverter {
   }
 }
 
-class FishCompletionConverter extends RegistryMapConverter {
-  FishCompletionConverter(super.registryMap);
+class ToFishCompletionConverter extends RegistryMapConverter {
+  ToFishCompletionConverter(super.registryMap);
 
   @override
   String convert() {
