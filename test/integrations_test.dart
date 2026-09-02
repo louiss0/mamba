@@ -41,6 +41,9 @@ CommandRegistry specRegistry({
 String convertSpec(RegistryMap registryMap) =>
     CarapaceSpecConverter(registryMap).convert();
 
+String convertBash(RegistryMap registryMap) =>
+    ToBashCompletionConverter(registryMap).convert();
+
 /// Compares specs after dropping trailing whitespace, obsolete numeric-range
 /// expectations, and the final newline.
 Matcher equalsYaml(String expected) => predicate<String>(
@@ -193,7 +196,142 @@ String nestedExpectation({
 void main() {
   group("ToFishCompletionConverter", () {});
   group("ToZshCompletionConverter", () {});
-  group("ToBashCompletionConverter", () {});
+  group('ToBashCompletionConverter', () {
+    test('places root flags and typed options in reusable global tables', () {
+      final completion = convertBash(
+        specRegistry(
+          flags: [
+            BooleanFlag('force', short: 'f'),
+            BooleanFlag('color', negatable: true),
+            CountFlag('verbose'),
+          ],
+          options: [
+            StringOption('name', short: 'n'),
+            IntOption('retries'),
+            DoubleOption('ratio'),
+            RepeatableStringOption('include'),
+            RepeatableIntOption('attempt'),
+            RepeatableDoubleOption('weight'),
+            ChoiceOption<_Format>('format', choices: _Format.values),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        allOf([
+          contains('# Global inputs for spec'),
+          contains("  '-f'"),
+          contains("  '--color'"),
+          contains("  '--no-color'"),
+          contains("  '--verbose'"),
+          contains('_spec_format_values=(\n  \'json\'\n  \'yaml\'\n)'),
+          contains("['--format']='_spec_format_values'"),
+          contains("['-n']='_spec_name_values'"),
+          contains('declare -A _spec_options=('),
+          endsWith('complete -F _spec_completion spec\n'),
+        ]),
+      );
+    });
+
+    test('creates nested handlers before their alias case dispatchers', () {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand(
+                'set',
+                'Set configuration.',
+                aliases: ['s'],
+                flags: [
+                  BooleanFlag('force', short: 'f'),
+                  BooleanFlag('color', negatable: true),
+                  CountFlag('verbose'),
+                ],
+                options: [
+                  StringOption('name', short: 'n'),
+                  IntOption('retries'),
+                  DoubleOption('ratio'),
+                  RepeatableStringOption('include'),
+                  RepeatableIntOption('attempt'),
+                  RepeatableDoubleOption('weight'),
+                  ChoiceOption<_Format>('format', choices: _Format.values),
+                ],
+                mandatoryPositionals: [
+                  ChoicePositional<_Level>('level', choices: _Level.values),
+                ],
+                discretionaryPositionals: [
+                  RepeatedChoicePositional<_Sku>(
+                    'sku',
+                    choices: _Sku.values,
+                    times: 2,
+                  ),
+                ],
+                variadic: RepeatedChoiceVariadic<_Format>(
+                  'extra',
+                  choices: _Format.values,
+                ),
+                accessors: [
+                  AccessorListOption(
+                    'server',
+                    options: [
+                      AccessorStringOption('host'),
+                      AccessorIntOption('port'),
+                      AccessorDoubleOption('ratio'),
+                    ],
+                  ),
+                  AccessorListOption(
+                    'profile',
+                    options: [
+                      AccessorListOption(
+                        'cloud',
+                        options: [
+                          AccessorListOption(
+                            'credentials',
+                            options: [
+                              AccessorChoiceOption<_Format>(
+                                'format',
+                                choices: _Format.values,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  AccessorListOption(
+                    'database',
+                    options: [AccessorStringOption('url')],
+                  ),
+                ],
+              ),
+            ], 'Configure the application.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        allOf([
+          contains('_spec_config_set_completion()'),
+          contains('_spec_config_completion()'),
+          contains('set|s)'),
+          contains('_spec_config_set_server_host_values=('),
+          contains("['--server.host']='_spec_config_set_server_host_values'"),
+          contains(
+            "['--profile.cloud.credentials.format']='_spec_config_set_profile_cloud_credentials_format_values'",
+          ),
+          contains('0)'),
+          contains('1|2|3)'),
+          contains("_mamba_filter \"\$current\" 'debug' 'info'"),
+          contains("_mamba_filter \"\$current\" 'basic' 'standard'"),
+          endsWith('complete -F _spec_completion spec\n'),
+        ]),
+      );
+      expect(
+        completion.indexOf('_spec_config_set_completion()'),
+        lessThan(completion.indexOf('set|s)')),
+      );
 
   group('CarapaceSpecWriter', () {
     test('writes development specs below the system temp directory', () {

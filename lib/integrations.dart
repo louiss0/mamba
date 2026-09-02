@@ -13,12 +13,314 @@ abstract class RegistryMapConverter {
   String convert();
 }
 
-class ToBashCompletionConverter extends RegistryMapConverter {
+final class ToBashCompletionConverter extends RegistryMapConverter {
   ToBashCompletionConverter(super.registryMap);
 
   @override
   String convert() {
-    return "";
+    final root = registryMap.map;
+    final rootName = root['name'] as String;
+    final lines = <String>[_filterFunction()];
+
+    _writeInputTables(lines, root, [rootName], global: true);
+    final commands = _mapOrNull(root['commands']);
+    if (commands != null) {
+      for (final command in commands.values) {
+        _writeCommand(lines, _map(command), [rootName]);
+      }
+    }
+    _writeRootHandler(lines, root, [rootName]);
+    lines.add('complete -F _${_identifier(rootName)}_completion $rootName');
+    return '${lines.join('\n')}\n';
+  }
+
+  String _filterFunction() => r'''_mamba_filter() {
+  local current="$1"
+  shift
+  COMPREPLY=()
+
+  local candidate
+  for candidate in "$@"; do
+    if [[ "$candidate" == "$current"* ]]; then
+      COMPREPLY+=("$candidate")
+    fi
+  done
+}
+''';
+
+  void _writeRootHandler(
+    List<String> lines,
+    Map<String, dynamic> root,
+    List<String> path,
+  ) {
+    final function = '_${_pathIdentifier(path)}_completion';
+    lines.addAll([
+      '$function() {',
+      r'  local current="${COMP_WORDS[COMP_CWORD]}"',
+      r'  local previous="${COMP_WORDS[COMP_CWORD - 1]}"',
+      '',
+      r'  case "$previous" in',
+      ..._variadicCases(root, '    '),
+      ..._valueCases(root, path, '    '),
+      '  esac',
+      '',
+      r'  case "$current" in',
+      '    -*)',
+      '      _mamba_filter "\$current" ${_arrayValues(_variable(path, 'flags'))} ${_arrayKeys(_variable(path, 'options'))}',
+      '      ;;',
+      '    *)',
+      ..._commandCases(root, path, '      '),
+      '      _complete_${_pathIdentifier(path)}_positional "\$current"',
+      '      ;;',
+      '  esac',
+      '}',
+      '',
+    ]);
+    _writePositionalHandler(lines, root, path);
+  }
+
+  void _writeCommand(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> parentPath,
+  ) {
+    final path = [...parentPath, command['name'] as String];
+    _writeInputTables(lines, command, path);
+    final children = _mapOrNull(command['commands']);
+    if (children != null) {
+      for (final child in children.values) {
+        _writeCommand(lines, _map(child), path);
+      }
+    }
+
+    final function = '_${_pathIdentifier(path)}_completion';
+    final rootPath = [parentPath.first];
+    lines.addAll([
+      '$function() {',
+      r'  local current="${COMP_WORDS[COMP_CWORD]}"',
+      r'  local previous="${COMP_WORDS[COMP_CWORD - 1]}"',
+      '',
+      r'  case "$previous" in',
+      ..._variadicCases(command, '    '),
+      ..._valueCases(command, path, '    '),
+      '  esac',
+      '',
+      r'  case "$current" in',
+      '    -*)',
+      '      _mamba_filter "\$current" ${_arrayValues(_variable(rootPath, 'flags'))} ${_arrayValues(_variable(path, 'flags'))} ${_arrayKeys(_variable(rootPath, 'options'))} ${_arrayKeys(_variable(path, 'options'))}',
+      '      ;;',
+      '    *)',
+      ..._commandCases(command, path, '      '),
+      '      _complete_${_pathIdentifier(path)}_positional "\$current"',
+      '      ;;',
+      '  esac',
+      '}',
+      '',
+    ]);
+    _writePositionalHandler(lines, command, path);
+  }
+
+  void _writeInputTables(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> path, {
+    bool global = false,
+  }) {
+    _writeDescription(lines, command['description'] as String);
+    final flags = _mapOrNull(command['flags']) ?? const <String, dynamic>{};
+    final options = {
+      ...?_mapOrNull(command['options']),
+      ...?_mapOrNull(command['persistentOptions']),
+      for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
+        accessor.path: accessor.value,
+    };
+    final visibleFlags = <String>[];
+    for (final entry in flags.entries) {
+      final flag = _map(entry.value);
+      if (flag['hidden'] == true) continue;
+      final short = flag['short'] as String?;
+      if (short != null) visibleFlags.add('-$short');
+      visibleFlags.add('--${entry.key}');
+      if (flag['negatable'] == true) visibleFlags.add('--no-${entry.key}');
+    }
+    final flagVariable = _variable(path, 'flags');
+    lines.addAll([
+      '${global ? '# Global inputs for ${path.first}' : '# Inputs for ${path.skip(1).join(' ')}'}',
+      '$flagVariable=(',
+      for (final flag in visibleFlags) '  ${_quote(flag)}',
+      ')',
+      '',
+    ]);
+
+    final optionVariable = _variable(path, 'options');
+    final optionEntries = <String>[];
+    for (final entry in options.entries) {
+      final option = _map(entry.value);
+      if (option['hidden'] == true) continue;
+      final valuesVariable = _variable(path, '${entry.key}_values');
+      final choices = _stringList(option['choices']);
+      lines.addAll([
+        '$valuesVariable=(',
+        for (final choice in choices) '  ${_quote(choice)}',
+        ')',
+        '',
+      ]);
+      optionEntries.add(
+        '  [${_quote('--${entry.key}')}]=${_quote(valuesVariable)}',
+      );
+      if (option['short'] case final String short) {
+        optionEntries.add('  [${_quote('-$short')}]=${_quote(valuesVariable)}');
+      }
+    }
+    lines.addAll(['declare -A $optionVariable=(', ...optionEntries, ')', '']);
+  }
+
+  List<String> _variadicCases(Map<String, dynamic> command, String indent) {
+    final variadic = _mapOrNull(command['variadic']);
+    final choices = variadic == null
+        ? const <String>[]
+        : _stringList(variadic['choices']);
+    if (choices.isEmpty) return const [];
+    return [
+      '${indent}--)',
+      '$indent  _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
+      '$indent  return',
+      '$indent  ;;',
+    ];
+  }
+
+  List<String> _valueCases(
+    Map<String, dynamic> command,
+    List<String> path,
+    String indent,
+  ) {
+    final options = {
+      ...?_mapOrNull(command['options']),
+      ...?_mapOrNull(command['persistentOptions']),
+      for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
+        accessor.path: accessor.value,
+    };
+    return [
+      for (final entry in options.entries)
+        if (_stringList(_map(entry.value)['choices']).isNotEmpty) ...[
+          '$indent${_optionPattern(entry)})',
+          '$indent  _mamba_filter "\$current" ${_arrayValues(_variable(path, '${entry.key}_values'))}',
+          '$indent  return',
+          '$indent  ;;',
+        ],
+    ];
+  }
+
+  List<String> _commandCases(
+    Map<String, dynamic> command,
+    List<String> path,
+    String indent,
+  ) {
+    final commands = _mapOrNull(command['commands']);
+    if (commands == null) return const [];
+    return [
+      r'      case "$current" in',
+      for (final child in commands.values) ...[
+        '${indent}${([_map(child)['name'] as String, ..._stringList(_map(child)['aliases'])]).join('|')})',
+        '$indent  _${_pathIdentifier([...path, _map(child)['name'] as String])}_completion',
+        '$indent  ;;',
+      ],
+      '$indent*)',
+      '$indent  _mamba_filter "\$current" ${[
+        for (final child in commands.values) ...[_quote(_map(child)['name'] as String), for (final alias in _stringList(_map(child)['aliases'])) _quote(alias)],
+      ].join(' ')}',
+      '$indent  ;;',
+      '      esac',
+    ];
+  }
+
+  void _writePositionalHandler(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final positionals = _mapOrNull(command['positionals']);
+    final function = '_complete_${_pathIdentifier(path)}_positional';
+    lines.addAll(['$function() {', r'  local current="$1"']);
+    if (positionals != null) {
+      lines.addAll([
+        r'  local index=$((COMP_CWORD - 1))',
+        r'  case "$index" in',
+      ]);
+      var index = 0;
+      for (final positional in positionals.values) {
+        final map = _map(positional);
+        final choices = _stringList(map['choices']);
+        final times = map['repeatable'] == true ? map['times'] as int : 0;
+        if (choices.isNotEmpty) {
+          final indexes = [
+            for (var slot = 0; slot <= times; slot++) index + slot,
+          ].join('|');
+          lines.addAll([
+            '    $indexes)',
+            '      _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
+            '      ;;',
+          ]);
+        }
+        index += times + 1;
+      }
+      lines.addAll(['  esac']);
+    }
+    lines.addAll(['}', '']);
+  }
+
+  void _writeDescription(List<String> lines, String description) {
+    lines.addAll([
+      for (final line in description.split('\n'))
+        line.isEmpty ? '#' : '# $line',
+    ]);
+  }
+
+  String _optionPattern(MapEntry<String, dynamic> entry) {
+    final short = _map(entry.value)['short'] as String?;
+    return '--${entry.key}${short == null ? '' : '|-$short'}';
+  }
+
+  String _arrayValues(String variable) => r'"${' + variable + r'[@]}"';
+
+  String _arrayKeys(String variable) => r'"${!' + variable + r'[@]}"';
+
+  String _variable(List<String> path, String suffix) =>
+      '_${_pathIdentifier(path)}_${_identifier(suffix)}';
+
+  String _pathIdentifier(Iterable<String> path) =>
+      path.map(_identifier).join('_');
+
+  String _identifier(String value) =>
+      value.replaceAll('-', '_').replaceAll('.', '_');
+
+  String _quote(String value) => "'${value.replaceAll("'", "'\\\"'\\\"")}'";
+
+  Map<String, dynamic> _map(Object? value) =>
+      Map<String, dynamic>.from(value as Map);
+
+  Map<String, dynamic>? _mapOrNull(Object? value) =>
+      value is Map ? _map(value) : null;
+
+  List<String> _stringList(Object? value) => switch (value) {
+    List() => value.cast<String>(),
+    _ => const [],
+  };
+
+  Iterable<({String path, Map<String, dynamic> value})> _accessorLeaves(
+    Map<String, dynamic>? accessors, {
+    String? parentPath,
+  }) sync* {
+    if (accessors == null) return;
+    for (final entry in accessors.entries) {
+      final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
+      final value = _map(entry.value);
+      if (value['kind'] == 'group') {
+        yield* _accessorLeaves(_mapOrNull(value['options']), parentPath: path);
+      } else {
+        yield (path: path, value: value);
+      }
+    }
   }
 }
 
