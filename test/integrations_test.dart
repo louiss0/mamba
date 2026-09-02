@@ -486,6 +486,215 @@ void main() {
         completion.indexOf('_spec_config_set_completion()'),
         lessThan(completion.indexOf('set|s)')),
       );
+    });
+
+    test('lists only visible short inputs for a short prefix', () {
+      final completion = convertBash(
+        specRegistry(
+          flags: [
+            BooleanFlag('force', short: 'f'),
+            BooleanFlag('secret', short: 's', hidden: true),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains("  '-f'"));
+      expect(completion, isNot(contains("  '-s'")));
+    });
+
+    test('lists visible long inputs for a long prefix', () {
+      final completion = convertBash(
+        specRegistry(flags: [BooleanFlag('force')]).toMap(),
+      );
+
+      expect(completion, contains("  '--force'"));
+      expect(completion, contains('case "\$current" in\n    -*)'));
+    });
+
+    test('emits the negated spelling only for negatable flags', () {
+      final completion = convertBash(
+        specRegistry(
+          flags: [BooleanFlag('color', negatable: true), BooleanFlag('force')],
+        ).toMap(),
+      );
+
+      expect(completion, contains("  '--no-color'"));
+      expect(completion, isNot(contains('--no-force')));
+    });
+
+    test('routes every command alias through its canonical handler', () {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestCommand('commit', 'Commit changes.', aliases: ['ci']),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains('commit|ci)'));
+      expect(completion, contains('_spec_commit_completion'));
+    });
+
+    test('checks option values before command routing', () {
+      final completion = convertBash(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          commands: [TestCommand('json', 'Print JSON.')],
+        ).toMap(),
+      );
+
+      expect(
+        completion.indexOf('    --format)'),
+        lessThan(completion.indexOf('      json)')),
+      );
+    });
+
+    test('maps choice options to their finite value array', () {
+      final completion = convertBash(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+        ).toMap(),
+      );
+
+      expect(completion, contains("['--format']='_spec_format_values'"));
+      expect(completion, contains("  'json'"));
+      expect(completion, contains("  'yaml'"));
+    });
+
+    test('does not invent values for a negative integer option', () {
+      final completion = convertBash(
+        specRegistry(options: [IntOption('offset')]).toMap(),
+      );
+
+      expect(completion, contains('_spec_offset_values=(\n)'));
+      expect(completion, isNot(contains('_mamba_integer_range')));
+    });
+
+    test('does not invent a finite completion list for double bounds', () {
+      final completion = convertBash(
+        specRegistry(
+          options: [DoubleOption('ratio', min: 0.0, max: 1.0)],
+        ).toMap(),
+      );
+
+      expect(completion, contains('_spec_ratio_values=(\n)'));
+      expect(completion, isNot(contains("  '0.0'")));
+    });
+
+    test(
+      'keeps an unconstrained positional slot before a choice positional',
+      () {
+        final completion = convertBash(
+          specRegistry(
+            mandatoryPositionals: [
+              NormalPositional('path'),
+              ChoicePositional<_Format>('format', choices: _Format.values),
+            ],
+          ).toMap(),
+        );
+
+        expect(completion, contains('    1)'));
+        expect(
+          completion,
+          contains("_mamba_filter \"\$current\" 'json' 'yaml'"),
+        );
+      },
+    );
+
+    test('limits repeated positional choices to times plus one slots', () {
+      final completion = convertBash(
+        specRegistry(
+          mandatoryPositionals: [
+            RepeatedChoicePositional<_Format>(
+              'format',
+              choices: _Format.values,
+              times: 2,
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains('    0|1|2)'));
+      expect(completion, isNot(contains('0|1|2|3)')));
+    });
+
+    test('keeps a completed separator ahead of other value cases', () {
+      final completion = convertBash(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          variadic: ChoiceVariadic<_Level>('extra', choices: _Level.values),
+        ).toMap(),
+      );
+
+      expect(
+        completion.indexOf('    --)'),
+        lessThan(completion.indexOf('    --format)')),
+      );
+    });
+
+    test('emits choices for a single-value variadic', () {
+      final completion = convertBash(
+        specRegistry(
+          variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
+        ).toMap(),
+      );
+
+      expect(completion, contains("_mamba_filter \"\$current\" 'json' 'yaml'"));
+    });
+
+    test('emits choices for a repeated variadic', () {
+      final completion = convertBash(
+        specRegistry(
+          variadic: RepeatedChoiceVariadic<_Format>(
+            'extra',
+            choices: _Format.values,
+          ),
+        ).toMap(),
+      );
+
+      expect(completion, contains('    --)'));
+      expect(completion, contains("_mamba_filter \"\$current\" 'json' 'yaml'"));
+    });
+
+    test('omits hidden inputs while retaining visible input tables', () {
+      final completion = convertBash(
+        specRegistry(
+          flags: [BooleanFlag('internal', hidden: true)],
+          options: [StringOption('token', hidden: true)],
+        ).toMap(),
+      );
+
+      expect(completion, isNot(contains('--internal')));
+      expect(completion, isNot(contains("['--token']")));
+      expect(completion, contains("  '--help'"));
+    });
+
+    test('flattens nested accessor leaves into dotted option keys', () {
+      final completion = convertBash(
+        specRegistry(
+          accessors: [
+            AccessorListOption(
+              'database',
+              options: [
+                AccessorListOption(
+                  'connection',
+                  options: [
+                    AccessorChoiceOption<_Format>(
+                      'format',
+                      choices: _Format.values,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains("['--database.connection.format']"));
+      expect(completion, contains('_spec_database_connection_format_values='));
+    });
+  });
 
   group('CarapaceSpecWriter', () {
     test('writes development specs below the system temp directory', () {
