@@ -324,12 +324,258 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
   }
 }
 
-class ToZshCompletionConverter extends RegistryMapConverter {
+/// Compiles a registry map into a native Zsh completion function.
+final class ToZshCompletionConverter extends RegistryMapConverter {
   ToZshCompletionConverter(super.registryMap);
 
   @override
   String convert() {
-    return "";
+    final root = _map(registryMap.map);
+    final rootName = root['name'] as String;
+    final lines = <String>['#compdef $rootName', ''];
+    _writeCommand(lines, root, [rootName], const {}, const {});
+    lines.add('compdef _${_pathIdentifier([rootName])} $rootName');
+    return '${lines.join('\n')}\n';
+  }
+
+  void _writeCommand(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> path,
+    Map<String, dynamic> inheritedFlags,
+    Map<String, dynamic> inheritedOptions,
+  ) {
+    final flags = {
+      ...inheritedFlags,
+      ...?_mapOrNull(command['persistentFlags']),
+      ...?_mapOrNull(command['flags']),
+    };
+    final options = {
+      ...inheritedOptions,
+      ...?_mapOrNull(command['persistentOptions']),
+      ...?_mapOrNull(command['options']),
+      for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
+        if (!accessor.hidden) accessor.path: accessor.value,
+    };
+    final children = _mapOrNull(command['commands']);
+    if (children != null) {
+      for (final child in children.values) {
+        final childMap = _map(child);
+        _writeCommand(
+          lines,
+          childMap,
+          [...path, childMap['name'] as String],
+          flags,
+          options,
+        );
+      }
+    }
+
+    final function = '_${_pathIdentifier(path)}';
+    lines.addAll(['$function() {']);
+    if (path.length > 1) {
+      lines.addAll([
+        '  local -a words',
+        r'  words=("${words[@]:2}")',
+        '  (( CURRENT -= 1 ))',
+      ]);
+    }
+    if (children != null) {
+      lines.addAll([
+        r'  case "$words[2]" in',
+        for (final child in children.values) ...[
+          '    ${_commandPatterns(_map(child))})',
+          '      _${_pathIdentifier([...path, _map(child)['name'] as String])}',
+          '      return',
+          '      ;;',
+        ],
+        '  esac',
+      ]);
+    }
+    lines.addAll([
+      '  local context state state_descr line',
+      '  typeset -A opt_args',
+      r'  if (( ${words[(I:--)]} )); then',
+      ..._variadicLines(command, '    '),
+      '    return',
+      '  fi',
+      '  _arguments -S \\',
+      ..._argumentSpecs(flags, options, command, children),
+      r'  case $state in',
+    ]);
+    if (children != null) {
+      lines.addAll([
+        '    command)',
+        '      local -a commands',
+        '      commands=(',
+        for (final child in children.values) ..._commandCandidates(_map(child)),
+        '      )',
+        "      _describe 'command' commands",
+        '      ;;',
+      ]);
+    }
+    lines.addAll(['  esac', '}', '']);
+  }
+
+  List<String> _argumentSpecs(
+    Map<String, dynamic> flags,
+    Map<String, dynamic> options,
+    Map<String, dynamic> command,
+    Map<String, dynamic>? children,
+  ) {
+    final specs = <String>[
+      for (final entry in flags.entries)
+        if (_map(entry.value)['hidden'] != true)
+          ..._flagSpecs(entry.key, _map(entry.value)),
+      for (final entry in options.entries)
+        if (_map(entry.value)['hidden'] != true)
+          _optionSpec(entry.key, _map(entry.value)),
+      ..._positionalSpecs(command),
+      if (children != null) "'1:command:->command'",
+      "'*::argument:'",
+    ];
+    return [
+      for (var index = 0; index < specs.length; index++)
+        '    ${specs[index]}${index == specs.length - 1 ? '' : ' \\'}',
+    ];
+  }
+
+  List<String> _flagSpecs(String name, Map<String, dynamic> flag) {
+    final description = _description(flag['description'] as String?);
+    final short = flag['short'] as String?;
+    final repeatable = flag.containsKey('default') ? '' : '*';
+    final primary = short == null
+        ? "'$repeatable--$name[$description]'"
+        : "'$repeatable{-$short,--$name}[$description]'";
+    return [
+      primary,
+      if (flag['negatable'] == true) "'--no-$name[$description]'",
+    ];
+  }
+
+  String _optionSpec(String name, Map<String, dynamic> option) {
+    final repeatable = option['repeatable'] == true ? '*' : '';
+    final short = option['short'] as String?;
+    final spelling = short == null ? '--$name' : '{-$short,--$name}';
+    final valueName = _escape(name);
+    return "'$repeatable$spelling[${_description(option['description'] as String?)}]:$valueName:${_valueAction(option)}'";
+  }
+
+  List<String> _positionalSpecs(Map<String, dynamic> command) {
+    final positionals = _mapOrNull(command['positionals']);
+    if (positionals == null) return const [];
+    final specs = <String>[];
+    var index = 1;
+    for (final entry in positionals.entries) {
+      final positional = _map(entry.value);
+      final repetitions = positional['repeatable'] == true
+          ? positional['times'] as int? ?? 0
+          : 0;
+      for (var count = 0; count <= repetitions; count++) {
+        final optional = positional['required'] == true && count == 0
+            ? ':'
+            : '::';
+        specs.add(
+          "'$index$optional${_escape(entry.key)}:${_valueAction(positional)}'",
+        );
+        index++;
+      }
+    }
+    return specs;
+  }
+
+  List<String> _variadicLines(Map<String, dynamic> command, String indent) {
+    final variadic = _mapOrNull(command['variadic']);
+    if (variadic == null) return ['$indent:'];
+    final choices = _stringList(variadic['choices']);
+    return choices.isEmpty
+        ? ['$indent:']
+        : [
+            "${indent}_values '${_escape(variadic['name'] as String? ?? 'value')}' ${choices.map(_quote).join(' ')}",
+          ];
+  }
+
+  String _valueAction(Map<String, dynamic> value) {
+    final choices = _stringList(value['choices']);
+    if (choices.isNotEmpty) return '(${choices.map(_escape).join(' ')})';
+    final minimum = value['min'] as num?;
+    final maximum = value['max'] as num?;
+    final bounds = [
+      if (minimum != null) '-l $minimum',
+      if (maximum != null) '-m $maximum',
+    ].join(' ');
+    return switch (value['valueType']) {
+      'int' => '_numbers${bounds.isEmpty ? '' : ' $bounds'}',
+      'double' => '_numbers -f${bounds.isEmpty ? '' : ' $bounds'}',
+      _ => '',
+    };
+  }
+
+  String _commandPatterns(Map<String, dynamic> command) => [
+    command['name'] as String,
+    ..._stringList(command['aliases']),
+  ].map(_escape).join('|');
+
+  List<String> _commandCandidates(Map<String, dynamic> command) {
+    final description = _escape(
+      (command['description'] as String).split('\n').first,
+    );
+    return [
+      "        '${_escape(command['name'] as String)}:$description'",
+      for (final alias in _stringList(command['aliases']))
+        "        '${_escape(alias)}:Alias for ${_escape(command['name'] as String)}'",
+    ];
+  }
+
+  String _description(String? value) => _escape(value?.split('\n').first ?? '');
+
+  String _escape(String value) => value
+      .replaceAll(r'\\', r'\\\\')
+      .replaceAll('[', r'\\[')
+      .replaceAll(']', r'\\]')
+      .replaceAll(':', r'\\:')
+      .replaceAll("'", r"'\\''");
+
+  String _quote(String value) => "'${_escape(value)}'";
+
+  String _pathIdentifier(Iterable<String> path) =>
+      path.map(_identifier).join('_');
+
+  String _identifier(String value) =>
+      value.replaceAll('-', '_').replaceAll('.', '_');
+
+  Map<String, dynamic> _map(Object? value) =>
+      Map<String, dynamic>.from(value as Map);
+
+  Map<String, dynamic>? _mapOrNull(Object? value) =>
+      value is Map ? _map(value) : null;
+
+  List<String> _stringList(Object? value) => switch (value) {
+    List() => value.cast<String>(),
+    _ => const [],
+  };
+
+  Iterable<({String path, Map<String, dynamic> value, bool hidden})>
+  _accessorLeaves(
+    Map<String, dynamic>? accessors, {
+    String? parentPath,
+    bool ancestorHidden = false,
+  }) sync* {
+    if (accessors == null) return;
+    for (final entry in accessors.entries) {
+      final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
+      final value = _map(entry.value);
+      final hidden = ancestorHidden || value['hidden'] == true;
+      if (value['kind'] == 'group') {
+        yield* _accessorLeaves(
+          _mapOrNull(value['options']),
+          parentPath: path,
+          ancestorHidden: hidden,
+        );
+      } else {
+        yield (path: path, value: value, hidden: hidden);
+      }
+    }
   }
 }
 

@@ -41,6 +41,9 @@ CommandRegistry specRegistry({
 String convertSpec(RegistryMap registryMap) =>
     CarapaceSpecConverter(registryMap).convert();
 
+String convertZsh(RegistryMap registryMap) =>
+    ToZshCompletionConverter(registryMap).convert();
+
 String convertBash(RegistryMap registryMap) =>
     ToBashCompletionConverter(registryMap).convert();
 
@@ -569,7 +572,382 @@ void main() {
       expect(output, isNot(contains('-l internal.token')));
     });
   });
-  group("ToZshCompletionConverter", () {});
+  group('ToZshCompletionConverter', () {
+    String rootCompletion({
+      List<Flag>? flags,
+      List<Option>? options,
+      List<Command>? commands,
+    }) => convertZsh(
+      specRegistry(flags: flags, options: options, commands: commands).toMap(),
+    );
+
+    test(
+      'renders root flags, typed options, and descriptions as Zsh specs',
+      () {
+        final completion = convertZsh(
+          CommandRegistry.create(
+            'spec',
+            'Root command.',
+            longDescription: 'Additional root details.',
+            flags: [
+              BooleanFlag('force', short: 'f'),
+              BooleanFlag('color', negatable: true),
+              CountFlag('verbose'),
+            ],
+            options: [
+              StringOption('name', short: 'n'),
+              IntOption('retries'),
+              DoubleOption('ratio'),
+              RepeatableStringOption('include'),
+              RepeatableIntOption('attempt'),
+              RepeatableDoubleOption('weight'),
+            ],
+          ).toMap(),
+        );
+
+        expect(
+          completion,
+          allOf([
+            startsWith('#compdef spec'),
+            contains("'{-f,--force}[]'"),
+            contains("'--no-color[]'"),
+            contains("'*--verbose[]'"),
+            contains("'{-n,--name}[]:name:'"),
+            contains("'--retries[]:retries:_numbers'"),
+            contains("'--ratio[]:ratio:_numbers -f'"),
+            contains("'*--include[]:include:'"),
+            contains("'*--attempt[]:attempt:_numbers'"),
+            contains("'*--weight[]:weight:_numbers -f'"),
+            endsWith('compdef _spec spec\n'),
+          ]),
+        );
+      },
+    );
+
+    test('renders nested commands, accessors, choices, and variadics', () {
+      final completion = convertZsh(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand(
+                'set',
+                'Set configuration.\n\nAdditional serving details.',
+                aliases: ['s'],
+                flags: [
+                  BooleanFlag('force', short: 'f'),
+                  BooleanFlag('color', negatable: true),
+                  CountFlag('verbose'),
+                ],
+                options: [
+                  StringOption('name', short: 'n'),
+                  IntOption('retries'),
+                  DoubleOption('ratio'),
+                  RepeatableStringOption('include'),
+                  RepeatableIntOption('attempt'),
+                  RepeatableDoubleOption('weight'),
+                ],
+                accessors: [
+                  AccessorListOption(
+                    'server',
+                    options: [
+                      AccessorStringOption('host'),
+                      AccessorIntOption('port'),
+                      AccessorDoubleOption('ratio'),
+                    ],
+                  ),
+                  AccessorListOption(
+                    'one',
+                    options: [
+                      AccessorListOption(
+                        'two',
+                        options: [AccessorStringOption('three')],
+                      ),
+                    ],
+                  ),
+                  AccessorListOption(
+                    'a',
+                    options: [
+                      AccessorListOption(
+                        'b',
+                        options: [
+                          AccessorListOption(
+                            'c',
+                            options: [
+                              AccessorListOption(
+                                'd',
+                                options: [
+                                  AccessorListOption(
+                                    'e',
+                                    options: [AccessorStringOption('value')],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+                mandatoryPositionals: [
+                  ChoicePositional<_Format>('format', choices: _Format.values),
+                ],
+                discretionaryPositionals: [
+                  RepeatedChoicePositional<_Level>(
+                    'level',
+                    choices: _Level.values,
+                    times: 2,
+                  ),
+                ],
+                variadic: RepeatedChoiceVariadic<_Sku>(
+                  'extra',
+                  choices: _Sku.values,
+                ),
+              ),
+            ], 'Configure the application.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        allOf([
+          contains('_spec_config_set()'),
+          contains('config)'),
+          contains('set|s)'),
+          contains("'set:Set configuration.'"),
+          contains("'s:Alias for set'"),
+          contains("'--server.host[]:server.host:'"),
+          contains("'--server.port[]:server.port:_numbers'"),
+          contains("'--server.ratio[]:server.ratio:_numbers -f'"),
+          contains("'--one.two.three[]:one.two.three:'"),
+          contains("'--a.b.c.d.e.value[]:a.b.c.d.e.value:'"),
+          contains("'1:format:(json yaml)'"),
+          contains("'2::level:(debug info)'"),
+          contains("'4::level:(debug info)'"),
+          contains("_values 'value' 'basic' 'standard'"),
+          endsWith('compdef _spec spec\n'),
+        ]),
+      );
+      expect(
+        completion.indexOf('_spec_config_set()'),
+        lessThan(completion.indexOf('set|s)')),
+      );
+    });
+
+    for (final testCase in [
+      (
+        'emits the compdef header and registration',
+        () => rootCompletion(),
+        allOf(startsWith('#compdef spec'), endsWith('compdef _spec spec\n')),
+      ),
+      (
+        'groups short and long Boolean flags',
+        () => rootCompletion(flags: [BooleanFlag('force', short: 'f')]),
+        contains("'{-f,--force}[]'"),
+      ),
+      (
+        'marks count flags repeatable',
+        () => rootCompletion(flags: [CountFlag('verbose')]),
+        contains("'*--verbose[]'"),
+      ),
+      (
+        'omits hidden flags',
+        () => rootCompletion(flags: [BooleanFlag('secret', hidden: true)]),
+        isNot(contains('--secret')),
+      ),
+      (
+        'renders string option value slots',
+        () => rootCompletion(options: [StringOption('name')]),
+        contains("'--name[]:name:'"),
+      ),
+      (
+        'renders integer option numeric completion',
+        () => rootCompletion(options: [IntOption('retries')]),
+        contains('_numbers'),
+      ),
+      (
+        'renders double option numeric completion',
+        () => rootCompletion(options: [DoubleOption('ratio')]),
+        contains('_numbers -f'),
+      ),
+      (
+        'renders integer minimum and maximum bounds',
+        () => rootCompletion(options: [IntOption('retries', min: 1, max: 10)]),
+        contains('_numbers -l 1 -m 10'),
+      ),
+      (
+        'renders double minimum and maximum bounds',
+        () =>
+            rootCompletion(options: [DoubleOption('ratio', min: .1, max: .9)]),
+        contains('_numbers -f -l 0.1 -m 0.9'),
+      ),
+      (
+        'marks repeatable options',
+        () => rootCompletion(options: [RepeatableStringOption('tag')]),
+        contains("'*--tag[]:tag:'"),
+      ),
+      (
+        'renders choice option values',
+        () => rootCompletion(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+        ),
+        contains('(json yaml)'),
+      ),
+      (
+        'omits hidden options',
+        () => rootCompletion(options: [StringOption('secret', hidden: true)]),
+        isNot(contains('--secret')),
+      ),
+      (
+        'renders command descriptions using their first line',
+        () => rootCompletion(
+          commands: [
+            TestCommand(
+              'serve',
+              'Serve requests.',
+              longDescription: 'Details.',
+            ),
+          ],
+        ),
+        allOf(contains("'serve:Serve requests.'"), isNot(contains('Details.'))),
+      ),
+      (
+        'publishes command candidates through _describe',
+        () =>
+            rootCompletion(commands: [TestCommand('serve', 'Serve requests.')]),
+        contains("_describe 'command' commands"),
+      ),
+      (
+        'publishes aliases and dispatches them to canonical handlers',
+        () => rootCompletion(
+          commands: [
+            TestCommand('serve', 'Serve requests.', aliases: ['s']),
+          ],
+        ),
+        allOf(contains("'s:Alias for serve'"), contains('serve|s)')),
+      ),
+      (
+        'inherits root inputs in descendant handlers',
+        () => rootCompletion(
+          flags: [BooleanFlag('global')],
+          options: [StringOption('profile')],
+          commands: [TestCommand('serve', 'Serve requests.')],
+        ),
+        allOf(
+          contains('_spec_serve()'),
+          contains("'--global[]'"),
+          contains("'--profile[]:profile:'"),
+        ),
+      ),
+      (
+        'flattens accessor leaves',
+        () => convertZsh(
+          specRegistry(
+            commands: [
+              TestCommand(
+                'serve',
+                'Serve requests.',
+                accessors: [
+                  AccessorListOption(
+                    'database',
+                    options: [
+                      AccessorListOption(
+                        'pool',
+                        options: [AccessorIntOption('size')],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ).toMap(),
+        ),
+        contains("'--database.pool.size[]:database.pool.size:_numbers'"),
+      ),
+      (
+        'omits leaves in hidden accessor groups',
+        () => convertZsh(
+          RegistryMap({
+            'name': 'spec',
+            'description': 'spec command',
+            'accessors': {
+              'database': {
+                'kind': 'group',
+                'hidden': true,
+                'description': null,
+                'options': {
+                  'url': {
+                    'kind': 'value',
+                    'description': null,
+                    'valueType': 'string',
+                  },
+                },
+              },
+            },
+          }),
+        ),
+        isNot(contains('--database.url')),
+      ),
+      (
+        'renders negatable Boolean flags',
+        () => rootCompletion(flags: [BooleanFlag('color', negatable: true)]),
+        contains("'--no-color[]'"),
+      ),
+      (
+        'groups short and long option spellings',
+        () => rootCompletion(options: [StringOption('name', short: 'n')]),
+        contains("'{-n,--name}[]:name:'"),
+      ),
+      (
+        'creates nested handlers before dispatching to them',
+        () => rootCompletion(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ),
+        contains('_spec_config_set()'),
+      ),
+      (
+        'expands repeated positional choice slots',
+        () => convertZsh(
+          specRegistry(
+            mandatoryPositionals: [
+              RepeatedChoicePositional<_Level>(
+                'level',
+                choices: _Level.values,
+                times: 2,
+              ),
+            ],
+          ).toMap(),
+        ),
+        allOf(
+          contains("'1:level:(debug info)'"),
+          contains("'3::level:(debug info)'"),
+        ),
+      ),
+      (
+        'offers variadic choices only after the separator',
+        () => convertZsh(
+          specRegistry(
+            variadic: RepeatedChoiceVariadic<_Sku>(
+              'extra',
+              choices: _Sku.values,
+            ),
+          ).toMap(),
+        ),
+        allOf(
+          contains(r'if (( ${words[(I:--)]} )); then'),
+          contains("_values 'value' 'basic' 'standard'"),
+        ),
+      ),
+    ]) {
+      test(testCase.$1, () => expect(testCase.$2(), testCase.$3));
+    }
+  });
+  group("ToBashCompletionConverter", () {});
   group('ToBashCompletionConverter', () {
     test('places root flags and typed options in reusable global tables', () {
       final completion = convertBash(
