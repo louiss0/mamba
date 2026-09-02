@@ -2671,6 +2671,46 @@ completion:
       );
     });
 
+    test('renders every stepped double value through its maximum', () {
+      final registry = specRegistry(
+        options: [DoubleOption('ratio', min: 0, max: 0.3, step: 0.1)],
+      );
+
+      expect(
+        convertSpec(registry.toMap()),
+        contains(r'$carapace.ActionValues(\"0.0\", \"0.1\", \"0.2\", \"0.3\")'),
+      );
+    });
+
+    test('renders stepped values for every double option variant', () {
+      final registry = specRegistry(
+        options: [
+          DoubleOption('single', min: 0, max: 1, step: 0.5),
+          RepeatableDoubleOption('repeated', min: 0, max: 1, step: 0.5),
+        ],
+        pairedOptions: [
+          PairedOptions(
+            options: [
+              PairDoubleOption('pair', min: 0, max: 1, step: 0.5),
+              RepeatablePairDoubleOption(
+                'repeated-pair',
+                min: 0,
+                max: 1,
+                step: 0.5,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final spec = convertSpec(registry.toMap());
+      expect(RegExp(r'\$carapace\.ActionValues').allMatches(spec).length, 4);
+      expect(
+        spec,
+        contains(r'$carapace.ActionValues(\"0.0\", \"0.5\", \"1.0\")'),
+      );
+    });
+
     group("numeric options", () {
       test("int options no longer invent a bounded completion range", () {
         final registry = specRegistry(options: [IntOption('retries')]);

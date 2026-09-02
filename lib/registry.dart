@@ -444,6 +444,7 @@ void _parseOption(Map<String, Object?> value, String path) {
     'pattern',
     'min',
     'max',
+    'step',
   };
   _validateProperties(value, path, {
     ...requiredProperties,
@@ -523,7 +524,8 @@ void _validateNumericRangeProperties(Map<String, Object?> value, String path) {
   final valueType = value['valueType'];
   final min = value['min'];
   final max = value['max'];
-  if (min == null && max == null) return;
+  final step = value['step'];
+  if (min == null && max == null && step == null) return;
   if (valueType != 'int' && valueType != 'double') {
     _invalid(value, path, 'numeric bounds require an int or double value type');
   }
@@ -540,6 +542,43 @@ void _validateNumericRangeProperties(Map<String, Object?> value, String path) {
   }
   if (min is num && max is num && min > max) {
     _invalid(max, _joinRegistryPath(path, 'max'), 'must not be less than min');
+  }
+  if (step == null) return;
+  if (valueType != 'double') {
+    _invalid(
+      step,
+      _joinRegistryPath(path, 'step'),
+      'requires a double value type',
+    );
+  }
+  if (step is! num || !step.isFinite || step <= 0) {
+    _invalid(
+      step,
+      _joinRegistryPath(path, 'step'),
+      'must be a finite number greater than zero',
+    );
+  }
+  if (min is! num || max is! num) {
+    _invalid(
+      step,
+      _joinRegistryPath(path, 'step'),
+      'requires both min and max',
+    );
+  }
+  if (!min.isFinite || !max.isFinite) {
+    _invalid(
+      step,
+      _joinRegistryPath(path, 'step'),
+      'requires finite min and max values',
+    );
+  }
+  final increments = (max - min) / step;
+  if ((increments - increments.round()).abs() > 1e-12) {
+    _invalid(
+      step,
+      _joinRegistryPath(path, 'step'),
+      'must evenly divide the range from $min to $max',
+    );
   }
 }
 
@@ -1365,6 +1404,7 @@ final class CommandRegistry {
         'pattern': (input as RegExpValidated).regex.pattern,
       if (input case NumericRangeValidated(:final min?)) 'min': min,
       if (input case NumericRangeValidated(:final max?)) 'max': max,
+      if (input case NumericStepValidated(:final step?)) 'step': step,
     };
   }
 
@@ -1979,6 +2019,29 @@ final class CommandRegistry {
         throw MambaRegistryError(
           'Minimum $min for ${input.name} must not exceed maximum $max.',
         );
+      }
+      if (input case NumericStepValidated(:final step?)) {
+        if (!step.isFinite || step <= 0) {
+          throw MambaRegistryError(
+            'Step $step for ${input.name} must be greater than zero.',
+          );
+        }
+        if (min == null || max == null) {
+          throw MambaRegistryError(
+            'Step for ${input.name} requires both a minimum and maximum.',
+          );
+        }
+        if (!min.isFinite || !max.isFinite) {
+          throw MambaRegistryError(
+            'Step for ${input.name} requires finite minimum and maximum values.',
+          );
+        }
+        final increments = (max - min) / step;
+        if ((increments - increments.round()).abs() > 1e-12) {
+          throw MambaRegistryError(
+            'Step $step for ${input.name} must evenly divide the range from $min to $max.',
+          );
+        }
       }
     }
   }

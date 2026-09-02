@@ -200,9 +200,10 @@ final class Commit extends Command {
 register one value by name. Strings use their supplied expression; integers and
 doubles select numeric values; choices accept an enum-member name.
 `RepeatableStringOption`, `RepeatableIntOption`, and `RepeatableDoubleOption`
-register accumulating forms. Ordinary options can have a one-letter short
-alias, be required or hidden, and optional choices can have a default enum
-value. Required choice options must receive explicit user input and therefore
+register accumulating forms. Double options also accept inclusive `min` and
+`max` bounds plus an optional positive `step`; a stepped range must reach its
+maximum exactly. Ordinary options can have a one-letter short alias, be
+required or hidden, and optional choices can have a default enum value. Required choice options must receive explicit user input and therefore
 cannot declare defaults.
 
 **Parser.** Options accept `--name value`, `--name=value`, or `-s value`. A
@@ -212,7 +213,8 @@ integers; doubles accept signed decimal integers or fractions. Strings must
 match their full expression. Choices are stored as
 their enum-member names. Repeated values append to typed lists; ordinary
 options retain the last value. Missing required options and invalid values are
-errors; omitted ordinary choice options receive their default when configured.
+errors; stepped doubles must match an increment from their minimum to maximum.
+Omitted ordinary choice options receive their default when configured.
 
 **Help.** Visible entries appear in **Options**. Required entries are bare and
 red; optional entries use dim square brackets. The formatter prints literal
@@ -509,9 +511,9 @@ Only canonical typed accessor maps are accepted.
 Carapace completion does not assume that arbitrary strings are file paths.
 Choice completions are emitted for ordinary and paired options, positionals,
 and variadics. Integer and double options, including repeated and paired
-options, accept optional inclusive `min` and `max` bounds. A complete numeric
-range is emitted as a Carapace range completion. Carapace has no multiplier or
-step setting, so Mamba does not expose one. Regex-backed inputs do not supply
-completion values. Carapace can represent variant members as exclusive but
+options, accept optional inclusive `min` and `max` bounds. A bounded numeric
+range is emitted as a Carapace range completion; a stepped double range is
+instead emitted as every value from its minimum through its maximum. Regex-
+backed inputs do not supply completion values. Carapace can represent variant members as exclusive but
 cannot require one of them, so required variant descriptions retain that
 parser-enforced requirement.

@@ -1311,7 +1311,21 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
           case 'int' || 'double':
             final min = option['min'];
             final max = option['max'];
-            if (min is num && max is num) {
+            final step = option['step'];
+            if (option['valueType'] == 'double' &&
+                min is num &&
+                max is num &&
+                step is num) {
+              flagChoices[entry.key] = [
+                _carapaceActionValues(
+                  _steppedDoubleValues(
+                    min.toDouble(),
+                    max.toDouble(),
+                    step.toDouble(),
+                  ),
+                ),
+              ];
+            } else if (min is num && max is num) {
               flagChoices[entry.key] = [
                 r'$carapace.number.Range({start: '
                     '$min, end: $max})',
@@ -1347,6 +1361,28 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       if (dashChoices.isNotEmpty) 'dash': dashChoices,
       if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
     };
+  }
+
+  String _carapaceActionValues(List<String> values) =>
+      r'$carapace.ActionValues('
+      '${values.map((value) => '"$value"').join(', ')})';
+
+  List<String> _steppedDoubleValues(double min, double max, double step) {
+    final count = ((max - min) / step).round();
+    final decimalPlaces = [min, max, step]
+        .map(
+          (value) =>
+              value.toString().split('.').elementAtOrNull(1)?.length ?? 0,
+        )
+        .fold(0, (current, value) => current > value ? current : value);
+    return [
+      for (var index = 0; index <= count; index++)
+        double.parse(
+          (index == count ? max : min + step * index).toStringAsFixed(
+            decimalPlaces,
+          ),
+        ).toString(),
+    ];
   }
 
   /// Builds the ordered Carapace key for one named input.

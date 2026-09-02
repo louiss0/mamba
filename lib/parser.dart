@@ -609,7 +609,27 @@ class Parser {
     }
     final parsed = double.parse(value);
     _validateNumericRange(parsed, range);
+    _validateNumericStep(parsed, range);
     return parsed;
+  }
+
+  void _validateNumericStep(
+    double value,
+    NumericRangeValidated<double>? range,
+  ) {
+    if (range == null || range is! NumericStepValidated) return;
+    final step = (range as NumericStepValidated).step;
+    final min = range.min;
+    final max = range.max;
+    if (step == null || min == null || max == null) return;
+
+    final increments = (value - min) / step;
+    if ((increments - increments.round()).abs() > 1e-12) {
+      final input = range as NamedInput;
+      throw MambaParseException(
+        'Option --${input.name} must increment by $step from $min to $max (received $value).',
+      );
+    }
   }
 
   void _validateNumericRange<T extends num>(

@@ -1225,6 +1225,23 @@ void main() {
       );
     });
 
+    test('rejects double values that do not match the declared step', () {
+      final subject = parser(
+        options: [DoubleOption('ratio', min: 0, max: 1, step: 0.25)],
+      );
+
+      expect(
+        () => subject.parse(['--ratio', '0.3']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            'Option --ratio must increment by 0.25 from 0.0 to 1.0 (received 0.3).',
+          ),
+        ),
+      );
+    });
+
     test('rejects inverted numeric ranges during registry construction', () {
       expect(
         () => CommandRegistry.create(
@@ -1234,6 +1251,65 @@ void main() {
         ),
         throwsA(isA<MambaRegistryError>()),
       );
+    });
+
+    test('rejects double steps that do not reach the declared maximum', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [DoubleOption('ratio', min: 0, max: 1, step: 0.3)],
+        ),
+        throwsA(
+          isA<MambaRegistryError>().having(
+            (error) => error.message,
+            'message',
+            'Step 0.3 for ratio must evenly divide the range from 0.0 to 1.0.',
+          ),
+        ),
+      );
+    });
+
+    test('rejects non-positive double steps', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [DoubleOption('ratio', min: 0, max: 1, step: 0)],
+        ),
+        throwsA(
+          isA<MambaRegistryError>().having(
+            (error) => error.message,
+            'message',
+            'Step 0.0 for ratio must be greater than zero.',
+          ),
+        ),
+      );
+    });
+
+    test('validates steps for repeatable and paired double options', () {
+      final subject = parser(
+        options: [
+          RepeatableDoubleOption('repeated', min: 0, max: 1, step: 0.5),
+        ],
+        pairedOptions: [
+          PairedOptions(
+            options: [
+              PairDoubleOption('pair', min: 0, max: 1, step: 0.5),
+              RepeatablePairDoubleOption(
+                'repeated-pair',
+                min: 0,
+                max: 1,
+                step: 0.5,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      expectParseError(subject, ['--repeated', '0.25']);
+      expectParseError(subject, ['--pair', '0.25', '--repeated-pair', '0.5']);
+      expectParseError(subject, ['--pair', '0.5', '--repeated-pair', '0.25']);
     });
   });
 

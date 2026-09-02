@@ -36,6 +36,11 @@ mixin NumericRangeValidated<T extends num> {
   T? get max;
 }
 
+/// Exposes the increment used by a stepped double option.
+mixin NumericStepValidated {
+  double? get step;
+}
+
 List<T>? _copyList<T>(List<T>? items) =>
     items == null ? null : List.unmodifiable(items);
 
@@ -283,11 +288,12 @@ final class PairIntOption extends PairOption with NumericRangeValidated<int> {
 
 /// A double companion in a paired option registration.
 final class PairDoubleOption extends PairOption
-    with NumericRangeValidated<double> {
+    with NumericRangeValidated<double>, NumericStepValidated {
   const PairDoubleOption(
     super.name, {
     this.min,
     this.max,
+    this.step,
     super.short,
     super.description,
   });
@@ -296,6 +302,8 @@ final class PairDoubleOption extends PairOption
   final double? min;
   @override
   final double? max;
+  @override
+  final double? step;
 }
 
 /// An enum-choice companion in a paired option registration.
@@ -353,11 +361,12 @@ final class RepeatablePairIntOption extends RepeatablePairOption
 
 /// A repeatable double companion in a paired option registration.
 final class RepeatablePairDoubleOption extends RepeatablePairOption
-    with NumericRangeValidated<double> {
+    with NumericRangeValidated<double>, NumericStepValidated {
   const RepeatablePairDoubleOption(
     super.name, {
     this.min,
     this.max,
+    this.step,
     super.short,
     super.description,
   });
@@ -366,6 +375,8 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption
   final double? min;
   @override
   final double? max;
+  @override
+  final double? step;
 }
 
 /// A non-repeatable option that stores one typed value by name.
@@ -415,11 +426,12 @@ final class IntOption extends SingleOption with NumericRangeValidated<int> {
 
 /// A single option that accepts a signed decimal number.
 final class DoubleOption extends SingleOption
-    with NumericRangeValidated<double> {
+    with NumericRangeValidated<double>, NumericStepValidated {
   const DoubleOption(
     super.name, {
     this.min,
     this.max,
+    this.step,
     super.short,
     super.required,
     super.description,
@@ -430,6 +442,8 @@ final class DoubleOption extends SingleOption
   final double? min;
   @override
   final double? max;
+  @override
+  final double? step;
 }
 
 /// A single option that accepts one registered enum-member name.
@@ -501,11 +515,12 @@ final class RepeatableIntOption extends RepeatableOption
 
 /// A repeatable option that accepts signed decimal numbers.
 final class RepeatableDoubleOption extends RepeatableOption
-    with NumericRangeValidated<double> {
+    with NumericRangeValidated<double>, NumericStepValidated {
   const RepeatableDoubleOption(
     super.name, {
     this.min,
     this.max,
+    this.step,
     super.required = false,
     super.short,
     super.description,
@@ -516,6 +531,8 @@ final class RepeatableDoubleOption extends RepeatableOption
   final double? min;
   @override
   final double? max;
+  @override
+  final double? step;
 }
 
 /// A named leaf or object registered for dotted accessor syntax.
