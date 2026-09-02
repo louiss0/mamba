@@ -201,6 +201,11 @@ void main() {
     String convertFish(CommandRegistry registry) =>
         ToFishCompletionConverter(registry.toMap()).convert();
 
+    String fishDeclarations(String output) => output
+        .split('\n')
+        .where((line) => line.startsWith('complete '))
+        .join('\n');
+
     test('renders root flags, typed options, and a multi-line description', () {
       final output = convertFish(
         CommandRegistry.create(
@@ -224,19 +229,18 @@ void main() {
       );
 
       expect(
-        output,
-        allOf([
-          contains("complete -c spec -s f -l force"),
-          contains('complete -c spec -l no-color'),
-          contains('-s l -l label -r'),
-          contains('-l retries -x'),
-          contains('-l ratio -x'),
-          contains('-l tag -r'),
-          contains('-l port -x'),
-          contains('-l weight -x'),
-          contains('# Completion for spec: Root command.'),
-          isNot(contains('Additional root details.')),
-        ]),
+        fishDeclarations(output),
+        equals('''complete -c spec -s h -l help -d 'Show this help message.'
+complete -c spec -s f -l force
+complete -c spec -l color
+complete -c spec -l no-color
+complete -c spec -l verbose
+complete -c spec -n '__mamba_option_available label l false' -s l -l label -r
+complete -c spec -n '__mamba_option_available retries _ false' -l retries -x
+complete -c spec -n '__mamba_option_available ratio _ false' -l ratio -x
+complete -c spec -n '__mamba_option_available tag _ true' -l tag -r
+complete -c spec -n '__mamba_option_available port _ true' -l port -x
+complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
       );
     });
 
@@ -326,31 +330,38 @@ void main() {
         );
 
         expect(
-          output,
-          allOf([
-            contains("-a 'serve' -d 'Serve requests.'"),
-            contains(
-              "complete -c spec -n '__mamba_at_path spec serve' -s f -l force",
-            ),
-            contains(
-              'complete -c spec -n \'__mamba_at_path spec serve\' -l no-color',
-            ),
-            contains('-s l -l label -r'),
-            contains('-l retries -x'),
-            contains('-l server.host'),
-            contains('-l server.port'),
-            contains('-l server.ratio'),
-            contains('-l one.two.three'),
-            contains('-l a.b.c.d.e.value'),
-            contains("-a 'json yaml'"),
-            contains("-a 'debug info'"),
-            contains("-a 'basic standard'"),
-            contains('__mamba_after_double_dash'),
-            isNot(contains('Additional serving details.')),
-          ]),
+          fishDeclarations(output),
+          equals(
+            '''complete -c spec -s h -l help -d 'Show this help message.'
+complete -c spec -f -a 'serve' -d 'Serve requests.'
+complete -c spec -n '__mamba_at_path spec serve' -s h -l help -d 'Show this help message.'
+complete -c spec -n '__mamba_at_path spec serve' -s f -l force
+complete -c spec -n '__mamba_at_path spec serve' -l color
+complete -c spec -n '__mamba_at_path spec serve' -l no-color
+complete -c spec -n '__mamba_at_path spec serve' -l verbose
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available label l false' -s l -l label -r
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available retries _ false' -l retries -x
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available ratio _ false' -l ratio -x
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available tag _ true' -l tag -r
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available port _ true' -l port -x
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available weight _ true' -l weight -x
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available server.host _ false' -l server.host -r
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available server.port _ false' -l server.port -x
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available server.ratio _ false' -l server.ratio -x
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available one.two.three _ false' -l one.two.three -r
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available a.b.c.d.e.value _ false' -l a.b.c.d.e.value -r
+complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 0' -f -a 'json yaml'
+complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 1' -f -a 'debug info'
+complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 2' -f -a 'debug info'
+complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 3' -f -a 'debug info'
+complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' -f -a 'basic standard'
+'''
+                .trim(),
+          ),
         );
       },
     );
+
     test('escapes Fish-special text in descriptions and choices', () {
       final output = convertFish(
         specRegistry(
