@@ -1517,6 +1517,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     final lines = <String>[
       ..._header(rootName, root['description'] as String),
       ..._native(root),
+      ..._tableInitializers(),
       ..._recurse(root, ['root']),
       ..._runtimeHelpers(),
       ..._register(rootName),
@@ -1570,28 +1571,42 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     ];
   }
 
+  List<String> _tableInitializers() => [
+    r'$script:MambaInputs = @{}',
+    r'$script:MambaChildren = @{}',
+    r'$script:MambaPositionalSlots = @{}',
+    r'$script:MambaValueHandlers = @{}',
+    r'$script:MambaVariadicHandlers = @{}',
+    '',
+  ];
+
   // ---------------------------------------------------------------------
   // Per-path emission
   // ---------------------------------------------------------------------
 
-  /// Per-path input set combining local flags, local options, accessor
-  /// leaves flattened into dotted spellings, and the built-in help.
+  /// Per-path input set combining inherited and local inputs, accessor leaves
+  /// flattened into dotted spellings, and the built-in help.
   List<String> _nativeInputSets(
     Map<String, dynamic> command,
     List<String> path,
   ) {
     final entries = <String>[];
-    // Always include --help and -h first.
+    // Always include --help and -h first. The registry's help entry is
+    // skipped below so it cannot be emitted twice.
     entries.addAll(_flagInputsFor('help', {
       'description': 'Show this help message.',
       'short': 'h',
     }, help: true));
-    for (final entry
-        in (_mapOrNull(command['flags']) ?? const <String, dynamic>{}).entries) {
+
+    final flags = {
+      ...?_mapOrNull(command['persistentFlags']),
+      ...?_mapOrNull(command['flags']),
+    };
+    for (final entry in flags.entries) {
       if (entry.key == 'help') continue;
       final flag = _map(entry.value);
       if (flag['hidden'] == true) continue;
-      // Count flag is identified by absence of 'default' / 'negatable'.
+      // Count flags omit the boolean-only default and negatable properties.
       final isCount = !flag.containsKey('default');
       entries.add(_row('--${entry.key}', flag, isFlag: true, isCount: isCount));
       if (flag['short'] case final String short) {
@@ -1601,8 +1616,12 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
         entries.add(_row('--no-${entry.key}', flag, isFlag: true));
       }
     }
-    for (final entry
-        in (_mapOrNull(command['options']) ?? const <String, dynamic>{}).entries) {
+
+    final options = {
+      ...?_mapOrNull(command['persistentOptions']),
+      ...?_mapOrNull(command['options']),
+    };
+    for (final entry in options.entries) {
       final option = _map(entry.value);
       if (option['hidden'] == true) continue;
       final isRepeatable = option['repeatable'] == true;
@@ -1734,7 +1753,10 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     List<String> path,
   ) {
     final lines = <String>[];
-    final options = _mapOrNull(command['options']) ?? const <String, dynamic>{};
+    final options = {
+      ...?_mapOrNull(command['persistentOptions']),
+      ...?_mapOrNull(command['options']),
+    };
     for (final entry in options.entries) {
       final option = _map(entry.value);
       if (option['hidden'] == true) continue;
@@ -1775,7 +1797,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       "\$script:MambaVariadicHandlers[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
       ' Choices = @(${choices.map(_psQuote).join(', ')});'
       ' Repeatable = ${_psBool(variadic['repeatable'] == true)}'
-      ' },',
+      ' }',
     ];
   }
 
@@ -1816,6 +1838,19 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     return $true
 }
 
+function Find-MambaInput {
+    param(
+        [Parameter(Mandatory)][string]$PathKey,
+        [Parameter(Mandatory)][string]$Spelling
+    )
+    $inputs = $script:MambaInputs[$PathKey]
+    if ($null -eq $inputs) { return $null }
+    foreach ($input in $inputs) {
+        if ($input.Spelling -ceq $Spelling) { return $input }
+    }
+    return $null
+}
+
 function Resolve-MambaState {
     param(
         [Parameter(Mandatory)][string]$WordToComplete,
@@ -1833,22 +1868,40 @@ function Resolve-MambaState {
         if (-not (Update-MambaStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
         $isLastElement = ($i -eq $elements.Count - 1)
         $tokenText = $el.Extent.Text
-        $isWord = $isLastElement -and ($el.Extent.EndOffset -le $CursorPosition)
+        # The last AST element is the completion word only while the cursor
+        # is inside it or immediately after it; a trailing space means the
+        # last element has already been supplied.
+        $isWord = $isLastElement -and ($el.Extent.EndOffset -ge $CursorPosition)
+
+        if ($isWord) { continue }
+
+        # A value belongs to the preceding option even when it looks like a
+        # command, another option, or the variadic separator.
+        if ($null -ne $pendingValueOwner) {
+            $usedNonRepeatable[$pendingValueOwner] = $true
+            $pendingValueOwner = $null
+            continue
+        }
 
         if ($afterDoubleDash) {
-            if (-not $isWord) { $positionalIndex = $positionalIndex + 1 }
+            $positionalIndex = $positionalIndex + 1
             continue
         }
 
         if ($tokenText -eq '--') {
             $afterDoubleDash = $true
-            $pendingValueOwner = $null
             continue
         }
 
-        if ($isWord) { continue }
-
-        $canonical = $script:MambaNativeCommands[$tokenText]
+        $pathKey = $resolved -join '.'
+        $children = @($script:MambaChildren[$pathKey])
+        $canonical = $null
+        foreach ($child in $children) {
+            if ($child.Name -ceq $tokenText) {
+                $canonical = $script:MambaNativeCommands[$child.Name]
+                break
+            }
+        }
         if ($null -ne $canonical) {
             $resolved += ,$canonical
             $pendingValueOwner = $null
@@ -1859,12 +1912,15 @@ function Resolve-MambaState {
             $tail = $tokenText.Substring(2)
             if ($tail.Contains('=')) {
                 $eqIndex = $tail.IndexOf('=')
-                $pendingValueOwner = '--' + $tail.Substring(0, $eqIndex)
+                $owner = '--' + $tail.Substring(0, $eqIndex)
+                $input = Find-MambaInput -PathKey $pathKey -Spelling $owner
+                if ($null -ne $input -and -not $input.IsFlag) {
+                    $usedNonRepeatable[$owner] = $true
+                }
                 continue
             }
-            $pathKey = $resolved -join '.'
-            $key = "$pathKey.$tokenText"
-            if ($script:MambaValueHandlers.ContainsKey($key)) {
+            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            if ($null -ne $input -and -not $input.IsFlag) {
                 $pendingValueOwner = $tokenText
                 continue
             }
@@ -1874,19 +1930,12 @@ function Resolve-MambaState {
         }
 
         if ($tokenText.StartsWith('-', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 1) {
-            $pathKey = $resolved -join '.'
-            $key = "$pathKey.$tokenText"
-            if ($script:MambaValueHandlers.ContainsKey($key)) {
+            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            if ($null -ne $input -and -not $input.IsFlag) {
                 $pendingValueOwner = $tokenText
                 continue
             }
             $usedNonRepeatable[$tokenText] = $true
-            continue
-        }
-
-        if ($null -ne $pendingValueOwner) {
-            $usedNonRepeatable[$pendingValueOwner] = $true
-            $pendingValueOwner = $null
             continue
         }
 

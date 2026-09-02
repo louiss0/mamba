@@ -2189,6 +2189,705 @@ complete -F _spec_completion spec
     });
   });
 
+  group('ToPowerShellCompletionConverter', () {
+    test(
+      'places root flags and typed options in a complete PowerShell script',
+      () {
+        final completion = convertPs(
+          specRegistry(
+            flags: [
+              BooleanFlag('force', short: 'f'),
+              BooleanFlag('color', negatable: true),
+              CountFlag('verbose'),
+            ],
+            options: [
+              StringOption('name', short: 'n'),
+              IntOption('retries'),
+              DoubleOption('ratio'),
+              RepeatableStringOption('include'),
+              RepeatableIntOption('attempt'),
+              RepeatableDoubleOption('weight'),
+              ChoiceOption<_Format>('format', choices: _Format.values),
+            ],
+          ).toMap(),
+        );
+
+        expect(
+          completion,
+          equals(r'''<#
+ PowerShell completion for spec.
+ Generated; do not edit by hand.
+
+ spec command
+#>
+$script:MambaNativeCommands = @{
+    'root' = 'root'
+}
+
+$script:MambaInputs = @{}
+$script:MambaChildren = @{}
+$script:MambaPositionalSlots = @{}
+$script:MambaValueHandlers = @{}
+$script:MambaVariadicHandlers = @{}
+
+$script:MambaInputs['root'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true },
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true },
+    [PSCustomObject]@{ Spelling = '--force'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '-f'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--color'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--no-color'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--verbose'; Description = $null; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--name'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '-n'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--retries'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--ratio'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--format'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--include'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--attempt'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--weight'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false },
+    )
+$script:MambaChildren['root'] = @(
+    )
+$script:MambaPositionalSlots['root'] = @{}
+$script:MambaValueHandlers['root.--format'] = @('json', 'yaml')
+function Update-MambaStateObject {
+    param(
+        [Parameter(Mandatory)][int]$CursorPosition,
+        [Parameter(Mandatory)]$Element
+    )
+    $extent = $Element.Extent
+    if ($null -eq $extent) { return $false }
+    if ($extent.StartOffset -ge $CursorPosition) { return $false }
+    if ($extent.EndOffset -gt $CursorPosition) { return $false }
+    return $true
+}
+
+function Find-MambaInput {
+    param(
+        [Parameter(Mandatory)][string]$PathKey,
+        [Parameter(Mandatory)][string]$Spelling
+    )
+    $inputs = $script:MambaInputs[$PathKey]
+    if ($null -eq $inputs) { return $null }
+    foreach ($input in $inputs) {
+        if ($input.Spelling -ceq $Spelling) { return $input }
+    }
+    return $null
+}
+
+function Resolve-MambaState {
+    param(
+        [Parameter(Mandatory)][string]$WordToComplete,
+        [Parameter(Mandatory)][int]$CursorPosition,
+        [Parameter(Mandatory)]$CommandAst
+    )
+    $resolved = @('root')
+    $pendingValueOwner = $null
+    $afterDoubleDash = $false
+    $positionalIndex = -1
+    $usedNonRepeatable = @{}
+    $elements = @($CommandAst.CommandElements)
+    for ($i = 1; $i -lt $elements.Count; $i++) {
+        $el = $elements[$i]
+        if (-not (Update-MambaStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
+        $isLastElement = ($i -eq $elements.Count - 1)
+        $tokenText = $el.Extent.Text
+        # The last AST element is the completion word only while the cursor
+        # is inside it or immediately after it; a trailing space means the
+        # last element has already been supplied.
+        $isWord = $isLastElement -and ($el.Extent.EndOffset -ge $CursorPosition)
+
+        if ($isWord) { continue }
+
+        # A value belongs to the preceding option even when it looks like a
+        # command, another option, or the variadic separator.
+        if ($null -ne $pendingValueOwner) {
+            $usedNonRepeatable[$pendingValueOwner] = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($afterDoubleDash) {
+            $positionalIndex = $positionalIndex + 1
+            continue
+        }
+
+        if ($tokenText -eq '--') {
+            $afterDoubleDash = $true
+            continue
+        }
+
+        $pathKey = $resolved -join '.'
+        $children = @($script:MambaChildren[$pathKey])
+        $canonical = $null
+        foreach ($child in $children) {
+            if ($child.Name -ceq $tokenText) {
+                $canonical = $script:MambaNativeCommands[$child.Name]
+                break
+            }
+        }
+        if ($null -ne $canonical) {
+            $resolved += ,$canonical
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($tokenText.StartsWith('--', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 2) {
+            $tail = $tokenText.Substring(2)
+            if ($tail.Contains('=')) {
+                $eqIndex = $tail.IndexOf('=')
+                $owner = '--' + $tail.Substring(0, $eqIndex)
+                $input = Find-MambaInput -PathKey $pathKey -Spelling $owner
+                if ($null -ne $input -and -not $input.IsFlag) {
+                    $usedNonRepeatable[$owner] = $true
+                }
+                continue
+            }
+            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            if ($null -ne $input -and -not $input.IsFlag) {
+                $pendingValueOwner = $tokenText
+                continue
+            }
+            $usedNonRepeatable[$tokenText] = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($tokenText.StartsWith('-', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 1) {
+            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            if ($null -ne $input -and -not $input.IsFlag) {
+                $pendingValueOwner = $tokenText
+                continue
+            }
+            $usedNonRepeatable[$tokenText] = $true
+            continue
+        }
+
+        $positionalIndex = $positionalIndex + 1
+    }
+
+    return [PSCustomObject]@{
+        ResolvedPath = $resolved
+        PendingValueOwner = $pendingValueOwner
+        AfterDoubleDash = $afterDoubleDash
+        PositionalIndex = $positionalIndex
+        UsedNonRepeatable = $usedNonRepeatable
+        WordToComplete = $WordToComplete
+    }
+}
+
+function Write-MambaCompletionResult {
+    param(
+        [Parameter(Mandatory)][string]$CompletionText,
+        [Parameter(Mandatory)][string]$ListItemText,
+        [Parameter(Mandatory)][string]$ResultType,
+        [string]$Description
+    )
+    [System.Management.Automation.CompletionResult]::new(
+        $CompletionText,
+        $ListItemText,
+        $ResultType,
+        $Description
+    ) | Write-Output
+}
+Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    try {
+        $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
+    } catch { return }
+    try {
+        $pathKey = ($state.ResolvedPath -join '.')
+        if ($state.AfterDoubleDash) {
+            $handler = $script:MambaVariadicHandlers[$pathKey]
+            if ($null -eq $handler) { return }
+            $emit = $handler.Repeatable -or ($state.PositionalIndex -lt 0)
+            if (-not $emit) { return }
+            foreach ($choice in $handler.Choices) {
+                if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                    Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                }
+            }
+            return
+        }
+        if ($null -ne $state.PendingValueOwner) {
+            $handler = $script:MambaValueHandlers["$pathKey.$($state.PendingValueOwner)"]
+            if ($null -ne $handler) {
+                foreach ($choice in $handler) {
+                    if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                        Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                    }
+                }
+            }
+            return
+        }
+        $inputs = $script:MambaInputs[$pathKey]
+        $currentWord = $state.WordToComplete
+        $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
+        $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
+        if ($null -ne $inputs) {
+            foreach ($input in $inputs) {
+                $spelling = $input.Spelling
+                if ($wantLong -and -not $spelling.StartsWith('--', [System.StringComparison]::Ordinal)) { continue }
+                if ($wantShort -and (-not $spelling.StartsWith('-', [System.StringComparison]::Ordinal) -or $spelling.StartsWith('--', [System.StringComparison]::Ordinal))) { continue }
+                if (-not $spelling.StartsWith($currentWord, [System.StringComparison]::Ordinal)) { continue }
+                if (-not $input.IsFlag -and -not $input.IsRepeatable -and -not $input.IsAccessor -and -not $input.IsHelp) {
+                    if ($state.UsedNonRepeatable.ContainsKey($spelling)) { continue }
+                }
+                Write-MambaCompletionResult -CompletionText $spelling -ListItemText $spelling -ResultType 'ParameterName' -Description $input.Description
+            }
+        }
+        if (-not $wantLong -and -not $wantShort) {
+            $commands = $script:MambaChildren[$pathKey]
+            if ($null -ne $commands) {
+                foreach ($command in $commands) {
+                    if ($command.Name.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                        Write-MambaCompletionResult -CompletionText $command.Name -ListItemText $command.Name -ResultType 'Command' -Description $command.Description
+                    }
+                }
+            }
+            $positionals = $script:MambaPositionalSlots[$pathKey]
+            if ($null -ne $positionals) {
+                $entry = $positionals[$state.PositionalIndex]
+                if ($null -ne $entry) {
+                    foreach ($choice in $entry.Choices) {
+                        if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                            Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description $entry.Description
+                        }
+                    }
+                }
+            }
+        }
+    } catch { }
+}
+'''),
+        );
+      },
+    );
+
+    test('routes every command alias through the global command-name map', () {
+      final completion = convertPs(
+        specRegistry(
+          commands: [
+            TestCommand('commit', 'Commit changes.', aliases: ['ci']),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"'commit' = 'commit'"));
+      expect(completion, contains(r"'ci' = 'commit'"));
+      expect(completion, contains(r"Name = 'commit'"));
+      expect(completion, contains(r"Name = 'ci'"));
+    });
+
+    test(
+      'emits children tables at every nested path with command candidates',
+      () {
+        final completion = convertPs(
+          specRegistry(
+            commands: [
+              TestGroupCommand('config', [
+                TestCommand('set', 'Set configuration.', aliases: ['s']),
+              ], 'Configure.'),
+            ],
+          ).toMap(),
+        );
+
+        expect(completion, contains(r"$script:MambaChildren['root']"));
+        expect(completion, contains(r"$script:MambaChildren['root.config']"));
+        expect(completion, contains(r"Name = 'config'"));
+        expect(completion, contains(r"Name = 'set'"));
+        expect(completion, contains(r"Name = 's'"));
+      },
+    );
+
+    test('lists only visible short spellings in input rows', () {
+      final completion = convertPs(
+        specRegistry(
+          flags: [
+            BooleanFlag('force', short: 'f'),
+            BooleanFlag('secret', short: 's', hidden: true),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"Spelling = '-f'"));
+      expect(completion, isNot(contains(r"Spelling = '-s'")));
+    });
+
+    test('emits visible options and short spellings', () {
+      final completion = convertPs(
+        specRegistry(
+          flags: [BooleanFlag('force')],
+          options: [StringOption('label', short: 'l')],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"Spelling = '--force'"));
+      expect(completion, contains(r"Spelling = '--label'"));
+      expect(completion, contains(r"Spelling = '-l'"));
+    });
+
+    test('emits negated spelling only for negatable flags', () {
+      final completion = convertPs(
+        specRegistry(
+          flags: [BooleanFlag('color', negatable: true), BooleanFlag('force')],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"Spelling = '--no-color'"));
+      expect(completion, isNot(contains(r"Spelling = '--no-force'")));
+    });
+
+    test('registers a native completer with the executable name', () {
+      final completion = convertPs(specRegistry().toMap());
+
+      expect(
+        completion,
+        contains(r"Register-ArgumentCompleter -Native -CommandName 'spec'"),
+      );
+    });
+
+    test('emits choice option value handlers keyed by full spelling', () {
+      final completion = convertPs(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        contains(r"$script:MambaValueHandlers['root.--format']"),
+      );
+      expect(completion, contains(r"'json'"));
+      expect(completion, contains(r"'yaml'"));
+    });
+
+    test('emits short option value handlers that alias the long handler', () {
+      final completion = convertPs(
+        specRegistry(
+          options: [
+            ChoiceOption<_Format>(
+              'format',
+              choices: _Format.values,
+              short: 'f',
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"$script:MambaValueHandlers['root.-f']"));
+    });
+
+    test('does not invent values for unbounded integer options', () {
+      final completion = convertPs(
+        specRegistry(options: [IntOption('offset')]).toMap(),
+      );
+
+      expect(
+        completion,
+        isNot(contains(r"$script:MambaValueHandlers['root.--offset']")),
+      );
+    });
+
+    test('does not invent a finite list for doubles with min and max only', () {
+      final completion = convertPs(
+        specRegistry(
+          options: [DoubleOption('ratio', min: 0.0, max: 1.0)],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        isNot(contains(r"$script:MambaValueHandlers['root.--ratio']")),
+      );
+    });
+
+    test('emits every bounded integer option value through the handler', () {
+      final completion = convertPs(
+        specRegistry(options: [IntOption('retries', min: 1, max: 3)]).toMap(),
+      );
+
+      expect(completion, contains(r"@('1', '2', '3')"));
+    });
+
+    test('omits static values for one-sided integer ranges', () {
+      final completion = convertPs(
+        specRegistry(options: [IntOption('offset', min: 1)]).toMap(),
+      );
+
+      expect(
+        completion,
+        isNot(contains(r"$script:MambaValueHandlers['root.--offset']")),
+      );
+    });
+
+    test('skips integer ranges that are too wide for static enumeration', () {
+      final completion = convertPs(
+        specRegistry(options: [IntOption('offset', min: 1, max: 1000)]).toMap(),
+      );
+
+      expect(
+        completion,
+        isNot(contains(r"$script:MambaValueHandlers['root.--offset']")),
+      );
+    });
+
+    test(
+      'enumerates stepped double values when the registry declares a step',
+      () {
+        final completion = convertPs(
+          specRegistry(
+            options: [DoubleOption('ratio', min: 0, max: 0.3, step: 0.1)],
+          ).toMap(),
+        );
+
+        expect(completion, contains(r"@('0.0', '0.1', '0.2', '0.3')"));
+      },
+    );
+
+    test(
+      'keeps an unconstrained positional slot before a choice positional',
+      () {
+        final completion = convertPs(
+          specRegistry(
+            mandatoryPositionals: [
+              NormalPositional('path'),
+              ChoicePositional<_Format>('format', choices: _Format.values),
+            ],
+          ).toMap(),
+        );
+
+        expect(completion, contains(r"Choices = @('json', 'yaml')"));
+        expect(completion, contains(r"1 = [PSCustomObject]@"));
+      },
+    );
+
+    test('limits repeated positional choices to times plus one slots', () {
+      final completion = convertPs(
+        specRegistry(
+          mandatoryPositionals: [
+            RepeatedChoicePositional<_Format>(
+              'format',
+              choices: _Format.values,
+              times: 2,
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"1 = [PSCustomObject]@"));
+      expect(completion, contains(r"2 = [PSCustomObject]@"));
+      expect(completion, isNot(contains(r"3 = [PSCustomObject]@")));
+    });
+
+    test('emits a variadic handler for a single-value choice variadic', () {
+      final completion = convertPs(
+        specRegistry(
+          variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"Choices = @('json', 'yaml')"));
+      expect(completion, contains(r"Repeatable = $false"));
+    });
+
+    test('emits a variadic handler for a repeated choice variadic', () {
+      final completion = convertPs(
+        specRegistry(
+          variadic: RepeatedChoiceVariadic<_Format>(
+            'extra',
+            choices: _Format.values,
+          ),
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"Repeatable = $true"));
+    });
+
+    test('omits hidden flags while keeping visible ones', () {
+      final completion = convertPs(
+        specRegistry(flags: [BooleanFlag('internal', hidden: true)]).toMap(),
+      );
+
+      expect(completion, isNot(contains(r"Spelling = '--internal'")));
+      expect(completion, contains(r"Spelling = '--help'"));
+    });
+
+    test('omits hidden options from input rows and value tables', () {
+      final completion = convertPs(
+        specRegistry(options: [StringOption('token', hidden: true)]).toMap(),
+      );
+
+      expect(completion, isNot(contains(r"Spelling = '--token'")));
+      expect(
+        completion,
+        isNot(contains(r"$script:MambaValueHandlers['root.--token']")),
+      );
+    });
+
+    test('flattens nested accessor leaves into dotted option spellings', () {
+      final completion = convertPs(
+        specRegistry(
+          accessors: [
+            AccessorListOption(
+              'database',
+              options: [
+                AccessorListOption(
+                  'connection',
+                  options: [
+                    AccessorChoiceOption<_Format>(
+                      'format',
+                      choices: _Format.values,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        contains(r"Spelling = '--database.connection.format'"),
+      );
+      expect(
+        completion,
+        contains(
+          r"$script:MambaValueHandlers['root.--database.connection.format']",
+        ),
+      );
+    });
+
+    test('omits every leaf under a hidden accessor group', () {
+      final completion = convertPs(
+        specRegistry(
+          accessors: [
+            AccessorListOption(
+              'internal',
+              hidden: true,
+              options: [AccessorStringOption('token')],
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, isNot(contains('--internal.token')));
+    });
+
+    test('emits the resolver helper and Register-ArgumentCompleter block', () {
+      final completion = convertPs(specRegistry().toMap());
+
+      expect(completion, contains('function Update-MambaStateObject'));
+      expect(completion, contains('function Resolve-MambaState'));
+      expect(completion, contains('function Write-MambaCompletionResult'));
+      expect(completion, contains('Register-ArgumentCompleter'));
+    });
+
+    test('emits input tables at the root and child command paths', () {
+      final completion = convertPs(
+        specRegistry(
+          flags: [BooleanFlag('global')],
+          options: [StringOption('profile', short: 'p')],
+          commands: [TestCommand('serve', 'Serve requests.')],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"$script:MambaInputs['root']"));
+      expect(completion, contains(r"$script:MambaInputs['root.serve']"));
+      expect(completion, contains(r"Spelling = '--global'"));
+      expect(completion, contains(r"Spelling = '--profile'"));
+    });
+
+    test('propagates a nested alias to the global command-names table', () {
+      final completion = convertPs(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set.', aliases: ['s']),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"'config' = 'config'"));
+      expect(completion, contains(r"'s' = 'set'"));
+    });
+
+    test('escapes apostrophes inside descriptions and choice names', () {
+      final completion = convertPs(
+        specRegistry(
+          options: [
+            ChoiceOption<_Format>(
+              'format',
+              choices: _Format.values,
+              defaultValue: _Format.json,
+              description: "format's output",
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(completion, contains(r"'format''s output'"));
+    });
+
+    test(
+      'emits a single children entry at the root for direct subcommands',
+      () {
+        final completion = convertPs(
+          specRegistry(
+            commands: [
+              TestCommand('commit', 'Commit changes.', aliases: ['ci']),
+              TestCommand('push', 'Push changes.'),
+            ],
+          ).toMap(),
+        );
+
+        expect(completion, contains(r"$script:MambaChildren['root']"));
+        expect(completion, contains(r"Name = 'commit'"));
+        expect(completion, contains(r"Name = 'ci'"));
+        expect(completion, contains(r"Name = 'push'"));
+      },
+    );
+
+    test(
+      'emits a variadic handler only on the command owning the variadic',
+      () {
+        final completion = convertPs(
+          specRegistry(
+            commands: [
+              TestCommand(
+                'serve',
+                'Serve.',
+                variadic: RepeatedChoiceVariadic<_Format>(
+                  'extra',
+                  choices: _Format.values,
+                ),
+              ),
+            ],
+          ).toMap(),
+        );
+
+        expect(
+          completion,
+          contains(r"$script:MambaVariadicHandlers['root.serve']"),
+        );
+        expect(
+          completion,
+          isNot(contains(r"$script:MambaVariadicHandlers['']")),
+        );
+      },
+    );
+
+    test('keeps registrar errors silent at runtime', () {
+      final completion = convertPs(specRegistry().toMap());
+
+      expect(completion, contains('catch { return }'));
+      expect(completion, contains('catch { }'));
+    });
+  });
+
   group("CarapaceSpecConverter", () {
     test('emits negated boolean flag forms', () {
       final registry = specRegistry(
