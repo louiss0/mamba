@@ -1503,6 +1503,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 ///
 /// All candidate `CompletionResult` objects flow out individually through the
 /// success pipeline so PowerShell presents them as separate entries.
+/// The emitted syntax targets Windows PowerShell 5.1 and PowerShell 7 or newer.
 final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   ToPowerShellCompletionConverter(super.registryMap);
 
@@ -1534,8 +1535,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     ' PowerShell completion for $name.',
     r''' Generated; do not edit by hand.''',
     '',
-    for (final line in description.split('\n'))
-      line.isEmpty ? '' : ' $line',
+    for (final line in description.split('\n')) line.isEmpty ? '' : ' $line',
     '#>',
   ];
 
@@ -1547,9 +1547,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// resolver flattens an alias token into its canonical spelling using this
   /// map before resolving the rest of the command line.
   List<String> _native(Map<String, dynamic> root) {
-    final entries = <String>[
-      "    'root' = 'root'",
-    ];
+    final entries = <String>["    'root' = 'root'"];
     void walk(Map<String, dynamic>? commands) {
       if (commands == null) return;
       for (final entry in commands.entries) {
@@ -1563,12 +1561,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     }
 
     walk(_mapOrNull(root['commands']));
-    return [
-      r'$script:MambaNativeCommands = @{',
-      ...entries,
-      '}',
-      '',
-    ];
+    return [r'$script:MambaNativeCommands = @{', ...entries, '}', ''];
   }
 
   List<String> _tableInitializers() => [
@@ -1593,10 +1586,12 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     final entries = <String>[];
     // Always include --help and -h first. The registry's help entry is
     // skipped below so it cannot be emitted twice.
-    entries.addAll(_flagInputsFor('help', {
-      'description': 'Show this help message.',
-      'short': 'h',
-    }, help: true));
+    entries.addAll(
+      _flagInputsFor('help', {
+        'description': 'Show this help message.',
+        'short': 'h',
+      }, help: true),
+    );
 
     final flags = {
       ...?_mapOrNull(command['persistentFlags']),
@@ -1631,9 +1626,11 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       }
     }
     for (final leaf in _accessorLeaves(_mapOrNull(command['accessors']))) {
-      entries.add(_row('--${leaf.path}', {
-        'description': leaf.description,
-      }, isAccessor: true));
+      entries.add(
+        _row('--${leaf.path}', {
+          'description': leaf.description,
+        }, isAccessor: true),
+      );
     }
     final pathKey = path.join('.');
     return [
@@ -1648,9 +1645,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     Map<String, dynamic> flag, {
     required bool help,
   }) {
-    final entries = <String>[
-      _row('--$name', flag, isFlag: true, help: help),
-    ];
+    final entries = <String>[_row('--$name', flag, isFlag: true, help: help)];
     if (flag['short'] case final String short) {
       entries.add(_row('-$short', flag, isFlag: true, help: help));
     }
@@ -1674,7 +1669,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       ' IsRepeatable = ${_psBool(isRepeatable)};'
       ' IsAccessor = ${_psBool(isAccessor)};'
       ' IsHelp = ${_psBool(help)}'
-      ' },';
+      ' }';
 
   /// Subcommand candidates at the given path.
   List<String> _nativeChildren(
@@ -1691,14 +1686,14 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
           '    [PSCustomObject]@{'
           ' Name = ${_psQuote(entry.key)};'
           ' Description = ${_psQuoteOrNull(description)}'
-          ' },',
+          ' }',
         );
         for (final alias in _stringList(child['aliases'])) {
           entries.add(
             '    [PSCustomObject]@{'
             ' Name = ${_psQuote(alias)};'
             ' Description = ${_psQuoteOrNull('Alias for ${entry.key}. ${description ?? ''}')}'
-            ' },',
+            ' }',
           );
         }
       }
@@ -1739,7 +1734,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
           '    $slot = [PSCustomObject]@{'
           ' Choices = @(${choices.map(_psQuote).join(', ')});'
           ' Description = ${_psQuoteOrNull(positional['description'] as String?)}'
-          ' },',
+          ' }',
         );
       }
     }
@@ -1795,9 +1790,9 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     final choices = _stringList(variadic['choices']);
     return [
       "\$script:MambaVariadicHandlers[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
-      ' Choices = @(${choices.map(_psQuote).join(', ')});'
-      ' Repeatable = ${_psBool(variadic['repeatable'] == true)}'
-      ' }',
+          ' Choices = @(${choices.map(_psQuote).join(', ')});'
+          ' Repeatable = ${_psBool(variadic['repeatable'] == true)}'
+          ' }',
     ];
   }
 
@@ -1806,7 +1801,8 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   // ---------------------------------------------------------------------
 
   List<String> _recurse(Map<String, dynamic> command, List<String> path) {
-    final children = _mapOrNull(command['commands']) ?? const <String, dynamic>{};
+    final children =
+        _mapOrNull(command['commands']) ?? const <String, dynamic>{};
     final lines = <String>[
       ..._nativeInputSets(command, path),
       ..._nativeChildren(command, path),
@@ -1853,7 +1849,7 @@ function Find-MambaInput {
 
 function Resolve-MambaState {
     param(
-        [Parameter(Mandatory)][string]$WordToComplete,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$WordToComplete,
         [Parameter(Mandatory)][int]$CursorPosition,
         [Parameter(Mandatory)]$CommandAst
     )
@@ -1959,6 +1955,7 @@ function Write-MambaCompletionResult {
         [Parameter(Mandatory)][string]$ResultType,
         [string]$Description
     )
+    if ([string]::IsNullOrEmpty($Description)) { $Description = ' ' }
     [System.Management.Automation.CompletionResult]::new(
         $CompletionText,
         $ListItemText,
@@ -1974,7 +1971,8 @@ function Write-MambaCompletionResult {
   // ---------------------------------------------------------------------
 
   List<String> _register(String rootName) {
-    const body = r'''Register-ArgumentCompleter -Native -CommandName '__ROOT__' -ScriptBlock {
+    const body =
+        r'''Register-ArgumentCompleter -Native -CommandName '__ROOT__' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     try {
         $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
@@ -2031,7 +2029,7 @@ function Write-MambaCompletionResult {
             }
             $positionals = $script:MambaPositionalSlots[$pathKey]
             if ($null -ne $positionals) {
-                $entry = $positionals[$state.PositionalIndex]
+                $entry = $positionals[($state.PositionalIndex + 1)]
                 if ($null -ne $entry) {
                     foreach ($choice in $entry.Choices) {
                         if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
@@ -2084,9 +2082,7 @@ function Write-MambaCompletionResult {
     if (min is! int || max is! int) return const [];
     final size = max - min + 1;
     if (size <= 0 || size > _maxStaticRangeSize) return const [];
-    return [
-      for (var n = min; n <= max; n++) n.toString(),
-    ];
+    return [for (var n = min; n <= max; n++) n.toString()];
   }
 
   Map<String, dynamic> _map(Object? value) =>

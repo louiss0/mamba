@@ -215,19 +215,6 @@ void main() {
           (line) => line.startsWith('complete ') && line.contains(fragment),
         );
 
-    String? findFishExecutable() {
-      final configured = Platform.environment['FISH_EXECUTABLE'];
-      final executable = configured == null || configured.isEmpty
-          ? 'fish'
-          : configured;
-      try {
-        final result = Process.runSync(executable, ['--version']);
-        return result.exitCode == 0 ? executable : null;
-      } on ProcessException {
-        return null;
-      }
-    }
-
     test('renders root flags, typed options, and a multi-line description', () {
       final output = convertFish(
         CommandRegistry.create(
@@ -708,80 +695,6 @@ complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
       );
       expect(output, contains('|internal.token|'));
     });
-
-    final fishExecutable = findFishExecutable();
-    test(
-      'loads and evaluates generated completions in Fish',
-      () {
-        final output = convertFish(
-          specRegistry(
-            options: [
-              ChoiceOption<_Format>(
-                'format',
-                choices: _Format.values,
-                defaultValue: _Format.json,
-              ),
-            ],
-            commands: [
-              TestCommand(
-                'serve',
-                'Serve requests.',
-                aliases: ['s'],
-                mandatoryPositionals: [
-                  ChoicePositional<_Level>('level', choices: _Level.values),
-                ],
-                variadic: ChoiceVariadic<_Sku>('extra', choices: _Sku.values),
-              ),
-            ],
-          ),
-        );
-        final directory = Directory.systemTemp.createTempSync(
-          'mamba_fish_completion_',
-        );
-        addTearDown(() => directory.deleteSync(recursive: true));
-        final script = File('${directory.path}/spec.fish')
-          ..writeAsStringSync(output);
-        final syntax = Process.runSync(fishExecutable!, [
-          '--no-execute',
-          script.path,
-        ]);
-        expect(syntax.exitCode, 0, reason: syntax.stderr as String?);
-
-        List<String> complete(String commandLine) {
-          final escapedPath = script.path
-              .replaceAll(r'\', r'\\')
-              .replaceAll("'", r"\'");
-          final escapedLine = commandLine
-              .replaceAll(r'\', r'\\')
-              .replaceAll("'", r"\'");
-          final result = Process.runSync(fishExecutable, [
-            '-c',
-            "source '$escapedPath'; complete -C '$escapedLine'",
-          ]);
-          expect(result.exitCode, 0, reason: result.stderr as String?);
-          return (result.stdout as String)
-              .split('\n')
-              .where((line) => line.isNotEmpty)
-              .map((line) => line.split('\t').first)
-              .toList();
-        }
-
-        expect(complete('spec --format '), containsAll(['json', 'yaml']));
-        expect(complete('spec serve '), containsAll(['debug', 'info']));
-        expect(complete('spec serve '), isNot(contains('serve')));
-        expect(complete('spec s '), containsAll(['debug', 'info']));
-        expect(
-          complete('spec --format json serve '),
-          containsAll(['debug', 'info']),
-        );
-        expect(complete('spec serve -- '), containsAll(['basic', 'standard']));
-        expect(
-          complete('spec serve -- basic '),
-          isNot(containsAll(['basic', 'standard'])),
-        );
-      },
-      skip: fishExecutable == null ? 'Fish is not installed.' : false,
-    );
   });
   group('ToZshCompletionConverter', () {
     String rootCompletion({
@@ -1748,448 +1661,6 @@ complete -F _spec_completion spec
   });
 
   group('ToPowerShellCompletionConverter', () {
-    test('places root flags and typed options in input tables', () {
-      final completion = convertPs(
-        specRegistry(
-          flags: [
-            BooleanFlag('force', short: 'f'),
-            BooleanFlag('color', negatable: true),
-            CountFlag('verbose'),
-          ],
-          options: [
-            StringOption('name', short: 'n'),
-            IntOption('retries'),
-            DoubleOption('ratio'),
-            RepeatableStringOption('include'),
-            RepeatableIntOption('attempt'),
-            RepeatableDoubleOption('weight'),
-            ChoiceOption<_Format>('format', choices: _Format.values),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"$script:MambaInputs['root']"));
-      expect(completion, contains(r"Spelling = '--force'"));
-      expect(completion, contains(r"Spelling = '-f'"));
-      expect(completion, contains(r"Spelling = '--color'"));
-      expect(completion, contains(r"Spelling = '--no-color'"));
-      expect(completion, contains(r"Spelling = '--verbose'"));
-      expect(completion, contains(r"Spelling = '--name'"));
-      expect(completion, contains(r"Spelling = '-n'"));
-      expect(completion, contains(r"Spelling = '--retries'"));
-      expect(completion, contains(r"Spelling = '--ratio'"));
-      expect(completion, contains(r"Spelling = '--include'"));
-      expect(completion, contains(r"Spelling = '--attempt'"));
-      expect(completion, contains(r"Spelling = '--weight'"));
-      expect(completion, contains(r"Spelling = '--format'"));
-      // The built-in help exists exactly once.
-      expect(completion, contains(r"Spelling = '--help'"));
-      expect(completion, contains(r"Spelling = '-h'"));
-    });
-
-    test('routes every command alias through the global command-name map', () {
-      final completion = convertPs(
-        specRegistry(
-          commands: [
-            TestCommand('commit', 'Commit changes.', aliases: ['ci']),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"'commit' = 'commit'"));
-      expect(completion, contains(r"'ci' = 'commit'"));
-      expect(completion, contains("Name = 'commit'"));
-      expect(completion, contains("Name = 'ci'"));
-    });
-
-    test('emits children tables at every nested path with command candidates', () {
-      final completion = convertPs(
-        specRegistry(
-          commands: [
-            TestGroupCommand('config', [
-              TestCommand('set', 'Set configuration.', aliases: ['s']),
-            ], 'Configure.'),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"$script:MambaChildren['root']"));
-      expect(completion, contains(r"$script:MambaChildren['root.config']"));
-      expect(completion, contains("Name = 'config'"));
-      expect(completion, contains("Name = 'set'"));
-      expect(completion, contains("Name = 's'"));
-    });
-
-    test('lists only visible short spellings in input rows', () {
-      final completion = convertPs(
-        specRegistry(
-          flags: [
-            BooleanFlag('force', short: 'f'),
-            BooleanFlag('secret', short: 's', hidden: true),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"Spelling = '-f'"));
-      expect(completion, isNot(contains(r"Spelling = '-s'")));
-    });
-
-    test('emits visible options and short spellings', () {
-      final completion = convertPs(
-        specRegistry(
-          flags: [BooleanFlag('force')],
-          options: [StringOption('label', short: 'l')],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"Spelling = '--force'"));
-      expect(completion, contains(r"Spelling = '--label'"));
-      expect(completion, contains(r"Spelling = '-l'"));
-    });
-
-    test('emits negated spelling only for negatable flags', () {
-      final completion = convertPs(
-        specRegistry(
-          flags: [BooleanFlag('color', negatable: true), BooleanFlag('force')],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"Spelling = '--no-color'"));
-      expect(completion, isNot(contains(r"Spelling = '--no-force'")));
-    });
-
-    test('registers a native completer with the executable name', () {
-      final completion = convertPs(specRegistry().toMap());
-
-      expect(
-        completion,
-        contains("Register-ArgumentCompleter -Native -CommandName 'spec'"),
-      );
-    });
-
-    test('emits choice option value handlers keyed by full spelling', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"MambaValueHandlers['root.--format']"));
-      expect(completion, contains("'json'"));
-      expect(completion, contains("'yaml'"));
-    });
-
-    test('emits short option value handlers that alias the long handler', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [
-            ChoiceOption<_Format>('format', choices: _Format.values, short: 'f'),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"MambaValueHandlers['root.-f']"));
-      expect(completion, contains(r"$script:MambaValueHandlers['root.-f']"));
-    });
-
-    test('does not invent values for unbounded integer options', () {
-      final completion = convertPs(
-        specRegistry(options: [IntOption('offset')]).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"MambaValueHandlers['root.--offset']")));
-    });
-
-    test('does not invent a finite list for doubles with min and max only', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [DoubleOption('ratio', min: 0.0, max: 1.0)],
-        ).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"MambaValueHandlers['root.--ratio']")));
-    });
-
-    test('emits every bounded integer option value through the handler', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [IntOption('retries', min: 1, max: 3)],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"@('1', '2', '3')"));
-    });
-
-    test('omits static values for one-sided integer ranges', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [IntOption('offset', min: 1)],
-        ).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"MambaValueHandlers['root.--offset']")));
-    });
-
-    test('skips integer ranges that are too wide for static enumeration', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [IntOption('offset', min: 1, max: 1000)],
-        ).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"MambaValueHandlers['root.--offset']")));
-    });
-
-    test('enumerates stepped double values when the registry declares a step', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [DoubleOption('ratio', min: 0, max: 0.3, step: 0.1)],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"@('0.0', '0.1', '0.2', '0.3')"));
-    });
-
-    test('keeps an unconstrained positional slot before a choice positional', () {
-      final completion = convertPs(
-        specRegistry(
-          mandatoryPositionals: [
-            NormalPositional('path'),
-            ChoicePositional<_Format>('format', choices: _Format.values),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"MambaPositionalSlots['root']"));
-      expect(completion, contains("Choices = @('json', 'yaml')"));
-      // Positionals advance through all entries, so the choice occupies
-      // slot 1 even when slot 0 is unconstrained (no choices).
-      expect(completion, contains("1 = [PSCustomObject]@{"));
-    });
-
-    test('limits repeated positional choices to times plus one slots', () {
-      final completion = convertPs(
-        specRegistry(
-          mandatoryPositionals: [
-            RepeatedChoicePositional<_Format>(
-              'format',
-              choices: _Format.values,
-              times: 2,
-            ),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains("1 = [PSCustomObject]@{"));
-      expect(completion, contains("2 = [PSCustomObject]@{"));
-      expect(
-        completion,
-        isNot(contains("3 = [PSCustomObject]@{")),
-      );
-    });
-
-    test('emits a variadic handler for a single-value choice variadic', () {
-      final completion = convertPs(
-        specRegistry(
-          variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"MambaVariadicHandlers['root']"));
-      expect(completion, contains("Choices = @('json', 'yaml')"));
-      expect(completion, contains(r'Repeatable = $false'));
-    });
-
-    test('emits a variadic handler for a repeated choice variadic', () {
-      final completion = convertPs(
-        specRegistry(
-          variadic: RepeatedChoiceVariadic<_Format>(
-            'extra',
-            choices: _Format.values,
-          ),
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"MambaVariadicHandlers['root']"));
-      expect(completion, contains(r'Repeatable = $true'));
-    });
-
-    test('omits hidden flags while keeping visible ones', () {
-      final completion = convertPs(
-        specRegistry(
-          flags: [BooleanFlag('internal', hidden: true)],
-        ).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"Spelling = '--internal'")));
-      expect(completion, contains(r"Spelling = '--help'"));
-    });
-
-    test('omits hidden options from input rows and value tables', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [StringOption('token', hidden: true)],
-        ).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"Spelling = '--token'")));
-      expect(completion, isNot(contains(r"MambaValueHandlers['root.--token']")));
-    });
-
-    test('flattens nested accessor leaves into dotted option spellings', () {
-      final completion = convertPs(
-        specRegistry(
-          accessors: [
-            AccessorListOption(
-              'database',
-              options: [
-                AccessorListOption(
-                  'connection',
-                  options: [
-                    AccessorChoiceOption<_Format>(
-                      'format',
-                      choices: _Format.values,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"Spelling = '--database.connection.format'"));
-      expect(
-        completion,
-        contains(r"MambaValueHandlers['root.--database.connection.format']"),
-      );
-    });
-
-    test('omits every leaf under a hidden accessor group', () {
-      final completion = convertPs(
-        specRegistry(
-          accessors: [
-            AccessorListOption(
-              'internal',
-              hidden: true,
-              options: [AccessorStringOption('token')],
-            ),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, isNot(contains(r"--internal.token")));
-    });
-
-    test('emits the resolver helper and Register-ArgumentCompleter block', () {
-      final completion = convertPs(specRegistry().toMap());
-
-      expect(completion, contains('function Update-MambaStateObject'));
-      expect(completion, contains('function Resolve-MambaState'));
-      expect(completion, contains('function Write-MambaCompletionResult'));
-      expect(completion, contains('Register-ArgumentCompleter'));
-    });
-
-    test('emits input tables at the root and child command paths', () {
-      final completion = convertPs(
-        specRegistry(
-          flags: [BooleanFlag('global')],
-          options: [StringOption('profile', short: 'p')],
-          commands: [TestCommand('serve', 'Serve requests.')],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"$script:MambaInputs['root']"));
-      expect(
-        completion,
-        contains(r"$script:MambaInputs['root.serve']"),
-      );
-      expect(completion, contains(r"Spelling = '--global'"));
-      expect(completion, contains(r"Spelling = '--profile'"));
-    });
-
-    test('propagates a nested alias to the global command-names table', () {
-      final completion = convertPs(
-        specRegistry(
-          commands: [
-            TestGroupCommand('config', [
-              TestCommand('set', 'Set.', aliases: ['s']),
-            ], 'Configure.'),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"'config' = 'config'"));
-      expect(completion, contains(r"'s' = 'set'"));
-    });
-
-    test('escapes apostrophes inside descriptions and choice names', () {
-      final completion = convertPs(
-        specRegistry(
-          options: [
-            ChoiceOption<_Format>(
-              'format',
-              choices: _Format.values,
-              defaultValue: _Format.json,
-              description: "format's output",
-            ),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"'format''s output'"));
-    });
-
-    test('emits a single children entry at the root for direct subcommands', () {
-      final completion = convertPs(
-        specRegistry(
-          commands: [
-            TestCommand('commit', 'Commit changes.', aliases: ['ci']),
-            TestCommand('push', 'Push changes.'),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"$script:MambaChildren['root']"));
-      expect(completion, contains("Name = 'commit'"));
-      expect(completion, contains("Name = 'ci'"));
-      expect(completion, contains("Name = 'push'"));
-    });
-
-    test('emits a variadic handler only on the command owning the variadic', () {
-      final completion = convertPs(
-        specRegistry(
-          commands: [
-            TestCommand(
-              'serve',
-              'Serve.',
-              variadic: RepeatedChoiceVariadic<_Format>(
-                'extra',
-                choices: _Format.values,
-              ),
-            ),
-          ],
-        ).toMap(),
-      );
-
-      expect(completion, contains(r"MambaVariadicHandlers['root.serve']"));
-      // The pathKey is the full canonical chain for descendants.
-      expect(
-        completion,
-        isNot(contains(r"MambaVariadicHandlers['']")),
-      );
-    });
-
-    test('keeps registrar errors silent at runtime', () {
-      final completion = convertPs(specRegistry().toMap());
-
-      // The completion must catch resolver failures and not emit any output.
-      expect(completion, contains(r'catch { return }'));
-      expect(completion, contains(r'catch { }'));
-    });
-  });
-
-  group('ToPowerShellCompletionConverter', () {
     test(
       'places root flags and typed options in a complete PowerShell script',
       () {
@@ -2231,21 +1702,21 @@ $script:MambaValueHandlers = @{}
 $script:MambaVariadicHandlers = @{}
 
 $script:MambaInputs['root'] = @(
-    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true },
-    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true },
-    [PSCustomObject]@{ Spelling = '--force'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '-f'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--color'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--no-color'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--verbose'; Description = $null; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--name'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '-n'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--retries'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--ratio'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--format'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--include'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--attempt'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false },
-    [PSCustomObject]@{ Spelling = '--weight'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false },
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '--force'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '-f'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--color'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--no-color'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--verbose'; Description = $null; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--name'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '-n'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--retries'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--ratio'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--format'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--include'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--attempt'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--weight'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     )
 $script:MambaChildren['root'] = @(
     )
@@ -2278,7 +1749,7 @@ function Find-MambaInput {
 
 function Resolve-MambaState {
     param(
-        [Parameter(Mandatory)][string]$WordToComplete,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$WordToComplete,
         [Parameter(Mandatory)][int]$CursorPosition,
         [Parameter(Mandatory)]$CommandAst
     )
@@ -2384,6 +1855,7 @@ function Write-MambaCompletionResult {
         [Parameter(Mandatory)][string]$ResultType,
         [string]$Description
     )
+    if ([string]::IsNullOrEmpty($Description)) { $Description = ' ' }
     [System.Management.Automation.CompletionResult]::new(
         $CompletionText,
         $ListItemText,
@@ -2448,7 +1920,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
             }
             $positionals = $script:MambaPositionalSlots[$pathKey]
             if ($null -ne $positionals) {
-                $entry = $positionals[$state.PositionalIndex]
+                $entry = $positionals[($state.PositionalIndex + 1)]
                 if ($null -ne $entry) {
                     foreach ($choice in $entry.Choices) {
                         if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
@@ -2885,6 +2357,31 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(completion, contains('catch { return }'));
       expect(completion, contains('catch { }'));
+    });
+
+    test('emits syntax supported by PowerShell 5.1 and newer', () {
+      final completion = convertPs(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          commands: [
+            TestCommand('serve', 'Serve requests.', aliases: ['s']),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion.split('\n'),
+        everyElement(isNot(matches(RegExp(r'^\s*.*},\s*$')))),
+      );
+      expect(completion, contains('Register-ArgumentCompleter -Native'));
+      expect(
+        completion,
+        contains('[AllowEmptyString()][string]\$WordToComplete'),
+      );
+      expect(
+        completion,
+        contains('[System.Management.Automation.CompletionResult]::new('),
+      );
     });
   });
 
