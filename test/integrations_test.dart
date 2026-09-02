@@ -348,6 +348,226 @@ void main() {
         );
       },
     );
+    test('escapes Fish-special text in descriptions and choices', () {
+      final output = convertFish(
+        specRegistry(
+          options: [
+            ChoiceOption<_Format>(
+              'format',
+              choices: _Format.values,
+              defaultValue: _Format.json,
+              description: "format's output",
+            ),
+          ],
+        ),
+      );
+
+      expect(output, contains("-d 'format\\\\'s output'"));
+    });
+
+    test('omits hidden root flags', () {
+      final output = convertFish(
+        specRegistry(flags: [BooleanFlag('secret', hidden: true)]),
+      );
+
+      expect(output, isNot(contains('-l secret')));
+    });
+
+    test('omits hidden root options', () {
+      final output = convertFish(
+        specRegistry(options: [StringOption('token', hidden: true)]),
+      );
+
+      expect(
+        output,
+        isNot(contains('complete -c spec -n \'__mamba_option_available token')),
+      );
+    });
+
+    test('advertises subcommand aliases', () {
+      final output = convertFish(
+        specRegistry(
+          commands: [
+            TestCommand('serve', 'Serve requests.', aliases: ['s']),
+          ],
+        ),
+      );
+
+      expect(output, contains("-a 'serve s'"));
+    });
+
+    test(
+      'routes canonical subcommand inputs through a command-path condition',
+      () {
+        final output = convertFish(
+          specRegistry(
+            commands: [
+              TestCommand(
+                'serve',
+                'Serve requests.',
+                flags: [BooleanFlag('force')],
+              ),
+            ],
+          ),
+        );
+
+        expect(output, contains("-n '__mamba_at_path spec serve' -l force"));
+      },
+    );
+
+    test('routes nested subcommands through their complete command path', () {
+      final output = convertFish(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set a value.'),
+            ], 'Configure settings.'),
+          ],
+        ),
+      );
+
+      expect(output, contains("-n '__mamba_at_path spec config' -f -a 'set'"));
+    });
+
+    test('inherits root inputs at subcommand paths', () {
+      final output = convertFish(
+        specRegistry(
+          flags: [BooleanFlag('verbose')],
+          commands: [TestCommand('serve', 'Serve requests.')],
+        ),
+      );
+
+      expect(output, contains("-n '__mamba_at_path spec serve' -l verbose"));
+    });
+
+    test('inherits group persistent inputs at descendant paths', () {
+      final output = convertFish(
+        specRegistry(
+          commands: [
+            TestGroupCommand(
+              'config',
+              [TestCommand('set', 'Set a value.')],
+              'Configure settings.',
+              inheritedOptions: [StringOption('profile')],
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        output,
+        contains(
+          "-n '__mamba_at_path spec config set; and __mamba_option_available profile _ false'",
+        ),
+      );
+    });
+
+    test('uses a local option in preference to a persistent option', () {
+      final output = convertFish(
+        specRegistry(
+          commands: [
+            TestGroupCommand(
+              'config',
+              [TestCommand('set', 'Set a value.')],
+              'Configure settings.',
+              inheritedOptions: [IntOption('retries')],
+              options: [StringOption('retries')],
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        output,
+        contains(
+          "-n '__mamba_at_path spec config; and __mamba_option_available retries _ false' -l retries -r",
+        ),
+      );
+      expect(
+        output,
+        isNot(
+          contains(
+            "__mamba_at_path spec config; and __mamba_option_available retries _ false' -l retries -x",
+          ),
+        ),
+      );
+    });
+
+    test('suppresses non-repeatable options after use', () {
+      final output = convertFish(
+        specRegistry(options: [StringOption('label')]),
+      );
+
+      expect(output, contains('__mamba_option_available label _ false'));
+    });
+
+    test('keeps repeatable options available after use', () {
+      final output = convertFish(
+        specRegistry(options: [RepeatableStringOption('tag')]),
+      );
+
+      expect(output, contains('__mamba_option_available tag _ true'));
+    });
+
+    test('keeps unconstrained positionals in the slot sequence', () {
+      final output = convertFish(
+        specRegistry(
+          mandatoryPositionals: [
+            NormalPositional('path'),
+            ChoicePositional<_Format>('format', choices: _Format.values),
+          ],
+        ),
+      );
+
+      expect(output, contains('__mamba_positional_slot 1'));
+    });
+
+    test('emits every bounded repeated positional slot', () {
+      final output = convertFish(
+        specRegistry(
+          discretionaryPositionals: [
+            RepeatedChoicePositional<_Format>(
+              'format',
+              choices: _Format.values,
+              times: 2,
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        output,
+        allOf([
+          contains('__mamba_positional_slot 0'),
+          contains('__mamba_positional_slot 1'),
+          contains('__mamba_positional_slot 2'),
+        ]),
+      );
+    });
+
+    test('keeps normal variadics candidate-free after --', () {
+      final output = convertFish(
+        specRegistry(variadic: NormalVariadic('extra', regExp: RegExp(r'.+'))),
+      );
+
+      expect(output, isNot(contains('__mamba_after_double_dash\' -f -a')));
+    });
+
+    test('omits every leaf below a hidden accessor group', () {
+      final output = convertFish(
+        specRegistry(
+          accessors: [
+            AccessorListOption(
+              'internal',
+              hidden: true,
+              options: [AccessorStringOption('token')],
+            ),
+          ],
+        ),
+      );
+
+      expect(output, isNot(contains('-l internal.token')));
+    });
   });
   group("ToZshCompletionConverter", () {});
   group('ToBashCompletionConverter', () {
