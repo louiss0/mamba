@@ -4,6 +4,36 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
 import 'package:yaml_writer/yaml_writer.dart';
 
+List<String> _steppedDoubleValuesFromMap(Map<String, dynamic> value) {
+  final min = value['min'];
+  final max = value['max'];
+  final step = value['step'];
+  if (value['valueType'] != 'double' ||
+      min is! num ||
+      max is! num ||
+      step is! num) {
+    return const [];
+  }
+  return _steppedDoubleValues(min.toDouble(), max.toDouble(), step.toDouble());
+}
+
+List<String> _steppedDoubleValues(double min, double max, double step) {
+  final count = ((max - min) / step).round();
+  final decimalPlaces = [min, max, step]
+      .map(
+        (value) => value.toString().split('.').elementAtOrNull(1)?.length ?? 0,
+      )
+      .fold(0, (current, value) => current > value ? current : value);
+  return [
+    for (var index = 0; index <= count; index++)
+      double.parse(
+        (index == count ? max : min + step * index).toStringAsFixed(
+          decimalPlaces,
+        ),
+      ).toString(),
+  ];
+}
+
 /// Converts a validated [RegistryMap] into an integration-specific artifact.
 abstract class RegistryMapConverter {
   RegistryMapConverter(this.registryMap);
@@ -165,9 +195,11 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       if (option['hidden'] == true) continue;
       final valuesVariable = _variable(path, '${entry.key}_values');
       final choices = _stringList(option['choices']);
+      final steppedValues = _steppedDoubleValuesFromMap(option);
       lines.addAll([
         '$valuesVariable=(',
-        for (final choice in choices) '  ${_quote(choice)}',
+        for (final choice in [...choices, ...steppedValues])
+          '  ${_quote(choice)}',
         ')',
         '',
       ]);
@@ -208,7 +240,8 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     };
     return [
       for (final entry in options.entries)
-        if (_stringList(_map(entry.value)['choices']).isNotEmpty) ...[
+        if (_stringList(_map(entry.value)['choices']).isNotEmpty ||
+            _steppedDoubleValuesFromMap(_map(entry.value)).isNotEmpty) ...[
           '$indent${_optionPattern(entry)})',
           '$indent  _mamba_filter "\$current" ${_arrayValues(_variable(path, '${entry.key}_values'))}',
           '$indent  return',
@@ -503,7 +536,10 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
 
   String _valueAction(Map<String, dynamic> value) {
     final choices = _stringList(value['choices']);
-    if (choices.isNotEmpty) return '(${choices.map(_escape).join(' ')})';
+    final steppedValues = _steppedDoubleValuesFromMap(value);
+    if (choices.isNotEmpty || steppedValues.isNotEmpty) {
+      return '(${[...choices, ...steppedValues].map(_escape).join(' ')})';
+    }
     final minimum = value['min'] as num?;
     final maximum = value['max'] as num?;
     final bounds = [
@@ -893,11 +929,14 @@ end''';
       final short = option['short'] as String?;
       final type = option['valueType'] as String?;
       final choices = _stringList(option['choices']);
+      final steppedValues = _steppedDoubleValuesFromMap(option);
+      final completionValues = [...choices, ...steppedValues];
       final switches = <String>[
         if (short != null) '-s $short',
         '-l ${_quoteBare(entry.key)}',
         choices.isNotEmpty || type == 'int' || type == 'double' ? '-x' : '-r',
-        if (choices.isNotEmpty) '-a ${_quote(choices.join(' '))}',
+        if (completionValues.isNotEmpty)
+          '-a ${_quote(completionValues.join(' '))}',
       ];
       final available =
           '__mamba_option_available ${_quoteBare(entry.key)} ${short ?? '_'} ${option['repeatable'] == true}';
@@ -1366,24 +1405,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
   String _carapaceActionValues(List<String> values) =>
       r'$carapace.ActionValues('
       '${values.map((value) => '"$value"').join(', ')})';
-
-  List<String> _steppedDoubleValues(double min, double max, double step) {
-    final count = ((max - min) / step).round();
-    final decimalPlaces = [min, max, step]
-        .map(
-          (value) =>
-              value.toString().split('.').elementAtOrNull(1)?.length ?? 0,
-        )
-        .fold(0, (current, value) => current > value ? current : value);
-    return [
-      for (var index = 0; index <= count; index++)
-        double.parse(
-          (index == count ? max : min + step * index).toStringAsFixed(
-            decimalPlaces,
-          ),
-        ).toString(),
-    ];
-  }
 
   /// Builds the ordered Carapace key for one named input.
   String _inputKey({

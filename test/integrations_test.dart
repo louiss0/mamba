@@ -263,6 +263,16 @@ complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
       );
     });
 
+    test('enumerates stepped double values', () {
+      final output = convertFish(
+        specRegistry(
+          options: [DoubleOption('ratio', min: 0, max: 0.3, step: 0.1)],
+        ),
+      );
+
+      expect(output, contains("-l ratio -x -a '0.0 0.1 0.2 0.3'"));
+    });
+
     test(
       'renders subcommand inputs, accessors, positionals, and variadics',
       () {
@@ -1075,6 +1085,13 @@ compdef _spec spec
         contains('_numbers -f -l 0.1 -m 0.9'),
       ),
       (
+        'renders stepped double values',
+        () => rootCompletion(
+          options: [DoubleOption('ratio', min: 0, max: 0.3, step: 0.1)],
+        ),
+        contains("'--ratio[]:ratio:(0.0 0.1 0.2 0.3)'"),
+      ),
+      (
         'marks repeatable options',
         () => rootCompletion(options: [RepeatableStringOption('tag')]),
         contains("'*--tag[]:tag:'"),
@@ -1542,6 +1559,25 @@ complete -F _spec_completion spec
 
       expect(completion, contains('_spec_ratio_values=(\n)'));
       expect(completion, isNot(contains("  '0.0'")));
+    });
+
+    test('enumerates stepped double values', () {
+      final completion = convertBash(
+        specRegistry(
+          options: [DoubleOption('ratio', min: 0, max: 0.3, step: 0.1)],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        contains('''_spec_ratio_values=(
+  '0.0'
+  '0.1'
+  '0.2'
+  '0.3'
+)'''),
+      );
+      expect(completion, contains('    --ratio)'));
     });
 
     test(

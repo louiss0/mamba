@@ -514,6 +514,7 @@ and variadics. Integer and double options, including repeated and paired
 options, accept optional inclusive `min` and `max` bounds. A bounded numeric
 range is emitted as a Carapace range completion; a stepped double range is
 instead emitted as every value from its minimum through its maximum. Regex-
-backed inputs do not supply completion values. Carapace can represent variant members as exclusive but
-cannot require one of them, so required variant descriptions retain that
-parser-enforced requirement.
+backed inputs do not supply completion values. The Bash, Fish, and Zsh
+converters also enumerate stepped double values. Carapace can represent
+variant members as exclusive but cannot require one of them, so required
+variant descriptions retain that parser-enforced requirement.
