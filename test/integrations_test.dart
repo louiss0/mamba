@@ -477,6 +477,227 @@ complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
       expect(declaration, contains('config|help'));
     });
 
+    test('routes commands through multiple nested groups', () {
+      final output = convertFish(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestGroupCommand('remote', [
+                TestCommand(
+                  'set',
+                  'Set a remote.',
+                  flags: [BooleanFlag('force')],
+                ),
+              ], 'Manage remotes.'),
+            ], 'Configure settings.'),
+          ],
+        ),
+      );
+
+      expect(
+        output,
+        equals(r'''# Completion for spec: spec command
+function __mamba_segment_field
+    set -l fields (string split '|' -- $argv[1])
+    string split ',' -- $fields[$argv[2]]
+end
+
+function __mamba_input_width
+    set -l spec $argv[1]
+    set -l token $argv[2]
+    if string match -q -- '--*' $token
+        set -l long (string replace -r '^--' '' -- $token)
+        set -l parts (string split -m 1 '=' -- $long)
+        if contains -- $parts[1] (__mamba_segment_field $spec 4)
+            if test (count $parts) -eq 1
+                echo 2
+            else
+                echo 1
+            end
+            return
+        end
+        if contains -- $parts[1] (__mamba_segment_field $spec 2)
+            echo 1
+            return
+        end
+        echo 0
+        return
+    end
+    if string match -q -- '-*' $token
+        set -l short (string sub -s 2 -- $token)
+        if test (string length -- $short) -eq 1; and contains -- $short (__mamba_segment_field $spec 5)
+            echo 2
+            return
+        end
+        for name in (string split '' -- $short)
+            if not contains -- $name (__mamba_segment_field $spec 3)
+                echo 0
+                return
+            end
+        end
+        if test -n "$short"
+            echo 1
+            return
+        end
+    end
+    echo 0
+end
+
+function __mamba_path_state
+    set -l mode $argv[1]
+    set -e argv[1]
+    set -l specs $argv
+    set -l tokens (commandline -xpc)
+    set -e tokens[1]
+    set -l depth 1
+    set -l offset 1
+    set -l selecting true
+    while test $offset -le (count $tokens)
+        set -l token $tokens[$offset]
+        if test "$token" = --
+            set selecting false
+            break
+        end
+        if test $depth -lt (count $specs)
+            set -l next_depth (math $depth + 1)
+            if contains -- $token (__mamba_segment_field $specs[$next_depth] 1)
+                set depth $next_depth
+                set offset (math $offset + 1)
+                continue
+            end
+        end
+        if contains -- $token (__mamba_segment_field $specs[$depth] 6)
+            return 1
+        end
+        set -l width (__mamba_input_width $specs[$depth] $token)
+        if test $width -gt 0
+            if test $width -eq 2; and test $offset -eq (count $tokens)
+                set selecting false
+            end
+            set offset (math $offset + $width)
+            continue
+        end
+        set selecting false
+        break
+    end
+    if test $depth -ne (count $specs)
+        return 1
+    end
+    if test "$mode" = selecting
+        test "$selecting" = true
+        return
+    end
+    return 0
+end
+
+function __mamba_at_path
+    __mamba_path_state path $argv
+end
+
+function __mamba_selecting_child
+    __mamba_path_state selecting $argv
+end
+
+function __mamba_after_double_dash
+    contains -- -- (commandline -xpc)
+end
+
+function __mamba_option_available
+    set -l option --$argv[1]
+    set -l short $argv[2]
+    set -l repeatable $argv[3]
+    if test "$repeatable" = true
+        return 0
+    end
+    set -l tokens (commandline -xpc)
+    for index in (seq (count $tokens))
+        set -l token $tokens[$index]
+        if string match -q -- "$option=*" $token
+            return 1
+        end
+        if test "$token" = "$option"
+            if test $index -lt (count $tokens)
+                return 1
+            end
+            return 0
+        end
+        if test "$short" != _; and test "$token" = -$short
+            if test $index -lt (count $tokens)
+                return 1
+            end
+            return 0
+        end
+    end
+    return 0
+end
+
+function __mamba_positional_slot
+    set -l target $argv[1]
+    set -e argv[1]
+    set -l specs $argv
+    set -l tokens (commandline -xpc)
+    set -e tokens[1]
+    set -l depth 1
+    set -l offset 1
+    set -l count 0
+    while test $offset -le (count $tokens)
+        set -l token $tokens[$offset]
+        if test "$token" = --
+            break
+        end
+        if test $depth -lt (count $specs)
+            set -l next_depth (math $depth + 1)
+            if contains -- $token (__mamba_segment_field $specs[$next_depth] 1)
+                set depth $next_depth
+                set offset (math $offset + 1)
+                continue
+            end
+        end
+        if contains -- $token (__mamba_segment_field $specs[$depth] 6)
+            return 1
+        end
+        set -l width (__mamba_input_width $specs[$depth] $token)
+        if test $width -gt 0
+            set offset (math $offset + $width)
+            continue
+        end
+        if test $depth -lt (count $specs)
+            return 1
+        end
+        set count (math $count + 1)
+        set offset (math $offset + 1)
+    end
+    test $depth -eq (count $specs); and test $count -eq $target
+end
+
+function __mamba_variadic_available
+    if test "$argv[1]" = true
+        return 0
+    end
+    set -l after_separator false
+    set -l count 0
+    for token in (commandline -xpc)
+        if test "$after_separator" = true
+            set count (math $count + 1)
+        else if test "$token" = --
+            set after_separator true
+        end
+    end
+    test $count -eq 0
+end
+
+complete -c spec -s h -l help -d 'Show this help message.'
+complete -c spec -n '__mamba_selecting_child \'spec|help|h|||config\'' -f -a 'config' -d 'Configure settings.'
+complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||remote\'' -s h -l help -d 'Show this help message.'
+complete -c spec -n '__mamba_selecting_child \'spec|help|h|||config\' \'config|help|h|||remote\'' -f -a 'remote' -d 'Manage remotes.'
+complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||remote\' \'remote|help|h|||set\'' -s h -l help -d 'Show this help message.'
+complete -c spec -n '__mamba_selecting_child \'spec|help|h|||config\' \'config|help|h|||remote\' \'remote|help|h|||set\'' -f -a 'set' -d 'Set a remote.'
+complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||remote\' \'remote|help|h|||set\' \'set|help,force|h|||\'' -s h -l help -d 'Show this help message.'
+complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||remote\' \'remote|help|h|||set\' \'set|help,force|h|||\'' -l force
+'''),
+      );
+    });
+
     test('inherits root inputs at subcommand paths', () {
       final output = convertFish(
         specRegistry(
@@ -1136,6 +1357,132 @@ compdef _spec spec
         contains('_spec_config_set()'),
       ),
       (
+        'creates handlers through multiple nested groups',
+        () {
+          final completion = rootCompletion(
+            commands: [
+              TestGroupCommand('config', [
+                TestGroupCommand('remote', [
+                  TestCommand('set', 'Set a remote.'),
+                ], 'Manage remotes.'),
+              ], 'Configure.'),
+            ],
+          );
+          return completion;
+        },
+        equals(r'''#compdef spec
+
+_spec_config_remote_set() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_spec_config_remote() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    set)
+      _spec_config_remote_set
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'set:Set a remote.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_spec_config() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    remote)
+      _spec_config_remote
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'remote:Manage remotes.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_spec() {
+  case "$words[2]" in
+    config)
+      _spec_config
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'config:Configure.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+compdef _spec spec
+'''),
+      ),
+      (
         'expands repeated positional choice slots',
         () => convertZsh(
           specRegistry(
@@ -1173,6 +1520,192 @@ compdef _spec spec
     }
   });
   group('ToBashCompletionConverter', () {
+    test('creates handlers through multiple nested groups', () {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestGroupCommand('remote', [
+                TestCommand(
+                  'set',
+                  'Set a remote.',
+                  flags: [BooleanFlag('force')],
+                ),
+              ], 'Manage remotes.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        equals(r'''_mamba_filter() {
+  local current="$1"
+  shift
+  COMPREPLY=()
+
+  local candidate
+  for candidate in "$@"; do
+    if [[ "$candidate" == "$current"* ]]; then
+      COMPREPLY+=("$candidate")
+    fi
+  done
+}
+
+# spec command
+# Global inputs for spec
+_spec_flags=(
+  '-h'
+  '--help'
+)
+
+declare -A _spec_options=(
+)
+
+# Configure.
+# Inputs for config
+_spec_config_flags=(
+  '-h'
+  '--help'
+)
+
+declare -A _spec_config_options=(
+)
+
+# Manage remotes.
+# Inputs for config remote
+_spec_config_remote_flags=(
+  '-h'
+  '--help'
+)
+
+declare -A _spec_config_remote_options=(
+)
+
+# Set a remote.
+# Inputs for config remote set
+_spec_config_remote_set_flags=(
+  '-h'
+  '--help'
+  '--force'
+)
+
+declare -A _spec_config_remote_set_options=(
+)
+
+_spec_config_remote_set_completion() {
+  local current="${COMP_WORDS[COMP_CWORD]}"
+  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  case "$previous" in
+  esac
+
+  case "$current" in
+    -*)
+      _mamba_filter "$current" "${_spec_flags[@]}" "${_spec_config_remote_set_flags[@]}" "${!_spec_options[@]}" "${!_spec_config_remote_set_options[@]}"
+      ;;
+    *)
+      _complete_spec_config_remote_set_positional "$current"
+      ;;
+  esac
+}
+
+_complete_spec_config_remote_set_positional() {
+  local current="$1"
+}
+
+_spec_config_remote_completion() {
+  local current="${COMP_WORDS[COMP_CWORD]}"
+  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  case "$previous" in
+  esac
+
+  case "$current" in
+    -*)
+      _mamba_filter "$current" "${_spec_flags[@]}" "${_spec_config_remote_flags[@]}" "${!_spec_options[@]}" "${!_spec_config_remote_options[@]}"
+      ;;
+    *)
+      case "$current" in
+      set)
+        _spec_config_remote_set_completion
+        ;;
+      *)
+        _mamba_filter "$current" 'set'
+        ;;
+      esac
+      _complete_spec_config_remote_positional "$current"
+      ;;
+  esac
+}
+
+_complete_spec_config_remote_positional() {
+  local current="$1"
+}
+
+_spec_config_completion() {
+  local current="${COMP_WORDS[COMP_CWORD]}"
+  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  case "$previous" in
+  esac
+
+  case "$current" in
+    -*)
+      _mamba_filter "$current" "${_spec_flags[@]}" "${_spec_config_flags[@]}" "${!_spec_options[@]}" "${!_spec_config_options[@]}"
+      ;;
+    *)
+      case "$current" in
+      remote)
+        _spec_config_remote_completion
+        ;;
+      *)
+        _mamba_filter "$current" 'remote'
+        ;;
+      esac
+      _complete_spec_config_positional "$current"
+      ;;
+  esac
+}
+
+_complete_spec_config_positional() {
+  local current="$1"
+}
+
+_spec_completion() {
+  local current="${COMP_WORDS[COMP_CWORD]}"
+  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  case "$previous" in
+  esac
+
+  case "$current" in
+    -*)
+      _mamba_filter "$current" "${_spec_flags[@]}" "${!_spec_options[@]}"
+      ;;
+    *)
+      case "$current" in
+      config)
+        _spec_config_completion
+        ;;
+      *)
+        _mamba_filter "$current" 'config'
+        ;;
+      esac
+      _complete_spec_positional "$current"
+      ;;
+  esac
+}
+
+_complete_spec_positional() {
+  local current="$1"
+}
+
+complete -F _spec_completion spec
+'''),
+      );
+    });
+
     test('places root flags and typed options in reusable global tables', () {
       final completion = convertBash(
         specRegistry(
@@ -1972,6 +2505,290 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
         expect(completion, contains(r"Name = 's'"));
       },
     );
+
+    test('emits tables through multiple nested groups', () {
+      final completion = convertPs(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestGroupCommand('remote', [
+                TestCommand(
+                  'set',
+                  'Set a remote.',
+                  flags: [BooleanFlag('force')],
+                ),
+              ], 'Manage remotes.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        completion,
+        equals(r'''<#
+ PowerShell completion for spec.
+ Generated; do not edit by hand.
+
+ spec command
+#>
+$script:MambaNativeCommands = @{
+    'root' = 'root'
+    'config' = 'config'
+    'remote' = 'remote'
+    'set' = 'set'
+}
+
+$script:MambaInputs = @{}
+$script:MambaChildren = @{}
+$script:MambaPositionalSlots = @{}
+$script:MambaValueHandlers = @{}
+$script:MambaVariadicHandlers = @{}
+
+$script:MambaInputs['root'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    )
+$script:MambaChildren['root'] = @(
+    [PSCustomObject]@{ Name = 'config'; Description = 'Configure.' }
+    )
+$script:MambaPositionalSlots['root'] = @{}
+$script:MambaInputs['root.config'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    )
+$script:MambaChildren['root.config'] = @(
+    [PSCustomObject]@{ Name = 'remote'; Description = 'Manage remotes.' }
+    )
+$script:MambaPositionalSlots['root.config'] = @{}
+$script:MambaInputs['root.config.remote'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    )
+$script:MambaChildren['root.config.remote'] = @(
+    [PSCustomObject]@{ Name = 'set'; Description = 'Set a remote.' }
+    )
+$script:MambaPositionalSlots['root.config.remote'] = @{}
+$script:MambaInputs['root.config.remote.set'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '--force'; Description = $null; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    )
+$script:MambaChildren['root.config.remote.set'] = @(
+    )
+$script:MambaPositionalSlots['root.config.remote.set'] = @{}
+function Update-MambaStateObject {
+    param(
+        [Parameter(Mandatory)][int]$CursorPosition,
+        [Parameter(Mandatory)]$Element
+    )
+    $extent = $Element.Extent
+    if ($null -eq $extent) { return $false }
+    if ($extent.StartOffset -ge $CursorPosition) { return $false }
+    if ($extent.EndOffset -gt $CursorPosition) { return $false }
+    return $true
+}
+
+function Find-MambaInput {
+    param(
+        [Parameter(Mandatory)][string]$PathKey,
+        [Parameter(Mandatory)][string]$Spelling
+    )
+    $inputs = $script:MambaInputs[$PathKey]
+    if ($null -eq $inputs) { return $null }
+    foreach ($input in $inputs) {
+        if ($input.Spelling -ceq $Spelling) { return $input }
+    }
+    return $null
+}
+
+function Resolve-MambaState {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$WordToComplete,
+        [Parameter(Mandatory)][int]$CursorPosition,
+        [Parameter(Mandatory)]$CommandAst
+    )
+    $resolved = @('root')
+    $pendingValueOwner = $null
+    $afterDoubleDash = $false
+    $positionalIndex = -1
+    $usedNonRepeatable = @{}
+    $elements = @($CommandAst.CommandElements)
+    for ($i = 1; $i -lt $elements.Count; $i++) {
+        $el = $elements[$i]
+        if (-not (Update-MambaStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
+        $isLastElement = ($i -eq $elements.Count - 1)
+        $tokenText = $el.Extent.Text
+        # The last AST element is the completion word only while the cursor
+        # is inside it or immediately after it; a trailing space means the
+        # last element has already been supplied.
+        $isWord = $isLastElement -and ($el.Extent.EndOffset -ge $CursorPosition)
+
+        if ($isWord) { continue }
+
+        # A value belongs to the preceding option even when it looks like a
+        # command, another option, or the variadic separator.
+        if ($null -ne $pendingValueOwner) {
+            $usedNonRepeatable[$pendingValueOwner] = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($afterDoubleDash) {
+            $positionalIndex = $positionalIndex + 1
+            continue
+        }
+
+        if ($tokenText -eq '--') {
+            $afterDoubleDash = $true
+            continue
+        }
+
+        $pathKey = $resolved -join '.'
+        $children = @($script:MambaChildren[$pathKey])
+        $canonical = $null
+        foreach ($child in $children) {
+            if ($child.Name -ceq $tokenText) {
+                $canonical = $script:MambaNativeCommands[$child.Name]
+                break
+            }
+        }
+        if ($null -ne $canonical) {
+            $resolved += ,$canonical
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($tokenText.StartsWith('--', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 2) {
+            $tail = $tokenText.Substring(2)
+            if ($tail.Contains('=')) {
+                $eqIndex = $tail.IndexOf('=')
+                $owner = '--' + $tail.Substring(0, $eqIndex)
+                $input = Find-MambaInput -PathKey $pathKey -Spelling $owner
+                if ($null -ne $input -and -not $input.IsFlag) {
+                    $usedNonRepeatable[$owner] = $true
+                }
+                continue
+            }
+            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            if ($null -ne $input -and -not $input.IsFlag) {
+                $pendingValueOwner = $tokenText
+                continue
+            }
+            $usedNonRepeatable[$tokenText] = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($tokenText.StartsWith('-', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 1) {
+            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            if ($null -ne $input -and -not $input.IsFlag) {
+                $pendingValueOwner = $tokenText
+                continue
+            }
+            $usedNonRepeatable[$tokenText] = $true
+            continue
+        }
+
+        $positionalIndex = $positionalIndex + 1
+    }
+
+    return [PSCustomObject]@{
+        ResolvedPath = $resolved
+        PendingValueOwner = $pendingValueOwner
+        AfterDoubleDash = $afterDoubleDash
+        PositionalIndex = $positionalIndex
+        UsedNonRepeatable = $usedNonRepeatable
+        WordToComplete = $WordToComplete
+    }
+}
+
+function Write-MambaCompletionResult {
+    param(
+        [Parameter(Mandatory)][string]$CompletionText,
+        [Parameter(Mandatory)][string]$ListItemText,
+        [Parameter(Mandatory)][string]$ResultType,
+        [string]$Description
+    )
+    if ([string]::IsNullOrEmpty($Description)) { $Description = ' ' }
+    [System.Management.Automation.CompletionResult]::new(
+        $CompletionText,
+        $ListItemText,
+        $ResultType,
+        $Description
+    ) | Write-Output
+}
+Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    try {
+        $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
+    } catch { return }
+    try {
+        $pathKey = ($state.ResolvedPath -join '.')
+        if ($state.AfterDoubleDash) {
+            $handler = $script:MambaVariadicHandlers[$pathKey]
+            if ($null -eq $handler) { return }
+            $emit = $handler.Repeatable -or ($state.PositionalIndex -lt 0)
+            if (-not $emit) { return }
+            foreach ($choice in $handler.Choices) {
+                if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                    Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                }
+            }
+            return
+        }
+        if ($null -ne $state.PendingValueOwner) {
+            $handler = $script:MambaValueHandlers["$pathKey.$($state.PendingValueOwner)"]
+            if ($null -ne $handler) {
+                foreach ($choice in $handler) {
+                    if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                        Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                    }
+                }
+            }
+            return
+        }
+        $inputs = $script:MambaInputs[$pathKey]
+        $currentWord = $state.WordToComplete
+        $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
+        $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
+        if ($null -ne $inputs) {
+            foreach ($input in $inputs) {
+                $spelling = $input.Spelling
+                if ($wantLong -and -not $spelling.StartsWith('--', [System.StringComparison]::Ordinal)) { continue }
+                if ($wantShort -and (-not $spelling.StartsWith('-', [System.StringComparison]::Ordinal) -or $spelling.StartsWith('--', [System.StringComparison]::Ordinal))) { continue }
+                if (-not $spelling.StartsWith($currentWord, [System.StringComparison]::Ordinal)) { continue }
+                if (-not $input.IsFlag -and -not $input.IsRepeatable -and -not $input.IsAccessor -and -not $input.IsHelp) {
+                    if ($state.UsedNonRepeatable.ContainsKey($spelling)) { continue }
+                }
+                Write-MambaCompletionResult -CompletionText $spelling -ListItemText $spelling -ResultType 'ParameterName' -Description $input.Description
+            }
+        }
+        if (-not $wantLong -and -not $wantShort) {
+            $commands = $script:MambaChildren[$pathKey]
+            if ($null -ne $commands) {
+                foreach ($command in $commands) {
+                    if ($command.Name.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                        Write-MambaCompletionResult -CompletionText $command.Name -ListItemText $command.Name -ResultType 'Command' -Description $command.Description
+                    }
+                }
+            }
+            $positionals = $script:MambaPositionalSlots[$pathKey]
+            if ($null -ne $positionals) {
+                $entry = $positionals[($state.PositionalIndex + 1)]
+                if ($null -ne $entry) {
+                    foreach ($choice in $entry.Choices) {
+                        if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                            Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description $entry.Description
+                        }
+                    }
+                }
+            }
+        }
+    } catch { }
+}
+'''),
+      );
+    });
 
     test('lists only visible short spellings in input rows', () {
       final completion = convertPs(
