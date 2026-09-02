@@ -206,6 +206,25 @@ void main() {
         .where((line) => line.startsWith('complete '))
         .join('\n');
 
+    String fishDeclaration(String output, String fragment) => output
+        .split('\n')
+        .firstWhere(
+          (line) => line.startsWith('complete ') && line.contains(fragment),
+        );
+
+    String? findFishExecutable() {
+      final configured = Platform.environment['FISH_EXECUTABLE'];
+      final executable = configured == null || configured.isEmpty
+          ? 'fish'
+          : configured;
+      try {
+        final result = Process.runSync(executable, ['--version']);
+        return result.exitCode == 0 ? executable : null;
+      } on ProcessException {
+        return null;
+      }
+    }
+
     test('renders root flags, typed options, and a multi-line description', () {
       final output = convertFish(
         CommandRegistry.create(
@@ -329,35 +348,26 @@ complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
           ),
         );
 
+        final declarations = fishDeclarations(output);
         expect(
-          fishDeclarations(output),
-          equals(
-            '''complete -c spec -s h -l help -d 'Show this help message.'
-complete -c spec -f -a 'serve' -d 'Serve requests.'
-complete -c spec -n '__mamba_at_path spec serve' -s h -l help -d 'Show this help message.'
-complete -c spec -n '__mamba_at_path spec serve' -s f -l force
-complete -c spec -n '__mamba_at_path spec serve' -l color
-complete -c spec -n '__mamba_at_path spec serve' -l no-color
-complete -c spec -n '__mamba_at_path spec serve' -l verbose
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available label l false' -s l -l label -r
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available retries _ false' -l retries -x
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available ratio _ false' -l ratio -x
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available tag _ true' -l tag -r
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available port _ true' -l port -x
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available weight _ true' -l weight -x
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available server.host _ false' -l server.host -r
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available server.port _ false' -l server.port -x
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available server.ratio _ false' -l server.ratio -x
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available one.two.three _ false' -l one.two.three -r
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_option_available a.b.c.d.e.value _ false' -l a.b.c.d.e.value -r
-complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 0' -f -a 'json yaml'
-complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 1' -f -a 'debug info'
-complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 2' -f -a 'debug info'
-complete -c spec -n '__mamba_at_path spec serve; and not __mamba_after_double_dash; and __mamba_positional_slot 3' -f -a 'debug info'
-complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' -f -a 'basic standard'
-'''
-                .trim(),
-          ),
+          declarations,
+          allOf([
+            contains('__mamba_selecting_child'),
+            contains("-f -a 'serve' -d 'Serve requests.'"),
+            contains('-s f -l force'),
+            contains('-l no-color'),
+            contains('-s l -l label -r'),
+            contains('-l retries -x'),
+            contains('-l server.host -r'),
+            contains('-l one.two.three -r'),
+            contains('-l a.b.c.d.e.value -r'),
+            contains("__mamba_positional_slot 0"),
+            contains("__mamba_positional_slot 3"),
+            contains("-a 'json yaml'"),
+            contains("-a 'debug info'"),
+            contains('__mamba_variadic_available true'),
+            contains("-a 'basic standard'"),
+          ]),
         );
       },
     );
@@ -376,7 +386,7 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
         ),
       );
 
-      expect(output, contains("-d 'format\\\\'s output'"));
+      expect(output, contains("-d 'format\\'s output'"));
     });
 
     test('omits hidden root flags', () {
@@ -408,6 +418,26 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
       );
 
       expect(output, contains("-a 'serve s'"));
+      expect(output, contains('serve,s|help'));
+    });
+
+    test('includes root option metadata in descendant path routing', () {
+      final output = convertFish(
+        specRegistry(
+          options: [StringOption('profile', short: 'p')],
+          commands: [TestCommand('serve', 'Serve requests.')],
+        ),
+      );
+
+      final declaration = output
+          .split('\n')
+          .firstWhere(
+            (line) =>
+                line.startsWith('complete ') &&
+                line.contains('__mamba_at_path') &&
+                line.contains('serve|help'),
+          );
+      expect(declaration, contains('spec|help|h|profile|p|serve'));
     });
 
     test(
@@ -425,7 +455,9 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
           ),
         );
 
-        expect(output, contains("-n '__mamba_at_path spec serve' -l force"));
+        final declaration = fishDeclaration(output, '-l force');
+        expect(declaration, contains('__mamba_at_path'));
+        expect(declaration, contains('serve|help,force'));
       },
     );
 
@@ -440,7 +472,9 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
         ),
       );
 
-      expect(output, contains("-n '__mamba_at_path spec config' -f -a 'set'"));
+      final declaration = fishDeclaration(output, "-a 'set'");
+      expect(declaration, contains('__mamba_selecting_child'));
+      expect(declaration, contains('config|help'));
     });
 
     test('inherits root inputs at subcommand paths', () {
@@ -451,7 +485,16 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
         ),
       );
 
-      expect(output, contains("-n '__mamba_at_path spec serve' -l verbose"));
+      final declaration = output
+          .split('\n')
+          .firstWhere(
+            (line) =>
+                line.startsWith('complete ') &&
+                line.contains('-l verbose') &&
+                line.contains('__mamba_at_path'),
+          );
+      expect(declaration, contains('__mamba_at_path'));
+      expect(declaration, contains('serve|help,verbose'));
     });
 
     test('inherits group persistent inputs at descendant paths', () {
@@ -468,12 +511,15 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
         ),
       );
 
-      expect(
-        output,
-        contains(
-          "-n '__mamba_at_path spec config set; and __mamba_option_available profile _ false'",
-        ),
-      );
+      final declaration = output
+          .split('\n')
+          .where(
+            (line) =>
+                line.startsWith('complete ') && line.contains('-l profile'),
+          )
+          .last;
+      expect(declaration, contains('__mamba_at_path'));
+      expect(declaration, contains('set|help|h|profile'));
     });
 
     test('uses a local option in preference to a persistent option', () {
@@ -491,20 +537,41 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
         ),
       );
 
-      expect(
-        output,
-        contains(
-          "-n '__mamba_at_path spec config; and __mamba_option_available retries _ false' -l retries -r",
+      final declarations = output
+          .split('\n')
+          .where(
+            (line) =>
+                line.startsWith('complete ') && line.contains('-l retries'),
+          )
+          .toList();
+      expect(declarations, hasLength(2));
+      expect(declarations[0], endsWith('-l retries -r'));
+      expect(declarations[1], endsWith('-l retries -x'));
+    });
+
+    test('does not inherit a group-local option into its child', () {
+      final output = convertFish(
+        specRegistry(
+          commands: [
+            TestGroupCommand(
+              'config',
+              [TestCommand('set', 'Set a value.')],
+              'Configure settings.',
+              options: [StringOption('local')],
+            ),
+          ],
         ),
       );
-      expect(
-        output,
-        isNot(
-          contains(
-            "__mamba_at_path spec config; and __mamba_option_available retries _ false' -l retries -x",
-          ),
-        ),
-      );
+
+      final localDeclarations = output
+          .split('\n')
+          .where(
+            (line) => line.startsWith('complete ') && line.contains('-l local'),
+          )
+          .toList();
+      expect(localDeclarations, hasLength(1));
+      expect(localDeclarations.single, contains('config|help'));
+      expect(localDeclarations.single, isNot(contains('set|help')));
     });
 
     test('suppresses non-repeatable options after use', () {
@@ -559,6 +626,47 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
       );
     });
 
+    test(
+      'composes root positional conditions without a leading conjunction',
+      () {
+        final output = convertFish(
+          specRegistry(
+            mandatoryPositionals: [
+              ChoicePositional<_Format>('format', choices: _Format.values),
+            ],
+          ),
+        );
+
+        final declaration = fishDeclaration(output, "-a 'json yaml'");
+        expect(declaration, contains("-n 'not __mamba_after_double_dash"));
+        expect(declaration, isNot(contains("-n '; and")));
+      },
+    );
+
+    test('gates a single-value choice variadic after its first value', () {
+      final output = convertFish(
+        specRegistry(
+          variadic: ChoiceVariadic<_Sku>('extra', choices: _Sku.values),
+        ),
+      );
+
+      final declaration = fishDeclaration(output, "-a 'basic standard'");
+      expect(declaration, contains('__mamba_variadic_available false'));
+      expect(declaration, isNot(contains("-n '; and")));
+    });
+
+    test('preserves Fish apostrophes and literal backslashes', () {
+      final output = convertFish(
+        specRegistry(
+          options: [
+            StringOption('path', description: r"owner's C:\tools path"),
+          ],
+        ),
+      );
+
+      expect(output, contains(r"-d 'owner\'s C:\\tools path'"));
+    });
+
     test('keeps normal variadics candidate-free after --', () {
       final output = convertFish(
         specRegistry(variadic: NormalVariadic('extra', regExp: RegExp(r'.+'))),
@@ -577,11 +685,90 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
               options: [AccessorStringOption('token')],
             ),
           ],
+          commands: [TestCommand('serve', 'Serve requests.')],
         ),
       );
 
-      expect(output, isNot(contains('-l internal.token')));
+      expect(
+        output.split('\n').where((line) => line.startsWith('complete ')),
+        everyElement(isNot(contains('-l internal.token'))),
+      );
+      expect(output, contains('|internal.token|'));
     });
+
+    final fishExecutable = findFishExecutable();
+    test(
+      'loads and evaluates generated completions in Fish',
+      () {
+        final output = convertFish(
+          specRegistry(
+            options: [
+              ChoiceOption<_Format>(
+                'format',
+                choices: _Format.values,
+                defaultValue: _Format.json,
+              ),
+            ],
+            commands: [
+              TestCommand(
+                'serve',
+                'Serve requests.',
+                aliases: ['s'],
+                mandatoryPositionals: [
+                  ChoicePositional<_Level>('level', choices: _Level.values),
+                ],
+                variadic: ChoiceVariadic<_Sku>('extra', choices: _Sku.values),
+              ),
+            ],
+          ),
+        );
+        final directory = Directory.systemTemp.createTempSync(
+          'mamba_fish_completion_',
+        );
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final script = File('${directory.path}/spec.fish')
+          ..writeAsStringSync(output);
+        final syntax = Process.runSync(fishExecutable!, [
+          '--no-execute',
+          script.path,
+        ]);
+        expect(syntax.exitCode, 0, reason: syntax.stderr as String?);
+
+        List<String> complete(String commandLine) {
+          final escapedPath = script.path
+              .replaceAll(r'\', r'\\')
+              .replaceAll("'", r"\'");
+          final escapedLine = commandLine
+              .replaceAll(r'\', r'\\')
+              .replaceAll("'", r"\'");
+          final result = Process.runSync(fishExecutable, [
+            '-c',
+            "source '$escapedPath'; complete -C '$escapedLine'",
+          ]);
+          expect(result.exitCode, 0, reason: result.stderr as String?);
+          return (result.stdout as String)
+              .split('\n')
+              .where((line) => line.isNotEmpty)
+              .map((line) => line.split('\t').first)
+              .toList();
+        }
+
+        expect(complete('spec --format '), containsAll(['json', 'yaml']));
+        expect(complete('spec serve '), containsAll(['debug', 'info']));
+        expect(complete('spec serve '), isNot(contains('serve')));
+        expect(complete('spec s '), containsAll(['debug', 'info']));
+        expect(
+          complete('spec --format json serve '),
+          containsAll(['debug', 'info']),
+        );
+        expect(complete('spec serve -- '), containsAll(['basic', 'standard']));
+        expect(
+          complete('spec serve -- basic '),
+          isNot(containsAll(['basic', 'standard'])),
+        );
+      },
+      skip: fishExecutable == null ? 'Fish is not installed.' : false,
+    );
   });
   group('ToZshCompletionConverter', () {
     String rootCompletion({

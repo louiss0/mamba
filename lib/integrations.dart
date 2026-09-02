@@ -13,6 +13,10 @@ abstract class RegistryMapConverter {
   String convert();
 }
 
+/// Compiles a registry map into a portable Bash completion script.
+///
+/// Bash associative-array values are strings, not arrays. Each option map
+/// therefore points at an indexed array containing its finite value choices.
 final class ToBashCompletionConverter extends RegistryMapConverter {
   ToBashCompletionConverter(super.registryMap);
 
@@ -145,7 +149,9 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     }
     final flagVariable = _variable(path, 'flags');
     lines.addAll([
-      '${global ? '# Global inputs for ${path.first}' : '# Inputs for ${path.skip(1).join(' ')}'}',
+      global
+          ? '# Global inputs for ${path.first}'
+          : '# Inputs for ${path.skip(1).join(' ')}',
       '$flagVariable=(',
       for (final flag in visibleFlags) '  ${_quote(flag)}',
       ')',
@@ -182,7 +188,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
         : _stringList(variadic['choices']);
     if (choices.isEmpty) return const [];
     return [
-      '${indent}--)',
+      '$indent--)',
       '$indent  _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
       '$indent  return',
       '$indent  ;;',
@@ -221,7 +227,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     return [
       r'      case "$current" in',
       for (final child in commands.values) ...[
-        '${indent}${([_map(child)['name'] as String, ..._stringList(_map(child)['aliases'])]).join('|')})',
+        '$indent${([_map(child)['name'] as String, ..._stringList(_map(child)['aliases'])]).join('|')})',
         '$indent  _${_pathIdentifier([...path, _map(child)['name'] as String])}_completion',
         '$indent  ;;',
       ],
@@ -579,12 +585,462 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
   }
 }
 
-class ToFishCompletionConverter extends RegistryMapConverter {
+/// Compiles a registry map into Fish `complete` declarations.
+///
+/// The generated helpers route rules to the selected command path and keep
+/// positional and post-`--` choices separate. Parser validation remains in
+/// Mamba; Fish only advertises the static command grammar.
+final class ToFishCompletionConverter extends RegistryMapConverter {
   ToFishCompletionConverter(super.registryMap);
 
   @override
   String convert() {
-    return "";
+    final root = _map(registryMap.map);
+    final rootName = root['name'] as String;
+    final lines = <String>[
+      '# Completion for $rootName: ${_summary(root['description'] as String)}',
+      _helpers(),
+      '',
+    ];
+    _writeCommand(lines, root, [rootName], const [], const {}, const {});
+    return '${lines.join('\n')}\n';
+  }
+
+  String _helpers() => r'''function __mamba_segment_field
+    set -l fields (string split '|' -- $argv[1])
+    string split ',' -- $fields[$argv[2]]
+end
+
+function __mamba_input_width
+    set -l spec $argv[1]
+    set -l token $argv[2]
+    if string match -q -- '--*' $token
+        set -l long (string replace -r '^--' '' -- $token)
+        set -l parts (string split -m 1 '=' -- $long)
+        if contains -- $parts[1] (__mamba_segment_field $spec 4)
+            if test (count $parts) -eq 1
+                echo 2
+            else
+                echo 1
+            end
+            return
+        end
+        if contains -- $parts[1] (__mamba_segment_field $spec 2)
+            echo 1
+            return
+        end
+        echo 0
+        return
+    end
+    if string match -q -- '-*' $token
+        set -l short (string sub -s 2 -- $token)
+        if test (string length -- $short) -eq 1; and contains -- $short (__mamba_segment_field $spec 5)
+            echo 2
+            return
+        end
+        for name in (string split '' -- $short)
+            if not contains -- $name (__mamba_segment_field $spec 3)
+                echo 0
+                return
+            end
+        end
+        if test -n "$short"
+            echo 1
+            return
+        end
+    end
+    echo 0
+end
+
+function __mamba_path_state
+    set -l mode $argv[1]
+    set -e argv[1]
+    set -l specs $argv
+    set -l tokens (commandline -xpc)
+    set -e tokens[1]
+    set -l depth 1
+    set -l offset 1
+    set -l selecting true
+    while test $offset -le (count $tokens)
+        set -l token $tokens[$offset]
+        if test "$token" = --
+            set selecting false
+            break
+        end
+        if test $depth -lt (count $specs)
+            set -l next_depth (math $depth + 1)
+            if contains -- $token (__mamba_segment_field $specs[$next_depth] 1)
+                set depth $next_depth
+                set offset (math $offset + 1)
+                continue
+            end
+        end
+        if contains -- $token (__mamba_segment_field $specs[$depth] 6)
+            return 1
+        end
+        set -l width (__mamba_input_width $specs[$depth] $token)
+        if test $width -gt 0
+            if test $width -eq 2; and test $offset -eq (count $tokens)
+                set selecting false
+            end
+            set offset (math $offset + $width)
+            continue
+        end
+        set selecting false
+        break
+    end
+    if test $depth -ne (count $specs)
+        return 1
+    end
+    if test "$mode" = selecting
+        test "$selecting" = true
+        return
+    end
+    return 0
+end
+
+function __mamba_at_path
+    __mamba_path_state path $argv
+end
+
+function __mamba_selecting_child
+    __mamba_path_state selecting $argv
+end
+
+function __mamba_after_double_dash
+    contains -- -- (commandline -xpc)
+end
+
+function __mamba_option_available
+    set -l option --$argv[1]
+    set -l short $argv[2]
+    set -l repeatable $argv[3]
+    if test "$repeatable" = true
+        return 0
+    end
+    set -l tokens (commandline -xpc)
+    for index in (seq (count $tokens))
+        set -l token $tokens[$index]
+        if string match -q -- "$option=*" $token
+            return 1
+        end
+        if test "$token" = "$option"
+            if test $index -lt (count $tokens)
+                return 1
+            end
+            return 0
+        end
+        if test "$short" != _; and test "$token" = -$short
+            if test $index -lt (count $tokens)
+                return 1
+            end
+            return 0
+        end
+    end
+    return 0
+end
+
+function __mamba_positional_slot
+    set -l target $argv[1]
+    set -e argv[1]
+    set -l specs $argv
+    set -l tokens (commandline -xpc)
+    set -e tokens[1]
+    set -l depth 1
+    set -l offset 1
+    set -l count 0
+    while test $offset -le (count $tokens)
+        set -l token $tokens[$offset]
+        if test "$token" = --
+            break
+        end
+        if test $depth -lt (count $specs)
+            set -l next_depth (math $depth + 1)
+            if contains -- $token (__mamba_segment_field $specs[$next_depth] 1)
+                set depth $next_depth
+                set offset (math $offset + 1)
+                continue
+            end
+        end
+        if contains -- $token (__mamba_segment_field $specs[$depth] 6)
+            return 1
+        end
+        set -l width (__mamba_input_width $specs[$depth] $token)
+        if test $width -gt 0
+            set offset (math $offset + $width)
+            continue
+        end
+        if test $depth -lt (count $specs)
+            return 1
+        end
+        set count (math $count + 1)
+        set offset (math $offset + 1)
+    end
+    test $depth -eq (count $specs); and test $count -eq $target
+end
+
+function __mamba_variadic_available
+    if test "$argv[1]" = true
+        return 0
+    end
+    set -l after_separator false
+    set -l count 0
+    for token in (commandline -xpc)
+        if test "$after_separator" = true
+            set count (math $count + 1)
+        else if test "$token" = --
+            set after_separator true
+        end
+    end
+    test $count -eq 0
+end''';
+
+  void _writeCommand(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> path,
+    List<String> ancestorSpecs,
+    Map<String, dynamic> inheritedFlags,
+    Map<String, dynamic> inheritedOptions,
+  ) {
+    final persistentFlags = {
+      ...inheritedFlags,
+      ...?_mapOrNull(command['persistentFlags']),
+    };
+    final flags = {...persistentFlags, ...?_mapOrNull(command['flags'])};
+    final persistentOptions = {
+      ...inheritedOptions,
+      ...?_mapOrNull(command['persistentOptions']),
+    };
+    final options = {...persistentOptions, ...?_mapOrNull(command['options'])};
+    final children = _mapOrNull(command['commands']);
+    final spec = _commandSpec(
+      command,
+      flags,
+      options,
+      _mapOrNull(command['accessors']),
+      children,
+    );
+    final specs = [...ancestorSpecs, spec];
+    final condition = path.length == 1
+        ? ''
+        : _helperCondition('__mamba_at_path', specs);
+    _writeInputs(
+      lines,
+      path.first,
+      condition,
+      flags,
+      options,
+      _mapOrNull(command['accessors']),
+    );
+    _writePositionals(lines, path.first, command, condition, specs);
+    _writeVariadic(lines, path.first, command, condition);
+
+    if (children == null) return;
+    final childCondition = _helperCondition('__mamba_selecting_child', specs);
+    for (final child in children.values) {
+      final childMap = _map(child);
+      final names = [
+        childMap['name'] as String,
+        ..._stringList(childMap['aliases']),
+      ];
+      lines.add(
+        "complete -c ${_quoteBare(path.first)}${_conditionArgument(childCondition)} -f -a ${_quote(names.join(' '))} -d ${_quote(_summary(childMap['description'] as String))}",
+      );
+      _writeCommand(
+        lines,
+        childMap,
+        [...path, childMap['name'] as String],
+        specs,
+        path.length == 1 ? flags : persistentFlags,
+        path.length == 1 ? options : persistentOptions,
+      );
+    }
+  }
+
+  void _writeInputs(
+    List<String> lines,
+    String executable,
+    String condition,
+    Map<String, dynamic> flags,
+    Map<String, dynamic> options,
+    Map<String, dynamic>? accessors,
+  ) {
+    for (final entry in flags.entries) {
+      final flag = _map(entry.value);
+      if (flag['hidden'] == true) continue;
+      final switches = <String>['-l ${_quoteBare(entry.key)}'];
+      if (flag['short'] case final String short) {
+        switches.insert(0, '-s $short');
+      }
+      lines.add(
+        'complete -c $executable${_conditionArgument(condition)} ${switches.join(' ')}${_description(flag['description'])}',
+      );
+      if (flag['negatable'] == true) {
+        lines.add(
+          'complete -c $executable${_conditionArgument(condition)} -l no-${_quoteBare(entry.key)}${_description(flag['description'])}',
+        );
+      }
+    }
+    final accessorOptions = _accessorLeaves(accessors);
+    final mergedOptions = <String, Map<String, dynamic>>{
+      for (final entry in options.entries) entry.key: _map(entry.value),
+      for (final leaf in accessorOptions) leaf.path: leaf.value,
+    };
+    for (final entry in mergedOptions.entries) {
+      final option = entry.value;
+      if (option['hidden'] == true) continue;
+      final short = option['short'] as String?;
+      final type = option['valueType'] as String?;
+      final choices = _stringList(option['choices']);
+      final switches = <String>[
+        if (short != null) '-s $short',
+        '-l ${_quoteBare(entry.key)}',
+        choices.isNotEmpty || type == 'int' || type == 'double' ? '-x' : '-r',
+        if (choices.isNotEmpty) '-a ${_quote(choices.join(' '))}',
+      ];
+      final available =
+          '__mamba_option_available ${_quoteBare(entry.key)} ${short ?? '_'} ${option['repeatable'] == true}';
+      final availability = condition.isEmpty
+          ? available
+          : '$condition; and $available';
+      lines.add(
+        'complete -c $executable -n ${_quote(availability)} ${switches.join(' ')}${_description(option['description'])}',
+      );
+    }
+  }
+
+  void _writePositionals(
+    List<String> lines,
+    String executable,
+    Map<String, dynamic> command,
+    String condition,
+    List<String> specs,
+  ) {
+    final positionals = _mapOrNull(command['positionals']);
+    if (positionals == null) return;
+    var slot = 0;
+    for (final value in positionals.values) {
+      final positional = _map(value);
+      final choices = _stringList(positional['choices']);
+      final times = positional['repeatable'] == true
+          ? (positional['times'] as int)
+          : 0;
+      for (var occurrence = 0; occurrence <= times; occurrence++, slot++) {
+        if (choices.isEmpty) continue;
+        final positionalCondition = _joinConditions([
+          condition,
+          'not __mamba_after_double_dash',
+          _helperCondition('__mamba_positional_slot $slot', specs),
+        ]);
+        lines.add(
+          "complete -c ${_quoteBare(executable)} -n ${_quote(positionalCondition)} -f -a ${_quote(choices.join(' '))}${_description(positional['description'])}",
+        );
+      }
+    }
+  }
+
+  void _writeVariadic(
+    List<String> lines,
+    String executable,
+    Map<String, dynamic> command,
+    String condition,
+  ) {
+    final variadic = _mapOrNull(command['variadic']);
+    if (variadic == null) return;
+    final choices = _stringList(variadic['choices']);
+    if (choices.isEmpty) return;
+    final variadicCondition = _joinConditions([
+      condition,
+      '__mamba_after_double_dash',
+      '__mamba_variadic_available ${variadic['repeatable'] == true}',
+    ]);
+    lines.add(
+      "complete -c ${_quoteBare(executable)} -n ${_quote(variadicCondition)} -f -a ${_quote(choices.join(' '))}${_description(variadic['description'])}",
+    );
+  }
+
+  String _commandSpec(
+    Map<String, dynamic> command,
+    Map<String, dynamic> flags,
+    Map<String, dynamic> options,
+    Map<String, dynamic>? accessors,
+    Map<String, dynamic>? children,
+  ) {
+    final longFlags = <String>[];
+    final shortFlags = <String>[];
+    for (final entry in flags.entries) {
+      final flag = _map(entry.value);
+      longFlags.add(entry.key);
+      if (flag['negatable'] == true) longFlags.add('no-${entry.key}');
+      if (flag['short'] case final String short) shortFlags.add(short);
+    }
+    final mergedOptions = <String, Map<String, dynamic>>{
+      for (final entry in options.entries) entry.key: _map(entry.value),
+      for (final leaf in _accessorLeaves(accessors, includeHidden: true))
+        leaf.path: leaf.value,
+    };
+    final longOptions = mergedOptions.keys.toList();
+    final shortOptions = [
+      for (final option in mergedOptions.values)
+        if (option['short'] case final String short) short,
+    ];
+    final childNames = [
+      for (final child in children?.values ?? const <dynamic>[]) ...[
+        _map(child)['name'] as String,
+        ..._stringList(_map(child)['aliases']),
+      ],
+    ];
+    return [
+      [command['name'] as String, ..._stringList(command['aliases'])].join(','),
+      longFlags.join(','),
+      shortFlags.join(','),
+      longOptions.join(','),
+      shortOptions.join(','),
+      childNames.join(','),
+    ].join('|');
+  }
+
+  String _helperCondition(String helper, List<String> specs) =>
+      '$helper ${specs.map(_conditionQuote).join(' ')}';
+  String _conditionQuote(String value) => "'$value'";
+  String _joinConditions(Iterable<String> conditions) =>
+      conditions.where((condition) => condition.isNotEmpty).join('; and ');
+  String _conditionArgument(String condition) =>
+      condition.isEmpty ? '' : ' -n ${_quote(condition)}';
+  String _summary(String description) => description.split('\n').first;
+  String _description(Object? description) =>
+      description is String ? ' -d ${_quote(_summary(description))}' : '';
+  String _quoteBare(String value) => value;
+  String _quote(String value) =>
+      "'${value.replaceAll(r'\', r'\\').replaceAll("'", r"\'")}'";
+  Map<String, dynamic> _map(Object? value) =>
+      Map<String, dynamic>.from(value as Map);
+  Map<String, dynamic>? _mapOrNull(Object? value) =>
+      value is Map ? _map(value) : null;
+  List<String> _stringList(Object? value) =>
+      value is List ? value.cast<String>() : const [];
+
+  Iterable<({String path, Map<String, dynamic> value})> _accessorLeaves(
+    Map<String, dynamic>? accessors, {
+    String? parent,
+    bool includeHidden = false,
+  }) sync* {
+    if (accessors == null) return;
+    for (final entry in accessors.entries) {
+      final path = parent == null ? entry.key : '$parent.${entry.key}';
+      final value = _map(entry.value);
+      if (value['kind'] == 'group') {
+        if (!includeHidden && value['hidden'] == true) continue;
+        yield* _accessorLeaves(
+          _mapOrNull(value['options']),
+          parent: path,
+          includeHidden: includeHidden,
+        );
+      } else {
+        yield (path: path, value: value);
+      }
+    }
   }
 }
 
