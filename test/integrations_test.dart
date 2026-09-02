@@ -41,11 +41,11 @@ CommandRegistry specRegistry({
 String convertSpec(RegistryMap registryMap) =>
     CarapaceSpecConverter(registryMap).convert();
 
-String convertZsh(RegistryMap registryMap) =>
-    ToZshCompletionConverter(registryMap).convert();
-
 String convertBash(RegistryMap registryMap) =>
     ToBashCompletionConverter(registryMap).convert();
+
+String convertZsh(RegistryMap registryMap) =>
+    ToZshCompletionConverter(registryMap).convert();
 
 /// Compares specs after dropping trailing whitespace, obsolete numeric-range
 /// expectations, and the final newline.
@@ -1075,18 +1075,92 @@ compdef _spec spec
 
       expect(
         completion,
-        allOf([
-          contains('# Global inputs for spec'),
-          contains("  '-f'"),
-          contains("  '--color'"),
-          contains("  '--no-color'"),
-          contains("  '--verbose'"),
-          contains('_spec_format_values=(\n  \'json\'\n  \'yaml\'\n)'),
-          contains("['--format']='_spec_format_values'"),
-          contains("['-n']='_spec_name_values'"),
-          contains('declare -A _spec_options=('),
-          endsWith('complete -F _spec_completion spec\n'),
-        ]),
+        equals(r'''_mamba_filter() {
+  local current="$1"
+  shift
+  COMPREPLY=()
+
+  local candidate
+  for candidate in "$@"; do
+    if [[ "$candidate" == "$current"* ]]; then
+      COMPREPLY+=("$candidate")
+    fi
+  done
+}
+
+# spec command
+# Global inputs for spec
+_spec_flags=(
+  '-h'
+  '--help'
+  '-f'
+  '--force'
+  '--color'
+  '--no-color'
+  '--verbose'
+)
+
+_spec_name_values=(
+)
+
+_spec_retries_values=(
+)
+
+_spec_ratio_values=(
+)
+
+_spec_format_values=(
+  'json'
+  'yaml'
+)
+
+_spec_include_values=(
+)
+
+_spec_attempt_values=(
+)
+
+_spec_weight_values=(
+)
+
+declare -A _spec_options=(
+  ['--name']='_spec_name_values'
+  ['-n']='_spec_name_values'
+  ['--retries']='_spec_retries_values'
+  ['--ratio']='_spec_ratio_values'
+  ['--format']='_spec_format_values'
+  ['--include']='_spec_include_values'
+  ['--attempt']='_spec_attempt_values'
+  ['--weight']='_spec_weight_values'
+)
+
+_spec_completion() {
+  local current="${COMP_WORDS[COMP_CWORD]}"
+  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  case "$previous" in
+    --format)
+      _mamba_filter "$current" "${_spec_format_values[@]}"
+      return
+      ;;
+  esac
+
+  case "$current" in
+    -*)
+      _mamba_filter "$current" "${_spec_flags[@]}" "${!_spec_options[@]}"
+      ;;
+    *)
+      _complete_spec_positional "$current"
+      ;;
+  esac
+}
+
+_complete_spec_positional() {
+  local current="$1"
+}
+
+complete -F _spec_completion spec
+'''),
       );
     });
 
