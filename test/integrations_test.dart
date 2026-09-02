@@ -194,7 +194,161 @@ String nestedExpectation({
 }
 
 void main() {
-  group("ToFishCompletionConverter", () {});
+  group('ToFishCompletionConverter', () {
+    String convertFish(CommandRegistry registry) =>
+        ToFishCompletionConverter(registry.toMap()).convert();
+
+    test('renders root flags, typed options, and a multi-line description', () {
+      final output = convertFish(
+        CommandRegistry.create(
+          'spec',
+          'Root command.',
+          longDescription: 'Additional root details.',
+          flags: [
+            BooleanFlag('force', short: 'f'),
+            BooleanFlag('color', negatable: true),
+            CountFlag('verbose'),
+          ],
+          options: [
+            StringOption('label', short: 'l'),
+            IntOption('retries'),
+            DoubleOption('ratio'),
+            RepeatableStringOption('tag'),
+            RepeatableIntOption('port'),
+            RepeatableDoubleOption('weight'),
+          ],
+        ),
+      );
+
+      expect(
+        output,
+        allOf([
+          contains("complete -c spec -s f -l force"),
+          contains('complete -c spec -l no-color'),
+          contains('-s l -l label -r'),
+          contains('-l retries -x'),
+          contains('-l ratio -x'),
+          contains('-l tag -r'),
+          contains('-l port -x'),
+          contains('-l weight -x'),
+          contains('# Completion for spec: Root command.'),
+          isNot(contains('Additional root details.')),
+        ]),
+      );
+    });
+
+    test(
+      'renders subcommand inputs, accessors, positionals, and variadics',
+      () {
+        final output = convertFish(
+          specRegistry(
+            commands: [
+              TestCommand(
+                'serve',
+                'Serve requests.',
+                longDescription: 'Additional serving details.',
+                flags: [
+                  BooleanFlag('force', short: 'f'),
+                  BooleanFlag('color', negatable: true),
+                  CountFlag('verbose'),
+                ],
+                options: [
+                  StringOption('label', short: 'l'),
+                  IntOption('retries'),
+                  DoubleOption('ratio'),
+                  RepeatableStringOption('tag'),
+                  RepeatableIntOption('port'),
+                  RepeatableDoubleOption('weight'),
+                ],
+                accessors: [
+                  AccessorListOption(
+                    'server',
+                    options: [
+                      AccessorStringOption('host'),
+                      AccessorIntOption('port'),
+                      AccessorDoubleOption('ratio'),
+                    ],
+                  ),
+                  AccessorListOption(
+                    'one',
+                    options: [
+                      AccessorListOption(
+                        'two',
+                        options: [AccessorStringOption('three')],
+                      ),
+                    ],
+                  ),
+                  AccessorListOption(
+                    'a',
+                    options: [
+                      AccessorListOption(
+                        'b',
+                        options: [
+                          AccessorListOption(
+                            'c',
+                            options: [
+                              AccessorListOption(
+                                'd',
+                                options: [
+                                  AccessorListOption(
+                                    'e',
+                                    options: [AccessorStringOption('value')],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+                mandatoryPositionals: [
+                  ChoicePositional<_Format>('format', choices: _Format.values),
+                ],
+                discretionaryPositionals: [
+                  RepeatedChoicePositional<_Level>(
+                    'level',
+                    choices: _Level.values,
+                    times: 2,
+                  ),
+                ],
+                variadic: RepeatedChoiceVariadic<_Sku>(
+                  'extra',
+                  choices: _Sku.values,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        expect(
+          output,
+          allOf([
+            contains("-a 'serve' -d 'Serve requests.'"),
+            contains(
+              "complete -c spec -n '__mamba_at_path spec serve' -s f -l force",
+            ),
+            contains(
+              'complete -c spec -n \'__mamba_at_path spec serve\' -l no-color',
+            ),
+            contains('-s l -l label -r'),
+            contains('-l retries -x'),
+            contains('-l server.host'),
+            contains('-l server.port'),
+            contains('-l server.ratio'),
+            contains('-l one.two.three'),
+            contains('-l a.b.c.d.e.value'),
+            contains("-a 'json yaml'"),
+            contains("-a 'debug info'"),
+            contains("-a 'basic standard'"),
+            contains('__mamba_after_double_dash'),
+            isNot(contains('Additional serving details.')),
+          ]),
+        );
+      },
+    );
+  });
   group("ToZshCompletionConverter", () {});
   group('ToBashCompletionConverter', () {
     test('places root flags and typed options in reusable global tables', () {
