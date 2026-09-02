@@ -1488,6 +1488,608 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
   };
 }
 
+/// Compiles a registry map into a native PowerShell argument completer.
+///
+/// The generated script registers a single `Register-ArgumentCompleter -Native`
+/// handler and resolves every element strictly left of the cursor against
+/// one of three small PowerShell maps emitted from the registry:
+/// - Spelled-name table (`$script:MambaSpellingFor`) mapping every visible
+///   spelling (long, short, negated, accessor) to its canonical owning
+///   command.
+/// - Per-command tables (split into command-specific helper functions) for
+///   commands, choice options, repeated positionals, and variadics.
+/// - Lookup tables to identify when a long/short spelling must consult a
+///   value handler before emitting flag candidates.
+///
+/// All candidate `CompletionResult` objects flow out individually through the
+/// success pipeline so PowerShell presents them as separate entries.
+final class ToPowerShellCompletionConverter extends RegistryMapConverter {
+  ToPowerShellCompletionConverter(super.registryMap);
+
+  /// Upper bound on the inclusive integer range Mamba emits for an option
+  /// with both `min` and `max` bounds. Wider intervals stay unbound.
+  static const int _maxStaticRangeSize = 64;
+
+  @override
+  String convert() {
+    final root = _map(registryMap.map);
+    final rootName = root['name'] as String;
+    final lines = <String>[
+      ..._header(rootName, root['description'] as String),
+      ..._native(root),
+      ..._recurse(root, ['root']),
+      ..._runtimeHelpers(),
+      ..._register(rootName),
+    ];
+    return '${lines.join('\n')}\n';
+  }
+
+  // ---------------------------------------------------------------------
+  // Header
+  // ---------------------------------------------------------------------
+
+  List<String> _header(String name, String description) => [
+    '<#',
+    ' PowerShell completion for $name.',
+    r''' Generated; do not edit by hand.''',
+    '',
+    for (final line in description.split('\n'))
+      line.isEmpty ? '' : ' $line',
+    '#>',
+  ];
+
+  // ---------------------------------------------------------------------
+  // Top-level tables
+  // ---------------------------------------------------------------------
+
+  /// Global lookup from canonical command name to canonical command name; the
+  /// resolver flattens an alias token into its canonical spelling using this
+  /// map before resolving the rest of the command line.
+  List<String> _native(Map<String, dynamic> root) {
+    final entries = <String>[
+      "    'root' = 'root'",
+    ];
+    void walk(Map<String, dynamic>? commands) {
+      if (commands == null) return;
+      for (final entry in commands.entries) {
+        final child = _map(entry.value);
+        entries.add("    ${_psQuote(entry.key)} = ${_psQuote(entry.key)}");
+        for (final alias in _stringList(child['aliases'])) {
+          entries.add("    ${_psQuote(alias)} = ${_psQuote(entry.key)}");
+        }
+        walk(_mapOrNull(child['commands']));
+      }
+    }
+
+    walk(_mapOrNull(root['commands']));
+    return [
+      r'$script:MambaNativeCommands = @{',
+      ...entries,
+      '}',
+      '',
+    ];
+  }
+
+  // ---------------------------------------------------------------------
+  // Per-path emission
+  // ---------------------------------------------------------------------
+
+  /// Per-path input set combining local flags, local options, accessor
+  /// leaves flattened into dotted spellings, and the built-in help.
+  List<String> _nativeInputSets(
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final entries = <String>[];
+    // Always include --help and -h first.
+    entries.addAll(_flagInputsFor('help', {
+      'description': 'Show this help message.',
+      'short': 'h',
+    }, help: true));
+    for (final entry
+        in (_mapOrNull(command['flags']) ?? const <String, dynamic>{}).entries) {
+      if (entry.key == 'help') continue;
+      final flag = _map(entry.value);
+      if (flag['hidden'] == true) continue;
+      // Count flag is identified by absence of 'default' / 'negatable'.
+      final isCount = !flag.containsKey('default');
+      entries.add(_row('--${entry.key}', flag, isFlag: true, isCount: isCount));
+      if (flag['short'] case final String short) {
+        entries.add(_row('-$short', flag, isFlag: true, isCount: isCount));
+      }
+      if (!isCount && flag['negatable'] == true) {
+        entries.add(_row('--no-${entry.key}', flag, isFlag: true));
+      }
+    }
+    for (final entry
+        in (_mapOrNull(command['options']) ?? const <String, dynamic>{}).entries) {
+      final option = _map(entry.value);
+      if (option['hidden'] == true) continue;
+      final isRepeatable = option['repeatable'] == true;
+      entries.add(_row('--${entry.key}', option, isRepeatable: isRepeatable));
+      if (option['short'] case final String short) {
+        entries.add(_row('-$short', option, isRepeatable: isRepeatable));
+      }
+    }
+    for (final leaf in _accessorLeaves(_mapOrNull(command['accessors']))) {
+      entries.add(_row('--${leaf.path}', {
+        'description': leaf.description,
+      }, isAccessor: true));
+    }
+    final pathKey = path.join('.');
+    return [
+      "\$script:MambaInputs[${_psQuote(pathKey)}] = @(",
+      ...entries,
+      '    )',
+    ];
+  }
+
+  List<String> _flagInputsFor(
+    String name,
+    Map<String, dynamic> flag, {
+    required bool help,
+  }) {
+    final entries = <String>[
+      _row('--$name', flag, isFlag: true, help: help),
+    ];
+    if (flag['short'] case final String short) {
+      entries.add(_row('-$short', flag, isFlag: true, help: help));
+    }
+    return entries;
+  }
+
+  String _row(
+    String spelling,
+    Map<String, dynamic> descriptor, {
+    bool isFlag = false,
+    bool isCount = false,
+    bool isRepeatable = false,
+    bool isAccessor = false,
+    bool help = false,
+  }) =>
+      '    [PSCustomObject]@{'
+      ' Spelling = ${_psQuote(spelling)};'
+      ' Description = ${_psQuoteOrNull(descriptor['description'] as String?)};'
+      ' IsFlag = ${_psBool(isFlag)};'
+      ' IsCount = ${_psBool(isCount)};'
+      ' IsRepeatable = ${_psBool(isRepeatable)};'
+      ' IsAccessor = ${_psBool(isAccessor)};'
+      ' IsHelp = ${_psBool(help)}'
+      ' },';
+
+  /// Subcommand candidates at the given path.
+  List<String> _nativeChildren(
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final children = _mapOrNull(command['commands']);
+    final entries = <String>[];
+    if (children != null) {
+      for (final entry in children.entries) {
+        final child = _map(entry.value);
+        final description = _summary(child['description'] as String?);
+        entries.add(
+          '    [PSCustomObject]@{'
+          ' Name = ${_psQuote(entry.key)};'
+          ' Description = ${_psQuoteOrNull(description)}'
+          ' },',
+        );
+        for (final alias in _stringList(child['aliases'])) {
+          entries.add(
+            '    [PSCustomObject]@{'
+            ' Name = ${_psQuote(alias)};'
+            ' Description = ${_psQuoteOrNull('Alias for ${entry.key}. ${description ?? ''}')}'
+            ' },',
+          );
+        }
+      }
+    }
+    final pathKey = path.join('.');
+    return [
+      "\$script:MambaChildren[${_psQuote(pathKey)}] = @(",
+      ...entries,
+      '    )',
+    ];
+  }
+
+  /// Positional slot table for the given path. Each slot exposes its finite
+  /// choice list and description for the dispatcher to consult.
+  List<String> _nativePositionals(
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final positionals = _mapOrNull(command['positionals']);
+    if (positionals == null || positionals.isEmpty) {
+      return [
+        "\$script:MambaPositionalSlots[${_psQuote(path.join('.'))}] = @{}",
+      ];
+    }
+    final lines = <String>[
+      "\$script:MambaPositionalSlots[${_psQuote(path.join('.'))}] = @{",
+    ];
+    var slot = 0;
+    for (final entry in positionals.entries) {
+      final positional = _map(entry.value);
+      final choices = _stringList(positional['choices']);
+      final times = positional['repeatable'] == true
+          ? positional['times'] as int? ?? 0
+          : 0;
+      for (var occurrence = 0; occurrence <= times; occurrence++, slot++) {
+        if (choices.isEmpty) continue;
+        lines.add(
+          '    $slot = [PSCustomObject]@{'
+          ' Choices = @(${choices.map(_psQuote).join(', ')});'
+          ' Description = ${_psQuoteOrNull(positional['description'] as String?)}'
+          ' },',
+        );
+      }
+    }
+    lines.add('    }');
+    return lines;
+  }
+
+  /// Value-handler arrays for choice options and accessor choice leaves.
+  List<String> _nativeValueHandlers(
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final lines = <String>[];
+    final options = _mapOrNull(command['options']) ?? const <String, dynamic>{};
+    for (final entry in options.entries) {
+      final option = _map(entry.value);
+      if (option['hidden'] == true) continue;
+      final values = _staticValuesFor(option);
+      if (values.isEmpty) continue;
+      final longKey = '${path.join('.')}.--${entry.key}';
+      lines.add(
+        "\$script:MambaValueHandlers[${_psQuote(longKey)}] = @(${values.map(_psQuote).join(', ')})",
+      );
+      if (option['short'] case final String short) {
+        final shortKey = '${path.join('.')}.-$short';
+        lines.add(
+          "\$script:MambaValueHandlers[${_psQuote(shortKey)}] = \$script:MambaValueHandlers[${_psQuote(longKey)}]",
+        );
+      }
+    }
+    for (final leaf in _accessorLeaves(_mapOrNull(command['accessors']))) {
+      if (leaf.choices.isEmpty) continue;
+      final key = '${path.join('.')}.--${leaf.path}';
+      lines.add(
+        "\$script:MambaValueHandlers[${_psQuote(key)}] = @(${leaf.choices.map(_psQuote).join(', ')})",
+      );
+    }
+    return lines;
+  }
+
+  /// Variadic handler for a command. The handler stores its choice list and
+  /// repeatability flag; the dispatcher reads both to decide whether to
+  /// emit candidates after `--`.
+  List<String> _nativeVariadic(
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final variadic = _mapOrNull(command['variadic']);
+    if (variadic == null) return const [];
+    final choices = _stringList(variadic['choices']);
+    return [
+      "\$script:MambaVariadicHandlers[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
+      ' Choices = @(${choices.map(_psQuote).join(', ')});'
+      ' Repeatable = ${_psBool(variadic['repeatable'] == true)}'
+      ' },',
+    ];
+  }
+
+  // ---------------------------------------------------------------------
+  // Walks down to descendents
+  // ---------------------------------------------------------------------
+
+  List<String> _recurse(Map<String, dynamic> command, List<String> path) {
+    final children = _mapOrNull(command['commands']) ?? const <String, dynamic>{};
+    final lines = <String>[
+      ..._nativeInputSets(command, path),
+      ..._nativeChildren(command, path),
+      ..._nativePositionals(command, path),
+      ..._nativeValueHandlers(command, path),
+      ..._nativeVariadic(command, path),
+    ];
+    for (final entry in children.entries) {
+      final child = _map(entry.value);
+      lines.addAll(_recurse(child, [...path, entry.key]));
+    }
+    return lines;
+  }
+
+  // ---------------------------------------------------------------------
+  // Runtime helpers
+  // ---------------------------------------------------------------------
+
+  List<String> _runtimeHelpers() {
+    const helpers = r'''function Update-MambaStateObject {
+    param(
+        [Parameter(Mandatory)][int]$CursorPosition,
+        [Parameter(Mandatory)]$Element
+    )
+    $extent = $Element.Extent
+    if ($null -eq $extent) { return $false }
+    if ($extent.StartOffset -ge $CursorPosition) { return $false }
+    if ($extent.EndOffset -gt $CursorPosition) { return $false }
+    return $true
+}
+
+function Resolve-MambaState {
+    param(
+        [Parameter(Mandatory)][string]$WordToComplete,
+        [Parameter(Mandatory)][int]$CursorPosition,
+        [Parameter(Mandatory)]$CommandAst
+    )
+    $resolved = @('root')
+    $pendingValueOwner = $null
+    $afterDoubleDash = $false
+    $positionalIndex = -1
+    $usedNonRepeatable = @{}
+    $elements = @($CommandAst.CommandElements)
+    for ($i = 1; $i -lt $elements.Count; $i++) {
+        $el = $elements[$i]
+        if (-not (Update-MambaStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
+        $isLastElement = ($i -eq $elements.Count - 1)
+        $tokenText = $el.Extent.Text
+        $isWord = $isLastElement -and ($el.Extent.EndOffset -le $CursorPosition)
+
+        if ($afterDoubleDash) {
+            if (-not $isWord) { $positionalIndex = $positionalIndex + 1 }
+            continue
+        }
+
+        if ($tokenText -eq '--') {
+            $afterDoubleDash = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($isWord) { continue }
+
+        $canonical = $script:MambaNativeCommands[$tokenText]
+        if ($null -ne $canonical) {
+            $resolved += ,$canonical
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($tokenText.StartsWith('--', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 2) {
+            $tail = $tokenText.Substring(2)
+            if ($tail.Contains('=')) {
+                $eqIndex = $tail.IndexOf('=')
+                $pendingValueOwner = '--' + $tail.Substring(0, $eqIndex)
+                continue
+            }
+            $pathKey = $resolved -join '.'
+            $key = "$pathKey.$tokenText"
+            if ($script:MambaValueHandlers.ContainsKey($key)) {
+                $pendingValueOwner = $tokenText
+                continue
+            }
+            $usedNonRepeatable[$tokenText] = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        if ($tokenText.StartsWith('-', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 1) {
+            $pathKey = $resolved -join '.'
+            $key = "$pathKey.$tokenText"
+            if ($script:MambaValueHandlers.ContainsKey($key)) {
+                $pendingValueOwner = $tokenText
+                continue
+            }
+            $usedNonRepeatable[$tokenText] = $true
+            continue
+        }
+
+        if ($null -ne $pendingValueOwner) {
+            $usedNonRepeatable[$pendingValueOwner] = $true
+            $pendingValueOwner = $null
+            continue
+        }
+
+        $positionalIndex = $positionalIndex + 1
+    }
+
+    return [PSCustomObject]@{
+        ResolvedPath = $resolved
+        PendingValueOwner = $pendingValueOwner
+        AfterDoubleDash = $afterDoubleDash
+        PositionalIndex = $positionalIndex
+        UsedNonRepeatable = $usedNonRepeatable
+        WordToComplete = $WordToComplete
+    }
+}
+
+function Write-MambaCompletionResult {
+    param(
+        [Parameter(Mandatory)][string]$CompletionText,
+        [Parameter(Mandatory)][string]$ListItemText,
+        [Parameter(Mandatory)][string]$ResultType,
+        [string]$Description
+    )
+    [System.Management.Automation.CompletionResult]::new(
+        $CompletionText,
+        $ListItemText,
+        $ResultType,
+        $Description
+    ) | Write-Output
+}''';
+    return [helpers];
+  }
+
+  // ---------------------------------------------------------------------
+  // Registration
+  // ---------------------------------------------------------------------
+
+  List<String> _register(String rootName) {
+    const body = r'''Register-ArgumentCompleter -Native -CommandName '__ROOT__' -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    try {
+        $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
+    } catch { return }
+    try {
+        $pathKey = ($state.ResolvedPath -join '.')
+        if ($state.AfterDoubleDash) {
+            $handler = $script:MambaVariadicHandlers[$pathKey]
+            if ($null -eq $handler) { return }
+            $emit = $handler.Repeatable -or ($state.PositionalIndex -lt 0)
+            if (-not $emit) { return }
+            foreach ($choice in $handler.Choices) {
+                if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                    Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                }
+            }
+            return
+        }
+        if ($null -ne $state.PendingValueOwner) {
+            $handler = $script:MambaValueHandlers["$pathKey.$($state.PendingValueOwner)"]
+            if ($null -ne $handler) {
+                foreach ($choice in $handler) {
+                    if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                        Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                    }
+                }
+            }
+            return
+        }
+        $inputs = $script:MambaInputs[$pathKey]
+        $currentWord = $state.WordToComplete
+        $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
+        $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
+        if ($null -ne $inputs) {
+            foreach ($input in $inputs) {
+                $spelling = $input.Spelling
+                if ($wantLong -and -not $spelling.StartsWith('--', [System.StringComparison]::Ordinal)) { continue }
+                if ($wantShort -and (-not $spelling.StartsWith('-', [System.StringComparison]::Ordinal) -or $spelling.StartsWith('--', [System.StringComparison]::Ordinal))) { continue }
+                if (-not $spelling.StartsWith($currentWord, [System.StringComparison]::Ordinal)) { continue }
+                if (-not $input.IsFlag -and -not $input.IsRepeatable -and -not $input.IsAccessor -and -not $input.IsHelp) {
+                    if ($state.UsedNonRepeatable.ContainsKey($spelling)) { continue }
+                }
+                Write-MambaCompletionResult -CompletionText $spelling -ListItemText $spelling -ResultType 'ParameterName' -Description $input.Description
+            }
+        }
+        if (-not $wantLong -and -not $wantShort) {
+            $commands = $script:MambaChildren[$pathKey]
+            if ($null -ne $commands) {
+                foreach ($command in $commands) {
+                    if ($command.Name.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                        Write-MambaCompletionResult -CompletionText $command.Name -ListItemText $command.Name -ResultType 'Command' -Description $command.Description
+                    }
+                }
+            }
+            $positionals = $script:MambaPositionalSlots[$pathKey]
+            if ($null -ne $positionals) {
+                $entry = $positionals[$state.PositionalIndex]
+                if ($null -ne $entry) {
+                    foreach ($choice in $entry.Choices) {
+                        if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
+                            Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description $entry.Description
+                        }
+                    }
+                }
+            }
+        }
+    } catch { }
+}''';
+    return body
+        .split('\n')
+        .map((line) => line.replaceAll('__ROOT__', rootName))
+        .toList();
+  }
+
+  // ---------------------------------------------------------------------
+  // Lower-level utilities
+  // ---------------------------------------------------------------------
+
+  String _psQuote(String value) {
+    final escaped = value.replaceAll("'", "''");
+    return "'$escaped'";
+  }
+
+  String _psBool(bool value) => value ? r'$true' : r'$false';
+
+  String _psQuoteOrNull(String? value) =>
+      value == null ? r'$null' : _psQuote(value);
+
+  String? _summary(Object? value) {
+    if (value is! String) return null;
+    if (value.isEmpty) return value;
+    return value.split('\n').first;
+  }
+
+  List<String> _staticValuesFor(Map<String, dynamic> option) {
+    return [
+      ..._stringList(option['choices']),
+      ..._integerRangeValues(option),
+      ..._steppedDoubleValuesFromMap(option),
+    ];
+  }
+
+  List<String> _integerRangeValues(Map<String, dynamic> option) {
+    if (option['valueType'] != 'int') return const [];
+    final min = option['min'];
+    final max = option['max'];
+    if (min is! int || max is! int) return const [];
+    final size = max - min + 1;
+    if (size <= 0 || size > _maxStaticRangeSize) return const [];
+    return [
+      for (var n = min; n <= max; n++) n.toString(),
+    ];
+  }
+
+  Map<String, dynamic> _map(Object? value) =>
+      Map<String, dynamic>.from(value as Map);
+
+  Map<String, dynamic>? _mapOrNull(Object? value) =>
+      value is Map ? _map(value) : null;
+
+  Iterable<_AccessorLeaf> _accessorLeaves(
+    Map<String, dynamic>? accessors, {
+    String parent = '',
+    bool ancestorHidden = false,
+  }) sync* {
+    if (accessors == null) return;
+    for (final entry in accessors.entries) {
+      final value = _map(entry.value);
+      final path = parent.isEmpty ? entry.key : '$parent.${entry.key}';
+      if (value['kind'] == 'group') {
+        final hidden = ancestorHidden || value['hidden'] == true;
+        if (hidden) continue;
+        yield* _accessorLeaves(
+          _mapOrNull(value['options']),
+          parent: path,
+          ancestorHidden: hidden,
+        );
+        continue;
+      }
+      yield _AccessorLeaf(
+        path: path,
+        description: value['description'] as String?,
+        choices: value['valueType'] == 'choice'
+            ? _stringList(value['choices'])
+            : const <String>[],
+      );
+    }
+  }
+
+  List<String> _stringList(Object? value) =>
+      value is List ? value.cast<String>() : const [];
+}
+
+class _AccessorLeaf {
+  _AccessorLeaf({
+    required this.path,
+    required this.description,
+    required this.choices,
+  });
+  final String path;
+  final String? description;
+  final List<String> choices;
+}
+
 /// Writes a map-derived Carapace spec to the platform's spec directory.
 ///
 /// Production writers use the operating system's Carapace configuration
