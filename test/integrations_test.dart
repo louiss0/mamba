@@ -618,19 +618,34 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
 
         expect(
           completion,
-          allOf([
-            startsWith('#compdef spec'),
-            contains("'{-f,--force}[]'"),
-            contains("'--no-color[]'"),
-            contains("'*--verbose[]'"),
-            contains("'{-n,--name}[]:name:'"),
-            contains("'--retries[]:retries:_numbers'"),
-            contains("'--ratio[]:ratio:_numbers -f'"),
-            contains("'*--include[]:include:'"),
-            contains("'*--attempt[]:attempt:_numbers'"),
-            contains("'*--weight[]:weight:_numbers -f'"),
-            endsWith('compdef _spec spec\n'),
-          ]),
+          equals('''#compdef spec
+
+_spec() {
+  local context state state_descr line
+  typeset -A opt_args
+  if (( \${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \\
+    '{-h,--help}[Show this help message.]' \\
+    '{-f,--force}[]' \\
+    '--color[]' \\
+    '--no-color[]' \\
+    '*--verbose[]' \\
+    '{-n,--name}[]:name:' \\
+    '--retries[]:retries:_numbers' \\
+    '--ratio[]:ratio:_numbers -f' \\
+    '*--include[]:include:' \\
+    '*--attempt[]:attempt:_numbers' \\
+    '*--weight[]:weight:_numbers -f' \\
+    '*::argument:'
+  case \$state in
+  esac
+}
+
+compdef _spec spec
+'''),
         );
       },
     );
@@ -722,27 +737,106 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
 
       expect(
         completion,
-        allOf([
-          contains('_spec_config_set()'),
-          contains('config)'),
-          contains('set|s)'),
-          contains("'set:Set configuration.'"),
-          contains("'s:Alias for set'"),
-          contains("'--server.host[]:server.host:'"),
-          contains("'--server.port[]:server.port:_numbers'"),
-          contains("'--server.ratio[]:server.ratio:_numbers -f'"),
-          contains("'--one.two.three[]:one.two.three:'"),
-          contains("'--a.b.c.d.e.value[]:a.b.c.d.e.value:'"),
-          contains("'1:format:(json yaml)'"),
-          contains("'2::level:(debug info)'"),
-          contains("'4::level:(debug info)'"),
-          contains("_values 'value' 'basic' 'standard'"),
-          endsWith('compdef _spec spec\n'),
-        ]),
-      );
-      expect(
-        completion.indexOf('_spec_config_set()'),
-        lessThan(completion.indexOf('set|s)')),
+        equals('''#compdef spec
+
+_spec_config_set() {
+  local -a words
+  words=("\${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( \${words[(I:--)]} )); then
+    _values 'value' 'basic' 'standard'
+    return
+  fi
+  _arguments -S \\
+    '{-h,--help}[Show this help message.]' \\
+    '{-f,--force}[]' \\
+    '--color[]' \\
+    '--no-color[]' \\
+    '*--verbose[]' \\
+    '{-n,--name}[]:name:' \\
+    '--retries[]:retries:_numbers' \\
+    '--ratio[]:ratio:_numbers -f' \\
+    '*--include[]:include:' \\
+    '*--attempt[]:attempt:_numbers' \\
+    '*--weight[]:weight:_numbers -f' \\
+    '--server.host[]:server.host:' \\
+    '--server.port[]:server.port:_numbers' \\
+    '--server.ratio[]:server.ratio:_numbers -f' \\
+    '--one.two.three[]:one.two.three:' \\
+    '--a.b.c.d.e.value[]:a.b.c.d.e.value:' \\
+    '1:format:(json yaml)' \\
+    '2::level:(debug info)' \\
+    '3::level:(debug info)' \\
+    '4::level:(debug info)' \\
+    '*::argument:'
+  case \$state in
+  esac
+}
+
+_spec_config() {
+  local -a words
+  words=("\${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "\$words[2]" in
+    set|s)
+      _spec_config_set
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( \${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \\
+    '{-h,--help}[Show this help message.]' \\
+    '1:command:->command' \\
+    '*::argument:'
+  case \$state in
+    command)
+      local -a commands
+      commands=(
+        'set:Set configuration.'
+        's:Alias for set'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_spec() {
+  case "\$words[2]" in
+    config)
+      _spec_config
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( \${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \\
+    '{-h,--help}[Show this help message.]' \\
+    '1:command:->command' \\
+    '*::argument:'
+  case \$state in
+    command)
+      local -a commands
+      commands=(
+        'config:Configure the application.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+compdef _spec spec
+'''),
       );
     });
 
@@ -958,7 +1052,6 @@ complete -c spec -n '__mamba_at_path spec serve; and __mamba_after_double_dash' 
       test(testCase.$1, () => expect(testCase.$2(), testCase.$3));
     }
   });
-  group("ToBashCompletionConverter", () {});
   group('ToBashCompletionConverter', () {
     test('places root flags and typed options in reusable global tables', () {
       final completion = convertBash(
