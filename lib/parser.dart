@@ -186,8 +186,7 @@ class Parser {
         doubleOptions: _hasSingleOptionType<DoubleOption>(registry)
             ? doubleOptions
             : null,
-        repeatedStringOptions:
-            _hasRepeatedOptionType<RepeatableStringOption>(registry)
+        repeatedStringOptions: _hasRepeatedStringOptions(registry)
             ? repeatedStringOptions
             : null,
         repeatedIntOptions:
@@ -228,14 +227,21 @@ class Parser {
             registry,
           ).any((option) => option is PairDoubleOption));
 
+  bool _hasRepeatedStringOptions(CommandRegistry registry) =>
+      registry.repeatedOptions?.values.any(
+            (option) =>
+                option is RepeatableStringOption ||
+                option is RepeatableChoiceOption,
+          ) ==
+          true ||
+      _registeredPairOptions(
+        registry,
+      ).any((option) => option is RepeatablePairStringOption);
+
   bool _hasRepeatedOptionType<T extends RepeatableOption>(
     CommandRegistry registry,
   ) =>
       registry.repeatedOptions?.values.any((option) => option is T) == true ||
-      (T == RepeatableStringOption &&
-          _registeredPairOptions(
-            registry,
-          ).any((option) => option is RepeatablePairStringOption)) ||
       (T == RepeatableIntOption &&
           _registeredPairOptions(
             registry,
@@ -526,6 +532,12 @@ class Parser {
           _parseRegExpValidated(option, value),
           repeatedStringOptions,
         );
+      case RepeatableChoiceOption():
+        _addRepeatedValue(
+          option.name,
+          _parseChoiceValidated(option.name, option, value),
+          repeatedStringOptions,
+        );
       case RepeatableIntOption():
         _addRepeatedValue(
           option.name,
@@ -755,9 +767,8 @@ class Parser {
         ChoiceOption() => stringOptions.containsKey(option.name),
         IntOption() => intOptions.containsKey(option.name),
         DoubleOption() => doubleOptions.containsKey(option.name),
-        RepeatableStringOption() => repeatedStringOptions.containsKey(
-          option.name,
-        ),
+        RepeatableStringOption() || RepeatableChoiceOption() =>
+          repeatedStringOptions.containsKey(option.name),
         RepeatableIntOption() => repeatedIntOptions.containsKey(option.name),
         RepeatableDoubleOption() => repeatedDoubleOptions.containsKey(
           option.name,

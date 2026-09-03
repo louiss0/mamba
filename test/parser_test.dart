@@ -145,6 +145,19 @@ void main() {
       expect(inputs.stringOptions, {'mode': 'auto'});
     });
 
+    test(
+      'collects repeatable choice options in the repeated string option map',
+      () {
+        final inputs = parser(
+          options: [RepeatableChoiceOption<Mode>('mode', Mode.values)],
+        ).parse(['--mode', 'auto', '--mode=always']).$3;
+
+        expect(inputs.repeatedStringOptions, {
+          'mode': ['auto', 'always'],
+        });
+      },
+    );
+
     test('adds defaults to Boolean and count flag maps', () {
       final inputs = parser(
         flags: [BooleanFlag('color', defaultValue: true), CountFlag('verbose')],
