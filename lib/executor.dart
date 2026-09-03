@@ -62,6 +62,7 @@ final class Executor {
   static final List<Flag> _defaultFlags = [
     BooleanFlag(
       'dry-run',
+      short: 'n',
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),

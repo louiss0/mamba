@@ -1186,6 +1186,7 @@ final class CommandRegistry {
       command.accessors,
       childCommands,
       commandPath,
+      inheritedInputs: [...?publishedFlags, ...?publishedOptions],
     );
 
     return CommandRegistry._(
@@ -1669,7 +1670,12 @@ final class CommandRegistry {
           .where((candidate) => candidate.name == commandName)
           .firstOrNull;
       if (command == null) {
-        if (helpRequested && children.isEmpty) break;
+        // A leaf command's remaining bare tokens belong to its positional
+        // parser, not to a nonexistent child command. Leave them in place so
+        // Parser can validate the command's positionals and report any extra
+        // values with the correct command context.
+        if (children.isEmpty) break;
+        if (helpRequested) break;
         throw MambaCommandNotFoundException(
           token,
           registry.fullPath,
@@ -1830,8 +1836,9 @@ final class CommandRegistry {
     List<PairedOptions>? pairedOptions,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
-    List<String> commandPath,
-  ) {
+    List<String> commandPath, {
+    Iterable<NamedInput> inheritedInputs = const <NamedInput>[],
+  }) {
     _validateCommandName(name);
     _validateShortDescription(shortDescription);
     _validateAliases(name, aliases, commandPath);
@@ -1862,6 +1869,9 @@ final class CommandRegistry {
       discretionaryPositionals,
       commands,
       commandPath,
+      inheritedInputsByName: {
+        for (final input in inheritedInputs) input.name: input,
+      },
     );
   }
 
@@ -2122,8 +2132,10 @@ final class CommandRegistry {
     List<Positional>? mandatory,
     List<Positional>? discretionary,
     List<Command>? commands,
-    List<String> commandPath,
-  ) {
+    List<String> commandPath, {
+    Map<String, NamedInput> inheritedInputsByName =
+        const <String, NamedInput>{},
+  }) {
     final registeredOptions = <NamedInput>[
       ...?options,
       ...?pairedOptions?.expand((pairedOption) => pairedOption.options),
@@ -2131,7 +2143,10 @@ final class CommandRegistry {
     _validateDuplicateNames(registeredOptions, 'option');
     _validateDuplicateNames(flags, 'flag');
     _validateDuplicateNames([...?flags, ...registeredOptions], 'input');
-    _validateDuplicateShortAliases([...?flags, ...registeredOptions]);
+    _validateDuplicateShortAliases([
+      ...?flags,
+      ...registeredOptions,
+    ], inheritedInputsByName: inheritedInputsByName);
     _validateNegatableSpellings(flags, registeredOptions, accessors);
     _validateDuplicateCommandNames(commands);
     _validateDuplicateAliases(commands, commandPath);
@@ -2174,7 +2189,11 @@ final class CommandRegistry {
     }
   }
 
-  static void _validateDuplicateShortAliases(Iterable<NamedInput> inputs) {
+  static void _validateDuplicateShortAliases(
+    Iterable<NamedInput> inputs, {
+    Map<String, NamedInput> inheritedInputsByName =
+        const <String, NamedInput>{},
+  }) {
     final names = <String, String>{};
     for (final input in inputs) {
       final short = switch (input) {
@@ -2186,6 +2205,13 @@ final class CommandRegistry {
       if (short == null) continue;
       final previousName = names[short];
       if (previousName != null) {
+        // A local option may intentionally shadow an inherited global short
+        // alias. This lets a command keep its established shorthand while
+        // still allowing the global input before the command path.
+        if (inheritedInputsByName[previousName] is Flag && input is Option) {
+          names[short] = input.name;
+          continue;
+        }
         throw MambaRegistryError(
           'The short alias -$short is assigned to both $previousName and ${input.name}',
         );
