@@ -236,8 +236,8 @@ sealed class Option extends NamedInput {
 /// a unit; [required] makes the group mandatory and [variant] makes members
 /// alternatives.
 class PairedOptions {
-  PairedOptions({
-    required List<PairOption> options,
+  PairedOptions(
+    List<PairOption> options, {
     this.description,
     this.required = false,
     this.variant = false,
@@ -535,6 +535,21 @@ final class RepeatableDoubleOption extends RepeatableOption
   final double? step;
 }
 
+class RepeatableChoiceOption<T extends Enum> extends RepeatableOption
+    with ChoiceValidated<T> {
+  RepeatableChoiceOption(
+    super.name,
+    List<T> choices, {
+    super.required = false,
+    super.short,
+    super.description,
+    super.hidden,
+  }) : choices = List.unmodifiable(choices);
+
+  @override
+  final List<T> choices;
+}
+
 /// A named leaf or object registered for dotted accessor syntax.
 ///
 /// Accessors are parsed from long dotted paths and returned in the nested
@@ -556,10 +571,10 @@ sealed class AccessorPrimitiveOption extends AccessorOption {
 /// from help while preserving the complete accessor path for parsing.
 final class AccessorListOption extends AccessorOption {
   AccessorListOption(
-    super.name, {
+    super.name,
+    List<AccessorOption> options, {
     super.description,
     this.hidden = false,
-    required List<AccessorOption> options,
   }) : options = List.unmodifiable(options);
 
   final bool hidden;
