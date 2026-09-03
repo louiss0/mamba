@@ -50,7 +50,11 @@ String convertZsh(RegistryMap registryMap) =>
 String convertPs(RegistryMap registryMap) =>
     ToPowerShellCompletionConverter(registryMap).convert();
 
-Future<List<String>> completeBash(String completion, List<String> words) async {
+Future<List<String>> completeBash(
+  String completion,
+  List<String> words, {
+  List<String>? previousWords,
+}) async {
   final bash = Platform.isWindows
       ? '${Platform.environment['ProgramFiles']}\\Git\\bin\\bash.exe'
       : 'bash';
@@ -72,8 +76,17 @@ Future<List<String>> completeBash(String completion, List<String> words) async {
               )
         : completionFile.path;
     final encodedWords = words.map(_quoteBash).join(' ');
+    final previousCompletion = switch (previousWords) {
+      final previousWords? => [
+        'COMP_WORDS=(${previousWords.map(_quoteBash).join(' ')})',
+        'COMP_CWORD=${previousWords.length - 1}',
+        '_spec_completion',
+      ],
+      null => const <String>[],
+    };
     final script = [
       'source ${_quoteBash(source)}',
+      ...previousCompletion,
       'COMP_WORDS=($encodedWords)',
       'COMP_CWORD=${words.length - 1}',
       '_spec_completion',
@@ -1549,6 +1562,21 @@ compdef _spec spec
     }
   });
   group('ToBashCompletionConverter', () {
+    test('the rig command prints one final newline', () async {
+      final result = await Process.run(Platform.resolvedExecutable, [
+        'run',
+        'fixtures/rig/rig.dart',
+        'completion',
+        '--shell',
+        'bash',
+      ]);
+      final output = (result.stdout as String).replaceAll('\r\n', '\n');
+
+      expect(result.exitCode, 0, reason: result.stderr as String);
+      expect(output, endsWith('\n'));
+      expect(output, isNot(endsWith('\n\n')));
+    });
+
     test(
       'completes commands through multiple nested groups at runtime',
       () async {
@@ -1599,6 +1627,71 @@ compdef _spec spec
       );
     });
 
+    test('does not route words after the separator as commands', () async {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, ['spec', '--', 'config', '']),
+        isEmpty,
+      );
+    });
+
+    test('completes the first variadic value after the separator', () async {
+      final completion = convertBash(
+        specRegistry(
+          variadic: ChoiceVariadic<_Level>('level', choices: _Level.values),
+        ).toMap(),
+      );
+
+      expect(await completeBash(completion, ['spec', '--', '']), [
+        'debug',
+        'info',
+      ]);
+    });
+
+    test('stops completing a single variadic after one value', () async {
+      final completion = convertBash(
+        specRegistry(
+          variadic: ChoiceVariadic<_Level>('level', choices: _Level.values),
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, ['spec', '--', 'debug', '']),
+        isEmpty,
+      );
+    });
+
+    test('clears candidates before completing after the separator', () async {
+      final completion = convertBash(
+        specRegistry(
+          flags: [BooleanFlag('force')],
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(
+          completion,
+          ['spec', '--', 'config', ''],
+          previousWords: ['spec', '--f'],
+        ),
+        isEmpty,
+      );
+    });
+
     test('completes a root option value at a nested command', () async {
       final completion = convertBash(
         specRegistry(
@@ -1620,6 +1713,24 @@ compdef _spec spec
           '',
         ]),
         ['json', 'yaml'],
+      );
+    });
+
+    test('completes an inline root option at a nested command', () async {
+      final completion = convertBash(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, ['spec', 'config', 'set', '--format=j']),
+        ['--format=json'],
       );
     });
 
@@ -1990,20 +2101,6 @@ compdef _spec spec
       expect(completion, isNot(contains('0|1|2|3)')));
     });
 
-    test('keeps a completed separator ahead of other value cases', () {
-      final completion = convertBash(
-        specRegistry(
-          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
-          variadic: ChoiceVariadic<_Level>('extra', choices: _Level.values),
-        ).toMap(),
-      );
-
-      expect(
-        completion.indexOf('    --)'),
-        lessThan(completion.indexOf('    --format)')),
-      );
-    });
-
     test('emits choices for a single-value variadic', () {
       final completion = convertBash(
         specRegistry(
@@ -2024,8 +2121,38 @@ compdef _spec spec
         ).toMap(),
       );
 
-      expect(completion, contains('    --)'));
       expect(completion, contains("_mamba_filter \"\$current\" 'json' 'yaml'"));
+    });
+
+    test('completes repeated variadic values after the separator', () async {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand(
+                'set',
+                'Set configuration.',
+                variadic: RepeatedChoiceVariadic<_Format>(
+                  'extra',
+                  choices: _Format.values,
+                ),
+              ),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, [
+          'spec',
+          'config',
+          'set',
+          '--',
+          'json',
+          '',
+        ]),
+        ['json', 'yaml'],
+      );
     });
 
     test('omits hidden inputs while retaining visible input tables', () {

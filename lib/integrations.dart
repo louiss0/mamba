@@ -149,13 +149,24 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     final rootIdentifier = _identifier(rootName);
     lines.addAll([
       '_${rootIdentifier}_completion() {',
+      '  COMPREPLY=()',
       "  local path='$rootIdentifier'",
       "  local handler='_${rootIdentifier}_root_completion'",
       '  local index token route',
       '  local positional_index=0',
+      '  local variadic_index=0',
+      '  local after_separator=0',
       '',
       '  for ((index = 1; index < COMP_CWORD; index++)); do',
       r'    token="${COMP_WORDS[index]}"',
+      '    if ((after_separator)); then',
+      '      ((variadic_index++))',
+      '      continue',
+      '    fi',
+      r'    if [[ "$token" == -- ]]; then',
+      '      after_separator=1',
+      '      continue',
+      '    fi',
       '    if [[ -n "\${_${rootIdentifier}_value_options["\$path|\$token"]}" ]]; then',
       '      ((index++))',
       '      continue',
@@ -180,7 +191,9 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       '    ((positional_index++))',
       '  done',
       '',
+      r'  _mamba_after_separator=$after_separator',
       r'  _mamba_positional_index=$positional_index',
+      r'  _mamba_variadic_index=$variadic_index',
       r'  "$handler"',
       '}',
       '',
@@ -199,6 +212,21 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     fi
   done
 }
+
+_mamba_filter_option() {
+  local option="$1"
+  local current="$2"
+  shift 2
+  COMPREPLY=()
+
+  local value="${current#*=}"
+  local candidate
+  for candidate in "$@"; do
+    if [[ "$candidate" == "$value"* ]]; then
+      COMPREPLY+=("$option=$candidate")
+    fi
+  done
+}
 ''';
 
   void _writeRootHandler(
@@ -213,8 +241,16 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       r'  local current="${COMP_WORDS[COMP_CWORD]}"',
       r'  local previous="${COMP_WORDS[COMP_CWORD - 1]}"',
       '',
+      r'  if [[ "$_mamba_after_separator" == 1 ]]; then',
+      '    _complete_${_pathIdentifier(path)}_variadic "\$current"',
+      '    return',
+      '  fi',
+      '',
+      r'  case "$current" in',
+      ..._inlineValueCases(options, path, '    '),
+      '  esac',
+      '',
       r'  case "$previous" in',
-      ..._variadicCases(root, '    '),
       ..._valueCases(options, path, '    '),
       '  esac',
       '',
@@ -231,6 +267,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       '',
     ]);
     _writePositionalHandler(lines, root, path);
+    _writeVariadicHandler(lines, root, path);
   }
 
   void _writeCommand(
@@ -277,8 +314,16 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       r'  local current="${COMP_WORDS[COMP_CWORD]}"',
       r'  local previous="${COMP_WORDS[COMP_CWORD - 1]}"',
       '',
+      r'  if [[ "$_mamba_after_separator" == 1 ]]; then',
+      '    _complete_${_pathIdentifier(path)}_variadic "\$current"',
+      '    return',
+      '  fi',
+      '',
+      r'  case "$current" in',
+      ..._inlineValueCases(options, path, '    '),
+      '  esac',
+      '',
       r'  case "$previous" in',
-      ..._variadicCases(command, '    '),
       ..._valueCases(options, path, '    '),
       '  esac',
       '',
@@ -295,6 +340,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       '',
     ]);
     _writePositionalHandler(lines, command, path);
+    _writeVariadicHandler(lines, command, path);
   }
 
   void _writeInputTables(
@@ -351,20 +397,6 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     lines.addAll(['declare -A $optionVariable=(', ...optionEntries, ')', '']);
   }
 
-  List<String> _variadicCases(Map<String, dynamic> command, String indent) {
-    final variadic = _mapOrNull(command['variadic']);
-    final choices = variadic == null
-        ? const <String>[]
-        : _stringList(variadic['choices']);
-    if (choices.isEmpty) return const [];
-    return [
-      '$indent--)',
-      '$indent  _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
-      '$indent  return',
-      '$indent  ;;',
-    ];
-  }
-
   List<String> _valueCases(
     Map<String, dynamic> options,
     List<String> path,
@@ -376,6 +408,23 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
             _steppedDoubleValuesFromMap(_map(entry.value)).isNotEmpty) ...[
           '$indent${_optionPattern(entry)})',
           '$indent  _mamba_filter "\$current" ${_arrayValues(_variable(path, '${entry.key}_values'))}',
+          '$indent  return',
+          '$indent  ;;',
+        ],
+    ];
+  }
+
+  List<String> _inlineValueCases(
+    Map<String, dynamic> options,
+    List<String> path,
+    String indent,
+  ) {
+    return [
+      for (final entry in options.entries)
+        if (_stringList(_map(entry.value)['choices']).isNotEmpty ||
+            _steppedDoubleValuesFromMap(_map(entry.value)).isNotEmpty) ...[
+          '$indent--${entry.key}=*)',
+          '$indent  _mamba_filter_option ${_quote('--${entry.key}')} "\$current" ${_arrayValues(_variable(path, '${entry.key}_values'))}',
           '$indent  return',
           '$indent  ;;',
         ],
@@ -423,6 +472,33 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
         index += times + 1;
       }
       lines.addAll(['  esac']);
+    }
+    lines.addAll(['}', '']);
+  }
+
+  void _writeVariadicHandler(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final variadic = _mapOrNull(command['variadic']);
+    final choices = variadic == null
+        ? const <String>[]
+        : _stringList(variadic['choices']);
+    final function = '_complete_${_pathIdentifier(path)}_variadic';
+    lines.addAll(['$function() {', r'  local current="$1"']);
+    if (choices.isNotEmpty) {
+      if (variadic!['repeatable'] == true) {
+        lines.add(
+          '  _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
+        );
+      } else {
+        lines.addAll([
+          r'  if [[ "$_mamba_variadic_index" == 0 ]]; then',
+          '    _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
+          '  fi',
+        ]);
+      }
     }
     lines.addAll(['}', '']);
   }

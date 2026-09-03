@@ -16,9 +16,13 @@ fixtures/
 
 Fixtures only parse arguments and print deterministic descriptions. They must
 never affect the workstation. Generated completion files belong in the
-fixture's `completions` directory and should be refreshed by that fixture's
-generation tool when its command surface changes. For `rig`, run:
+fixture's `completions` directory and should be refreshed with that fixture's
+completion command when its command surface changes. For `rig`, run:
 
 ```text
-dart run tool/generate_rig_completions.dart
+dart run fixtures/rig/rig.dart completion --shell carapace > fixtures/rig/completions/rig.yaml
+dart run fixtures/rig/rig.dart completion --shell bash > fixtures/rig/completions/rig.bash
+dart run fixtures/rig/rig.dart completion --shell fish > fixtures/rig/completions/rig.fish
+dart run fixtures/rig/rig.dart completion --shell zsh > fixtures/rig/completions/_rig
+dart run fixtures/rig/rig.dart completion --shell powershell > fixtures/rig/completions/rig.ps1
 ```

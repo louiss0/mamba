@@ -80,7 +80,7 @@ final class _RigCompletionCommand extends CompletionCommand {
   @override
   String run(_, ParsedNamedInputs inputs, _) {
     final shell = inputs.stringOptions?['shell'] ?? 'carapace';
-    return switch (shell) {
+    final completion = switch (shell) {
       'carapace' => CarapaceSpecConverter(registryMap).convert(),
       'bash' => ToBashCompletionConverter(registryMap).convert(),
       'fish' => ToFishCompletionConverter(registryMap).convert(),
@@ -88,6 +88,7 @@ final class _RigCompletionCommand extends CompletionCommand {
       'powershell' => ToPowerShellCompletionConverter(registryMap).convert(),
       _ => throw MambaException('Unsupported completion shell: $shell'),
     };
+    return completion.trimRight();
   }
 }
 

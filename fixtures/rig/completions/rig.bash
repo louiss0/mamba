@@ -11,6 +11,21 @@ _mamba_filter() {
   done
 }
 
+_mamba_filter_option() {
+  local option="$1"
+  local current="$2"
+  shift 2
+  COMPREPLY=()
+
+  local value="${current#*=}"
+  local candidate
+  for candidate in "$@"; do
+    if [[ "$candidate" == "$value"* ]]; then
+      COMPREPLY+=("$option=$candidate")
+    fi
+  done
+}
+
 # A mock workstation-control CLI for harmless terminal simulations.
 #
 # rig only prints simulated operations. It never changes, inspects,
@@ -200,6 +215,18 @@ _rig_volume_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_volume_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_volume_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_volume_format_values[@]}"
@@ -225,6 +252,10 @@ _complete_rig_volume_positional() {
       _mamba_filter "$current" 'output' 'input'
       ;;
   esac
+}
+
+_complete_rig_volume_variadic() {
+  local current="$1"
 }
 
 # Describe simulated display brightness and visual properties.
@@ -275,6 +306,18 @@ _rig_brightness_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_brightness_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_brightness_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_brightness_format_values[@]}"
@@ -293,6 +336,10 @@ _rig_brightness_completion() {
 }
 
 _complete_rig_brightness_positional() {
+  local current="$1"
+}
+
+_complete_rig_brightness_variadic() {
   local current="$1"
 }
 
@@ -332,6 +379,18 @@ _rig_power_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_power_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_power_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_power_format_values[@]}"
@@ -357,6 +416,10 @@ _complete_rig_power_positional() {
       _mamba_filter "$current" 'lock' 'sleep' 'hibernate' 'restart' 'shutdown'
       ;;
   esac
+}
+
+_complete_rig_power_variadic() {
+  local current="$1"
 }
 
 # Describe simulated process inspection and control operations.
@@ -418,6 +481,18 @@ _rig_process_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_process_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_process_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_process_format_values[@]}"
@@ -443,6 +518,10 @@ _complete_rig_process_positional() {
       _mamba_filter "$current" 'inspect' 'limit' 'kill' 'priority'
       ;;
   esac
+}
+
+_complete_rig_process_variadic() {
+  local current="$1"
 }
 
 # Describe simulated cleanup of selected categories.
@@ -482,6 +561,18 @@ _rig_clean_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_clean_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_clean_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_clean_format_values[@]}"
@@ -507,6 +598,10 @@ _complete_rig_clean_positional() {
       _mamba_filter "$current" 'cache' 'logs' 'temp' 'thumbnails' 'downloads' 'trash'
       ;;
   esac
+}
+
+_complete_rig_clean_variadic() {
+  local current="$1"
 }
 
 # Generate a completion artifact without writing files.
@@ -545,6 +640,22 @@ _rig_completion_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_completion_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_completion_format_values[@]}"
+      return
+      ;;
+    --shell=*)
+      _mamba_filter_option '--shell' "$current" "${_rig_completion_shell_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_completion_format_values[@]}"
@@ -567,6 +678,10 @@ _rig_completion_completion() {
 }
 
 _complete_rig_completion_positional() {
+  local current="$1"
+}
+
+_complete_rig_completion_variadic() {
   local current="$1"
 }
 
@@ -647,6 +762,18 @@ _rig_network_wifi_connect_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_wifi_connect_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_wifi_connect_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_wifi_connect_format_values[@]}"
@@ -665,6 +792,10 @@ _rig_network_wifi_connect_completion() {
 }
 
 _complete_rig_network_wifi_connect_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_wifi_connect_variadic() {
   local current="$1"
 }
 
@@ -696,6 +827,18 @@ _rig_network_wifi_disconnect_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_wifi_disconnect_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_wifi_disconnect_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_wifi_disconnect_format_values[@]}"
@@ -714,6 +857,10 @@ _rig_network_wifi_disconnect_completion() {
 }
 
 _complete_rig_network_wifi_disconnect_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_wifi_disconnect_variadic() {
   local current="$1"
 }
 
@@ -746,6 +893,18 @@ _rig_network_wifi_scan_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_wifi_scan_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_wifi_scan_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_wifi_scan_format_values[@]}"
@@ -764,6 +923,10 @@ _rig_network_wifi_scan_completion() {
 }
 
 _complete_rig_network_wifi_scan_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_wifi_scan_variadic() {
   local current="$1"
 }
 
@@ -791,6 +954,18 @@ _rig_network_wifi_status_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_wifi_status_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_wifi_status_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_wifi_status_format_values[@]}"
@@ -812,9 +987,25 @@ _complete_rig_network_wifi_status_positional() {
   local current="$1"
 }
 
+_complete_rig_network_wifi_status_variadic() {
+  local current="$1"
+}
+
 _rig_network_wifi_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_wifi_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_wifi_format_values[@]}"
+      return
+      ;;
+  esac
 
   case "$previous" in
     --format)
@@ -835,6 +1026,10 @@ _rig_network_wifi_completion() {
 }
 
 _complete_rig_network_wifi_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_wifi_variadic() {
   local current="$1"
 }
 
@@ -886,6 +1081,18 @@ _rig_network_dns_get_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_dns_get_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_dns_get_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_dns_get_format_values[@]}"
@@ -904,6 +1111,10 @@ _rig_network_dns_get_completion() {
 }
 
 _complete_rig_network_dns_get_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_dns_get_variadic() {
   local current="$1"
 }
 
@@ -939,6 +1150,18 @@ _rig_network_dns_set_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_dns_set_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_dns_set_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_dns_set_format_values[@]}"
@@ -957,6 +1180,10 @@ _rig_network_dns_set_completion() {
 }
 
 _complete_rig_network_dns_set_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_dns_set_variadic() {
   local current="$1"
 }
 
@@ -988,6 +1215,18 @@ _rig_network_dns_reset_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_dns_reset_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_dns_reset_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_dns_reset_format_values[@]}"
@@ -1009,9 +1248,25 @@ _complete_rig_network_dns_reset_positional() {
   local current="$1"
 }
 
+_complete_rig_network_dns_reset_variadic() {
+  local current="$1"
+}
+
 _rig_network_dns_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_dns_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_dns_format_values[@]}"
+      return
+      ;;
+  esac
 
   case "$previous" in
     --format)
@@ -1032,6 +1287,10 @@ _rig_network_dns_completion() {
 }
 
 _complete_rig_network_dns_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_dns_variadic() {
   local current="$1"
 }
 
@@ -1083,6 +1342,18 @@ _rig_network_proxy_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_proxy_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_proxy_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_proxy_format_values[@]}"
@@ -1101,6 +1372,10 @@ _rig_network_proxy_completion() {
 }
 
 _complete_rig_network_proxy_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_proxy_variadic() {
   local current="$1"
 }
 
@@ -1136,6 +1411,18 @@ _rig_network_ping_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_ping_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_ping_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_network_ping_format_values[@]}"
@@ -1160,9 +1447,25 @@ _complete_rig_network_ping_positional() {
   esac
 }
 
+_complete_rig_network_ping_variadic() {
+  local current="$1"
+}
+
 _rig_network_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_network_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_network_format_values[@]}"
+      return
+      ;;
+  esac
 
   case "$previous" in
     --format)
@@ -1183,6 +1486,10 @@ _rig_network_completion() {
 }
 
 _complete_rig_network_positional() {
+  local current="$1"
+}
+
+_complete_rig_network_variadic() {
   local current="$1"
 }
 
@@ -1230,6 +1537,18 @@ _rig_profile_save_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_profile_save_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_profile_save_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_profile_save_format_values[@]}"
@@ -1252,6 +1571,10 @@ _complete_rig_profile_save_positional() {
   local index=$_mamba_positional_index
   case "$index" in
   esac
+}
+
+_complete_rig_profile_save_variadic() {
+  local current="$1"
 }
 
 # Describe applying a simulated profile.
@@ -1287,6 +1610,18 @@ _rig_profile_apply_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_profile_apply_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_profile_apply_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_profile_apply_format_values[@]}"
@@ -1309,6 +1644,10 @@ _complete_rig_profile_apply_positional() {
   local index=$_mamba_positional_index
   case "$index" in
   esac
+}
+
+_complete_rig_profile_apply_variadic() {
+  local current="$1"
 }
 
 # Describe removing an in-memory simulated profile.
@@ -1337,6 +1676,18 @@ _rig_profile_remove_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_profile_remove_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_profile_remove_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_profile_remove_format_values[@]}"
@@ -1359,6 +1710,10 @@ _complete_rig_profile_remove_positional() {
   local index=$_mamba_positional_index
   case "$index" in
   esac
+}
+
+_complete_rig_profile_remove_variadic() {
+  local current="$1"
 }
 
 # List fixed in-memory simulated profiles.
@@ -1385,6 +1740,18 @@ _rig_profile_list_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
 
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_profile_list_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_profile_list_format_values[@]}"
+      return
+      ;;
+  esac
+
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_profile_list_format_values[@]}"
@@ -1406,9 +1773,25 @@ _complete_rig_profile_list_positional() {
   local current="$1"
 }
 
+_complete_rig_profile_list_variadic() {
+  local current="$1"
+}
+
 _rig_profile_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_profile_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_profile_format_values[@]}"
+      return
+      ;;
+  esac
 
   case "$previous" in
     --format)
@@ -1432,9 +1815,25 @@ _complete_rig_profile_positional() {
   local current="$1"
 }
 
+_complete_rig_profile_variadic() {
+  local current="$1"
+}
+
 _rig_root_completion() {
   local current="${COMP_WORDS[COMP_CWORD]}"
   local previous="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  if [[ "$_mamba_after_separator" == 1 ]]; then
+    _complete_rig_variadic "$current"
+    return
+  fi
+
+  case "$current" in
+    --format=*)
+      _mamba_filter_option '--format' "$current" "${_rig_format_values[@]}"
+      return
+      ;;
+  esac
 
   case "$previous" in
     --format)
@@ -1458,14 +1857,29 @@ _complete_rig_positional() {
   local current="$1"
 }
 
+_complete_rig_variadic() {
+  local current="$1"
+}
+
 _rig_completion() {
+  COMPREPLY=()
   local path='rig'
   local handler='_rig_root_completion'
   local index token route
   local positional_index=0
+  local variadic_index=0
+  local after_separator=0
 
   for ((index = 1; index < COMP_CWORD; index++)); do
     token="${COMP_WORDS[index]}"
+    if ((after_separator)); then
+      ((variadic_index++))
+      continue
+    fi
+    if [[ "$token" == -- ]]; then
+      after_separator=1
+      continue
+    fi
     if [[ -n "${_rig_value_options["$path|$token"]}" ]]; then
       ((index++))
       continue
@@ -1490,7 +1904,9 @@ _rig_completion() {
     ((positional_index++))
   done
 
+  _mamba_after_separator=$after_separator
   _mamba_positional_index=$positional_index
+  _mamba_variadic_index=$variadic_index
   "$handler"
 }
 
