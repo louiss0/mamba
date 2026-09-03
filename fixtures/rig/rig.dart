@@ -460,37 +460,21 @@ _MockCommand _processCommand() => _MockCommand(
     ),
   ],
   accessors: [
-    AccessorListOption(
-      'limit',
-      description: 'Hierarchical simulated process limits.',
-      options: [
-        AccessorListOption(
-          'cpu',
-          description: 'CPU limit settings.',
-          options: [
-            AccessorDoubleOption(
-              'percent',
-              description: 'CPU percentage from 0 through 100.',
-            ),
-          ],
+    AccessorListOption('limit', [
+      AccessorListOption('cpu', [
+        AccessorDoubleOption(
+          'percent',
+          description: 'CPU percentage from 0 through 100.',
         ),
-        AccessorListOption(
-          'memory',
-          description: 'Memory limit settings.',
-          options: [
-            AccessorIntOption('mb', description: 'Memory limit in MB.'),
-          ],
-        ),
-        AccessorListOption(
-          'io',
-          description: 'I/O rate limits in MB/s.',
-          options: [
-            AccessorDoubleOption('read', description: 'Read limit in MB/s.'),
-            AccessorDoubleOption('write', description: 'Write limit in MB/s.'),
-          ],
-        ),
-      ],
-    ),
+      ], description: 'CPU limit settings.'),
+      AccessorListOption('memory', [
+        AccessorIntOption('mb', description: 'Memory limit in MB.'),
+      ], description: 'Memory limit settings.'),
+      AccessorListOption('io', [
+        AccessorDoubleOption('read', description: 'Read limit in MB/s.'),
+        AccessorDoubleOption('write', description: 'Write limit in MB/s.'),
+      ], description: 'I/O rate limits in MB/s.'),
+    ], description: 'Hierarchical simulated process limits.'),
   ],
   handler: (positionals, inputs, _) {
     final action = positionals.singles!['action']!;
@@ -883,30 +867,18 @@ _MockCommand _proxyCommand() => _MockCommand(
   'proxy',
   'Describe simulated HTTP, HTTPS, and SOCKS proxy settings.',
   accessors: [
-    AccessorListOption(
-      'http',
-      description: 'HTTP proxy settings.',
-      options: [
-        AccessorStringOption('host', description: 'HTTP proxy host.'),
-        AccessorIntOption('port', description: 'HTTP TCP port.'),
-      ],
-    ),
-    AccessorListOption(
-      'https',
-      description: 'HTTPS proxy settings.',
-      options: [
-        AccessorStringOption('host', description: 'HTTPS proxy host.'),
-        AccessorIntOption('port', description: 'HTTPS TCP port.'),
-      ],
-    ),
-    AccessorListOption(
-      'socks',
-      description: 'SOCKS proxy settings.',
-      options: [
-        AccessorStringOption('host', description: 'SOCKS proxy host.'),
-        AccessorIntOption('port', description: 'SOCKS TCP port.'),
-      ],
-    ),
+    AccessorListOption('http', [
+      AccessorStringOption('host', description: 'HTTP proxy host.'),
+      AccessorIntOption('port', description: 'HTTP TCP port.'),
+    ], description: 'HTTP proxy settings.'),
+    AccessorListOption('https', [
+      AccessorStringOption('host', description: 'HTTPS proxy host.'),
+      AccessorIntOption('port', description: 'HTTPS TCP port.'),
+    ], description: 'HTTPS proxy settings.'),
+    AccessorListOption('socks', [
+      AccessorStringOption('host', description: 'SOCKS proxy host.'),
+      AccessorIntOption('port', description: 'SOCKS TCP port.'),
+    ], description: 'SOCKS proxy settings.'),
   ],
   handler: (_, inputs, _) {
     final protocols = <String, dynamic>{};
