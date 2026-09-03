@@ -12,7 +12,7 @@ _rig_volume() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '{-m,--mute}[Mute the simulated target.]' \
     '{-u,--unmute}[Unmute the simulated target.]' \
@@ -40,7 +40,7 @@ _rig_brightness() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '{-l,--level}[Brightness percentage, from 0 through 100.]:level:_numbers -l 0 -m 100' \
@@ -65,7 +65,7 @@ _rig_power() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '{-f,--force}[Describe simulated force behavior without bypassing safety.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
@@ -89,7 +89,7 @@ _rig_process() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--priority[Simulated process priority for the priority action.]:priority:_numbers' \
@@ -118,7 +118,7 @@ _rig_clean() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--include-hidden[Include simulated hidden items in the description.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
@@ -148,7 +148,7 @@ _rig_completion() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--shell[Completion artifact format to print to stdout.]:shell:(carapace bash fish zsh powershell)' \
@@ -169,7 +169,7 @@ _rig_network_wifi_connect() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--hidden[Describe a hidden simulated network.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
@@ -193,7 +193,7 @@ _rig_network_wifi_disconnect() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--ssid[Optional simulated network name.]:ssid:' \
@@ -214,7 +214,7 @@ _rig_network_wifi_scan() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--hidden[Include hidden simulated networks.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
@@ -236,7 +236,7 @@ _rig_network_wifi_status() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '*::argument:'
@@ -274,7 +274,7 @@ _rig_network_wifi() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '1:command:->command' \
@@ -305,7 +305,7 @@ _rig_network_dns_get() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--interface[Simulated network interface.]:interface:' \
@@ -326,7 +326,7 @@ _rig_network_dns_set() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--interface[Simulated network interface.]:interface:' \
@@ -348,7 +348,7 @@ _rig_network_dns_reset() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--interface[Simulated network interface.]:interface:' \
@@ -383,7 +383,7 @@ _rig_network_dns() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '1:command:->command' \
@@ -413,7 +413,7 @@ _rig_network_proxy() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--http.host[HTTP proxy host.]:http.host:' \
@@ -439,7 +439,7 @@ _rig_network_ping() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '--count[Positive number of simulated requests.]:count:_numbers -l 1' \
@@ -480,7 +480,7 @@ _rig_network() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '1:command:->command' \
@@ -511,7 +511,7 @@ _rig_profile_save() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '1:name:' \
@@ -532,7 +532,7 @@ _rig_profile_apply() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--force[Describe simulated force behavior without bypassing safety.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
@@ -556,7 +556,7 @@ _rig_profile_remove() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '{-f,--force}[Confirm simulated profile removal.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
@@ -578,7 +578,7 @@ _rig_profile_list() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '*::argument:'
@@ -616,7 +616,7 @@ _rig_profile() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '1:command:->command' \
@@ -678,7 +678,7 @@ _rig() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '--dry-run[Show what would happen without changing anything.]' \
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '1:command:->command' \

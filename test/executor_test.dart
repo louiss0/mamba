@@ -66,6 +66,19 @@ void main() {
   });
 
   group('global inputs', () {
+    test('leaves -n available for application inputs', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        options: [StringOption('name', short: 'n')],
+        [_InputCommand('run')],
+      ).fake();
+
+      final result = await executor.execute(['run', '-n', 'demo']);
+
+      expect(result, isA<MambaSuccessResult>());
+    });
+
     test('parses built-in and custom root inputs for a command', () async {
       final executor = Executor(
         'mamba',

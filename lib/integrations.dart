@@ -55,17 +55,136 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     final root = registryMap.map;
     final rootName = root['name'] as String;
     final lines = <String>[_filterFunction()];
+    final rootFlags = _flagsFor(root);
+    final rootOptions = _optionsFor(root);
 
-    _writeInputTables(lines, root, [rootName], global: true);
+    _writeInputTables(
+      lines,
+      root,
+      [rootName],
+      flags: rootFlags,
+      options: rootOptions,
+      global: true,
+    );
     final commands = _mapOrNull(root['commands']);
+    _writeRoutingTables(lines, root, [rootName]);
     if (commands != null) {
       for (final command in commands.values) {
-        _writeCommand(lines, _map(command), [rootName]);
+        _writeCommand(lines, _map(command), [rootName], rootFlags, rootOptions);
       }
     }
-    _writeRootHandler(lines, root, [rootName]);
+    _writeRootHandler(lines, root, [rootName], rootOptions);
+    _writeDispatcher(lines, rootName);
     lines.add('complete -F _${_identifier(rootName)}_completion $rootName');
     return '${lines.join('\n')}\n';
+  }
+
+  void _writeRoutingTables(
+    List<String> lines,
+    Map<String, dynamic> command,
+    List<String> path,
+  ) {
+    final rootName = path.first;
+    final routes = <String>[];
+    final valueOptions = <String>[];
+
+    void collect(
+      Map<String, dynamic> parent,
+      List<String> parentPath,
+      Map<String, dynamic> inheritedOptions, {
+      required bool isRoot,
+    }) {
+      final persistentOptions =
+          _mapOrNull(parent['persistentOptions']) ?? const <String, dynamic>{};
+      final localOptions = _optionsFor(parent, includePersistent: false);
+      final availableOptions = {
+        ...inheritedOptions,
+        ...persistentOptions,
+        ...localOptions,
+      };
+      final parentIdentifier = _pathIdentifier(parentPath);
+      for (final entry in availableOptions.entries) {
+        final option = _map(entry.value);
+        valueOptions.add('  [${_quote('$parentIdentifier|--${entry.key}')}]=1');
+        if (option['short'] case final String short) {
+          valueOptions.add('  [${_quote('$parentIdentifier|-$short')}]=1');
+        }
+      }
+
+      final children = _mapOrNull(parent['commands']);
+      if (children == null) return;
+      final descendantOptions = isRoot
+          ? availableOptions
+          : {...inheritedOptions, ...persistentOptions};
+      for (final child in children.values) {
+        final childMap = _map(child);
+        final childPath = [...parentPath, childMap['name'] as String];
+        final handler = '_${_pathIdentifier(childPath)}_completion';
+        for (final spelling in [
+          childMap['name'] as String,
+          ..._stringList(childMap['aliases']),
+        ]) {
+          routes.add(
+            '  [${_quote('$parentIdentifier|$spelling')}]=${_quote(handler)}',
+          );
+        }
+        collect(childMap, childPath, descendantOptions, isRoot: false);
+      }
+    }
+
+    collect(command, path, const {}, isRoot: true);
+    lines.addAll([
+      'declare -A _${_identifier(rootName)}_command_routes=(',
+      ...routes,
+      ')',
+      '',
+      'declare -A _${_identifier(rootName)}_value_options=(',
+      ...valueOptions,
+      ')',
+      '',
+    ]);
+  }
+
+  void _writeDispatcher(List<String> lines, String rootName) {
+    final rootIdentifier = _identifier(rootName);
+    lines.addAll([
+      '_${rootIdentifier}_completion() {',
+      "  local path='$rootIdentifier'",
+      "  local handler='_${rootIdentifier}_root_completion'",
+      '  local index token route',
+      '  local positional_index=0',
+      '',
+      '  for ((index = 1; index < COMP_CWORD; index++)); do',
+      r'    token="${COMP_WORDS[index]}"',
+      '    if [[ -n "\${_${rootIdentifier}_value_options["\$path|\$token"]}" ]]; then',
+      '      ((index++))',
+      '      continue',
+      '    fi',
+      r'    if [[ "$token" == --*=* ]]; then',
+      r'      local option="${token%%=*}"',
+      '      if [[ -n "\${_${rootIdentifier}_value_options["\$path|\$option"]}" ]]; then',
+      '        continue',
+      '      fi',
+      '    fi',
+      '    route="\${_${rootIdentifier}_command_routes["\$path|\$token"]}"',
+      r'    if [[ -n "$route" ]]; then',
+      r'      handler="$route"',
+      r'      path="${route#_}"',
+      r'      path="${path%_completion}"',
+      '      positional_index=0',
+      '      continue',
+      '    fi',
+      r'    if [[ "$token" == -* ]]; then',
+      '      continue',
+      '    fi',
+      '    ((positional_index++))',
+      '  done',
+      '',
+      r'  _mamba_positional_index=$positional_index',
+      r'  "$handler"',
+      '}',
+      '',
+    ]);
   }
 
   String _filterFunction() => r'''_mamba_filter() {
@@ -86,8 +205,9 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     List<String> lines,
     Map<String, dynamic> root,
     List<String> path,
+    Map<String, dynamic> options,
   ) {
-    final function = '_${_pathIdentifier(path)}_completion';
+    final function = '_${_pathIdentifier(path)}_root_completion';
     lines.addAll([
       '$function() {',
       r'  local current="${COMP_WORDS[COMP_CWORD]}"',
@@ -95,7 +215,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       '',
       r'  case "$previous" in',
       ..._variadicCases(root, '    '),
-      ..._valueCases(root, path, '    '),
+      ..._valueCases(options, path, '    '),
       '  esac',
       '',
       r'  case "$current" in',
@@ -103,7 +223,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       '      _mamba_filter "\$current" ${_arrayValues(_variable(path, 'flags'))} ${_arrayKeys(_variable(path, 'options'))}',
       '      ;;',
       '    *)',
-      ..._commandCases(root, path, '      '),
+      ..._commandCases(root, '      '),
       '      _complete_${_pathIdentifier(path)}_positional "\$current"',
       '      ;;',
       '  esac',
@@ -117,18 +237,41 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     List<String> lines,
     Map<String, dynamic> command,
     List<String> parentPath,
+    Map<String, dynamic> inheritedFlags,
+    Map<String, dynamic> inheritedOptions,
   ) {
     final path = [...parentPath, command['name'] as String];
-    _writeInputTables(lines, command, path);
+    final persistentFlags =
+        _mapOrNull(command['persistentFlags']) ?? const <String, dynamic>{};
+    final persistentOptions =
+        _mapOrNull(command['persistentOptions']) ?? const <String, dynamic>{};
+    final flags = {
+      ...inheritedFlags,
+      ...persistentFlags,
+      ...?_mapOrNull(command['flags']),
+    };
+    final options = {
+      ...inheritedOptions,
+      ...persistentOptions,
+      ..._optionsFor(command, includePersistent: false),
+    };
+    _writeInputTables(lines, command, path, flags: flags, options: options);
     final children = _mapOrNull(command['commands']);
     if (children != null) {
+      final descendantFlags = {...inheritedFlags, ...persistentFlags};
+      final descendantOptions = {...inheritedOptions, ...persistentOptions};
       for (final child in children.values) {
-        _writeCommand(lines, _map(child), path);
+        _writeCommand(
+          lines,
+          _map(child),
+          path,
+          descendantFlags,
+          descendantOptions,
+        );
       }
     }
 
     final function = '_${_pathIdentifier(path)}_completion';
-    final rootPath = [parentPath.first];
     lines.addAll([
       '$function() {',
       r'  local current="${COMP_WORDS[COMP_CWORD]}"',
@@ -136,15 +279,15 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       '',
       r'  case "$previous" in',
       ..._variadicCases(command, '    '),
-      ..._valueCases(command, path, '    '),
+      ..._valueCases(options, path, '    '),
       '  esac',
       '',
       r'  case "$current" in',
       '    -*)',
-      '      _mamba_filter "\$current" ${_arrayValues(_variable(rootPath, 'flags'))} ${_arrayValues(_variable(path, 'flags'))} ${_arrayKeys(_variable(rootPath, 'options'))} ${_arrayKeys(_variable(path, 'options'))}',
+      '      _mamba_filter "\$current" ${_arrayValues(_variable(path, 'flags'))} ${_arrayKeys(_variable(path, 'options'))}',
       '      ;;',
       '    *)',
-      ..._commandCases(command, path, '      '),
+      ..._commandCases(command, '      '),
       '      _complete_${_pathIdentifier(path)}_positional "\$current"',
       '      ;;',
       '  esac',
@@ -158,16 +301,11 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     List<String> lines,
     Map<String, dynamic> command,
     List<String> path, {
+    required Map<String, dynamic> flags,
+    required Map<String, dynamic> options,
     bool global = false,
   }) {
     _writeDescription(lines, command['description'] as String);
-    final flags = _mapOrNull(command['flags']) ?? const <String, dynamic>{};
-    final options = {
-      ...?_mapOrNull(command['options']),
-      ...?_mapOrNull(command['persistentOptions']),
-      for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
-        accessor.path: accessor.value,
-    };
     final visibleFlags = <String>[];
     for (final entry in flags.entries) {
       final flag = _map(entry.value);
@@ -228,16 +366,10 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
   }
 
   List<String> _valueCases(
-    Map<String, dynamic> command,
+    Map<String, dynamic> options,
     List<String> path,
     String indent,
   ) {
-    final options = {
-      ...?_mapOrNull(command['options']),
-      ...?_mapOrNull(command['persistentOptions']),
-      for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
-        accessor.path: accessor.value,
-    };
     return [
       for (final entry in options.entries)
         if (_stringList(_map(entry.value)['choices']).isNotEmpty ||
@@ -250,26 +382,13 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     ];
   }
 
-  List<String> _commandCases(
-    Map<String, dynamic> command,
-    List<String> path,
-    String indent,
-  ) {
+  List<String> _commandCases(Map<String, dynamic> command, String indent) {
     final commands = _mapOrNull(command['commands']);
     if (commands == null) return const [];
     return [
-      r'      case "$current" in',
-      for (final child in commands.values) ...[
-        '$indent${([_map(child)['name'] as String, ..._stringList(_map(child)['aliases'])]).join('|')})',
-        '$indent  _${_pathIdentifier([...path, _map(child)['name'] as String])}_completion',
-        '$indent  ;;',
-      ],
-      '$indent*)',
-      '$indent  _mamba_filter "\$current" ${[
+      '${indent}_mamba_filter "\$current" ${[
         for (final child in commands.values) ...[_quote(_map(child)['name'] as String), for (final alias in _stringList(_map(child)['aliases'])) _quote(alias)],
       ].join(' ')}',
-      '$indent  ;;',
-      '      esac',
     ];
   }
 
@@ -283,7 +402,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     lines.addAll(['$function() {', r'  local current="$1"']);
     if (positionals != null) {
       lines.addAll([
-        r'  local index=$((COMP_CWORD - 1))',
+        r'  local index=$_mamba_positional_index',
         r'  case "$index" in',
       ]);
       var index = 0;
@@ -361,6 +480,21 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       }
     }
   }
+
+  Map<String, dynamic> _flagsFor(Map<String, dynamic> command) => {
+    ...?_mapOrNull(command['persistentFlags']),
+    ...?_mapOrNull(command['flags']),
+  };
+
+  Map<String, dynamic> _optionsFor(
+    Map<String, dynamic> command, {
+    bool includePersistent = true,
+  }) => {
+    if (includePersistent) ...?_mapOrNull(command['persistentOptions']),
+    ...?_mapOrNull(command['options']),
+    for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
+      accessor.path: accessor.value,
+  };
 }
 
 /// Compiles a registry map into a native Zsh completion function.
@@ -1519,7 +1653,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       ..._header(rootName, root['description'] as String),
       ..._native(root),
       ..._tableInitializers(),
-      ..._recurse(root, ['root']),
+      ..._recurse(root, ['root'], const {}, const {}, const {}, isRoot: true),
       ..._runtimeHelpers(),
       ..._register(rootName),
     ];
@@ -1580,8 +1714,10 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// Per-path input set combining inherited and local inputs, accessor leaves
   /// flattened into dotted spellings, and the built-in help.
   List<String> _nativeInputSets(
-    Map<String, dynamic> command,
     List<String> path,
+    Map<String, dynamic> flags,
+    Map<String, dynamic> options,
+    Map<String, _AccessorLeaf> accessors,
   ) {
     final entries = <String>[];
     // Always include --help and -h first. The registry's help entry is
@@ -1593,10 +1729,6 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       }, help: true),
     );
 
-    final flags = {
-      ...?_mapOrNull(command['persistentFlags']),
-      ...?_mapOrNull(command['flags']),
-    };
     for (final entry in flags.entries) {
       if (entry.key == 'help') continue;
       final flag = _map(entry.value);
@@ -1612,10 +1744,6 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       }
     }
 
-    final options = {
-      ...?_mapOrNull(command['persistentOptions']),
-      ...?_mapOrNull(command['options']),
-    };
     for (final entry in options.entries) {
       final option = _map(entry.value);
       if (option['hidden'] == true) continue;
@@ -1625,7 +1753,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
         entries.add(_row('-$short', option, isRepeatable: isRepeatable));
       }
     }
-    for (final leaf in _accessorLeaves(_mapOrNull(command['accessors']))) {
+    for (final leaf in accessors.values) {
       entries.add(
         _row('--${leaf.path}', {
           'description': leaf.description,
@@ -1744,14 +1872,11 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
 
   /// Value-handler arrays for choice options and accessor choice leaves.
   List<String> _nativeValueHandlers(
-    Map<String, dynamic> command,
     List<String> path,
+    Map<String, dynamic> options,
+    Map<String, _AccessorLeaf> accessors,
   ) {
     final lines = <String>[];
-    final options = {
-      ...?_mapOrNull(command['persistentOptions']),
-      ...?_mapOrNull(command['options']),
-    };
     for (final entry in options.entries) {
       final option = _map(entry.value);
       if (option['hidden'] == true) continue;
@@ -1768,7 +1893,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
         );
       }
     }
-    for (final leaf in _accessorLeaves(_mapOrNull(command['accessors']))) {
+    for (final leaf in accessors.values) {
       if (leaf.choices.isEmpty) continue;
       final key = '${path.join('.')}.--${leaf.path}';
       lines.add(
@@ -1800,19 +1925,61 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   // Walks down to descendents
   // ---------------------------------------------------------------------
 
-  List<String> _recurse(Map<String, dynamic> command, List<String> path) {
+  List<String> _recurse(
+    Map<String, dynamic> command,
+    List<String> path,
+    Map<String, dynamic> inheritedFlags,
+    Map<String, dynamic> inheritedOptions,
+    Map<String, _AccessorLeaf> inheritedAccessors, {
+    required bool isRoot,
+  }) {
     final children =
         _mapOrNull(command['commands']) ?? const <String, dynamic>{};
+    final persistentFlags =
+        _mapOrNull(command['persistentFlags']) ?? const <String, dynamic>{};
+    final persistentOptions =
+        _mapOrNull(command['persistentOptions']) ?? const <String, dynamic>{};
+    final flags = {
+      ...inheritedFlags,
+      ...persistentFlags,
+      ...?_mapOrNull(command['flags']),
+    };
+    final options = {
+      ...inheritedOptions,
+      ...persistentOptions,
+      ...?_mapOrNull(command['options']),
+    };
+    final localAccessors = {
+      for (final leaf in _accessorLeaves(_mapOrNull(command['accessors'])))
+        leaf.path: leaf,
+    };
+    final accessors = {...inheritedAccessors, ...localAccessors};
     final lines = <String>[
-      ..._nativeInputSets(command, path),
+      ..._nativeInputSets(path, flags, options, accessors),
       ..._nativeChildren(command, path),
       ..._nativePositionals(command, path),
-      ..._nativeValueHandlers(command, path),
+      ..._nativeValueHandlers(path, options, accessors),
       ..._nativeVariadic(command, path),
     ];
+    final descendantFlags = isRoot
+        ? flags
+        : {...inheritedFlags, ...persistentFlags};
+    final descendantOptions = isRoot
+        ? options
+        : {...inheritedOptions, ...persistentOptions};
+    final descendantAccessors = isRoot ? accessors : inheritedAccessors;
     for (final entry in children.entries) {
       final child = _map(entry.value);
-      lines.addAll(_recurse(child, [...path, entry.key]));
+      lines.addAll(
+        _recurse(
+          child,
+          [...path, entry.key],
+          descendantFlags,
+          descendantOptions,
+          descendantAccessors,
+          isRoot: false,
+        ),
+      );
     }
     return lines;
   }

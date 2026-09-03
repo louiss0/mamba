@@ -50,6 +50,87 @@ String convertZsh(RegistryMap registryMap) =>
 String convertPs(RegistryMap registryMap) =>
     ToPowerShellCompletionConverter(registryMap).convert();
 
+Future<List<String>> completeBash(String completion, List<String> words) async {
+  final bash = Platform.isWindows
+      ? '${Platform.environment['ProgramFiles']}\\Git\\bin\\bash.exe'
+      : 'bash';
+  if (Platform.isWindows && !File(bash).existsSync()) {
+    markTestSkipped('Git Bash is required for Bash completion runtime tests.');
+    return const [];
+  }
+
+  final fixture = await Directory.systemTemp.createTemp('mamba-bash-');
+  try {
+    final completionFile = File('${fixture.path}/completion.bash');
+    await completionFile.writeAsString(completion);
+    final source = Platform.isWindows
+        ? completionFile.path
+              .replaceAll('\\', '/')
+              .replaceFirst(
+                RegExp(r'^([A-Za-z]):'),
+                '/${completionFile.path[0].toLowerCase()}',
+              )
+        : completionFile.path;
+    final encodedWords = words.map(_quoteBash).join(' ');
+    final script = [
+      'source ${_quoteBash(source)}',
+      'COMP_WORDS=($encodedWords)',
+      'COMP_CWORD=${words.length - 1}',
+      '_spec_completion',
+      r'''printf '%s\\n' "${COMPREPLY[@]}"''',
+    ].join('\n');
+    final result = await Process.run(bash, ['-c', script]);
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    return (result.stdout as String)
+        .split('\n')
+        .where((candidate) => candidate.isNotEmpty)
+        .toList();
+  } finally {
+    await fixture.delete(recursive: true);
+  }
+}
+
+String _quoteBash(String value) => "'${value.replaceAll("'", "'\\\"'\\\"'")}'";
+
+Future<List<String>> completePowerShell(
+  String completion,
+  String commandLine,
+) async {
+  final executable = Platform.isWindows ? 'powershell.exe' : 'pwsh';
+  final fixture = await Directory.systemTemp.createTemp('mamba-powershell-');
+  try {
+    final script = File('${fixture.path}/completion.ps1');
+    await script.writeAsString('''
+$completion
+\$line = ${_quotePowerShell(commandLine)}
+\$result = TabExpansion2 \$line \$line.Length
+\$result.CompletionMatches | ForEach-Object { \$_.CompletionText }
+''');
+    ProcessResult result;
+    try {
+      result = await Process.run(executable, [
+        '-NoProfile',
+        '-NonInteractive',
+        if (Platform.isWindows) ...['-ExecutionPolicy', 'Bypass'],
+        '-File',
+        script.path,
+      ]);
+    } on ProcessException {
+      markTestSkipped('PowerShell is required for completion runtime tests.');
+      return const [];
+    }
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    return (result.stdout as String)
+        .split(RegExp(r'\r?\n'))
+        .where((candidate) => candidate.isNotEmpty)
+        .toList();
+  } finally {
+    await fixture.delete(recursive: true);
+  }
+}
+
+String _quotePowerShell(String value) => "'${value.replaceAll("'", "''")}'";
+
 /// Compares specs after dropping trailing whitespace, obsolete numeric-range
 /// expectations, and the final newline.
 Matcher equalsYaml(String expected) => predicate<String>(
@@ -1520,7 +1601,151 @@ compdef _spec spec
     }
   });
   group('ToBashCompletionConverter', () {
-    test('creates handlers through multiple nested groups', () {
+    test(
+      'completes commands through multiple nested groups at runtime',
+      () async {
+        final completion = convertBash(
+          specRegistry(
+            commands: [
+              TestGroupCommand('config', [
+                TestGroupCommand('remote', [
+                  TestCommand('set', 'Set a remote.'),
+                ], 'Manage remotes.'),
+              ], 'Configure.'),
+            ],
+          ).toMap(),
+        );
+
+        expect(
+          await completeBash(completion, ['spec', 'config', 'remote', '']),
+          ['set'],
+        );
+      },
+    );
+
+    test('keeps an exact command candidate before it is accepted', () async {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(await completeBash(completion, ['spec', 'config']), ['config']);
+    });
+
+    test('does not resolve an option value as a command at runtime', () async {
+      final completion = convertBash(
+        specRegistry(
+          options: [StringOption('target')],
+          commands: [TestCommand('deploy', 'Deploy the application.')],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, ['spec', '--target', 'deploy', '']),
+        contains('deploy'),
+      );
+    });
+
+    test('completes a root option value at a nested command', () async {
+      final completion = convertBash(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, [
+          'spec',
+          'config',
+          'set',
+          '--format',
+          '',
+        ]),
+        ['json', 'yaml'],
+      );
+    });
+
+    test('completes a positional at a nested command', () async {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand(
+                'set',
+                'Set configuration.',
+                mandatoryPositionals: [
+                  ChoicePositional<_Level>('level', choices: _Level.values),
+                ],
+              ),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(await completeBash(completion, ['spec', 'config', 'set', '']), [
+        'debug',
+        'info',
+      ]);
+    });
+
+    test('completes root flags at five nested command levels', () async {
+      final completion = convertBash(
+        nestedRegistry(5, flags: [BooleanFlag('force')]).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, [
+          'spec',
+          'alpha',
+          'beta',
+          'gamma',
+          'delta',
+          'leaf',
+          '--f',
+        ]),
+        ['--force'],
+      );
+    });
+
+    test('completes a group-persistent option at a nested leaf', () async {
+      final completion = convertBash(
+        specRegistry(
+          commands: [
+            TestGroupCommand(
+              'config',
+              [TestCommand('set', 'Set configuration.')],
+              'Configure.',
+              inheritedOptions: [
+                ChoiceOption<_Format>('format', choices: _Format.values),
+              ],
+            ),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completeBash(completion, [
+          'spec',
+          'config',
+          'set',
+          '--format',
+          '',
+        ]),
+        ['json', 'yaml'],
+      );
+    });
+
+    test('emits routing data and handlers for multiple nested groups', () {
       final completion = convertBash(
         specRegistry(
           commands: [
@@ -1539,173 +1764,19 @@ compdef _spec spec
 
       expect(
         completion,
-        equals(r'''_mamba_filter() {
-  local current="$1"
-  shift
-  COMPREPLY=()
-
-  local candidate
-  for candidate in "$@"; do
-    if [[ "$candidate" == "$current"* ]]; then
-      COMPREPLY+=("$candidate")
-    fi
-  done
-}
-
-# spec command
-# Global inputs for spec
-_spec_flags=(
-  '-h'
-  '--help'
-)
-
-declare -A _spec_options=(
-)
-
-# Configure.
-# Inputs for config
-_spec_config_flags=(
-  '-h'
-  '--help'
-)
-
-declare -A _spec_config_options=(
-)
-
-# Manage remotes.
-# Inputs for config remote
-_spec_config_remote_flags=(
-  '-h'
-  '--help'
-)
-
-declare -A _spec_config_remote_options=(
-)
-
-# Set a remote.
-# Inputs for config remote set
-_spec_config_remote_set_flags=(
-  '-h'
-  '--help'
-  '--force'
-)
-
-declare -A _spec_config_remote_set_options=(
-)
-
-_spec_config_remote_set_completion() {
-  local current="${COMP_WORDS[COMP_CWORD]}"
-  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
-
-  case "$previous" in
-  esac
-
-  case "$current" in
-    -*)
-      _mamba_filter "$current" "${_spec_flags[@]}" "${_spec_config_remote_set_flags[@]}" "${!_spec_options[@]}" "${!_spec_config_remote_set_options[@]}"
-      ;;
-    *)
-      _complete_spec_config_remote_set_positional "$current"
-      ;;
-  esac
-}
-
-_complete_spec_config_remote_set_positional() {
-  local current="$1"
-}
-
-_spec_config_remote_completion() {
-  local current="${COMP_WORDS[COMP_CWORD]}"
-  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
-
-  case "$previous" in
-  esac
-
-  case "$current" in
-    -*)
-      _mamba_filter "$current" "${_spec_flags[@]}" "${_spec_config_remote_flags[@]}" "${!_spec_options[@]}" "${!_spec_config_remote_options[@]}"
-      ;;
-    *)
-      case "$current" in
-      set)
-        _spec_config_remote_set_completion
-        ;;
-      *)
-        _mamba_filter "$current" 'set'
-        ;;
-      esac
-      _complete_spec_config_remote_positional "$current"
-      ;;
-  esac
-}
-
-_complete_spec_config_remote_positional() {
-  local current="$1"
-}
-
-_spec_config_completion() {
-  local current="${COMP_WORDS[COMP_CWORD]}"
-  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
-
-  case "$previous" in
-  esac
-
-  case "$current" in
-    -*)
-      _mamba_filter "$current" "${_spec_flags[@]}" "${_spec_config_flags[@]}" "${!_spec_options[@]}" "${!_spec_config_options[@]}"
-      ;;
-    *)
-      case "$current" in
-      remote)
-        _spec_config_remote_completion
-        ;;
-      *)
-        _mamba_filter "$current" 'remote'
-        ;;
-      esac
-      _complete_spec_config_positional "$current"
-      ;;
-  esac
-}
-
-_complete_spec_config_positional() {
-  local current="$1"
-}
-
-_spec_completion() {
-  local current="${COMP_WORDS[COMP_CWORD]}"
-  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
-
-  case "$previous" in
-  esac
-
-  case "$current" in
-    -*)
-      _mamba_filter "$current" "${_spec_flags[@]}" "${!_spec_options[@]}"
-      ;;
-    *)
-      case "$current" in
-      config)
-        _spec_config_completion
-        ;;
-      *)
-        _mamba_filter "$current" 'config'
-        ;;
-      esac
-      _complete_spec_positional "$current"
-      ;;
-  esac
-}
-
-_complete_spec_positional() {
-  local current="$1"
-}
-
-complete -F _spec_completion spec
-'''),
+        allOf([
+          contains("['spec|config']='_spec_config_completion'"),
+          contains("['spec_config|remote']='_spec_config_remote_completion'"),
+          contains(
+            "['spec_config_remote|set']="
+            "'_spec_config_remote_set_completion'",
+          ),
+          contains('_spec_config_remote_set_completion()'),
+          contains('_spec_root_completion()'),
+          endsWith('complete -F _spec_completion spec\n'),
+        ]),
       );
     });
-
     test('places root flags and typed options in reusable global tables', () {
       final completion = convertBash(
         specRegistry(
@@ -1728,96 +1799,23 @@ complete -F _spec_completion spec
 
       expect(
         completion,
-        equals(r'''_mamba_filter() {
-  local current="$1"
-  shift
-  COMPREPLY=()
-
-  local candidate
-  for candidate in "$@"; do
-    if [[ "$candidate" == "$current"* ]]; then
-      COMPREPLY+=("$candidate")
-    fi
-  done
-}
-
-# spec command
-# Global inputs for spec
-_spec_flags=(
-  '-h'
-  '--help'
-  '-f'
-  '--force'
-  '--color'
-  '--no-color'
-  '--verbose'
-)
-
-_spec_name_values=(
-)
-
-_spec_retries_values=(
-)
-
-_spec_ratio_values=(
-)
-
-_spec_format_values=(
-  'json'
-  'yaml'
-)
-
-_spec_include_values=(
-)
-
-_spec_attempt_values=(
-)
-
-_spec_weight_values=(
-)
-
-declare -A _spec_options=(
-  ['--name']='_spec_name_values'
-  ['-n']='_spec_name_values'
-  ['--retries']='_spec_retries_values'
-  ['--ratio']='_spec_ratio_values'
-  ['--format']='_spec_format_values'
-  ['--include']='_spec_include_values'
-  ['--attempt']='_spec_attempt_values'
-  ['--weight']='_spec_weight_values'
-)
-
-_spec_completion() {
-  local current="${COMP_WORDS[COMP_CWORD]}"
-  local previous="${COMP_WORDS[COMP_CWORD - 1]}"
-
-  case "$previous" in
-    --format)
-      _mamba_filter "$current" "${_spec_format_values[@]}"
-      return
-      ;;
-  esac
-
-  case "$current" in
-    -*)
-      _mamba_filter "$current" "${_spec_flags[@]}" "${!_spec_options[@]}"
-      ;;
-    *)
-      _complete_spec_positional "$current"
-      ;;
-  esac
-}
-
-_complete_spec_positional() {
-  local current="$1"
-}
-
-complete -F _spec_completion spec
-'''),
+        allOf([
+          contains('_spec_flags=('),
+          contains("  '-f'"),
+          contains("  '--force'"),
+          contains("  '--no-color'"),
+          contains("['--name']='_spec_name_values'"),
+          contains("['-n']='_spec_name_values'"),
+          contains("['--format']='_spec_format_values'"),
+          contains("['spec|--format']=1"),
+          contains("  'json'"),
+          contains("  'yaml'"),
+          contains('_spec_root_completion()'),
+          endsWith('complete -F _spec_completion spec\n'),
+        ]),
       );
     });
-
-    test('creates nested handlers before their alias case dispatchers', () {
+    test('creates nested handlers and alias routes', () {
       final completion = convertBash(
         specRegistry(
           commands: [
@@ -1898,7 +1896,7 @@ complete -F _spec_completion spec
         allOf([
           contains('_spec_config_set_completion()'),
           contains('_spec_config_completion()'),
-          contains('set|s)'),
+          contains("['spec_config|s']='_spec_config_set_completion'"),
           contains('_spec_config_set_server_host_values=('),
           contains("['--server.host']='_spec_config_set_server_host_values'"),
           contains(
@@ -1910,10 +1908,6 @@ complete -F _spec_completion spec
           contains("_mamba_filter \"\$current\" 'basic' 'standard'"),
           endsWith('complete -F _spec_completion spec\n'),
         ]),
-      );
-      expect(
-        completion.indexOf('_spec_config_set_completion()'),
-        lessThan(completion.indexOf('set|s)')),
       );
     });
 
@@ -1951,7 +1945,7 @@ complete -F _spec_completion spec
       expect(completion, isNot(contains('--no-force')));
     });
 
-    test('routes every command alias through its canonical handler', () {
+    test('routes every command alias through its canonical handler', () async {
       final completion = convertBash(
         specRegistry(
           commands: [
@@ -1960,11 +1954,10 @@ complete -F _spec_completion spec
         ).toMap(),
       );
 
-      expect(completion, contains('commit|ci)'));
-      expect(completion, contains('_spec_commit_completion'));
+      expect(await completeBash(completion, ['spec', 'ci', '--h']), ['--help']);
     });
 
-    test('checks option values before command routing', () {
+    test('records option values separately from command routes', () {
       final completion = convertBash(
         specRegistry(
           options: [ChoiceOption<_Format>('format', choices: _Format.values)],
@@ -1972,10 +1965,8 @@ complete -F _spec_completion spec
         ).toMap(),
       );
 
-      expect(
-        completion.indexOf('    --format)'),
-        lessThan(completion.indexOf('      json)')),
-      );
+      expect(completion, contains("['spec|--format']=1"));
+      expect(completion, contains("['spec|json']='_spec_json_completion'"));
     });
 
     test('maps choice options to their finite value array', () {
@@ -2194,6 +2185,38 @@ complete -F _spec_completion spec
   });
 
   group('ToPowerShellCompletionConverter', () {
+    test('completes a root option value at a nested command', () async {
+      final completion = convertPs(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('set', 'Set configuration.'),
+            ], 'Configure.'),
+          ],
+        ).toMap(),
+      );
+
+      expect(
+        await completePowerShell(completion, 'spec config set --format '),
+        ['json', 'yaml'],
+      );
+    });
+
+    test('completes root flags at five nested command levels', () async {
+      final completion = convertPs(
+        nestedRegistry(5, flags: [BooleanFlag('force')]).toMap(),
+      );
+
+      expect(
+        await completePowerShell(
+          completion,
+          'spec alpha beta gamma delta leaf --f',
+        ),
+        ['--force'],
+      );
+    });
+
     test(
       'places root flags and typed options in a complete PowerShell script',
       () {

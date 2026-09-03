@@ -158,7 +158,6 @@ RegistryMap createRigRegistryMap() => CommandRegistry.create(
   flags: [
     BooleanFlag(
       'dry-run',
-      short: 'n',
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),

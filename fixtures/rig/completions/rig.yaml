@@ -6,7 +6,7 @@ description: |-
   connects to, or otherwise affects the computer.
 persistentflags:
   -h, --help: "Show this help message."
-  -n, --dry-run: "Show what would happen without changing anything."
+  --dry-run: "Show what would happen without changing anything."
   -v, --verbose*: "Increase output verbosity."
   --format?=:
     description: "Simulated output format: text, json, or yaml."
