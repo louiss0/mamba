@@ -1,0 +1,334 @@
+name: "rig"
+description: |-
+  A mock workstation-control CLI for harmless terminal simulations.
+  
+  rig only prints simulated operations. It never changes, inspects,
+  connects to, or otherwise affects the computer.
+persistentflags:
+  -h, --help: "Show this help message."
+  -n, --dry-run: "Show what would happen without changing anything."
+  -v, --verbose*: "Increase output verbosity."
+  --format?=:
+    description: "Simulated output format: text, json, or yaml."
+    default: "text"
+completion:
+  flag:
+    format:
+      - "text"
+      - "json"
+      - "yaml"
+commands:
+  - name: "volume"
+    description: "Describe simulated audio input and output operations."
+    aliases:
+      - "vol"
+    flags:
+      -h, --help: "Show this help message."
+      -m, --mute: "Mute the simulated target."
+      -u, --unmute: "Unmute the simulated target."
+      -d, --device?=: "Simulated audio device name."
+      -l, --level?=: "Simulated volume level, from 0 through 100."
+      -b, --balance?=: "Simulated stereo balance, from -1.0 through 1.0."
+      --channel*?=: "Repeatable simulated audio channel name."
+      --channel-gain*?=: "Repeatable channel gain, from 0.0 through 2.0."
+    completion:
+      positional:
+        - - "output"
+          - "output"
+          - "input"
+          - "input"
+      flag:
+        level:
+          - "$carapace.number.Range({start: 0, end: 100})"
+        balance:
+          - "$carapace.number.Range({start: -1.0, end: 1.0})"
+        channel-gain:
+          - "$carapace.number.Range({start: 0.0, end: 2.0})"
+  - name: "brightness"
+    description: "Describe simulated display brightness and visual properties."
+    aliases:
+      - "bright"
+    flags:
+      -h, --help: "Show this help message."
+      -l, --level?=: "Brightness percentage, from 0 through 100."
+      -g, --gamma?=: "Display gamma, from 0.5 through 3.0."
+      -t, --temperature?=: "Color temperature in simulated Kelvin."
+      --contrast?=: "Contrast multiplier, from 0.0 through 2.0."
+      -d, --display*?=: "Repeatable simulated display name."
+    completion:
+      flag:
+        level:
+          - "$carapace.number.Range({start: 0, end: 100})"
+        gamma:
+          - "$carapace.number.Range({start: 0.5, end: 3.0})"
+        temperature:
+          - "$carapace.number.Range({start: 1000, end: 10000})"
+        contrast:
+          - "$carapace.number.Range({start: 0.0, end: 2.0})"
+  - name: "power"
+    description: "Describe a simulated workstation power action."
+    aliases:
+      - "pwr"
+    flags:
+      -h, --help: "Show this help message."
+      -f, --force: "Describe simulated force behavior without bypassing safety."
+      -d, --delay?=: "Non-negative simulated delay in seconds."
+      -r, --reason?=: "Human-readable simulated reason."
+    completion:
+      positional:
+        - - "lock"
+          - "lock"
+          - "sleep"
+          - "sleep"
+          - "hibernate"
+          - "hibernate"
+          - "restart"
+          - "restart"
+          - "shutdown"
+          - "shutdown"
+  - name: "process"
+    description: "Describe simulated process inspection and control operations."
+    aliases:
+      - "proc"
+    flags:
+      -h, --help: "Show this help message."
+      --priority?=: "Simulated process priority for the priority action."
+      -p, --pid*?=: "Repeatable simulated process ID."
+      -n, --name*?=: "Repeatable simulated process name."
+      -c, --cpu*?=: "Repeatable simulated CPU index."
+      --limit.cpu.percent?=: "CPU percentage from 0 through 100."
+      --limit.memory.mb?=: "Memory limit in MB."
+      --limit.io.read?=: "Read limit in MB/s."
+      --limit.io.write?=: "Write limit in MB/s."
+    completion:
+      positional:
+        - - "inspect"
+          - "inspect"
+          - "limit"
+          - "limit"
+          - "kill"
+          - "kill"
+          - "priority"
+          - "priority"
+  - name: "clean"
+    description: "Describe simulated cleanup of selected categories."
+    aliases:
+      - "sweep"
+    flags:
+      -h, --help: "Show this help message."
+      --include-hidden: "Include simulated hidden items in the description."
+      --older-than?=: "Age filter in non-negative days."
+      --larger-than?=: "Size threshold in non-negative MB."
+      --exclude*?=: "Repeatable simulated category, path, or pattern exclusion."
+    completion:
+      positional:
+        - - "cache"
+          - "cache"
+          - "logs"
+          - "logs"
+          - "temp"
+          - "temp"
+          - "thumbnails"
+          - "thumbnails"
+          - "downloads"
+          - "downloads"
+          - "trash"
+          - "trash"
+        - - "cache"
+          - "cache"
+          - "logs"
+          - "logs"
+          - "temp"
+          - "temp"
+          - "thumbnails"
+          - "thumbnails"
+          - "downloads"
+          - "downloads"
+          - "trash"
+          - "trash"
+        - - "cache"
+          - "cache"
+          - "logs"
+          - "logs"
+          - "temp"
+          - "temp"
+          - "thumbnails"
+          - "thumbnails"
+          - "downloads"
+          - "downloads"
+          - "trash"
+          - "trash"
+        - - "cache"
+          - "cache"
+          - "logs"
+          - "logs"
+          - "temp"
+          - "temp"
+          - "thumbnails"
+          - "thumbnails"
+          - "downloads"
+          - "downloads"
+          - "trash"
+          - "trash"
+        - - "cache"
+          - "cache"
+          - "logs"
+          - "logs"
+          - "temp"
+          - "temp"
+          - "thumbnails"
+          - "thumbnails"
+          - "downloads"
+          - "downloads"
+          - "trash"
+          - "trash"
+        - - "cache"
+          - "cache"
+          - "logs"
+          - "logs"
+          - "temp"
+          - "temp"
+          - "thumbnails"
+          - "thumbnails"
+          - "downloads"
+          - "downloads"
+          - "trash"
+          - "trash"
+  - name: "completion"
+    description: |-
+      Generate a completion artifact without writing files.
+      
+      Print a generated completion artifact to standard output. The command
+      never writes files; redirect its output explicitly if desired.
+    flags:
+      -h, --help: "Show this help message."
+      --shell?=:
+        description: "Completion artifact format to print to stdout."
+        default: "carapace"
+    completion:
+      flag:
+        shell:
+          - "carapace"
+          - "bash"
+          - "fish"
+          - "zsh"
+          - "powershell"
+  - name: "network"
+    description: "Organize simulated networking commands; no traffic is sent."
+    aliases:
+      - "net"
+    flags:
+      -h, --help: "Show this help message."
+    commands:
+      - name: "wifi"
+        description: "Describe simulated Wi-Fi operations."
+        flags:
+          -h, --help: "Show this help message."
+        commands:
+          - name: "connect"
+            description: "Describe connecting to a simulated Wi-Fi network."
+            flags:
+              -h, --help: "Show this help message."
+              --hidden: "Describe a hidden simulated network."
+              --ssid!=: "Simulated network name."
+              --password?=: "Masked simulated password; it is never printed."
+              --channel?=: "Simulated Wi-Fi channel."
+            completion:
+              flag:
+                channel:
+                  - "$carapace.number.Range({start: 1, end: 196})"
+          - name: "disconnect"
+            description: "Describe disconnecting from a simulated Wi-Fi network."
+            flags:
+              -h, --help: "Show this help message."
+              --ssid?=: "Optional simulated network name."
+          - name: "scan"
+            description: "Describe scanning simulated Wi-Fi results."
+            flags:
+              -h, --help: "Show this help message."
+              --hidden: "Include hidden simulated networks."
+              --channel?=: "Optional simulated channel filter."
+            completion:
+              flag:
+                channel:
+                  - "$carapace.number.Range({start: 1, end: 196})"
+          - name: "status"
+            description: "Describe simulated Wi-Fi status."
+            flags:
+              -h, --help: "Show this help message."
+      - name: "dns"
+        description: "Describe simulated DNS configuration."
+        flags:
+          -h, --help: "Show this help message."
+        commands:
+          - name: "get"
+            description: "Show fixed simulated DNS configuration."
+            flags:
+              -h, --help: "Show this help message."
+              --interface?=: "Simulated network interface."
+          - name: "set"
+            description: "Describe configuring simulated DNS servers."
+            flags:
+              -h, --help: "Show this help message."
+              --interface?=: "Simulated network interface."
+              --server*!=: "Repeatable simulated DNS server in preserved order."
+          - name: "reset"
+            description: "Describe restoring simulated DNS defaults."
+            flags:
+              -h, --help: "Show this help message."
+              --interface?=: "Simulated network interface."
+      - name: "proxy"
+        description: "Describe simulated HTTP, HTTPS, and SOCKS proxy settings."
+        flags:
+          -h, --help: "Show this help message."
+          --http.host?=: "HTTP proxy host."
+          --http.port?=: "HTTP TCP port."
+          --https.host?=: "HTTPS proxy host."
+          --https.port?=: "HTTPS TCP port."
+          --socks.host?=: "SOCKS proxy host."
+          --socks.port?=: "SOCKS TCP port."
+      - name: "ping"
+        description: "Describe mock connectivity measurements without sending traffic."
+        flags:
+          -h, --help: "Show this help message."
+          --count?=: "Positive number of simulated requests."
+          --timeout?=: "Positive simulated timeout in seconds."
+        completion:
+          positional:
+            - []
+  - name: "profile"
+    description: "Manage reusable simulated workstation configurations."
+    aliases:
+      - "preset"
+    flags:
+      -h, --help: "Show this help message."
+    commands:
+      - name: "save"
+        description: "Describe saving the current simulated configuration."
+        flags:
+          -h, --help: "Show this help message."
+        completion:
+          positional:
+            - []
+      - name: "apply"
+        description: "Describe applying a simulated profile."
+        flags:
+          -h, --help: "Show this help message."
+          --force: "Describe simulated force behavior without bypassing safety."
+          --only*?=: "Repeatable simulated section to include."
+          --except*?=: "Repeatable simulated section to exclude."
+        completion:
+          positional:
+            - []
+      - name: "remove"
+        description: "Describe removing an in-memory simulated profile."
+        flags:
+          -h, --help: "Show this help message."
+          -f, --force: "Confirm simulated profile removal."
+        completion:
+          positional:
+            - []
+      - name: "list"
+        description: "List fixed in-memory simulated profiles."
+        flags:
+          -h, --help: "Show this help message."

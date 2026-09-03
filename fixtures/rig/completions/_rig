@@ -1,0 +1,711 @@
+#compdef rig
+
+_rig_volume() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '{-m,--mute}[Mute the simulated target.]' \
+    '{-u,--unmute}[Unmute the simulated target.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '{-d,--device}[Simulated audio device name.]:device:' \
+    '{-l,--level}[Simulated volume level, from 0 through 100.]:level:_numbers -l 0 -m 100' \
+    '{-b,--balance}[Simulated stereo balance, from -1.0 through 1.0.]:balance:_numbers -f -l -1.0 -m 1.0' \
+    '*--channel[Repeatable simulated audio channel name.]:channel:' \
+    '*--channel-gain[Repeatable channel gain, from 0.0 through 2.0.]:channel-gain:_numbers -f -l 0.0 -m 2.0' \
+    '1:target:(output input)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_brightness() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '{-l,--level}[Brightness percentage, from 0 through 100.]:level:_numbers -l 0 -m 100' \
+    '{-g,--gamma}[Display gamma, from 0.5 through 3.0.]:gamma:_numbers -f -l 0.5 -m 3.0' \
+    '{-t,--temperature}[Color temperature in simulated Kelvin.]:temperature:_numbers -l 1000 -m 10000' \
+    '--contrast[Contrast multiplier, from 0.0 through 2.0.]:contrast:_numbers -f -l 0.0 -m 2.0' \
+    '*{-d,--display}[Repeatable simulated display name.]:display:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_power() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '{-f,--force}[Describe simulated force behavior without bypassing safety.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '{-d,--delay}[Non-negative simulated delay in seconds.]:delay:_numbers -l 0' \
+    '{-r,--reason}[Human-readable simulated reason.]:reason:' \
+    '1:action:(lock sleep hibernate restart shutdown)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_process() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--priority[Simulated process priority for the priority action.]:priority:_numbers' \
+    '*{-p,--pid}[Repeatable simulated process ID.]:pid:_numbers -l 1' \
+    '*{-n,--name}[Repeatable simulated process name.]:name:' \
+    '*{-c,--cpu}[Repeatable simulated CPU index.]:cpu:_numbers -l 0' \
+    '--limit.cpu.percent[CPU percentage from 0 through 100.]:limit.cpu.percent:_numbers -f' \
+    '--limit.memory.mb[Memory limit in MB.]:limit.memory.mb:_numbers' \
+    '--limit.io.read[Read limit in MB/s.]:limit.io.read:_numbers -f' \
+    '--limit.io.write[Write limit in MB/s.]:limit.io.write:_numbers -f' \
+    '1:action:(inspect limit kill priority)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_clean() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--include-hidden[Include simulated hidden items in the description.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--older-than[Age filter in non-negative days.]:older-than:_numbers -l 0' \
+    '--larger-than[Size threshold in non-negative MB.]:larger-than:_numbers -f -l 0.0' \
+    '*--exclude[Repeatable simulated category, path, or pattern exclusion.]:exclude:' \
+    '1:targets:(cache logs temp thumbnails downloads trash)' \
+    '2::targets:(cache logs temp thumbnails downloads trash)' \
+    '3::targets:(cache logs temp thumbnails downloads trash)' \
+    '4::targets:(cache logs temp thumbnails downloads trash)' \
+    '5::targets:(cache logs temp thumbnails downloads trash)' \
+    '6::targets:(cache logs temp thumbnails downloads trash)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_completion() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--shell[Completion artifact format to print to stdout.]:shell:(carapace bash fish zsh powershell)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_wifi_connect() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--hidden[Describe a hidden simulated network.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--ssid[Simulated network name.]:ssid:' \
+    '--password[Masked simulated password; it is never printed.]:password:' \
+    '--channel[Simulated Wi-Fi channel.]:channel:_numbers -l 1 -m 196' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_wifi_disconnect() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--ssid[Optional simulated network name.]:ssid:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_wifi_scan() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--hidden[Include hidden simulated networks.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--channel[Optional simulated channel filter.]:channel:_numbers -l 1 -m 196' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_wifi_status() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_wifi() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    connect)
+      _rig_network_wifi_connect
+      return
+      ;;
+    disconnect)
+      _rig_network_wifi_disconnect
+      return
+      ;;
+    scan)
+      _rig_network_wifi_scan
+      return
+      ;;
+    status)
+      _rig_network_wifi_status
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'connect:Describe connecting to a simulated Wi-Fi network.'
+        'disconnect:Describe disconnecting from a simulated Wi-Fi network.'
+        'scan:Describe scanning simulated Wi-Fi results.'
+        'status:Describe simulated Wi-Fi status.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_rig_network_dns_get() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--interface[Simulated network interface.]:interface:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_dns_set() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--interface[Simulated network interface.]:interface:' \
+    '*--server[Repeatable simulated DNS server in preserved order.]:server:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_dns_reset() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--interface[Simulated network interface.]:interface:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_dns() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    get)
+      _rig_network_dns_get
+      return
+      ;;
+    set)
+      _rig_network_dns_set
+      return
+      ;;
+    reset)
+      _rig_network_dns_reset
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'get:Show fixed simulated DNS configuration.'
+        'set:Describe configuring simulated DNS servers.'
+        'reset:Describe restoring simulated DNS defaults.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_rig_network_proxy() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--http.host[HTTP proxy host.]:http.host:' \
+    '--http.port[HTTP TCP port.]:http.port:_numbers' \
+    '--https.host[HTTPS proxy host.]:https.host:' \
+    '--https.port[HTTPS TCP port.]:https.port:_numbers' \
+    '--socks.host[SOCKS proxy host.]:socks.host:' \
+    '--socks.port[SOCKS TCP port.]:socks.port:_numbers' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network_ping() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '--count[Positive number of simulated requests.]:count:_numbers -l 1' \
+    '--timeout[Positive simulated timeout in seconds.]:timeout:_numbers -f -l 0.0' \
+    '1:host:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_network() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    wifi)
+      _rig_network_wifi
+      return
+      ;;
+    dns)
+      _rig_network_dns
+      return
+      ;;
+    proxy)
+      _rig_network_proxy
+      return
+      ;;
+    ping)
+      _rig_network_ping
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'wifi:Describe simulated Wi-Fi operations.'
+        'dns:Describe simulated DNS configuration.'
+        'proxy:Describe simulated HTTP, HTTPS, and SOCKS proxy settings.'
+        'ping:Describe mock connectivity measurements without sending traffic.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_rig_profile_save() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:name:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_profile_apply() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--force[Describe simulated force behavior without bypassing safety.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '*--only[Repeatable simulated section to include.]:only:' \
+    '*--except[Repeatable simulated section to exclude.]:except:' \
+    '1:name:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_profile_remove() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '{-f,--force}[Confirm simulated profile removal.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:name:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_profile_list() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_profile() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    save)
+      _rig_profile_save
+      return
+      ;;
+    apply)
+      _rig_profile_apply
+      return
+      ;;
+    remove)
+      _rig_profile_remove
+      return
+      ;;
+    list)
+      _rig_profile_list
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'save:Describe saving the current simulated configuration.'
+        'apply:Describe applying a simulated profile.'
+        'remove:Describe removing an in-memory simulated profile.'
+        'list:List fixed in-memory simulated profiles.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_rig() {
+  case "$words[2]" in
+    volume|vol)
+      _rig_volume
+      return
+      ;;
+    brightness|bright)
+      _rig_brightness
+      return
+      ;;
+    power|pwr)
+      _rig_power
+      return
+      ;;
+    process|proc)
+      _rig_process
+      return
+      ;;
+    clean|sweep)
+      _rig_clean
+      return
+      ;;
+    completion)
+      _rig_completion
+      return
+      ;;
+    network|net)
+      _rig_network
+      return
+      ;;
+    profile|preset)
+      _rig_profile
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-n,--dry-run}[Show what would happen without changing anything.]' \
+    '*{-v,--verbose}[Increase output verbosity.]' \
+    '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'volume:Describe simulated audio input and output operations.'
+        'vol:Alias for volume'
+        'brightness:Describe simulated display brightness and visual properties.'
+        'bright:Alias for brightness'
+        'power:Describe a simulated workstation power action.'
+        'pwr:Alias for power'
+        'process:Describe simulated process inspection and control operations.'
+        'proc:Alias for process'
+        'clean:Describe simulated cleanup of selected categories.'
+        'sweep:Alias for clean'
+        'completion:Generate a completion artifact without writing files.'
+        'network:Organize simulated networking commands; no traffic is sent.'
+        'net:Alias for network'
+        'profile:Manage reusable simulated workstation configurations.'
+        'preset:Alias for profile'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+compdef _rig rig
