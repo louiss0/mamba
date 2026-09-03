@@ -265,10 +265,9 @@ void main() {
         final source = Positional('source');
         final target = Positional('target');
 
-        final profile = AccessorListOption(
-          'user',
-          options: [AccessorStringOption('profile')],
-        );
+        final profile = AccessorListOption('user', [
+          AccessorStringOption('profile'),
+        ]);
 
         final registry = CommandRegistry.create(
           'tool',
@@ -603,51 +602,39 @@ void main() {
               'config',
               'Configure Git.',
               accessors: [
-                AccessorListOption(
-                  'branch',
-                  options: [
-                    AccessorListOption(
-                      'main',
-                      options: [
-                        AccessorStringOption(
-                          'remote',
-                          description: 'The remote to fetch from or push to.',
-                        ),
-                        AccessorStringOption(
-                          'merge',
-                          description: 'The upstream branch to merge.',
-                        ),
-                        AccessorStringOption(
-                          'rebase',
-                          description:
-                              'Whether to rebase instead of merge when pulling.',
-                        ),
-                      ],
+                AccessorListOption('branch', [
+                  AccessorListOption('main', [
+                    AccessorStringOption(
+                      'remote',
+                      description: 'The remote to fetch from or push to.',
                     ),
-                  ],
-                ),
-                AccessorListOption(
-                  'remote',
-                  options: [
-                    AccessorListOption(
-                      'origin',
-                      options: [
-                        AccessorStringOption(
-                          'url',
-                          description: 'The URL of a remote repository.',
-                        ),
-                        AccessorStringOption(
-                          'pushurl',
-                          description: 'The push URL of a remote repository.',
-                        ),
-                        AccessorStringOption(
-                          'fetch',
-                          description: 'The default set of refspecs for fetch.',
-                        ),
-                      ],
+                    AccessorStringOption(
+                      'merge',
+                      description: 'The upstream branch to merge.',
                     ),
-                  ],
-                ),
+                    AccessorStringOption(
+                      'rebase',
+                      description:
+                          'Whether to rebase instead of merge when pulling.',
+                    ),
+                  ]),
+                ]),
+                AccessorListOption('remote', [
+                  AccessorListOption('origin', [
+                    AccessorStringOption(
+                      'url',
+                      description: 'The URL of a remote repository.',
+                    ),
+                    AccessorStringOption(
+                      'pushurl',
+                      description: 'The push URL of a remote repository.',
+                    ),
+                    AccessorStringOption(
+                      'fetch',
+                      description: 'The default set of refspecs for fetch.',
+                    ),
+                  ]),
+                ]),
               ],
             ),
           ],
@@ -1461,11 +1448,9 @@ void main() {
               StringOption('token', hidden: true, regex: RegExp(r'\S+')),
             ],
             accessors: [
-              AccessorListOption(
-                'internal',
-                hidden: true,
-                options: [AccessorStringOption('trace-id')],
-              ),
+              AccessorListOption('internal', [
+                AccessorStringOption('trace-id'),
+              ], hidden: true),
             ],
             commands: [
               TestCommand('publish', 'Publish the release.', aliases: ['push']),
@@ -1511,10 +1496,9 @@ void main() {
       final tag = RepeatableStringOption('tag');
       final source = Positional('source');
       final target = Positional('target');
-      final profile = AccessorListOption(
-        'user',
-        options: [AccessorStringOption('profile')],
-      );
+      final profile = AccessorListOption('user', [
+        AccessorStringOption('profile'),
+      ]);
 
       final registry = CommandRegistry.create(
         'tool',
@@ -1652,13 +1636,10 @@ void main() {
         'tool',
         'Tool command.',
         pairedOptions: [
-          PairedOptions(
-            variant: true,
-            options: [
-              PairChoiceOption('json', choices: DeploymentFormat.values),
-              PairChoiceOption('yaml', choices: DeploymentFormat.values),
-            ],
-          ),
+          PairedOptions([
+            PairChoiceOption('json', choices: DeploymentFormat.values),
+            PairChoiceOption('yaml', choices: DeploymentFormat.values),
+          ], variant: true),
         ],
       );
 
@@ -1670,7 +1651,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          pairedOptions: [PairedOptions(options: [])],
+          pairedOptions: [PairedOptions([])],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1682,8 +1663,8 @@ void main() {
           'tool',
           'Tool command.',
           pairedOptions: [
-            PairedOptions(options: [PairStringOption('username')]),
-            PairedOptions(options: [PairStringOption('username')]),
+            PairedOptions([PairStringOption('username')]),
+            PairedOptions([PairStringOption('username')]),
           ],
         ),
         throwsA(isA<MambaRegistryError>()),
@@ -1699,10 +1680,7 @@ void main() {
             'config',
             'Configure the tool.',
             accessors: [
-              AccessorListOption(
-                'server',
-                options: [AccessorIntOption('port')],
-              ),
+              AccessorListOption('server', [AccessorIntOption('port')]),
             ],
           ),
         ],
@@ -2057,15 +2035,11 @@ void main() {
           'tool',
           'Tool command.',
           accessors: [
-            AccessorListOption(
-              'server',
-              options: [
-                AccessorListOption(
-                  'authentication',
-                  options: [AccessorStringOption('help')],
-                ),
-              ],
-            ),
+            AccessorListOption('server', [
+              AccessorListOption('authentication', [
+                AccessorStringOption('help'),
+              ]),
+            ]),
           ],
         ),
         throwsA(isA<MambaRegistryError>()),
@@ -2078,10 +2052,7 @@ void main() {
           'tool',
           'Tool command.',
           accessors: [
-            AccessorListOption(
-              'profile',
-              options: [AccessorStringOption('value')],
-            ),
+            AccessorListOption('profile', [AccessorStringOption('value')]),
           ],
           flags: [BooleanFlag('profile')],
         ),
@@ -2092,10 +2063,7 @@ void main() {
           'tool',
           'Tool command.',
           accessors: [
-            AccessorListOption(
-              'profile',
-              options: [AccessorStringOption('value')],
-            ),
+            AccessorListOption('profile', [AccessorStringOption('value')]),
           ],
           options: [StringOption('profile', regex: RegExp(r'.+'))],
         ),
@@ -2191,13 +2159,10 @@ void main() {
           'tool',
           'Tool command.',
           accessors: [
-            AccessorListOption(
-              'remote',
-              options: [
-                AccessorStringOption('url'),
-                AccessorStringOption('url'),
-              ],
-            ),
+            AccessorListOption('remote', [
+              AccessorStringOption('url'),
+              AccessorStringOption('url'),
+            ]),
           ],
         ),
         throwsA(isA<MambaRegistryError>()),
@@ -2431,7 +2396,7 @@ void main() {
           'tool',
           'Tool command.',
           pairedOptions: [
-            PairedOptions(options: [PairStringOption('value', short: 'h')]),
+            PairedOptions([PairStringOption('value', short: 'h')]),
           ],
         ),
         throwsA(isA<MambaRegistryError>()),

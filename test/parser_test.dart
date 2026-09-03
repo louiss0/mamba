@@ -57,13 +57,10 @@ void main() {
           RepeatableDoubleOption('weight'),
         ],
         accessors: [
-          AccessorListOption(
-            'server',
-            options: [
-              AccessorIntOption('port'),
-              AccessorDoubleOption('timeout'),
-            ],
-          ),
+          AccessorListOption('server', [
+            AccessorIntOption('port'),
+            AccessorDoubleOption('timeout'),
+          ]),
         ],
         mandatoryPositionals: [Positional('source')],
         discretionaryPositionals: [Positional('target')],
@@ -605,19 +602,12 @@ void main() {
     test('accepts accessor lists at the root and at nested paths', () {
       final subject = parser(
         accessors: [
-          AccessorListOption(
-            'profile',
-            options: [AccessorStringOption('value', regex: RegExp(r'^ada$'))],
-          ),
-          AccessorListOption(
-            'remote',
-            options: [
-              AccessorListOption(
-                'origin',
-                options: [AccessorStringOption('url')],
-              ),
-            ],
-          ),
+          AccessorListOption('profile', [
+            AccessorStringOption('value', regex: RegExp(r'^ada$')),
+          ]),
+          AccessorListOption('remote', [
+            AccessorListOption('origin', [AccessorStringOption('url')]),
+          ]),
         ],
       );
 
@@ -639,35 +629,20 @@ void main() {
     test('parses accessor paths with five dots and shared branches', () {
       final subject = parser(
         accessors: [
-          AccessorListOption(
-            'cloud',
-            options: [
-              AccessorListOption(
-                'provider',
-                options: [
-                  AccessorListOption(
-                    'credentials',
-                    options: [
-                      AccessorListOption(
-                        'oauth',
-                        options: [
-                          AccessorListOption(
-                            'client',
-                            options: [
-                              AccessorStringOption('token'),
-                              AccessorIntOption('timeout'),
-                            ],
-                          ),
-                        ],
-                      ),
-                      AccessorStringOption('region'),
-                    ],
-                  ),
-                  AccessorStringOption('endpoint'),
-                ],
-              ),
-            ],
-          ),
+          AccessorListOption('cloud', [
+            AccessorListOption('provider', [
+              AccessorListOption('credentials', [
+                AccessorListOption('oauth', [
+                  AccessorListOption('client', [
+                    AccessorStringOption('token'),
+                    AccessorIntOption('timeout'),
+                  ]),
+                ]),
+                AccessorStringOption('region'),
+              ]),
+              AccessorStringOption('endpoint'),
+            ]),
+          ]),
         ],
       );
 
@@ -703,10 +678,7 @@ void main() {
         flags: [BooleanFlag('verbose')],
         options: [StringOption('name', regex: RegExp(r'\S+'))],
         accessors: [
-          AccessorListOption(
-            'profile',
-            options: [AccessorStringOption('value')],
-          ),
+          AccessorListOption('profile', [AccessorStringOption('value')]),
         ],
         mandatoryPositionals: [Positional('source')],
       );
@@ -724,9 +696,7 @@ void main() {
     test('parses a standalone paired options group', () {
       final parsed = parser(
         pairedOptions: [
-          PairedOptions(
-            options: [PairStringOption('username'), PairIntOption('port')],
-          ),
+          PairedOptions([PairStringOption('username'), PairIntOption('port')]),
         ],
       ).parse(['--username', 'mamba', '--port', '42']);
 
@@ -737,9 +707,7 @@ void main() {
     test('rejects a partially supplied standalone group', () {
       final subject = parser(
         pairedOptions: [
-          PairedOptions(
-            options: [PairStringOption('username'), PairIntOption('port')],
-          ),
+          PairedOptions([PairStringOption('username'), PairIntOption('port')]),
         ],
       );
 
@@ -750,13 +718,10 @@ void main() {
       expect(
         () => parser(
           pairedOptions: [
-            PairedOptions(
-              required: true,
-              options: [
-                PairStringOption('username', description: 'Account name.'),
-                PairIntOption('port', description: 'Server port.'),
-              ],
-            ),
+            PairedOptions([
+              PairStringOption('username', description: 'Account name.'),
+              PairIntOption('port', description: 'Server port.'),
+            ], required: true),
           ],
         ).parse(['--username', 'mamba']),
         throwsA(
@@ -772,10 +737,10 @@ void main() {
     test('accepts exactly one variant member', () {
       final parsed = parser(
         pairedOptions: [
-          PairedOptions(
-            variant: true,
-            options: [PairStringOption('json'), PairStringOption('text')],
-          ),
+          PairedOptions([
+            PairStringOption('json'),
+            PairStringOption('text'),
+          ], variant: true),
         ],
       ).parse(['--json', 'report']);
 
@@ -785,10 +750,10 @@ void main() {
     test('rejects multiple variant members', () {
       final subject = parser(
         pairedOptions: [
-          PairedOptions(
-            variant: true,
-            options: [PairStringOption('json'), PairStringOption('text')],
-          ),
+          PairedOptions([
+            PairStringOption('json'),
+            PairStringOption('text'),
+          ], variant: true),
         ],
       );
 
@@ -798,10 +763,9 @@ void main() {
     test('does not apply defaults to optional variant pairs', () {
       final inputs = parser(
         pairedOptions: [
-          PairedOptions(
-            variant: true,
-            options: [PairChoiceOption('json', choices: Mode.values)],
-          ),
+          PairedOptions([
+            PairChoiceOption('json', choices: Mode.values),
+          ], variant: true),
         ],
       ).parse(['tool']).$3;
 
@@ -811,12 +775,10 @@ void main() {
     test('does not apply defaults to optional all-of pairs', () {
       final inputs = parser(
         pairedOptions: [
-          PairedOptions(
-            options: [
-              PairChoiceOption('first', choices: Mode.values),
-              PairChoiceOption('second', choices: Mode.values),
-            ],
-          ),
+          PairedOptions([
+            PairChoiceOption('first', choices: Mode.values),
+            PairChoiceOption('second', choices: Mode.values),
+          ]),
         ],
       ).parse(['tool']).$3;
 
@@ -826,9 +788,9 @@ void main() {
       final subject = parser(
         pairedOptions: [
           PairedOptions(
+            [PairStringOption('json'), PairStringOption('text')],
             required: true,
             variant: true,
-            options: [PairStringOption('json'), PairStringOption('text')],
           ),
         ],
       );
@@ -1050,7 +1012,7 @@ void main() {
       final subject = parser(
         flags: [BooleanFlag('color')],
         accessors: [
-          AccessorListOption('server', options: [AccessorIntOption('port')]),
+          AccessorListOption('server', [AccessorIntOption('port')]),
         ],
       );
 
@@ -1089,12 +1051,10 @@ void main() {
     test('parses paired primary and member short aliases', () {
       final inputs = parser(
         pairedOptions: [
-          PairedOptions(
-            options: [
-              PairIntOption('minimum', short: 'm'),
-              PairIntOption('maximum', short: 'x'),
-            ],
-          ),
+          PairedOptions([
+            PairIntOption('minimum', short: 'm'),
+            PairIntOption('maximum', short: 'x'),
+          ]),
         ],
       ).parse(['-m', '-2', '-x', '-1']).$3;
 
@@ -1108,18 +1068,15 @@ void main() {
           parser(
             options: [ChoiceOption('mode', choices: Mode.values)],
             pairedOptions: [
-              PairedOptions(
-                options: [
-                  PairChoiceOption('primary', choices: Mode.values),
-                  PairChoiceOption('secondary', choices: Mode.values),
-                ],
-              ),
+              PairedOptions([
+                PairChoiceOption('primary', choices: Mode.values),
+                PairChoiceOption('secondary', choices: Mode.values),
+              ]),
             ],
             accessors: [
-              AccessorListOption(
-                'profile',
-                options: [AccessorChoiceOption('value', choices: Mode.values)],
-              ),
+              AccessorListOption('profile', [
+                AccessorChoiceOption('value', choices: Mode.values),
+              ]),
             ],
           ).parse([
             '--mode',
@@ -1145,27 +1102,21 @@ void main() {
     test('merges nested accessor defaults with explicit values', () {
       final inputs = parser(
         accessors: [
-          AccessorListOption(
-            'server',
-            options: [
+          AccessorListOption('server', [
+            AccessorChoiceOption(
+              'mode',
+              choices: Mode.values,
+              defaultValue: Mode.auto,
+            ),
+            AccessorListOption('tls', [
               AccessorChoiceOption(
                 'mode',
                 choices: Mode.values,
-                defaultValue: Mode.auto,
+                defaultValue: Mode.always,
               ),
-              AccessorListOption(
-                'tls',
-                options: [
-                  AccessorChoiceOption(
-                    'mode',
-                    choices: Mode.values,
-                    defaultValue: Mode.always,
-                  ),
-                  AccessorStringOption('certificate'),
-                ],
-              ),
-            ],
-          ),
+              AccessorStringOption('certificate'),
+            ]),
+          ]),
         ],
       ).parse(['--server.tls.certificate', 'cert.pem']).$3;
 
@@ -1180,9 +1131,7 @@ void main() {
     test('leaves omitted paired choice options unset', () {
       final inputs = parser(
         pairedOptions: [
-          PairedOptions(
-            options: [PairChoiceOption('format', choices: Mode.values)],
-          ),
+          PairedOptions([PairChoiceOption('format', choices: Mode.values)]),
         ],
       ).parse(['tool']).$3;
 
@@ -1293,17 +1242,15 @@ void main() {
           RepeatableDoubleOption('repeated', min: 0, max: 1, step: 0.5),
         ],
         pairedOptions: [
-          PairedOptions(
-            options: [
-              PairDoubleOption('pair', min: 0, max: 1, step: 0.5),
-              RepeatablePairDoubleOption(
-                'repeated-pair',
-                min: 0,
-                max: 1,
-                step: 0.5,
-              ),
-            ],
-          ),
+          PairedOptions([
+            PairDoubleOption('pair', min: 0, max: 1, step: 0.5),
+            RepeatablePairDoubleOption(
+              'repeated-pair',
+              min: 0,
+              max: 1,
+              step: 0.5,
+            ),
+          ]),
         ],
       );
 
@@ -1729,13 +1676,10 @@ void main() {
     test('explicit pair members are validated without defaults', () {
       final subject = parser(
         pairedOptions: [
-          PairedOptions(
-            variant: true,
-            options: [
-              PairChoiceOption('json', choices: Mode.values),
-              PairStringOption('text', regex: RegExp(r'\S+')),
-            ],
-          ),
+          PairedOptions([
+            PairChoiceOption('json', choices: Mode.values),
+            PairStringOption('text', regex: RegExp(r'\S+')),
+          ], variant: true),
         ],
       );
 

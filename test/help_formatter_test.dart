@@ -189,9 +189,9 @@ void main() {
             type: 'accessor list option',
             accessor: AccessorListOption(
               'credentials',
+              [AccessorStringOption('token')],
               description: 'Internal credentials.',
               hidden: true,
-              options: [AccessorStringOption('token')],
             ),
           ),
         ]) {
@@ -258,40 +258,20 @@ void main() {
           'platformctl',
           'Manage platform deployments.',
           accessors: [
-            AccessorListOption(
-              'deployment',
-              hidden: hiddenList == 'deployment',
-              options: [
-                AccessorListOption(
-                  'runtime',
-                  hidden: hiddenList == 'runtime',
-                  options: [
-                    AccessorListOption(
-                      'network',
-                      hidden: hiddenList == 'network',
-                      options: [
-                        AccessorListOption(
-                          'tls',
-                          hidden: hiddenList == 'tls',
-                          options: [
-                            AccessorListOption(
-                              'client',
-                              hidden: hiddenList == 'client',
-                              options: [
-                                AccessorStringOption(
-                                  'certificate',
-                                  description: 'mTLS client certificate.',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            AccessorListOption('deployment', [
+              AccessorListOption('runtime', [
+                AccessorListOption('network', [
+                  AccessorListOption('tls', [
+                    AccessorListOption('client', [
+                      AccessorStringOption(
+                        'certificate',
+                        description: 'mTLS client certificate.',
+                      ),
+                    ], hidden: hiddenList == 'client'),
+                  ], hidden: hiddenList == 'tls'),
+                ], hidden: hiddenList == 'network'),
+              ], hidden: hiddenList == 'runtime'),
+            ], hidden: hiddenList == 'deployment'),
           ],
         );
 
@@ -335,7 +315,7 @@ void main() {
         'Tool command.',
         longDescription: 'A longer description.',
         accessors: [
-          AccessorListOption('config', options: [AccessorStringOption('path')]),
+          AccessorListOption('config', [AccessorStringOption('path')]),
         ],
         commands: [_HelpCommand('run', 'Run the tool.')],
       );
@@ -493,7 +473,7 @@ void main() {
           RepeatableStringOption('header', short: 'H'),
         ],
         accessors: [
-          AccessorListOption('tls', options: [AccessorStringOption('cert')]),
+          AccessorListOption('tls', [AccessorStringOption('cert')]),
         ],
         mandatoryPositionals: [Positional('url')],
         discretionaryPositionals: [Positional('output')],

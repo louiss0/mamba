@@ -368,47 +368,25 @@ complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
                   RepeatableDoubleOption('weight'),
                 ],
                 accessors: [
-                  AccessorListOption(
-                    'server',
-                    options: [
-                      AccessorStringOption('host'),
-                      AccessorIntOption('port'),
-                      AccessorDoubleOption('ratio'),
-                    ],
-                  ),
-                  AccessorListOption(
-                    'one',
-                    options: [
-                      AccessorListOption(
-                        'two',
-                        options: [AccessorStringOption('three')],
-                      ),
-                    ],
-                  ),
-                  AccessorListOption(
-                    'a',
-                    options: [
-                      AccessorListOption(
-                        'b',
-                        options: [
-                          AccessorListOption(
-                            'c',
-                            options: [
-                              AccessorListOption(
-                                'd',
-                                options: [
-                                  AccessorListOption(
-                                    'e',
-                                    options: [AccessorStringOption('value')],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  AccessorListOption('server', [
+                    AccessorStringOption('host'),
+                    AccessorIntOption('port'),
+                    AccessorDoubleOption('ratio'),
+                  ]),
+                  AccessorListOption('one', [
+                    AccessorListOption('two', [AccessorStringOption('three')]),
+                  ]),
+                  AccessorListOption('a', [
+                    AccessorListOption('b', [
+                      AccessorListOption('c', [
+                        AccessorListOption('d', [
+                          AccessorListOption('e', [
+                            AccessorStringOption('value'),
+                          ]),
+                        ]),
+                      ]),
+                    ]),
+                  ]),
                 ],
                 mandatoryPositionals: [
                   ChoicePositional<_Format>('format', choices: _Format.values),
@@ -981,11 +959,9 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
       final output = convertFish(
         specRegistry(
           accessors: [
-            AccessorListOption(
-              'internal',
-              hidden: true,
-              options: [AccessorStringOption('token')],
-            ),
+            AccessorListOption('internal', [
+              AccessorStringOption('token'),
+            ], hidden: true),
           ],
           commands: [TestCommand('serve', 'Serve requests.')],
         ),
@@ -1088,47 +1064,25 @@ compdef _spec spec
                   RepeatableDoubleOption('weight'),
                 ],
                 accessors: [
-                  AccessorListOption(
-                    'server',
-                    options: [
-                      AccessorStringOption('host'),
-                      AccessorIntOption('port'),
-                      AccessorDoubleOption('ratio'),
-                    ],
-                  ),
-                  AccessorListOption(
-                    'one',
-                    options: [
-                      AccessorListOption(
-                        'two',
-                        options: [AccessorStringOption('three')],
-                      ),
-                    ],
-                  ),
-                  AccessorListOption(
-                    'a',
-                    options: [
-                      AccessorListOption(
-                        'b',
-                        options: [
-                          AccessorListOption(
-                            'c',
-                            options: [
-                              AccessorListOption(
-                                'd',
-                                options: [
-                                  AccessorListOption(
-                                    'e',
-                                    options: [AccessorStringOption('value')],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  AccessorListOption('server', [
+                    AccessorStringOption('host'),
+                    AccessorIntOption('port'),
+                    AccessorDoubleOption('ratio'),
+                  ]),
+                  AccessorListOption('one', [
+                    AccessorListOption('two', [AccessorStringOption('three')]),
+                  ]),
+                  AccessorListOption('a', [
+                    AccessorListOption('b', [
+                      AccessorListOption('c', [
+                        AccessorListOption('d', [
+                          AccessorListOption('e', [
+                            AccessorStringOption('value'),
+                          ]),
+                        ]),
+                      ]),
+                    ]),
+                  ]),
                 ],
                 mandatoryPositionals: [
                   ChoicePositional<_Format>('format', choices: _Format.values),
@@ -1376,15 +1330,9 @@ compdef _spec spec
                 'serve',
                 'Serve requests.',
                 accessors: [
-                  AccessorListOption(
-                    'database',
-                    options: [
-                      AccessorListOption(
-                        'pool',
-                        options: [AccessorIntOption('size')],
-                      ),
-                    ],
-                  ),
+                  AccessorListOption('database', [
+                    AccessorListOption('pool', [AccessorIntOption('size')]),
+                  ]),
                 ],
               ),
             ],
@@ -1853,37 +1801,22 @@ compdef _spec spec
                   choices: _Format.values,
                 ),
                 accessors: [
-                  AccessorListOption(
-                    'server',
-                    options: [
-                      AccessorStringOption('host'),
-                      AccessorIntOption('port'),
-                      AccessorDoubleOption('ratio'),
-                    ],
-                  ),
-                  AccessorListOption(
-                    'profile',
-                    options: [
-                      AccessorListOption(
-                        'cloud',
-                        options: [
-                          AccessorListOption(
-                            'credentials',
-                            options: [
-                              AccessorChoiceOption<_Format>(
-                                'format',
-                                choices: _Format.values,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  AccessorListOption(
-                    'database',
-                    options: [AccessorStringOption('url')],
-                  ),
+                  AccessorListOption('server', [
+                    AccessorStringOption('host'),
+                    AccessorIntOption('port'),
+                    AccessorDoubleOption('ratio'),
+                  ]),
+                  AccessorListOption('profile', [
+                    AccessorListOption('cloud', [
+                      AccessorListOption('credentials', [
+                        AccessorChoiceOption<_Format>(
+                          'format',
+                          choices: _Format.values,
+                        ),
+                      ]),
+                    ]),
+                  ]),
+                  AccessorListOption('database', [AccessorStringOption('url')]),
                 ],
               ),
             ], 'Configure the application.'),
@@ -2112,20 +2045,14 @@ compdef _spec spec
       final completion = convertBash(
         specRegistry(
           accessors: [
-            AccessorListOption(
-              'database',
-              options: [
-                AccessorListOption(
-                  'connection',
-                  options: [
-                    AccessorChoiceOption<_Format>(
-                      'format',
-                      choices: _Format.values,
-                    ),
-                  ],
+            AccessorListOption('database', [
+              AccessorListOption('connection', [
+                AccessorChoiceOption<_Format>(
+                  'format',
+                  choices: _Format.values,
                 ),
-              ],
-            ),
+              ]),
+            ]),
           ],
         ).toMap(),
       );
@@ -3042,20 +2969,14 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       final completion = convertPs(
         specRegistry(
           accessors: [
-            AccessorListOption(
-              'database',
-              options: [
-                AccessorListOption(
-                  'connection',
-                  options: [
-                    AccessorChoiceOption<_Format>(
-                      'format',
-                      choices: _Format.values,
-                    ),
-                  ],
+            AccessorListOption('database', [
+              AccessorListOption('connection', [
+                AccessorChoiceOption<_Format>(
+                  'format',
+                  choices: _Format.values,
                 ),
-              ],
-            ),
+              ]),
+            ]),
           ],
         ).toMap(),
       );
@@ -3076,11 +2997,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       final completion = convertPs(
         specRegistry(
           accessors: [
-            AccessorListOption(
-              'internal',
-              hidden: true,
-              options: [AccessorStringOption('token')],
-            ),
+            AccessorListOption('internal', [
+              AccessorStringOption('token'),
+            ], hidden: true),
           ],
         ).toMap(),
       );
@@ -3273,13 +3192,10 @@ persistentflags:
     test('preserves required paired options through registry conversion', () {
       final registry = specRegistry(
         pairedOptions: [
-          PairedOptions(
-            required: true,
-            options: [
-              PairStringOption('username', description: 'Account name.'),
-              PairIntOption('port', description: 'Server port.'),
-            ],
-          ),
+          PairedOptions([
+            PairStringOption('username', description: 'Account name.'),
+            PairIntOption('port', description: 'Server port.'),
+          ], required: true),
         ],
       );
 
@@ -3302,13 +3218,10 @@ completion:
     test('renders every variant option and marks the group exclusive', () {
       final registry = specRegistry(
         pairedOptions: [
-          PairedOptions(
-            variant: true,
-            options: [
-              PairStringOption('json', description: 'Write JSON.'),
-              PairStringOption('yaml', description: 'Write YAML.'),
-            ],
-          ),
+          PairedOptions([
+            PairStringOption('json', description: 'Write JSON.'),
+            PairStringOption('yaml', description: 'Write YAML.'),
+          ], variant: true),
         ],
       );
 
@@ -3333,18 +3246,15 @@ completion:
             'serve',
             'Serve requests.',
             accessors: [
-              AccessorListOption(
-                'server',
-                options: [
-                  AccessorIntOption('port', description: 'Server port.'),
-                  AccessorChoiceOption<_Sku>(
-                    'sku',
-                    description: 'Server size.',
-                    choices: _Sku.values,
-                    defaultValue: _Sku.basic,
-                  ),
-                ],
-              ),
+              AccessorListOption('server', [
+                AccessorIntOption('port', description: 'Server port.'),
+                AccessorChoiceOption<_Sku>(
+                  'sku',
+                  description: 'Server size.',
+                  choices: _Sku.values,
+                  defaultValue: _Sku.basic,
+                ),
+              ]),
             ],
           ),
         ],
@@ -3372,39 +3282,21 @@ completion:
     test('renders accessor paths with five dots and shared branches', () {
       final registry = specRegistry(
         accessors: [
-          AccessorListOption(
-            'profile',
-            options: [AccessorStringOption('name')],
-          ),
-          AccessorListOption(
-            'cloud',
-            options: [
-              AccessorListOption(
-                'provider',
-                options: [
-                  AccessorListOption(
-                    'credentials',
-                    options: [
-                      AccessorListOption(
-                        'oauth',
-                        options: [
-                          AccessorListOption(
-                            'client',
-                            options: [
-                              AccessorStringOption('token'),
-                              AccessorIntOption('timeout'),
-                            ],
-                          ),
-                        ],
-                      ),
-                      AccessorStringOption('region'),
-                    ],
-                  ),
-                  AccessorStringOption('endpoint'),
-                ],
-              ),
-            ],
-          ),
+          AccessorListOption('profile', [AccessorStringOption('name')]),
+          AccessorListOption('cloud', [
+            AccessorListOption('provider', [
+              AccessorListOption('credentials', [
+                AccessorListOption('oauth', [
+                  AccessorListOption('client', [
+                    AccessorStringOption('token'),
+                    AccessorIntOption('timeout'),
+                  ]),
+                ]),
+                AccessorStringOption('region'),
+              ]),
+              AccessorStringOption('endpoint'),
+            ]),
+          ]),
         ],
       );
 
@@ -3429,11 +3321,9 @@ completion:
             'publish',
             'Publish output.',
             accessors: [
-              AccessorListOption(
-                'internal',
-                hidden: true,
-                options: [AccessorStringOption('token')],
-              ),
+              AccessorListOption('internal', [
+                AccessorStringOption('token'),
+              ], hidden: true),
             ],
           ),
         ],
@@ -4206,17 +4096,15 @@ completion:
           RepeatableDoubleOption('repeated', min: 0, max: 1, step: 0.5),
         ],
         pairedOptions: [
-          PairedOptions(
-            options: [
-              PairDoubleOption('pair', min: 0, max: 1, step: 0.5),
-              RepeatablePairDoubleOption(
-                'repeated-pair',
-                min: 0,
-                max: 1,
-                step: 0.5,
-              ),
-            ],
-          ),
+          PairedOptions([
+            PairDoubleOption('pair', min: 0, max: 1, step: 0.5),
+            RepeatablePairDoubleOption(
+              'repeated-pair',
+              min: 0,
+              max: 1,
+              step: 0.5,
+            ),
+          ]),
         ],
       );
 
