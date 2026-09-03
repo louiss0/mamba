@@ -27,7 +27,14 @@ class Add extends Command {
   String get description => "Add something";
 
 
-  FuttureOr<String> run() => "Added something"
+  Add({
+    mandatoryPositionals: [
+     NormalPositional('word')
+  ]
+  });
+
+
+  FutureOr<String> run() => "Added something"
   
 }
 
@@ -59,3 +66,64 @@ void main() {
   
 }
 ```
+
+So far the test that you have written above has passed! So how do you trigger a failure? 
+
+To get an failure you have to! 
+
+1. Throw one manually two 
+2. Attempt to parse a command structure with an invalid argument
+
+To trigger a manual failure you must use an `MambaException`. 
+
+Replace run with an error and a return
+
+```dart  del={1-2} ins={3-8} 
+  FutureOr<String> run() => "Added something";
+  
+  FutureOr<String> run() {
+
+  if(true) throw MambaException();
+  
+  return "Added something";
+
+  }
+```
+ 
+
+To trigger a failure based on an invalid value you must! 
+
+1. Register a cli argument, flag or, option 
+2. Pass an invalid value!
+
+::note[Step 1: You need to now replace the error with a registered positional!]
+
+```dart  del={3}  
+  FutureOr<String> run() {
+
+  if(true) throw MambaException();
+  
+  return "Added something";
+
+  }
+```
+::note
+
+
+::note[Step 2: Register a mandatory positional!]
+
+```dart ins={3-10}
+@override
+String get description => "Add something";
+
+Add({
+  mandatoryPositionals: [
+   NormalPositional('word')
+]
+});
+```
+::note
+
+::note[Step 3: Then run the tests]
+This time you should get a failure result and the test should fail!
+::note
