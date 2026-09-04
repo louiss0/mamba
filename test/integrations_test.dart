@@ -159,11 +159,11 @@ Matcher equalsYaml(String expected) => predicate<String>(
 
 /// Snapshot tests use a stable placeholder for the command-specific namespace.
 Matcher equalsPowerShellCompletion(String expected) => predicate<String>(
-  (actual) => actual.replaceAll('Mambaspec', 'Mamba') == expected,
+  (actual) => actual.replaceAll('MambaSpec', 'Mamba') == expected,
   'equals the expected PowerShell completion:\n$expected',
 );
 
-const _specPowerShellNamespace = r'$script:Mambaspec';
+const _specPowerShellNamespace = r'$script:MambaSpec';
 
 String _normalizeYaml(String yaml) {
   final lines = yaml
@@ -3217,9 +3217,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
     test('emits the resolver helper and Register-ArgumentCompleter block', () {
       final completion = convertPs(specRegistry().toMap());
 
-      expect(completion, contains('function Update-MambaspecStateObject'));
-      expect(completion, contains('function Resolve-MambaspecState'));
-      expect(completion, contains('function Write-MambaspecCompletionResult'));
+      expect(completion, contains('function Update-MambaSpecStateObject'));
+      expect(completion, contains('function Resolve-MambaSpecState'));
+      expect(completion, contains('function Write-MambaSpecCompletionResult'));
       expect(completion, contains('Register-ArgumentCompleter'));
     });
 

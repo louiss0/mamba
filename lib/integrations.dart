@@ -1725,10 +1725,16 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// PowerShell variables and helper functions.
   String get _powerShellNamespace {
     final root = _map(registryMap.map);
-    return 'Mamba${root['name'] as String}';
+    return 'Mamba${_pascalCase(root['name'] as String)}';
   }
 
   String _state(String name) => r'$script:' + _powerShellNamespace + name;
+
+  String _pascalCase(String name) => name
+      .split(RegExp(r'[^a-zA-Z0-9]+'))
+      .where((word) => word.isNotEmpty)
+      .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
+      .join();
 
   @override
   String convert() {
