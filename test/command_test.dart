@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
@@ -82,6 +83,13 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
   new(this.name, this.commands);
 }
 
+class TestCompletionCommand extends Mock implements CompletionCommand {
+  static const commandName = "rig";
+  @override
+  // TODO: implement registryMap
+  RegistryMap get registryMap => RegistryMap({'name': commandName});
+}
+
 void main() {
   final ParsedNamedInputs emptyInputs = (
     accessors: null,
@@ -96,6 +104,131 @@ void main() {
   );
   registerFallbackValue(emptyInputs);
   registerFallbackValue((singles: null, repeated: null, variadic: null));
+
+  group("CompletionCommand", () {
+    group("preset", () {
+      final completionCommand = TestCompletionCommand();
+
+      group("If path is empty then the compeltions are sent to the global path based on shell", () {
+        final cases = [
+          (shell: ShellCompletion.bash.name, path: null, expected: ""),
+          (shell: ShellCompletion.zsh.name, path: null, expected: ""),
+          (shell: ShellCompletion.fish.name, path: null, expected: ""),
+          (shell: ShellCompletion.powershell.name, path: null, expected: ""),
+          (shell: ShellCompletion.carapace.name, path: null, expected: ""),
+        ];
+        when(() => completionCommand.createFile(any())).thenAnswer((_) => null);
+
+        for (final $case in cases) {
+          test("The path ${$case.expected} is written for ${$case.shell}", () {
+            completionCommand.run(
+              (singles: {'shell': $case.shell}, repeated: null, variadic: null),
+              any(),
+              any(),
+            );
+
+            verify(() => completionCommand.createFile($case.expected))
+                .called(1);
+          });
+        }
+      });
+
+      group("If path is defined but the extension is incorrect", () {
+        final cases = [
+          (
+            shell: ShellCompletion.bash.name,
+            path: "ffff.fish",
+            extension: ".bash",
+          ),
+          (shell: ShellCompletion.zsh.name, path: "ffff.h", extension: ".zsh"),
+          (
+            shell: ShellCompletion.fish.name,
+            path: "ffff.fish",
+            extension: ".fish",
+          ),
+          (
+            shell: ShellCompletion.powershell.name,
+            path: "ffff.4sh",
+            extension: ".ps1",
+          ),
+          (
+            shell: ShellCompletion.carapace.name,
+            path: "ffff.3g",
+            extension: ".yaml",
+          ),
+        ];
+
+        for (final $case in cases) {
+          test("The path ${$case.path} is rejected for ${$case.shell}", () {
+            expect(
+              () => completionCommand.run(
+                (
+                  singles: {'shell': $case.shell, "path": $case.path},
+                  repeated: null,
+                  variadic: null,
+                ),
+                any(),
+                any(),
+              ),
+              throwsA(
+                isA<MambaException>().having(
+                  (message) => message,
+                  "message",
+                  "When shell is ${$case.shell} the path must end in ${$case.extension} and must have ${completionCommand.registryMap['name']} in the file name",
+                ),
+              ),
+            );
+          });
+        }
+      });
+
+      group("When the correct path is written it's", () {
+        final cases = [
+          (
+            shell: ShellCompletion.bash.name,
+            path: "./ffff${TestCompletionCommand.commandName}.bash",
+          ),
+          (
+            shell: ShellCompletion.zsh.name,
+            path: "./ffff${TestCompletionCommand.commandName}.zsh",
+          ),
+          (
+            shell: ShellCompletion.fish.name,
+            path: "./ffff${TestCompletionCommand.commandName}.fish",
+          ),
+          (
+            shell: ShellCompletion.powershell.name,
+            path: "./ffff${TestCompletionCommand.commandName}.fish",
+          ),
+          (
+            shell: ShellCompletion.carapace.name,
+            path: "./ffff${TestCompletionCommand.commandName}.yaml",
+          ),
+        ];
+
+        for (final $case in cases) {
+          test("The path ${$case.path} is used for ${$case.shell}", () async {
+            final output = await completionCommand.run(
+              (
+                singles: {'shell': $case.shell, 'path': $case.path},
+                repeated: null,
+                variadic: null,
+              ),
+              any(),
+              any(),
+            );
+
+            verify(() => completionCommand.createFile($case.path)).called(1);
+
+            expect(
+              output,
+              equals("Created completion ${$case.shell} in ${$case.path}"),
+            );
+          });
+        }
+      });
+    });
+  });
 
   group("GroupCommand", () {
     final stashPush = TestCommand("push");

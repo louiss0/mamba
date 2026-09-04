@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
@@ -800,25 +801,79 @@ abstract class GroupCommand extends Command {
   }
 }
 
+enum ShellCompletion { bash, zsh, fish, powershell, carapace }
+
 /// A command that generates output from the executor's complete command map.
 ///
 /// The [Executor] assigns [registryMap] when it creates an execution
 /// environment. Subclasses can pass this validated map to an integration
 /// without creating or retaining a live registry.
-abstract class CompletionCommand extends Command {
+class CompletionCommand extends Command {
   late final RegistryMap registryMap;
 
-  new({
+  final Function(String) createFile;
+  @override
+  // TODO: implement name
+  String get name => "completion";
+
+  @override
+  // TODO: implement shortDescription
+  String get shortDescription => "Generate completion for various shells";
+  new(
+    this.createFile, {
     super.longDescription,
     super.aliases,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
-    super.variadic,
-    super.flags,
     super.options,
-    super.pairedOptions,
-    super.accessors,
   });
+
+  new preset(Function(String)? createFile, {String? longDescription})
+    : this(
+        createFile ?? (String path) => File(path).createSync(exclusive: true),
+        longDescription:
+            longDescription ??
+            'Generate completions for Bash ZSH Fish or Powershell',
+        aliases: ['cmp', 'cpt'],
+        mandatoryPositionals: [
+          ChoicePositional(
+            'shell',
+            description: "Specify the shell for completion",
+            choices: ShellCompletion.values,
+          ),
+        ],
+        discretionaryPositionals: [
+          NormalPositional(
+            'path',
+            description: "Override the output path for completion",
+          ),
+        ],
+      );
+
+  @override
+  FutureOr<String?> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final shell = positionals.singles!['shell']!;
+
+    final path = positionals.singles!['path'];
+
+    if (shell == ShellCompletion.bash.name) {
+      if (path != null) {}
+    }
+
+    if (shell == ShellCompletion.zsh.name) {}
+
+    if (shell == ShellCompletion.fish.name) {}
+
+    if (shell == ShellCompletion.powershell.name) {}
+
+    if (shell == ShellCompletion.carapace.name) {}
+
+    return "Generated completions for $shell in ";
+  }
 }
 
 /// Standard input captured for a selected command's pre-run hook.
