@@ -4147,12 +4147,8 @@ persistentflags:
 completion:
   positional:
     - - "json"
-      - "json"
-      - "yaml"
       - "yaml"
     - - "debug"
-      - "debug"
-      - "info"
       - "info"'''),
         );
       });
@@ -4176,8 +4172,6 @@ completion:
   positional:
     - []
     - - "json"
-      - "json"
-      - "yaml"
       - "yaml"'''),
         );
       });
@@ -4203,16 +4197,10 @@ persistentflags:
 completion:
   positional:
     - - "json"
-      - "json"
-      - "yaml"
       - "yaml"
     - - "json"
-      - "json"
-      - "yaml"
       - "yaml"
     - - "json"
-      - "json"
-      - "yaml"
       - "yaml"'''),
         );
       });
@@ -4280,8 +4268,6 @@ persistentflags:
 completion:
   positional:
     - - "json"
-      - "json"
-      - "yaml"
       - "yaml"
   dash:
     - - "debug"
@@ -4296,7 +4282,7 @@ completion:
       final registry = specRegistry(
         options: [
           IntOption('retries', min: 1, max: 3),
-          DoubleOption('ratio', min: 0.5, max: 1.5),
+          DoubleOption('ratio', min: 0.5, max: 1.5, step: 0.5),
         ],
       );
 
@@ -4306,8 +4292,23 @@ completion:
         spec,
         allOf(
           contains(r'$carapace.number.Range({start: 1, end: 3})'),
-          contains(r'$carapace.number.Range({start: 0.5, end: 1.5})'),
+          contains('''ratio:
+      - "0.5"
+      - "1.0"
+      - "1.5"'''),
         ),
+      );
+    });
+
+    test('omits an unstepped double completion instead of using a range', () {
+      final spec = convertSpec(
+        specRegistry(options: [DoubleOption('ratio', min: 0.5, max: 1.5)])
+            .toMap(),
+      );
+
+      expect(
+        spec,
+        isNot(contains(r'$carapace.number.Range({start: 0.5, end: 1.5})')),
       );
     });
 
@@ -4318,7 +4319,11 @@ completion:
 
       expect(
         convertSpec(registry.toMap()),
-        contains(r'$carapace.ActionValues(\"0.0\", \"0.1\", \"0.2\", \"0.3\")'),
+        contains('''ratio:
+      - "0.0"
+      - "0.1"
+      - "0.2"
+      - "0.3"'''),
       );
     });
 
@@ -4342,10 +4347,13 @@ completion:
       );
 
       final spec = convertSpec(registry.toMap());
-      expect(RegExp(r'\$carapace\.ActionValues').allMatches(spec).length, 4);
+      expect(RegExp(r'\$carapace\.number\.Range').allMatches(spec).length, 0);
       expect(
         spec,
-        contains(r'$carapace.ActionValues(\"0.0\", \"0.5\", \"1.0\")'),
+        contains('''single:
+      - "0.0"
+      - "0.5"
+      - "1.0"'''),
       );
     });
 
@@ -4862,8 +4870,6 @@ commands:
     completion:
       positional:
         - - "basic"
-          - "basic"
-          - "standard"
           - "standard"
     commands:
       - name: "show"
@@ -4873,12 +4879,8 @@ commands:
         completion:
           positional:
             - - "basic"
-              - "basic"
-              - "standard"
               - "standard"
             - - "basic"
-              - "basic"
-              - "standard"
               - "standard"
           dashany:
             - "json"

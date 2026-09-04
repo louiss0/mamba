@@ -1540,7 +1540,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     if (positionals != null) {
       for (final positionalValue in positionals.values) {
         final positional = _map(positionalValue);
-        final values = choicePairs(_stringList(positional['choices']));
+        final values = _stringList(positional['choices']);
         final times = positional['repeatable'] == true
             ? positional['times'] as int? ?? 0
             : 0;
@@ -1557,29 +1557,18 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         switch (option['valueType']) {
           case 'choice':
             flagChoices[entry.key] = _stringList(option['choices']);
-          case 'int' || 'double':
+          case 'int':
             final min = option['min'];
             final max = option['max'];
-            final step = option['step'];
-            if (option['valueType'] == 'double' &&
-                min is num &&
-                max is num &&
-                step is num) {
-              flagChoices[entry.key] = [
-                _carapaceActionValues(
-                  _steppedDoubleValues(
-                    min.toDouble(),
-                    max.toDouble(),
-                    step.toDouble(),
-                  ),
-                ),
-              ];
-            } else if (min is num && max is num) {
+            if (min is num && max is num) {
               flagChoices[entry.key] = [
                 r'$carapace.number.Range({start: '
                     '$min, end: $max})',
               ];
             }
+          case 'double':
+            final values = _steppedDoubleValuesFromMap(option);
+            if (values.isNotEmpty) flagChoices[entry.key] = values;
         }
       }
     }
@@ -1611,10 +1600,6 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
     };
   }
-
-  String _carapaceActionValues(List<String> values) =>
-      r'$carapace.ActionValues('
-      '${values.map((value) => '"$value"').join(', ')})';
 
   /// Builds the ordered Carapace key for one named input.
   String _inputKey({
