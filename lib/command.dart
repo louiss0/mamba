@@ -811,26 +811,25 @@ enum ShellCompletion { bash, zsh, fish, powershell, carapace }
 class CompletionCommand extends Command {
   late final RegistryMap registryMap;
 
-  final Function(String) createFile;
-  @override
-  // TODO: implement name
-  String get name => "completion";
+  final void Function(String path) _createFile;
 
   @override
-  // TODO: implement shortDescription
-  String get shortDescription => "Generate completion for various shells";
-  new(
-    this.createFile, {
+  String get name => 'completion';
+
+  @override
+  String get shortDescription => 'Generate completion for various shells';
+  new({
+    void Function(String)? createFile,
     super.longDescription,
     super.aliases,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
     super.options,
-  });
+  }) : _createFile = createFile ?? _createFileSynchronously;
 
-  new preset(Function(String)? createFile, {String? longDescription})
+  new preset(void Function(String path)? createFile, {String? longDescription})
     : this(
-        createFile ?? (String path) => File(path).createSync(exclusive: true),
+        createFile: createFile ?? _createFileSynchronously,
         longDescription:
             longDescription ??
             'Generate completions for Bash ZSH Fish or Powershell',
@@ -838,14 +837,14 @@ class CompletionCommand extends Command {
         mandatoryPositionals: [
           ChoicePositional(
             'shell',
-            description: "Specify the shell for completion",
+            description: 'Specify the shell for completion',
             choices: ShellCompletion.values,
           ),
         ],
         discretionaryPositionals: [
           NormalPositional(
             'path',
-            description: "Override the output path for completion",
+            description: 'Override the output path for completion',
           ),
         ],
       );
@@ -857,22 +856,49 @@ class CompletionCommand extends Command {
     List<String> trailingArguments,
   ) {
     final shell = positionals.singles!['shell']!;
+    final path = positionals.singles!['path'] ?? '';
+    final extension = _extensionFor(shell);
 
-    final path = positionals.singles!['path'];
-
-    if (shell == ShellCompletion.bash.name) {
-      if (path != null) {}
+    if (path.isNotEmpty && !_isValidPath(path, extension)) {
+      final commandName = registryMap.map['name'];
+      throw MambaException(
+        'When shell is $shell the path must end in $extension and must have '
+        '$commandName in the file name',
+      );
     }
 
-    if (shell == ShellCompletion.zsh.name) {}
+    createFile(path);
+    return 'Created completion $shell in $path';
+  }
 
-    if (shell == ShellCompletion.fish.name) {}
+  void createFile(String path) {
+    _createFile(path);
+  }
 
-    if (shell == ShellCompletion.powershell.name) {}
+  String _extensionFor(String shell) => switch (shell) {
+    'bash' => '.bash',
+    'zsh' => '.zsh',
+    'fish' => '.fish',
+    'powershell' => '.ps1',
+    'carapace' => '.yaml',
+    _ => '',
+  };
 
-    if (shell == ShellCompletion.carapace.name) {}
+  bool _isValidPath(String path, String extension) {
+    if (extension.isEmpty || !path.endsWith(extension)) return false;
 
-    return "Generated completions for $shell in ";
+    final fileName = path.split(RegExp(r'[/\\]')).last;
+    final fileNameWithoutExtension = fileName.substring(
+      0,
+      fileName.length - extension.length,
+    );
+    final commandName = registryMap.map['name'];
+    return commandName is String &&
+        fileNameWithoutExtension.contains(commandName);
+  }
+
+  static void _createFileSynchronously(String path) {
+    File(path).createSync(exclusive: true);
   }
 }
 
