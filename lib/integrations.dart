@@ -1721,6 +1721,15 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// with both `min` and `max` bounds. Wider intervals stay unbound.
   static const int _maxStaticRangeSize = 64;
 
+  /// Uses the root command name to isolate each generated artifact's
+  /// PowerShell variables and helper functions.
+  String get _powerShellNamespace {
+    final root = _map(registryMap.map);
+    return 'Mamba${root['name'] as String}';
+  }
+
+  String _state(String name) => r'$script:' + _powerShellNamespace + name;
+
   @override
   String convert() {
     final root = _map(registryMap.map);
@@ -1771,15 +1780,15 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     }
 
     walk(_mapOrNull(root['commands']));
-    return [r'$script:MambaNativeCommands = @{', ...entries, '}', ''];
+    return ['${_state('NativeCommands')} = @{', ...entries, '}', ''];
   }
 
   List<String> _tableInitializers() => [
-    r'$script:MambaInputs = @{}',
-    r'$script:MambaChildren = @{}',
-    r'$script:MambaPositionalSlots = @{}',
-    r'$script:MambaValueHandlers = @{}',
-    r'$script:MambaVariadicHandlers = @{}',
+    '${_state('Inputs')} = @{}',
+    '${_state('Children')} = @{}',
+    '${_state('PositionalSlots')} = @{}',
+    '${_state('ValueHandlers')} = @{}',
+    '${_state('VariadicHandlers')} = @{}',
     '',
   ];
 
@@ -1838,7 +1847,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     }
     final pathKey = path.join('.');
     return [
-      "\$script:MambaInputs[${_psQuote(pathKey)}] = @(",
+      "${_state('Inputs')}[${_psQuote(pathKey)}] = @(",
       ...entries,
       '    )',
     ];
@@ -1904,7 +1913,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     }
     final pathKey = path.join('.');
     return [
-      "\$script:MambaChildren[${_psQuote(pathKey)}] = @(",
+      "${_state('Children')}[${_psQuote(pathKey)}] = @(",
       ...entries,
       '    )',
     ];
@@ -1919,11 +1928,11 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     final positionals = _mapOrNull(command['positionals']);
     if (positionals == null || positionals.isEmpty) {
       return [
-        "\$script:MambaPositionalSlots[${_psQuote(path.join('.'))}] = @{}",
+        "${_state('PositionalSlots')}[${_psQuote(path.join('.'))}] = @{}",
       ];
     }
     final lines = <String>[
-      "\$script:MambaPositionalSlots[${_psQuote(path.join('.'))}] = @{",
+      "${_state('PositionalSlots')}[${_psQuote(path.join('.'))}] = @{",
     ];
     var slot = 0;
     for (final entry in positionals.entries) {
@@ -1960,12 +1969,12 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       if (values.isEmpty) continue;
       final longKey = '${path.join('.')}.--${entry.key}';
       lines.add(
-        "\$script:MambaValueHandlers[${_psQuote(longKey)}] = @(${values.map(_psQuote).join(', ')})",
+        "${_state('ValueHandlers')}[${_psQuote(longKey)}] = @(${values.map(_psQuote).join(', ')})",
       );
       if (option['short'] case final String short) {
         final shortKey = '${path.join('.')}.-$short';
         lines.add(
-          "\$script:MambaValueHandlers[${_psQuote(shortKey)}] = \$script:MambaValueHandlers[${_psQuote(longKey)}]",
+          "${_state('ValueHandlers')}[${_psQuote(shortKey)}] = ${_state('ValueHandlers')}[${_psQuote(longKey)}]",
         );
       }
     }
@@ -1973,7 +1982,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       if (leaf.choices.isEmpty) continue;
       final key = '${path.join('.')}.--${leaf.path}';
       lines.add(
-        "\$script:MambaValueHandlers[${_psQuote(key)}] = @(${leaf.choices.map(_psQuote).join(', ')})",
+        "${_state('ValueHandlers')}[${_psQuote(key)}] = @(${leaf.choices.map(_psQuote).join(', ')})",
       );
     }
     return lines;
@@ -1990,7 +1999,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     if (variadic == null) return const [];
     final choices = _stringList(variadic['choices']);
     return [
-      "\$script:MambaVariadicHandlers[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
+      "${_state('VariadicHandlers')}[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
           ' Choices = @(${choices.map(_psQuote).join(', ')});'
           ' Repeatable = ${_psBool(variadic['repeatable'] == true)}'
           ' }',
@@ -2206,7 +2215,7 @@ function Write-MambaCompletionResult {
         $Description
     ) | Write-Output
 }''';
-    return [helpers];
+    return [helpers.replaceAll('Mamba', _powerShellNamespace)];
   }
 
   // ---------------------------------------------------------------------
@@ -2284,6 +2293,7 @@ function Write-MambaCompletionResult {
     } catch { }
 }''';
     return body
+        .replaceAll('Mamba', _powerShellNamespace)
         .split('\n')
         .map((line) => line.replaceAll('__ROOT__', rootName))
         .toList();

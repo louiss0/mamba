@@ -7,7 +7,7 @@
  rig only prints simulated operations. It never changes, inspects,
  connects to, or otherwise affects the computer.
 #>
-$script:MambaNativeCommands = @{
+$script:MambarigNativeCommands = @{
     'root' = 'root'
     'volume' = 'volume'
     'vol' = 'volume'
@@ -41,13 +41,13 @@ $script:MambaNativeCommands = @{
     'list' = 'list'
 }
 
-$script:MambaInputs = @{}
-$script:MambaChildren = @{}
-$script:MambaPositionalSlots = @{}
-$script:MambaValueHandlers = @{}
-$script:MambaVariadicHandlers = @{}
+$script:MambarigInputs = @{}
+$script:MambarigChildren = @{}
+$script:MambarigPositionalSlots = @{}
+$script:MambarigValueHandlers = @{}
+$script:MambarigVariadicHandlers = @{}
 
-$script:MambaInputs['root'] = @(
+$script:MambarigInputs['root'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -55,7 +55,7 @@ $script:MambaInputs['root'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root'] = @(
+$script:MambarigChildren['root'] = @(
     [PSCustomObject]@{ Name = 'volume'; Description = 'Describe simulated audio input and output operations.' }
     [PSCustomObject]@{ Name = 'vol'; Description = 'Alias for volume. Describe simulated audio input and output operations.' }
     [PSCustomObject]@{ Name = 'brightness'; Description = 'Describe simulated display brightness and visual properties.' }
@@ -72,9 +72,9 @@ $script:MambaChildren['root'] = @(
     [PSCustomObject]@{ Name = 'profile'; Description = 'Manage reusable simulated workstation configurations.' }
     [PSCustomObject]@{ Name = 'preset'; Description = 'Alias for profile. Manage reusable simulated workstation configurations.' }
     )
-$script:MambaPositionalSlots['root'] = @{}
-$script:MambaValueHandlers['root.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.volume'] = @(
+$script:MambarigPositionalSlots['root'] = @{}
+$script:MambarigValueHandlers['root.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.volume'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -94,13 +94,13 @@ $script:MambaInputs['root.volume'] = @(
     [PSCustomObject]@{ Spelling = '--channel'; Description = 'Repeatable simulated audio channel name.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--channel-gain'; Description = 'Repeatable channel gain, from 0.0 through 2.0.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.volume'] = @(
+$script:MambarigChildren['root.volume'] = @(
     )
-$script:MambaPositionalSlots['root.volume'] = @{
+$script:MambarigPositionalSlots['root.volume'] = @{
     0 = [PSCustomObject]@{ Choices = @('output', 'input'); Description = 'Simulated audio target.' }
     }
-$script:MambaValueHandlers['root.volume.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.brightness'] = @(
+$script:MambarigValueHandlers['root.volume.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.brightness'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -117,11 +117,11 @@ $script:MambaInputs['root.brightness'] = @(
     [PSCustomObject]@{ Spelling = '--display'; Description = 'Repeatable simulated display name.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-d'; Description = 'Repeatable simulated display name.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.brightness'] = @(
+$script:MambarigChildren['root.brightness'] = @(
     )
-$script:MambaPositionalSlots['root.brightness'] = @{}
-$script:MambaValueHandlers['root.brightness.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.power'] = @(
+$script:MambarigPositionalSlots['root.brightness'] = @{}
+$script:MambarigValueHandlers['root.brightness.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.power'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -135,13 +135,13 @@ $script:MambaInputs['root.power'] = @(
     [PSCustomObject]@{ Spelling = '--reason'; Description = 'Human-readable simulated reason.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-r'; Description = 'Human-readable simulated reason.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.power'] = @(
+$script:MambarigChildren['root.power'] = @(
     )
-$script:MambaPositionalSlots['root.power'] = @{
+$script:MambarigPositionalSlots['root.power'] = @{
     0 = [PSCustomObject]@{ Choices = @('lock', 'sleep', 'hibernate', 'restart', 'shutdown'); Description = 'Simulated power action.' }
     }
-$script:MambaValueHandlers['root.power.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.process'] = @(
+$script:MambarigValueHandlers['root.power.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.process'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -160,13 +160,13 @@ $script:MambaInputs['root.process'] = @(
     [PSCustomObject]@{ Spelling = '--limit.io.read'; Description = 'Read limit in MB/s.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--limit.io.write'; Description = 'Write limit in MB/s.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
     )
-$script:MambaChildren['root.process'] = @(
+$script:MambarigChildren['root.process'] = @(
     )
-$script:MambaPositionalSlots['root.process'] = @{
+$script:MambarigPositionalSlots['root.process'] = @{
     0 = [PSCustomObject]@{ Choices = @('inspect', 'limit', 'kill', 'priority'); Description = 'Simulated process action.' }
     }
-$script:MambaValueHandlers['root.process.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.clean'] = @(
+$script:MambarigValueHandlers['root.process.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.clean'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -178,9 +178,9 @@ $script:MambaInputs['root.clean'] = @(
     [PSCustomObject]@{ Spelling = '--larger-than'; Description = 'Size threshold in non-negative MB.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--exclude'; Description = 'Repeatable simulated category, path, or pattern exclusion.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.clean'] = @(
+$script:MambarigChildren['root.clean'] = @(
     )
-$script:MambaPositionalSlots['root.clean'] = @{
+$script:MambarigPositionalSlots['root.clean'] = @{
     0 = [PSCustomObject]@{ Choices = @('cache', 'logs', 'temp', 'thumbnails', 'downloads', 'trash'); Description = 'One or more simulated cleanup targets.' }
     1 = [PSCustomObject]@{ Choices = @('cache', 'logs', 'temp', 'thumbnails', 'downloads', 'trash'); Description = 'One or more simulated cleanup targets.' }
     2 = [PSCustomObject]@{ Choices = @('cache', 'logs', 'temp', 'thumbnails', 'downloads', 'trash'); Description = 'One or more simulated cleanup targets.' }
@@ -188,8 +188,8 @@ $script:MambaPositionalSlots['root.clean'] = @{
     4 = [PSCustomObject]@{ Choices = @('cache', 'logs', 'temp', 'thumbnails', 'downloads', 'trash'); Description = 'One or more simulated cleanup targets.' }
     5 = [PSCustomObject]@{ Choices = @('cache', 'logs', 'temp', 'thumbnails', 'downloads', 'trash'); Description = 'One or more simulated cleanup targets.' }
     }
-$script:MambaValueHandlers['root.clean.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.completion'] = @(
+$script:MambarigValueHandlers['root.clean.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.completion'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -198,12 +198,12 @@ $script:MambaInputs['root.completion'] = @(
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--shell'; Description = 'Completion artifact format to print to stdout.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.completion'] = @(
+$script:MambarigChildren['root.completion'] = @(
     )
-$script:MambaPositionalSlots['root.completion'] = @{}
-$script:MambaValueHandlers['root.completion.--format'] = @('text', 'json', 'yaml')
-$script:MambaValueHandlers['root.completion.--shell'] = @('carapace', 'bash', 'fish', 'zsh', 'powershell')
-$script:MambaInputs['root.network'] = @(
+$script:MambarigPositionalSlots['root.completion'] = @{}
+$script:MambarigValueHandlers['root.completion.--format'] = @('text', 'json', 'yaml')
+$script:MambarigValueHandlers['root.completion.--shell'] = @('carapace', 'bash', 'fish', 'zsh', 'powershell')
+$script:MambarigInputs['root.network'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -211,15 +211,15 @@ $script:MambaInputs['root.network'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network'] = @(
+$script:MambarigChildren['root.network'] = @(
     [PSCustomObject]@{ Name = 'wifi'; Description = 'Describe simulated Wi-Fi operations.' }
     [PSCustomObject]@{ Name = 'dns'; Description = 'Describe simulated DNS configuration.' }
     [PSCustomObject]@{ Name = 'proxy'; Description = 'Describe simulated HTTP, HTTPS, and SOCKS proxy settings.' }
     [PSCustomObject]@{ Name = 'ping'; Description = 'Describe mock connectivity measurements without sending traffic.' }
     )
-$script:MambaPositionalSlots['root.network'] = @{}
-$script:MambaValueHandlers['root.network.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.wifi'] = @(
+$script:MambarigPositionalSlots['root.network'] = @{}
+$script:MambarigValueHandlers['root.network.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.wifi'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -227,15 +227,15 @@ $script:MambaInputs['root.network.wifi'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.wifi'] = @(
+$script:MambarigChildren['root.network.wifi'] = @(
     [PSCustomObject]@{ Name = 'connect'; Description = 'Describe connecting to a simulated Wi-Fi network.' }
     [PSCustomObject]@{ Name = 'disconnect'; Description = 'Describe disconnecting from a simulated Wi-Fi network.' }
     [PSCustomObject]@{ Name = 'scan'; Description = 'Describe scanning simulated Wi-Fi results.' }
     [PSCustomObject]@{ Name = 'status'; Description = 'Describe simulated Wi-Fi status.' }
     )
-$script:MambaPositionalSlots['root.network.wifi'] = @{}
-$script:MambaValueHandlers['root.network.wifi.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.wifi.connect'] = @(
+$script:MambarigPositionalSlots['root.network.wifi'] = @{}
+$script:MambarigValueHandlers['root.network.wifi.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.wifi.connect'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -247,11 +247,11 @@ $script:MambaInputs['root.network.wifi.connect'] = @(
     [PSCustomObject]@{ Spelling = '--password'; Description = 'Masked simulated password; it is never printed.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--channel'; Description = 'Simulated Wi-Fi channel.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.wifi.connect'] = @(
+$script:MambarigChildren['root.network.wifi.connect'] = @(
     )
-$script:MambaPositionalSlots['root.network.wifi.connect'] = @{}
-$script:MambaValueHandlers['root.network.wifi.connect.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.wifi.disconnect'] = @(
+$script:MambarigPositionalSlots['root.network.wifi.connect'] = @{}
+$script:MambarigValueHandlers['root.network.wifi.connect.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.wifi.disconnect'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -260,11 +260,11 @@ $script:MambaInputs['root.network.wifi.disconnect'] = @(
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--ssid'; Description = 'Optional simulated network name.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.wifi.disconnect'] = @(
+$script:MambarigChildren['root.network.wifi.disconnect'] = @(
     )
-$script:MambaPositionalSlots['root.network.wifi.disconnect'] = @{}
-$script:MambaValueHandlers['root.network.wifi.disconnect.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.wifi.scan'] = @(
+$script:MambarigPositionalSlots['root.network.wifi.disconnect'] = @{}
+$script:MambarigValueHandlers['root.network.wifi.disconnect.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.wifi.scan'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -274,11 +274,11 @@ $script:MambaInputs['root.network.wifi.scan'] = @(
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--channel'; Description = 'Optional simulated channel filter.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.wifi.scan'] = @(
+$script:MambarigChildren['root.network.wifi.scan'] = @(
     )
-$script:MambaPositionalSlots['root.network.wifi.scan'] = @{}
-$script:MambaValueHandlers['root.network.wifi.scan.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.wifi.status'] = @(
+$script:MambarigPositionalSlots['root.network.wifi.scan'] = @{}
+$script:MambarigValueHandlers['root.network.wifi.scan.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.wifi.status'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -286,11 +286,11 @@ $script:MambaInputs['root.network.wifi.status'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.wifi.status'] = @(
+$script:MambarigChildren['root.network.wifi.status'] = @(
     )
-$script:MambaPositionalSlots['root.network.wifi.status'] = @{}
-$script:MambaValueHandlers['root.network.wifi.status.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.dns'] = @(
+$script:MambarigPositionalSlots['root.network.wifi.status'] = @{}
+$script:MambarigValueHandlers['root.network.wifi.status.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.dns'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -298,14 +298,14 @@ $script:MambaInputs['root.network.dns'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.dns'] = @(
+$script:MambarigChildren['root.network.dns'] = @(
     [PSCustomObject]@{ Name = 'get'; Description = 'Show fixed simulated DNS configuration.' }
     [PSCustomObject]@{ Name = 'set'; Description = 'Describe configuring simulated DNS servers.' }
     [PSCustomObject]@{ Name = 'reset'; Description = 'Describe restoring simulated DNS defaults.' }
     )
-$script:MambaPositionalSlots['root.network.dns'] = @{}
-$script:MambaValueHandlers['root.network.dns.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.dns.get'] = @(
+$script:MambarigPositionalSlots['root.network.dns'] = @{}
+$script:MambarigValueHandlers['root.network.dns.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.dns.get'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -314,11 +314,11 @@ $script:MambaInputs['root.network.dns.get'] = @(
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--interface'; Description = 'Simulated network interface.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.dns.get'] = @(
+$script:MambarigChildren['root.network.dns.get'] = @(
     )
-$script:MambaPositionalSlots['root.network.dns.get'] = @{}
-$script:MambaValueHandlers['root.network.dns.get.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.dns.set'] = @(
+$script:MambarigPositionalSlots['root.network.dns.get'] = @{}
+$script:MambarigValueHandlers['root.network.dns.get.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.dns.set'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -328,11 +328,11 @@ $script:MambaInputs['root.network.dns.set'] = @(
     [PSCustomObject]@{ Spelling = '--interface'; Description = 'Simulated network interface.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--server'; Description = 'Repeatable simulated DNS server in preserved order.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.dns.set'] = @(
+$script:MambarigChildren['root.network.dns.set'] = @(
     )
-$script:MambaPositionalSlots['root.network.dns.set'] = @{}
-$script:MambaValueHandlers['root.network.dns.set.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.dns.reset'] = @(
+$script:MambarigPositionalSlots['root.network.dns.set'] = @{}
+$script:MambarigValueHandlers['root.network.dns.set.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.dns.reset'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -341,11 +341,11 @@ $script:MambaInputs['root.network.dns.reset'] = @(
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--interface'; Description = 'Simulated network interface.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.dns.reset'] = @(
+$script:MambarigChildren['root.network.dns.reset'] = @(
     )
-$script:MambaPositionalSlots['root.network.dns.reset'] = @{}
-$script:MambaValueHandlers['root.network.dns.reset.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.proxy'] = @(
+$script:MambarigPositionalSlots['root.network.dns.reset'] = @{}
+$script:MambarigValueHandlers['root.network.dns.reset.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.proxy'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -359,11 +359,11 @@ $script:MambaInputs['root.network.proxy'] = @(
     [PSCustomObject]@{ Spelling = '--socks.host'; Description = 'SOCKS proxy host.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--socks.port'; Description = 'SOCKS TCP port.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
     )
-$script:MambaChildren['root.network.proxy'] = @(
+$script:MambarigChildren['root.network.proxy'] = @(
     )
-$script:MambaPositionalSlots['root.network.proxy'] = @{}
-$script:MambaValueHandlers['root.network.proxy.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.network.ping'] = @(
+$script:MambarigPositionalSlots['root.network.proxy'] = @{}
+$script:MambarigValueHandlers['root.network.proxy.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.network.ping'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -373,12 +373,12 @@ $script:MambaInputs['root.network.ping'] = @(
     [PSCustomObject]@{ Spelling = '--count'; Description = 'Positive number of simulated requests.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--timeout'; Description = 'Positive simulated timeout in seconds.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.network.ping'] = @(
+$script:MambarigChildren['root.network.ping'] = @(
     )
-$script:MambaPositionalSlots['root.network.ping'] = @{
+$script:MambarigPositionalSlots['root.network.ping'] = @{
     }
-$script:MambaValueHandlers['root.network.ping.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.profile'] = @(
+$script:MambarigValueHandlers['root.network.ping.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.profile'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -386,15 +386,15 @@ $script:MambaInputs['root.profile'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.profile'] = @(
+$script:MambarigChildren['root.profile'] = @(
     [PSCustomObject]@{ Name = 'save'; Description = 'Describe saving the current simulated configuration.' }
     [PSCustomObject]@{ Name = 'apply'; Description = 'Describe applying a simulated profile.' }
     [PSCustomObject]@{ Name = 'remove'; Description = 'Describe removing an in-memory simulated profile.' }
     [PSCustomObject]@{ Name = 'list'; Description = 'List fixed in-memory simulated profiles.' }
     )
-$script:MambaPositionalSlots['root.profile'] = @{}
-$script:MambaValueHandlers['root.profile.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.profile.save'] = @(
+$script:MambarigPositionalSlots['root.profile'] = @{}
+$script:MambarigValueHandlers['root.profile.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.profile.save'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -402,12 +402,12 @@ $script:MambaInputs['root.profile.save'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.profile.save'] = @(
+$script:MambarigChildren['root.profile.save'] = @(
     )
-$script:MambaPositionalSlots['root.profile.save'] = @{
+$script:MambarigPositionalSlots['root.profile.save'] = @{
     }
-$script:MambaValueHandlers['root.profile.save.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.profile.apply'] = @(
+$script:MambarigValueHandlers['root.profile.save.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.profile.apply'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -418,12 +418,12 @@ $script:MambaInputs['root.profile.apply'] = @(
     [PSCustomObject]@{ Spelling = '--only'; Description = 'Repeatable simulated section to include.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--except'; Description = 'Repeatable simulated section to exclude.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.profile.apply'] = @(
+$script:MambarigChildren['root.profile.apply'] = @(
     )
-$script:MambaPositionalSlots['root.profile.apply'] = @{
+$script:MambarigPositionalSlots['root.profile.apply'] = @{
     }
-$script:MambaValueHandlers['root.profile.apply.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.profile.remove'] = @(
+$script:MambarigValueHandlers['root.profile.apply.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.profile.remove'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -433,12 +433,12 @@ $script:MambaInputs['root.profile.remove'] = @(
     [PSCustomObject]@{ Spelling = '-f'; Description = 'Confirm simulated profile removal.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.profile.remove'] = @(
+$script:MambarigChildren['root.profile.remove'] = @(
     )
-$script:MambaPositionalSlots['root.profile.remove'] = @{
+$script:MambarigPositionalSlots['root.profile.remove'] = @{
     }
-$script:MambaValueHandlers['root.profile.remove.--format'] = @('text', 'json', 'yaml')
-$script:MambaInputs['root.profile.list'] = @(
+$script:MambarigValueHandlers['root.profile.remove.--format'] = @('text', 'json', 'yaml')
+$script:MambarigInputs['root.profile.list'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -446,11 +446,11 @@ $script:MambaInputs['root.profile.list'] = @(
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
-$script:MambaChildren['root.profile.list'] = @(
+$script:MambarigChildren['root.profile.list'] = @(
     )
-$script:MambaPositionalSlots['root.profile.list'] = @{}
-$script:MambaValueHandlers['root.profile.list.--format'] = @('text', 'json', 'yaml')
-function Update-MambaStateObject {
+$script:MambarigPositionalSlots['root.profile.list'] = @{}
+$script:MambarigValueHandlers['root.profile.list.--format'] = @('text', 'json', 'yaml')
+function Update-MambarigStateObject {
     param(
         [Parameter(Mandatory)][int]$CursorPosition,
         [Parameter(Mandatory)]$Element
@@ -462,12 +462,12 @@ function Update-MambaStateObject {
     return $true
 }
 
-function Find-MambaInput {
+function Find-MambarigInput {
     param(
         [Parameter(Mandatory)][string]$PathKey,
         [Parameter(Mandatory)][string]$Spelling
     )
-    $inputs = $script:MambaInputs[$PathKey]
+    $inputs = $script:MambarigInputs[$PathKey]
     if ($null -eq $inputs) { return $null }
     foreach ($input in $inputs) {
         if ($input.Spelling -ceq $Spelling) { return $input }
@@ -475,7 +475,7 @@ function Find-MambaInput {
     return $null
 }
 
-function Resolve-MambaState {
+function Resolve-MambarigState {
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$WordToComplete,
         [Parameter(Mandatory)][int]$CursorPosition,
@@ -489,7 +489,7 @@ function Resolve-MambaState {
     $elements = @($CommandAst.CommandElements)
     for ($i = 1; $i -lt $elements.Count; $i++) {
         $el = $elements[$i]
-        if (-not (Update-MambaStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
+        if (-not (Update-MambarigStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
         $isLastElement = ($i -eq $elements.Count - 1)
         $tokenText = $el.Extent.Text
         # The last AST element is the completion word only while the cursor
@@ -518,11 +518,11 @@ function Resolve-MambaState {
         }
 
         $pathKey = $resolved -join '.'
-        $children = @($script:MambaChildren[$pathKey])
+        $children = @($script:MambarigChildren[$pathKey])
         $canonical = $null
         foreach ($child in $children) {
             if ($child.Name -ceq $tokenText) {
-                $canonical = $script:MambaNativeCommands[$child.Name]
+                $canonical = $script:MambarigNativeCommands[$child.Name]
                 break
             }
         }
@@ -537,13 +537,13 @@ function Resolve-MambaState {
             if ($tail.Contains('=')) {
                 $eqIndex = $tail.IndexOf('=')
                 $owner = '--' + $tail.Substring(0, $eqIndex)
-                $input = Find-MambaInput -PathKey $pathKey -Spelling $owner
+                $input = Find-MambarigInput -PathKey $pathKey -Spelling $owner
                 if ($null -ne $input -and -not $input.IsFlag) {
                     $usedNonRepeatable[$owner] = $true
                 }
                 continue
             }
-            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            $input = Find-MambarigInput -PathKey $pathKey -Spelling $tokenText
             if ($null -ne $input -and -not $input.IsFlag) {
                 $pendingValueOwner = $tokenText
                 continue
@@ -554,7 +554,7 @@ function Resolve-MambaState {
         }
 
         if ($tokenText.StartsWith('-', [System.StringComparison]::Ordinal) -and $tokenText.Length -gt 1) {
-            $input = Find-MambaInput -PathKey $pathKey -Spelling $tokenText
+            $input = Find-MambarigInput -PathKey $pathKey -Spelling $tokenText
             if ($null -ne $input -and -not $input.IsFlag) {
                 $pendingValueOwner = $tokenText
                 continue
@@ -576,7 +576,7 @@ function Resolve-MambaState {
     }
 }
 
-function Write-MambaCompletionResult {
+function Write-MambarigCompletionResult {
     param(
         [Parameter(Mandatory)][string]$CompletionText,
         [Parameter(Mandatory)][string]$ListItemText,
@@ -594,34 +594,34 @@ function Write-MambaCompletionResult {
 Register-ArgumentCompleter -Native -CommandName 'rig' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     try {
-        $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
+        $state = Resolve-MambarigState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
     } catch { return }
     try {
         $pathKey = ($state.ResolvedPath -join '.')
         if ($state.AfterDoubleDash) {
-            $handler = $script:MambaVariadicHandlers[$pathKey]
+            $handler = $script:MambarigVariadicHandlers[$pathKey]
             if ($null -eq $handler) { return }
             $emit = $handler.Repeatable -or ($state.PositionalIndex -lt 0)
             if (-not $emit) { return }
             foreach ($choice in $handler.Choices) {
                 if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
-                    Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                    Write-MambarigCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
                 }
             }
             return
         }
         if ($null -ne $state.PendingValueOwner) {
-            $handler = $script:MambaValueHandlers["$pathKey.$($state.PendingValueOwner)"]
+            $handler = $script:MambarigValueHandlers["$pathKey.$($state.PendingValueOwner)"]
             if ($null -ne $handler) {
                 foreach ($choice in $handler) {
                     if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
-                        Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
+                        Write-MambarigCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
                     }
                 }
             }
             return
         }
-        $inputs = $script:MambaInputs[$pathKey]
+        $inputs = $script:MambarigInputs[$pathKey]
         $currentWord = $state.WordToComplete
         $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
         $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
@@ -634,25 +634,25 @@ Register-ArgumentCompleter -Native -CommandName 'rig' -ScriptBlock {
                 if (-not $input.IsFlag -and -not $input.IsRepeatable -and -not $input.IsAccessor -and -not $input.IsHelp) {
                     if ($state.UsedNonRepeatable.ContainsKey($spelling)) { continue }
                 }
-                Write-MambaCompletionResult -CompletionText $spelling -ListItemText $spelling -ResultType 'ParameterName' -Description $input.Description
+                Write-MambarigCompletionResult -CompletionText $spelling -ListItemText $spelling -ResultType 'ParameterName' -Description $input.Description
             }
         }
         if (-not $wantLong -and -not $wantShort) {
-            $commands = $script:MambaChildren[$pathKey]
+            $commands = $script:MambarigChildren[$pathKey]
             if ($null -ne $commands) {
                 foreach ($command in $commands) {
                     if ($command.Name.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
-                        Write-MambaCompletionResult -CompletionText $command.Name -ListItemText $command.Name -ResultType 'Command' -Description $command.Description
+                        Write-MambarigCompletionResult -CompletionText $command.Name -ListItemText $command.Name -ResultType 'Command' -Description $command.Description
                     }
                 }
             }
-            $positionals = $script:MambaPositionalSlots[$pathKey]
+            $positionals = $script:MambarigPositionalSlots[$pathKey]
             if ($null -ne $positionals) {
                 $entry = $positionals[($state.PositionalIndex + 1)]
                 if ($null -ne $entry) {
                     foreach ($choice in $entry.Choices) {
                         if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
-                            Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description $entry.Description
+                            Write-MambarigCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description $entry.Description
                         }
                     }
                 }

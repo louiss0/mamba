@@ -16,6 +16,7 @@ enum _Sku { basic, standard }
 
 /// Builds a root registry named `spec` around the given inputs and children.
 CommandRegistry specRegistry({
+  String name = 'spec',
   List<Flag>? flags,
   List<Option>? options,
   List<PairedOptions>? pairedOptions,
@@ -25,8 +26,8 @@ CommandRegistry specRegistry({
   List<AccessorListOption>? accessors,
   List<Command>? commands,
 }) => CommandRegistry.create(
-  'spec',
-  'spec command',
+  name,
+  '$name command',
   flags: flags,
   options: options,
   pairedOptions: pairedOptions,
@@ -108,13 +109,18 @@ String _quoteBash(String value) => "'${value.replaceAll("'", "'\\\"'\\\"'")}'";
 Future<List<String>> completePowerShell(
   String completion,
   String commandLine,
+) => completePowerShellScripts([completion], commandLine);
+
+Future<List<String>> completePowerShellScripts(
+  Iterable<String> completions,
+  String commandLine,
 ) async {
   final executable = Platform.isWindows ? 'powershell.exe' : 'pwsh';
   final fixture = await Directory.systemTemp.createTemp('mamba-powershell-');
   try {
     final script = File('${fixture.path}/completion.ps1');
     await script.writeAsString('''
-$completion
+${completions.join('\n')}
 \$line = ${_quotePowerShell(commandLine)}
 \$result = TabExpansion2 \$line \$line.Length
 \$result.CompletionMatches | ForEach-Object { \$_.CompletionText }
@@ -150,6 +156,14 @@ Matcher equalsYaml(String expected) => predicate<String>(
   (actual) => _normalizeYaml(actual) == _normalizeYaml(expected),
   'equals the expected Carapace spec:\n$expected',
 );
+
+/// Snapshot tests use a stable placeholder for the command-specific namespace.
+Matcher equalsPowerShellCompletion(String expected) => predicate<String>(
+  (actual) => actual.replaceAll('Mambaspec', 'Mamba') == expected,
+  'equals the expected PowerShell completion:\n$expected',
+);
+
+const _specPowerShellNamespace = r'$script:Mambaspec';
 
 String _normalizeYaml(String yaml) {
   final lines = yaml
@@ -2238,6 +2252,27 @@ compdef _spec spec
   });
 
   group('ToPowerShellCompletionConverter', () {
+    test('keeps generated completers isolated when sourced together', () async {
+      final specCompletion = convertPs(
+        specRegistry(commands: [TestCommand('serve', 'Serve requests.')])
+            .toMap(),
+      );
+      final otherCompletion = convertPs(
+        specRegistry(
+          name: 'other',
+          commands: [TestCommand('deploy', 'Deploy releases.')],
+        ).toMap(),
+      );
+
+      expect(
+        await completePowerShellScripts([
+          specCompletion,
+          otherCompletion,
+        ], 'spec '),
+        ['--help', '-h', 'serve'],
+      );
+    });
+
     test('completes a root option value at a nested command', () async {
       final completion = convertPs(
         specRegistry(
@@ -2294,7 +2329,7 @@ compdef _spec spec
 
         expect(
           completion,
-          equals(r'''<#
+          equalsPowerShellCompletion(r'''<#
  PowerShell completion for spec.
  Generated; do not edit by hand.
 
@@ -2574,8 +2609,20 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
           ).toMap(),
         );
 
-        expect(completion, contains(r"$script:MambaChildren['root']"));
-        expect(completion, contains(r"$script:MambaChildren['root.config']"));
+        expect(
+          completion,
+          contains(
+            "$_specPowerShellNamespace"
+            r"Children['root']",
+          ),
+        );
+        expect(
+          completion,
+          contains(
+            "$_specPowerShellNamespace"
+            r"Children['root.config']",
+          ),
+        );
         expect(completion, contains(r"Name = 'config'"));
         expect(completion, contains(r"Name = 'set'"));
         expect(completion, contains(r"Name = 's'"));
@@ -2601,7 +2648,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(
         completion,
-        equals(r'''<#
+        equalsPowerShellCompletion(r'''<#
  PowerShell completion for spec.
  Generated; do not edit by hand.
 
@@ -2922,7 +2969,10 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(
         completion,
-        contains(r"$script:MambaValueHandlers['root.--format']"),
+        contains(
+          "$_specPowerShellNamespace"
+          r"ValueHandlers['root.--format']",
+        ),
       );
       expect(completion, contains(r"'json'"));
       expect(completion, contains(r"'yaml'"));
@@ -2941,7 +2991,13 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
         ).toMap(),
       );
 
-      expect(completion, contains(r"$script:MambaValueHandlers['root.-f']"));
+      expect(
+        completion,
+        contains(
+          "$_specPowerShellNamespace"
+          r"ValueHandlers['root.-f']",
+        ),
+      );
     });
 
     test('does not invent values for unbounded integer options', () {
@@ -2951,7 +3007,12 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(
         completion,
-        isNot(contains(r"$script:MambaValueHandlers['root.--offset']")),
+        isNot(
+          contains(
+            "$_specPowerShellNamespace"
+            r"ValueHandlers['root.--offset']",
+          ),
+        ),
       );
     });
 
@@ -2963,7 +3024,12 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(
         completion,
-        isNot(contains(r"$script:MambaValueHandlers['root.--ratio']")),
+        isNot(
+          contains(
+            "$_specPowerShellNamespace"
+            r"ValueHandlers['root.--ratio']",
+          ),
+        ),
       );
     });
 
@@ -2982,7 +3048,12 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(
         completion,
-        isNot(contains(r"$script:MambaValueHandlers['root.--offset']")),
+        isNot(
+          contains(
+            "$_specPowerShellNamespace"
+            r"ValueHandlers['root.--offset']",
+          ),
+        ),
       );
     });
 
@@ -2993,7 +3064,12 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
       expect(
         completion,
-        isNot(contains(r"$script:MambaValueHandlers['root.--offset']")),
+        isNot(
+          contains(
+            "$_specPowerShellNamespace"
+            r"ValueHandlers['root.--offset']",
+          ),
+        ),
       );
     });
 
@@ -3086,7 +3162,12 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       expect(completion, isNot(contains(r"Spelling = '--token'")));
       expect(
         completion,
-        isNot(contains(r"$script:MambaValueHandlers['root.--token']")),
+        isNot(
+          contains(
+            "$_specPowerShellNamespace"
+            r"ValueHandlers['root.--token']",
+          ),
+        ),
       );
     });
 
@@ -3113,7 +3194,8 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       expect(
         completion,
         contains(
-          r"$script:MambaValueHandlers['root.--database.connection.format']",
+          "$_specPowerShellNamespace"
+          r"ValueHandlers['root.--database.connection.format']",
         ),
       );
     });
@@ -3135,9 +3217,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
     test('emits the resolver helper and Register-ArgumentCompleter block', () {
       final completion = convertPs(specRegistry().toMap());
 
-      expect(completion, contains('function Update-MambaStateObject'));
-      expect(completion, contains('function Resolve-MambaState'));
-      expect(completion, contains('function Write-MambaCompletionResult'));
+      expect(completion, contains('function Update-MambaspecStateObject'));
+      expect(completion, contains('function Resolve-MambaspecState'));
+      expect(completion, contains('function Write-MambaspecCompletionResult'));
       expect(completion, contains('Register-ArgumentCompleter'));
     });
 
@@ -3150,8 +3232,20 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
         ).toMap(),
       );
 
-      expect(completion, contains(r"$script:MambaInputs['root']"));
-      expect(completion, contains(r"$script:MambaInputs['root.serve']"));
+      expect(
+        completion,
+        contains(
+          "$_specPowerShellNamespace"
+          r"Inputs['root']",
+        ),
+      );
+      expect(
+        completion,
+        contains(
+          "$_specPowerShellNamespace"
+          r"Inputs['root.serve']",
+        ),
+      );
       expect(completion, contains(r"Spelling = '--global'"));
       expect(completion, contains(r"Spelling = '--profile'"));
     });
@@ -3200,7 +3294,13 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
           ).toMap(),
         );
 
-        expect(completion, contains(r"$script:MambaChildren['root']"));
+        expect(
+          completion,
+          contains(
+            "$_specPowerShellNamespace"
+            r"Children['root']",
+          ),
+        );
         expect(completion, contains(r"Name = 'commit'"));
         expect(completion, contains(r"Name = 'ci'"));
         expect(completion, contains(r"Name = 'push'"));
@@ -3227,11 +3327,19 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
         expect(
           completion,
-          contains(r"$script:MambaVariadicHandlers['root.serve']"),
+          contains(
+            "$_specPowerShellNamespace"
+            r"VariadicHandlers['root.serve']",
+          ),
         );
         expect(
           completion,
-          isNot(contains(r"$script:MambaVariadicHandlers['']")),
+          isNot(
+            contains(
+              "$_specPowerShellNamespace"
+              r"VariadicHandlers['']",
+            ),
+          ),
         );
       },
     );
