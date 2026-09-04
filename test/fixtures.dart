@@ -1,7 +1,7 @@
 import 'package:mamba/command.dart';
 
 class TestGroupCommand extends GroupCommand {
-  TestGroupCommand(
+  new(
     this.name,
     super.commands,
     this.shortDescription, {
@@ -23,7 +23,7 @@ class TestGroupCommand extends GroupCommand {
 }
 
 class TestCommand extends Command {
-  TestCommand(
+  new(
     this.name,
     this.shortDescription, {
     super.longDescription,

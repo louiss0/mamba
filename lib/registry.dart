@@ -916,7 +916,7 @@ Never _invalid(Object? value, String path, String message) =>
 /// `description`. All other registry properties are optional.
 extension type RegistryMap._(Map<String, dynamic> map)
     implements Map<String, dynamic> {
-  RegistryMap(Map<String, dynamic> map) : this._(_parse(map));
+  new(Map<String, dynamic> map) : this._(_parse(map));
 
   static Map<String, dynamic> _parse(Map<String, dynamic> map) {
     // Validate the caller's original map first so diagnostics preserve the
@@ -963,11 +963,8 @@ extension type RegistryMap._(Map<String, dynamic> map)
 
 /// Reports a command name that is not a child of the selected command path.
 final class MambaCommandNotFoundException extends MambaException {
-  MambaCommandNotFoundException(
-    String name,
-    List<String> parentPath,
-    List<String> availableCommands,
-  ) : super(
+  new(String name, List<String> parentPath, List<String> availableCommands)
+    : super(
         "Command $name was not found under ${parentPath.join(' ')}. "
         "${availableCommands.isEmpty ? 'This command has no subcommands.' : 'Available commands: ${availableCommands.join(', ')}'}",
       );
@@ -988,7 +985,7 @@ final class CommandRegistry {
     description: 'Show this help message.',
   );
 
-  CommandRegistry._({
+  new _({
     required this.name,
     required this.shortDescription,
     required this.helpFlag,
@@ -1072,7 +1069,7 @@ final class CommandRegistry {
   /// The factory indexes inputs by name, supplies the built-in help flag, and
   /// creates child registries for [commands]. It rejects ambiguous names,
   /// aliases, positional definitions, and invalid input definitions.
-  factory CommandRegistry.create(
+  factory create(
     String name,
     String shortDescription, {
     String? longDescription,

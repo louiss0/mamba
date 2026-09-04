@@ -378,7 +378,7 @@ void main() {
 }
 
 final class _Command extends Command {
-  _Command(this.name);
+  new(this.name);
 
   @override
   final String name;
@@ -410,7 +410,7 @@ final class _CompletionCommand extends CompletionCommand {
 }
 
 final class _InputCommand extends Command {
-  _InputCommand(this.name, {super.options, this.onRun});
+  new(this.name, {super.options, this.onRun});
 
   final void Function(ParsedNamedInputs)? onRun;
 
@@ -434,7 +434,7 @@ final class _InputCommand extends Command {
 }
 
 final class _DefaultGroup extends GroupCommand {
-  _DefaultGroup(super.commands, {required super.defaultSubCommandPath});
+  new(super.commands, {required super.defaultSubCommandPath});
 
   @override
   final String name = 'group';
@@ -444,7 +444,7 @@ final class _DefaultGroup extends GroupCommand {
 }
 
 final class _HookCommand extends Command with HookRunner {
-  _HookCommand(this.name, this.events);
+  new(this.name, this.events);
 
   @override
   final String name;
@@ -496,7 +496,7 @@ final class _StringThrowingCommand extends Command {
 }
 
 final class _FailingPostHookCommand extends Command with HookRunner {
-  _FailingPostHookCommand({this.throwsError = false});
+  new({this.throwsError = false});
 
   final bool throwsError;
 
@@ -529,7 +529,7 @@ final class _FailingPostHookCommand extends Command with HookRunner {
 }
 
 final class _PersistentGroup extends GroupCommand with PersistentHookRunner {
-  _PersistentGroup(
+  new(
     this.events,
     super.commands, {
     this.failPost = false,

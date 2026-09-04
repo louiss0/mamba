@@ -157,7 +157,7 @@ Future<String> _runChecked(String command, List<String> arguments) async {
 }
 
 final class Release {
-  const Release({required this.version, required this.push});
+  const new({required this.version, required this.push});
 
   final String version;
   final bool push;

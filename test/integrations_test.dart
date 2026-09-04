@@ -2036,9 +2036,8 @@ compdef _spec spec
 
     test('does not invent a finite completion list for double bounds', () {
       final completion = convertBash(
-        specRegistry(
-          options: [DoubleOption('ratio', min: 0.0, max: 1.0)],
-        ).toMap(),
+        specRegistry(options: [DoubleOption('ratio', min: 0.0, max: 1.0)])
+            .toMap(),
       );
 
       expect(completion, contains('_spec_ratio_values=(\n)'));
@@ -2958,9 +2957,8 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('does not invent a finite list for doubles with min and max only', () {
       final completion = convertPs(
-        specRegistry(
-          options: [DoubleOption('ratio', min: 0.0, max: 1.0)],
-        ).toMap(),
+        specRegistry(options: [DoubleOption('ratio', min: 0.0, max: 1.0)])
+            .toMap(),
       );
 
       expect(

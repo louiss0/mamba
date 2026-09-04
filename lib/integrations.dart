@@ -36,7 +36,7 @@ List<String> _steppedDoubleValues(double min, double max, double step) {
 
 /// Converts a validated [RegistryMap] into an integration-specific artifact.
 abstract class RegistryMapConverter {
-  RegistryMapConverter(this.registryMap);
+  new(this.registryMap);
 
   final RegistryMap registryMap;
 
@@ -48,7 +48,7 @@ abstract class RegistryMapConverter {
 /// Bash associative-array values are strings, not arrays. Each option map
 /// therefore points at an indexed array containing its finite value choices.
 final class ToBashCompletionConverter extends RegistryMapConverter {
-  ToBashCompletionConverter(super.registryMap);
+  new(super.registryMap);
 
   @override
   String convert() {
@@ -575,7 +575,7 @@ _mamba_filter_option() {
 
 /// Compiles a registry map into a native Zsh completion function.
 final class ToZshCompletionConverter extends RegistryMapConverter {
-  ToZshCompletionConverter(super.registryMap);
+  new(super.registryMap);
 
   @override
   String convert() {
@@ -837,7 +837,7 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
 /// positional and post-`--` choices separate. Parser validation remains in
 /// Mamba; Fish only advertises the static command grammar.
 final class ToFishCompletionConverter extends RegistryMapConverter {
-  ToFishCompletionConverter(super.registryMap);
+  new(super.registryMap);
 
   @override
   String convert() {
@@ -1298,7 +1298,7 @@ end''';
 /// The map carries all input semantics needed to reproduce the complete
 /// Carapace output without retaining a live command definition.
 final class CarapaceSpecConverter extends RegistryMapConverter {
-  CarapaceSpecConverter(super.registryMap);
+  new(super.registryMap);
 
   @override
   String convert() {
@@ -1715,7 +1715,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 /// success pipeline so PowerShell presents them as separate entries.
 /// The emitted syntax targets Windows PowerShell 5.1 and PowerShell 7 or newer.
 final class ToPowerShellCompletionConverter extends RegistryMapConverter {
-  ToPowerShellCompletionConverter(super.registryMap);
+  new(super.registryMap);
 
   /// Upper bound on the inclusive integer range Mamba emits for an option
   /// with both `min` and `max` bounds. Wider intervals stay unbound.
@@ -2214,8 +2214,7 @@ function Write-MambaCompletionResult {
   // ---------------------------------------------------------------------
 
   List<String> _register(String rootName) {
-    const body =
-        r'''Register-ArgumentCompleter -Native -CommandName '__ROOT__' -ScriptBlock {
+    const body = r'''Register-ArgumentCompleter -Native -CommandName '__ROOT__' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     try {
         $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
@@ -2367,16 +2366,11 @@ function Write-MambaCompletionResult {
       value is List ? value.cast<String>() : const [];
 }
 
-class _AccessorLeaf {
-  _AccessorLeaf({
-    required this.path,
-    required this.description,
-    required this.choices,
-  });
-  final String path;
-  final String? description;
-  final List<String> choices;
-}
+class _AccessorLeaf({
+  required final String path,
+  required final String? description,
+  required final List<String> choices,
+});
 
 /// Writes a map-derived Carapace spec to the platform's spec directory.
 ///
@@ -2384,13 +2378,10 @@ class _AccessorLeaf {
 /// directory. Development writers use a matching directory below the system
 /// temp directory so local runs do not modify the user's installed specs.
 final class CarapaceSpecWriter {
-  CarapaceSpecWriter(
-    this.converter, {
-    this.development = false,
-    String? outputPath,
-  }) : path =
-           outputPath ??
-           _carapaceSpecPath(converter.registryMap.map['name'], development);
+  new(this.converter, {this.development = false, String? outputPath})
+    : path =
+          outputPath ??
+          _carapaceSpecPath(converter.registryMap.map['name'], development);
 
   final CarapaceSpecConverter converter;
   final bool development;

@@ -42,12 +42,7 @@ typedef PositionalExpectation = (
 
 /// Expected metadata for an accessor and its nested options.
 final class AccessorExpectation {
-  const AccessorExpectation(
-    this.name, {
-    this.description,
-    this.options,
-    this.hidden = false,
-  });
+  const new(this.name, {this.description, this.options, this.hidden = false});
 
   final String name;
   final String? description;
@@ -57,7 +52,7 @@ final class AccessorExpectation {
 
 /// Expected metadata for a command and its nested registry categories.
 final class CommandExpectation {
-  const CommandExpectation(
+  const new(
     this.name,
     this.description, {
     this.flags,
@@ -461,8 +456,7 @@ void main() {
                           (
                             'commit-ish',
                             required: false,
-                            description:
-                                "Choosse a commit to use to scaffold the worktree",
+                            description: "Choosse a commit to use to scaffold the worktree",
                           ),
                         ],
                         accessors: null,
@@ -681,8 +675,7 @@ void main() {
                             ),
                             AccessorExpectation(
                               'rebase',
-                              description:
-                                  'Whether to rebase instead of merge when pulling.',
+                              description: 'Whether to rebase instead of merge when pulling.',
                             ),
                           ],
                         ),
@@ -1764,9 +1757,8 @@ void main() {
         expect(commandHelp.help, isTrue);
         expect(Parser(registry).parse(['--', '--help']).$4, ['--help']);
 
-        final bundledHelp = Parser(
-          registry,
-        ).parse(['--verbose', 'config', '-h']);
+        final bundledHelp = Parser(registry)
+            .parse(['--verbose', 'config', '-h']);
         expect(bundledHelp.$1, ['config']);
         expect(bundledHelp.$3.boolFlags, isNull);
         expect(bundledHelp.$3.countFlags, {'verbose': 1});
@@ -1848,9 +1840,9 @@ void main() {
         ],
       );
 
-      final inputs = Parser(
-        registry,
-      ).parse(['tool', 'config', '--no-color', 'get', '--retries', '2']).$3;
+      final inputs = Parser(registry)
+          .parse(['tool', 'config', '--no-color', 'get', '--retries', '2'])
+          .$3;
 
       expect(inputs.boolFlags, {'color': false, 'verbose': false});
       expect(inputs.intOptions, {'retries': 2});
@@ -1871,9 +1863,9 @@ void main() {
         ],
       );
 
-      final inputs = Parser(
-        registry,
-      ).parse(['config', 'get', '--profile', 'development']).$3;
+      final inputs = Parser(registry)
+          .parse(['config', 'get', '--profile', 'development'])
+          .$3;
       expect(inputs.stringOptions, {'profile': 'development'});
       expect(inputs.intOptions, isNull);
     });

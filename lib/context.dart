@@ -2,7 +2,7 @@
 ///
 /// Create and share the same key instance between the code that writes a value
 /// and the code that reads it.
-class MambaContextKey<T> {}
+class MambaContextKey<T>;
 
 /// Mutable state scoped to an executor and shared by all of its executions.
 ///
@@ -23,11 +23,7 @@ class MambaContext {
 }
 
 /// A read-only view of a [MambaContext] supplied to ordinary command hooks.
-class MambaReadContext {
-  MambaReadContext(this._context);
-
-  final MambaContext _context;
-
+class MambaReadContext(final MambaContext _context) {
   /// Returns the value associated with [key], if one has been set.
   T? get<T>(MambaContextKey<T> key) {
     return _context.get(key);

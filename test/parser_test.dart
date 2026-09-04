@@ -178,9 +178,8 @@ void main() {
     });
 
     test('does not parse arguments after -- as options or positionals', () {
-      final result = parser(
-        mandatoryPositionals: [Positional('source')],
-      ).parse(['source', '--', '--unknown', 'extra']);
+      final result = parser(mandatoryPositionals: [Positional('source')])
+          .parse(['source', '--', '--unknown', 'extra']);
 
       expect(result.$2.singles, {'source': 'source'});
       expect(result.$4, ['--unknown', 'extra']);
@@ -862,9 +861,8 @@ void main() {
     });
 
     test('stops command discovery at the trailing argument separator', () {
-      final result = parser(
-        commands: [_ParserCommand('config')],
-      ).parse(['--', 'config']);
+      final result = parser(commands: [_ParserCommand('config')])
+          .parse(['--', 'config']);
 
       expect(result.$1, isEmpty);
       expect(result.$4, ['config']);
@@ -1054,9 +1052,9 @@ void main() {
     });
 
     test('increments repeated long count flags', () {
-      final inputs = parser(
-        flags: [CountFlag('verbose', short: 'v')],
-      ).parse(['--verbose', '--verbose']).$3;
+      final inputs = parser(flags: [CountFlag('verbose', short: 'v')])
+          .parse(['--verbose', '--verbose'])
+          .$3;
 
       expect(inputs.countFlags, {'verbose': 2});
     });
@@ -1715,7 +1713,7 @@ void main() {
 }
 
 class _ParserGroupCommand extends GroupCommand {
-  _ParserGroupCommand(
+  new(
     this.name,
     super.commands, {
     super.inheritedFlags,
@@ -1730,7 +1728,7 @@ class _ParserGroupCommand extends GroupCommand {
 }
 
 class _ParserCommand extends Command {
-  _ParserCommand(this.name, {super.aliases, super.options});
+  new(this.name, {super.aliases, super.options});
 
   @override
   final String name;

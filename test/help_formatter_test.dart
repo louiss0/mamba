@@ -497,7 +497,7 @@ enum _OutputFormat { json, yaml }
 enum _Mode { auto, always }
 
 class _HelpCommand extends Command {
-  _HelpCommand(this.name, this.shortDescription);
+  new(this.name, this.shortDescription);
 
   @override
   final String name;

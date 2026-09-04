@@ -19,17 +19,16 @@ final class _RigMockState {
   final profiles = <String>{'balanced', 'gaming', 'quiet'};
 }
 
-typedef _CommandHandler =
-    FutureOr<String?> Function(
-      ParsedPositionals positionals,
-      ParsedNamedInputs inputs,
-      List<String> trailingArguments,
-    );
+typedef _CommandHandler = FutureOr<String?> Function(
+  ParsedPositionals positionals,
+  ParsedNamedInputs inputs,
+  List<String> trailingArguments,
+);
 
 /// A small adapter keeps the fixture's command declarations readable while
 /// leaving all argument parsing and validation to Mamba.
 final class _MockCommand extends Command {
-  _MockCommand(
+  new(
     this.name,
     this.shortDescription, {
     required this.handler,
@@ -55,7 +54,7 @@ final class _MockCommand extends Command {
 }
 
 final class _RigCompletionCommand extends CompletionCommand {
-  _RigCompletionCommand()
+  new()
     : super(
         longDescription:
             'Print a generated completion artifact to standard output. The command\n'
@@ -93,7 +92,7 @@ final class _RigCompletionCommand extends CompletionCommand {
 }
 
 final class _MockGroup extends GroupCommand {
-  _MockGroup(
+  new(
     this.name,
     this.shortDescription, {
     required List<Command> commands,
@@ -109,7 +108,7 @@ final class _MockGroup extends GroupCommand {
   final String groupHelp;
 
   @override
-  String run(ParsedPositionals _, ParsedNamedInputs __, List<String> ___) =>
+  String run(ParsedPositionals _, ParsedNamedInputs _, List<String> _) =>
       groupHelp;
 }
 
@@ -248,10 +247,9 @@ _MockCommand _volumeCommand() => _MockCommand(
     final device = inputs.stringOptions?['device'];
     final parameters = <String, dynamic>{
       'target': target,
-      if (device != null) 'device': device,
-      if (inputs.intOptions?['level'] case final level?) 'level': level,
-      if (inputs.doubleOptions?['balance'] case final balance?)
-        'balance': balance,
+      'device': ?device,
+      'level': ?inputs.intOptions?['level'],
+      'balance': ?inputs.doubleOptions?['balance'],
       if (channels.isNotEmpty) 'channels': channels,
       if (gains.isNotEmpty) 'channel_gains': gains,
       if (mute) 'muted': true,
@@ -333,22 +331,24 @@ _MockCommand _brightnessCommand() => _MockCommand(
         : 'simulated displays ${_joinHuman(displays, quote: true)}';
     final parameters = <String, dynamic>{
       'displays': displays.isEmpty ? ['default'] : displays,
-      if (inputs.intOptions?['level'] case final level?) 'level': level,
-      if (inputs.doubleOptions?['gamma'] case final gamma?) 'gamma': gamma,
-      if (inputs.intOptions?['temperature'] case final temperature?)
-        'temperature_kelvin': temperature,
-      if (inputs.doubleOptions?['contrast'] case final contrast?)
-        'contrast': contrast,
+      'level': ?inputs.intOptions?['level'],
+      'gamma': ?inputs.doubleOptions?['gamma'],
+      'temperature_kelvin': ?inputs.intOptions?['temperature'],
+      'contrast': ?inputs.doubleOptions?['contrast'],
     };
     final properties = <String>[];
-    if (inputs.intOptions?['level'] case final level?)
+    if (inputs.intOptions?['level'] case final level?) {
       properties.add('brightness $level%');
-    if (inputs.doubleOptions?['gamma'] case final gamma?)
+    }
+    if (inputs.doubleOptions?['gamma'] case final gamma?) {
       properties.add('gamma $gamma');
-    if (inputs.intOptions?['temperature'] case final temperature?)
+    }
+    if (inputs.intOptions?['temperature'] case final temperature?) {
       properties.add('temperature ${temperature}K');
-    if (inputs.doubleOptions?['contrast'] case final contrast?)
+    }
+    if (inputs.doubleOptions?['contrast'] case final contrast?) {
       properties.add('contrast $contrast');
+    }
     final action = properties.isEmpty
         ? 'describe $selected'
         : 'set $selected to ${_joinHuman(properties)}';
@@ -410,7 +410,7 @@ _MockCommand _powerCommand() => _MockCommand(
     final parameters = <String, dynamic>{
       'action': action,
       'delay_seconds': delay,
-      if (reason != null) 'reason': reason,
+      'reason': ?reason,
       if (force) 'force': true,
     };
     final message = StringBuffer('would $actionText after $delay seconds');
@@ -516,8 +516,9 @@ _MockCommand _processCommand() => _MockCommand(
 
     final selectors = <String>[];
     if (pids.isNotEmpty) selectors.add('PIDs ${_joinHuman(pids)}');
-    if (names.isNotEmpty)
+    if (names.isNotEmpty) {
       selectors.add('names ${_joinHuman(names, quote: true)}');
+    }
     if (cpus.isNotEmpty) selectors.add('CPUs ${_joinHuman(cpus)}');
     final target = selectors.isEmpty
         ? 'the simulated process set'
@@ -527,19 +528,23 @@ _MockCommand _processCommand() => _MockCommand(
       if (pids.isNotEmpty) 'pids': pids,
       if (names.isNotEmpty) 'names': names,
       if (cpus.isNotEmpty) 'cpus': cpus,
-      if (priority != null) 'priority': priority,
+      'priority': ?priority,
       if (hasLimits) 'limits': limits,
     };
     final detail = <String>[];
     if (hasLimits) {
-      if (_limitValue(limits, 'cpu', 'percent') case final value?)
+      if (_limitValue(limits, 'cpu', 'percent') case final value?) {
         detail.add('CPU limit: $value%');
-      if (_limitValue(limits, 'memory', 'mb') case final memory?)
+      }
+      if (_limitValue(limits, 'memory', 'mb') case final memory?) {
         detail.add('Memory limit: $memory MB');
-      if (_limitValue(limits, 'io', 'read') case final value?)
+      }
+      if (_limitValue(limits, 'io', 'read') case final value?) {
         detail.add('I/O read limit: $value MB/s');
-      if (_limitValue(limits, 'io', 'write') case final value?)
+      }
+      if (_limitValue(limits, 'io', 'write') case final value?) {
         detail.add('I/O write limit: $value MB/s');
+      }
     }
     if (priority != null) detail.add('Priority: $priority');
     final verb = switch (action) {
@@ -601,8 +606,8 @@ _MockCommand _cleanCommand() => _MockCommand(
     final hidden = inputs.boolFlags?['include-hidden'] == true;
     final parameters = <String, dynamic>{
       'targets': targets,
-      if (olderThan != null) 'older_than_days': olderThan,
-      if (largerThan != null) 'larger_than_mb': largerThan,
+      'older_than_days': ?olderThan,
+      'larger_than_mb': ?largerThan,
       if (excludes.isNotEmpty) 'exclude': excludes,
       'include_hidden': hidden,
       'estimated_data_affected_mb': 384.0,
@@ -690,8 +695,7 @@ Commands:
         final ssid = inputs.stringOptions!['ssid']!;
         final parameters = <String, dynamic>{
           'ssid': ssid,
-          if (inputs.intOptions?['channel'] case final channel?)
-            'channel': channel,
+          'channel': ?inputs.intOptions?['channel'],
           if (inputs.boolFlags?['hidden'] == true) 'hidden': true,
           if (inputs.stringOptions?['password'] != null) 'password': '[masked]',
         };
@@ -719,7 +723,7 @@ Commands:
         return _renderResult(
           inputs,
           operation: 'network wifi disconnect',
-          parameters: {if (ssid != null) 'ssid': ssid},
+          parameters: {'ssid': ?ssid},
           message:
               'would disconnect from ${ssid == null ? 'the simulated Wi-Fi network' : 'simulated Wi-Fi network "$ssid"'}',
           noChangeStatement: 'No network connection was changed.',
@@ -747,8 +751,7 @@ Commands:
         inputs,
         operation: 'network wifi scan',
         parameters: {
-          if (inputs.intOptions?['channel'] case final channel?)
-            'channel': channel,
+          'channel': ?inputs.intOptions?['channel'],
           'include_hidden': inputs.boolFlags?['hidden'] == true,
           'networks': const ['ExampleNet', 'MockGuest'],
         },
@@ -798,8 +801,7 @@ Commands:
         inputs,
         operation: 'network dns get',
         parameters: {
-          if (inputs.stringOptions?['interface'] case final interface?)
-            'interface': interface,
+          'interface': ?inputs.stringOptions?['interface'],
           'servers': const ['1.1.1.1', '1.0.0.1'],
           'source': 'fixed mock configuration',
         },
@@ -829,10 +831,7 @@ Commands:
         return _renderResult(
           inputs,
           operation: 'network dns set',
-          parameters: {
-            'servers': servers,
-            if (interface != null) 'interface': interface,
-          },
+          parameters: {'servers': servers, 'interface': ?interface},
           message:
               'would configure simulated DNS servers in this order: ${servers.join(', ')}',
           noChangeStatement: 'No network settings were changed.',
@@ -853,8 +852,7 @@ Commands:
         inputs,
         operation: 'network dns reset',
         parameters: {
-          if (inputs.stringOptions?['interface'] case final interface?)
-            'interface': interface,
+          'interface': ?inputs.stringOptions?['interface'],
           'mode': 'simulated platform defaults',
         },
         message: 'would restore simulated DNS platform-default behavior',

@@ -11,7 +11,7 @@ topics:
   - command-line-parser
   - yargs
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.13.2
 
 dependencies:
   chalkdart: ^3.1.0

@@ -17,7 +17,7 @@ abstract final class MambaColors {
 /// The base type rejects unstyled content so delimiter wrappers cannot be
 /// confused with an unformatted command grammar.
 extension type FormattedString._(String string) {
-  FormattedString(String string) : this._(_parse(string));
+  new(String string) : this._(_parse(string));
 
   static final _ansiColorRegex = RegExp(r'\x1B\[[0-9;]*m');
 
@@ -34,8 +34,7 @@ extension type FormattedString._(String string) {
 /// A styled help fragment that must be supplied.
 extension type RequiredString._(FormattedString string)
     implements FormattedString {
-  RequiredString(String string)
-    : this._(FormattedString('< ${_parse(string)} >'));
+  new(String string) : this._(FormattedString('< ${_parse(string)} >'));
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -49,8 +48,7 @@ extension type RequiredString._(FormattedString string)
 /// A styled help fragment enclosed in optional square brackets.
 extension type OptionalString._(FormattedString string)
     implements FormattedString {
-  OptionalString(String string)
-    : this._(FormattedString('[ ${_parse(string)} ]'));
+  new(String string) : this._(FormattedString('[ ${_parse(string)} ]'));
 
   static String _parse(String string) {
     final unformatted = string.replaceAll(FormattedString._ansiColorRegex, '');
@@ -63,7 +61,7 @@ extension type OptionalString._(FormattedString string)
 
 /// Joins a primary help member with members that must be supplied with it.
 extension type PairString._(FormattedString string) implements FormattedString {
-  PairString(String primaryMember, Iterable<String> pairMembers)
+  new(String primaryMember, Iterable<String> pairMembers)
     : this._(
         FormattedString(
           MambaColors.bright([primaryMember, ...pairMembers].join(' & ')),
@@ -73,7 +71,7 @@ extension type PairString._(FormattedString string) implements FormattedString {
 
 /// Joins a primary help member with mutually exclusive alternatives.
 extension type OrString._(FormattedString string) implements FormattedString {
-  OrString(String primaryMember, Iterable<String> alternativeMembers)
+  new(String primaryMember, Iterable<String> alternativeMembers)
     : this._(
         FormattedString(
           MambaColors.mid([primaryMember, ...alternativeMembers].join('|')),
@@ -84,15 +82,13 @@ extension type OrString._(FormattedString string) implements FormattedString {
 /// A bright-green title for a help section.
 extension type SectionTitleString._(FormattedString string)
     implements FormattedString {
-  SectionTitleString(String string)
-    : this._(FormattedString(MambaColors.deep(string)));
+  new(String string) : this._(FormattedString(MambaColors.deep(string)));
 }
 
 /// A bright-yellow description for a help entry.
 extension type EntryDescriptionString._(FormattedString string)
     implements FormattedString {
-  EntryDescriptionString(String string)
-    : this._(FormattedString(MambaColors.yellow(string)));
+  new(String string) : this._(FormattedString(MambaColors.yellow(string)));
 }
 
 /// The customization boundary for rendering a [CommandRegistry] as help text.

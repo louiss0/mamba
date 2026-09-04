@@ -24,7 +24,7 @@ Future<void> main(List<String> args) => Executor(
 ).create().execute(args);
 
 final class Task {
-  const Task({
+  const new({
     required this.id,
     required this.title,
     required this.description,
@@ -43,7 +43,7 @@ final class Task {
     'completed': completed,
   };
 
-  factory Task.fromJson(Map<String, dynamic> json) => Task(
+  factory fromJson(Map<String, dynamic> json) => Task(
     id: json['id'] as int,
     title: json['title'] as String,
     description: json['description'] as String,
@@ -52,7 +52,7 @@ final class Task {
 }
 
 final class TaskStore {
-  TaskStore()
+  new()
     : file = File(
         '${Directory.systemTemp.path}${Platform.pathSeparator}mamba_tasks.json',
       ) {
@@ -160,7 +160,7 @@ StringOption _textOption(
 );
 
 final class CreateTaskCommand extends Command {
-  CreateTaskCommand(this.store)
+  new(this.store)
     : super(
         options: [
           _textOption('title', 'Task title.', required: true),
@@ -185,7 +185,7 @@ final class CreateTaskCommand extends Command {
 }
 
 final class ListTaskCommand extends Command {
-  ListTaskCommand(this.store)
+  new(this.store)
     : super(
         flags: [
           BooleanFlag('completed', description: 'Show completed tasks.'),
@@ -223,7 +223,7 @@ final class ListTaskCommand extends Command {
 }
 
 final class ReadTaskCommand extends Command {
-  ReadTaskCommand(this.store)
+  new(this.store)
     : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
   final TaskStore store;
   @override
@@ -240,7 +240,7 @@ final class ReadTaskCommand extends Command {
 }
 
 final class UpdateTaskCommand extends Command {
-  UpdateTaskCommand(this.store)
+  new(this.store)
     : super(
         mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))],
         options: [
@@ -280,7 +280,7 @@ final class UpdateTaskCommand extends Command {
 }
 
 final class DeleteTaskCommand extends Command {
-  DeleteTaskCommand(this.store)
+  new(this.store)
     : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
   final TaskStore store;
   @override
@@ -302,7 +302,7 @@ final class DeleteTaskCommand extends Command {
 }
 
 final class CompletionTaskCommand extends CompletionCommand {
-  CompletionTaskCommand()
+  new()
     : super(
         options: [
           _textOption(
@@ -328,7 +328,7 @@ final class CompletionTaskCommand extends CompletionCommand {
 }
 
 final class CompleteTaskCommand extends Command {
-  CompleteTaskCommand(this.store)
+  new(this.store)
     : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
 
   final TaskStore store;
@@ -346,7 +346,7 @@ final class CompleteTaskCommand extends Command {
 }
 
 final class ReopenTaskCommand extends Command {
-  ReopenTaskCommand(this.store)
+  new(this.store)
     : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
 
   final TaskStore store;

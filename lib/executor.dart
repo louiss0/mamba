@@ -9,21 +9,15 @@ import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 
 /// The observable result produced by an executor created with [Executor.fake].
-sealed class MambaExecutionResult {
-  const MambaExecutionResult();
-}
+sealed class const MambaExecutionResult();
 
 /// Captures command output produced by a successful fake execution.
-final class MambaSuccessResult extends MambaExecutionResult {
-  final String? output;
-  const MambaSuccessResult(this.output);
-}
+final class const MambaSuccessResult(final String? output)
+    extends MambaExecutionResult;
 
 /// Captures a Mamba exception produced by a failed fake execution.
-final class MambaFailureResult extends MambaExecutionResult {
-  final MambaException exception;
-  const MambaFailureResult(this.exception);
-}
+final class const MambaFailureResult(final MambaException exception)
+    extends MambaExecutionResult;
 
 /// Whether a filesystem failure represents a closed inherited input pipe.
 ///
@@ -87,7 +81,7 @@ final class Executor {
 
   final HelpFormatter? helpFormatter;
 
-  Executor(
+  new(
     this.name,
     this.shortDescription,
     List<Command> commands, {
@@ -157,7 +151,7 @@ final class Executor {
 }
 
 final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
-  _FakeExecutor(this._execution);
+  new(this._execution);
 
   final _Execution _execution;
 
@@ -177,7 +171,7 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
 }
 
 final class _CreateExecutor implements MambaExecutor<void> {
-  _CreateExecutor(this._execution);
+  new(this._execution);
 
   final _Execution _execution;
 
@@ -223,7 +217,7 @@ final class _Execution {
 
   final List<Command>? commands;
 
-  _Execution(Executor factory)
+  new(Executor factory)
     : _helpFormatter = factory.helpFormatter ?? MambaHelpFormatter(),
       _context = factory.context ?? MambaContext(),
       _defaultSubCommandPath = factory.defaultCommandPath,

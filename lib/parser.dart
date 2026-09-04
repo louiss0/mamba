@@ -3,9 +3,7 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
 
 /// Reports an invocation that does not match a registered command surface.
-class MambaParseException extends MambaException {
-  MambaParseException(super.message);
-}
+class MambaParseException(super.message) extends MambaException;
 
 /// The parser result for a validated command and its typed inputs.
 typedef ParsedArguments = (
@@ -24,7 +22,7 @@ typedef ParsedArguments = (
 /// It returns the selected path and typed input maps without executing a
 /// command.
 class Parser {
-  Parser(this._registry);
+  new(this._registry);
 
   final CommandRegistry _registry;
 
@@ -219,13 +217,11 @@ class Parser {
   bool _hasSingleOptionType<T extends SingleOption>(CommandRegistry registry) =>
       registry.singleOptions?.values.any((option) => option is T) == true ||
       (T == IntOption &&
-          _registeredPairOptions(
-            registry,
-          ).any((option) => option is PairIntOption)) ||
+          _registeredPairOptions(registry)
+              .any((option) => option is PairIntOption)) ||
       (T == DoubleOption &&
-          _registeredPairOptions(
-            registry,
-          ).any((option) => option is PairDoubleOption));
+          _registeredPairOptions(registry)
+              .any((option) => option is PairDoubleOption));
 
   bool _hasRepeatedStringOptions(CommandRegistry registry) =>
       registry.repeatedOptions?.values.any(
@@ -234,22 +230,19 @@ class Parser {
                 option is RepeatableChoiceOption,
           ) ==
           true ||
-      _registeredPairOptions(
-        registry,
-      ).any((option) => option is RepeatablePairStringOption);
+      _registeredPairOptions(registry)
+          .any((option) => option is RepeatablePairStringOption);
 
   bool _hasRepeatedOptionType<T extends RepeatableOption>(
     CommandRegistry registry,
   ) =>
       registry.repeatedOptions?.values.any((option) => option is T) == true ||
       (T == RepeatableIntOption &&
-          _registeredPairOptions(
-            registry,
-          ).any((option) => option is RepeatablePairIntOption)) ||
+          _registeredPairOptions(registry)
+              .any((option) => option is RepeatablePairIntOption)) ||
       (T == RepeatableDoubleOption &&
-          _registeredPairOptions(
-            registry,
-          ).any((option) => option is RepeatablePairDoubleOption));
+          _registeredPairOptions(registry)
+              .any((option) => option is RepeatablePairDoubleOption));
 
   List<String> _findCommand(List<String> args) {
     final command = <String>[];

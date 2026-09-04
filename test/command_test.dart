@@ -13,20 +13,16 @@ class TestGroupCommand extends GroupCommand {
   @override
   String get shortDescription => "This is a test command";
 
-  TestGroupCommand(
-    this.name,
-    super.commands, {
-    super.defaultSubCommandPath,
-    super.variadic,
-  }) : super(
-         longDescription: '',
-         mandatoryPositionals: null,
-         discretionaryPositionals: null,
-         flags: null,
-         options: null,
-         pairedOptions: null,
-         accessors: null,
-       );
+  new(this.name, super.commands, {super.defaultSubCommandPath, super.variadic})
+    : super(
+        longDescription: '',
+        mandatoryPositionals: null,
+        discretionaryPositionals: null,
+        flags: null,
+        options: null,
+        pairedOptions: null,
+        accessors: null,
+      );
 
   FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
@@ -54,13 +50,13 @@ class TestCommand extends Mock implements Command {
   @override
   final String name;
 
-  TestCommand(this.name);
+  new(this.name);
 }
 
 enum OutputFormat { yaml, json }
 
 final class _VariadicCommand extends Command {
-  _VariadicCommand({super.variadic});
+  new({super.variadic});
 
   @override
   String get name => 'tool';
@@ -83,7 +79,7 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
   @override
   final List<Command> commands;
 
-  TestChildGroupCommand(this.name, this.commands);
+  new(this.name, this.commands);
 }
 
 void main() {
@@ -110,9 +106,8 @@ void main() {
 
     when(() => stashPop.run(any(), any(), any())).thenAnswer((_) => '');
 
-    when(
-      () => stashCommand.run(any(), any(), any()),
-    ).thenAnswer((_) => Future.value(''));
+    when(() => stashCommand.run(any(), any(), any()))
+        .thenAnswer((_) => Future.value(''));
 
     final groupCommand = TestGroupCommand('git', [stashCommand]);
 
