@@ -1746,6 +1746,9 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     r''' Generated; do not edit by hand.''',
     '',
     for (final line in description.split('\n')) line.isEmpty ? '' : ' $line',
+    '',
+    ' To show a completion menu instead of cycling candidates:',
+    ' Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete',
     '#>',
   ];
 
@@ -2218,7 +2221,10 @@ function Write-MambaCompletionResult {
     param($wordToComplete, $commandAst, $cursorPosition)
     try {
         $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
-    } catch { return }
+    } catch {
+        if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }
+        return
+    }
     try {
         $pathKey = ($state.ResolvedPath -join '.')
         if ($state.AfterDoubleDash) {
@@ -2244,11 +2250,26 @@ function Write-MambaCompletionResult {
             }
             return
         }
-        $inputs = $script:MambaInputs[$pathKey]
         $currentWord = $state.WordToComplete
+        if ($currentWord.StartsWith('--', [System.StringComparison]::Ordinal) -and $currentWord.Contains('=')) {
+            $equalsIndex = $currentWord.IndexOf('=')
+            $owner = $currentWord.Substring(0, $equalsIndex)
+            $valuePrefix = $currentWord.Substring($equalsIndex + 1)
+            $handler = $script:MambaValueHandlers["$pathKey.$owner"]
+            if ($null -ne $handler) {
+                foreach ($choice in $handler) {
+                    if ($choice.StartsWith($valuePrefix, [System.StringComparison]::Ordinal)) {
+                        $completionText = "$owner=$choice"
+                        Write-MambaCompletionResult -CompletionText $completionText -ListItemText $completionText -ResultType 'ParameterValue' -Description ''
+                    }
+                }
+            }
+            return
+        }
+        $inputs = $script:MambaInputs[$pathKey]
         $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
         $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
-        if ($null -ne $inputs) {
+        if (($wantLong -or $wantShort) -and $null -ne $inputs) {
             foreach ($input in $inputs) {
                 $spelling = $input.Spelling
                 if ($wantLong -and -not $spelling.StartsWith('--', [System.StringComparison]::Ordinal)) { continue }
@@ -2281,7 +2302,9 @@ function Write-MambaCompletionResult {
                 }
             }
         }
-    } catch { }
+    } catch {
+        if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }
+    }
 }''';
     return body
         .replaceAll('Mamba', _powerShellNamespace)

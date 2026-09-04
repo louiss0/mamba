@@ -2269,7 +2269,7 @@ compdef _spec spec
           specCompletion,
           otherCompletion,
         ], 'spec '),
-        ['--help', '-h', 'serve'],
+        ['serve'],
       );
     });
 
@@ -2289,6 +2289,36 @@ compdef _spec spec
         await completePowerShell(completion, 'spec config set --format '),
         ['json', 'yaml'],
       );
+    });
+
+    test('completes a choice value attached with an equals sign', () async {
+      final completion = convertPs(
+        specRegistry(
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+        ).toMap(),
+      );
+
+      expect(await completePowerShell(completion, 'spec --format=j'), [
+        '--format=json',
+      ]);
+    });
+
+    test('separates command and long-input completion contexts', () async {
+      final completion = convertPs(
+        specRegistry(
+          flags: [BooleanFlag('force', short: 'f')],
+          options: [ChoiceOption<_Format>('format', choices: _Format.values)],
+          commands: [
+            TestCommand('commit', 'Commit changes.', aliases: ['ci']),
+          ],
+        ).toMap(),
+      );
+
+      expect(await completePowerShell(completion, 'spec '), ['commit', 'ci']);
+      expect(await completePowerShell(completion, 'spec --fo'), [
+        '--force',
+        '--format',
+      ]);
     });
 
     test('completes root flags at five nested command levels', () async {
@@ -2334,6 +2364,9 @@ compdef _spec spec
  Generated; do not edit by hand.
 
  spec command
+
+ To show a completion menu instead of cycling candidates:
+ Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 #>
 $script:MambaNativeCommands = @{
     'root' = 'root'
@@ -2511,7 +2544,10 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     try {
         $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
-    } catch { return }
+    } catch {
+        if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }
+        return
+    }
     try {
         $pathKey = ($state.ResolvedPath -join '.')
         if ($state.AfterDoubleDash) {
@@ -2537,11 +2573,26 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
             }
             return
         }
-        $inputs = $script:MambaInputs[$pathKey]
         $currentWord = $state.WordToComplete
+        if ($currentWord.StartsWith('--', [System.StringComparison]::Ordinal) -and $currentWord.Contains('=')) {
+            $equalsIndex = $currentWord.IndexOf('=')
+            $owner = $currentWord.Substring(0, $equalsIndex)
+            $valuePrefix = $currentWord.Substring($equalsIndex + 1)
+            $handler = $script:MambaValueHandlers["$pathKey.$owner"]
+            if ($null -ne $handler) {
+                foreach ($choice in $handler) {
+                    if ($choice.StartsWith($valuePrefix, [System.StringComparison]::Ordinal)) {
+                        $completionText = "$owner=$choice"
+                        Write-MambaCompletionResult -CompletionText $completionText -ListItemText $completionText -ResultType 'ParameterValue' -Description ''
+                    }
+                }
+            }
+            return
+        }
+        $inputs = $script:MambaInputs[$pathKey]
         $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
         $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
-        if ($null -ne $inputs) {
+        if (($wantLong -or $wantShort) -and $null -ne $inputs) {
             foreach ($input in $inputs) {
                 $spelling = $input.Spelling
                 if ($wantLong -and -not $spelling.StartsWith('--', [System.StringComparison]::Ordinal)) { continue }
@@ -2574,7 +2625,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
                 }
             }
         }
-    } catch { }
+    } catch {
+        if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }
+    }
 }
 '''),
         );
@@ -2653,6 +2706,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
  Generated; do not edit by hand.
 
  spec command
+
+ To show a completion menu instead of cycling candidates:
+ Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 #>
 $script:MambaNativeCommands = @{
     'root' = 'root'
@@ -2844,7 +2900,10 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     try {
         $state = Resolve-MambaState -WordToComplete $wordToComplete -CursorPosition $cursorPosition -CommandAst $commandAst
-    } catch { return }
+    } catch {
+        if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }
+        return
+    }
     try {
         $pathKey = ($state.ResolvedPath -join '.')
         if ($state.AfterDoubleDash) {
@@ -2870,11 +2929,26 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
             }
             return
         }
-        $inputs = $script:MambaInputs[$pathKey]
         $currentWord = $state.WordToComplete
+        if ($currentWord.StartsWith('--', [System.StringComparison]::Ordinal) -and $currentWord.Contains('=')) {
+            $equalsIndex = $currentWord.IndexOf('=')
+            $owner = $currentWord.Substring(0, $equalsIndex)
+            $valuePrefix = $currentWord.Substring($equalsIndex + 1)
+            $handler = $script:MambaValueHandlers["$pathKey.$owner"]
+            if ($null -ne $handler) {
+                foreach ($choice in $handler) {
+                    if ($choice.StartsWith($valuePrefix, [System.StringComparison]::Ordinal)) {
+                        $completionText = "$owner=$choice"
+                        Write-MambaCompletionResult -CompletionText $completionText -ListItemText $completionText -ResultType 'ParameterValue' -Description ''
+                    }
+                }
+            }
+            return
+        }
+        $inputs = $script:MambaInputs[$pathKey]
         $wantLong = $currentWord.StartsWith('--', [System.StringComparison]::Ordinal)
         $wantShort = (-not $wantLong) -and $currentWord.StartsWith('-', [System.StringComparison]::Ordinal)
-        if ($null -ne $inputs) {
+        if (($wantLong -or $wantShort) -and $null -ne $inputs) {
             foreach ($input in $inputs) {
                 $spelling = $input.Spelling
                 if ($wantLong -and -not $spelling.StartsWith('--', [System.StringComparison]::Ordinal)) { continue }
@@ -2907,7 +2981,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
                 }
             }
         }
-    } catch { }
+    } catch {
+        if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }
+    }
 }
 '''),
       );
@@ -3344,11 +3420,29 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       },
     );
 
-    test('keeps registrar errors silent at runtime', () {
+    test('catches registrar errors before returning control to PowerShell', () {
       final completion = convertPs(specRegistry().toMap());
 
-      expect(completion, contains('catch { return }'));
-      expect(completion, contains('catch { }'));
+      expect(completion, contains('catch {'));
+      expect(completion, contains('        return\n    }'));
+    });
+
+    test('guards registrar diagnostics behind an opt-in environment value', () {
+      final completion = convertPs(specRegistry().toMap());
+
+      expect(
+        completion,
+        contains(r'if ($env:MAMBA_COMPLETION_DEBUG) { Write-Error $_ }'),
+      );
+    });
+
+    test('documents opt-in PSReadLine menu completion', () {
+      final completion = convertPs(specRegistry().toMap());
+
+      expect(
+        completion,
+        contains('Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete'),
+      );
     });
 
     test('emits syntax supported by PowerShell 5.1 and newer', () {
