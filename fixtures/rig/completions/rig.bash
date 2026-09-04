@@ -191,12 +191,54 @@ _rig_volume_level_values=(
 )
 
 _rig_volume_balance_values=(
+  '-1.0'
+  '-0.9'
+  '-0.8'
+  '-0.7'
+  '-0.6'
+  '-0.5'
+  '-0.4'
+  '-0.3'
+  '-0.2'
+  '-0.1'
+  '0.0'
+  '0.1'
+  '0.2'
+  '0.3'
+  '0.4'
+  '0.5'
+  '0.6'
+  '0.7'
+  '0.8'
+  '0.9'
+  '1.0'
 )
 
 _rig_volume_channel_values=(
 )
 
 _rig_volume_channel_gain_values=(
+  '0.0'
+  '0.1'
+  '0.2'
+  '0.3'
+  '0.4'
+  '0.5'
+  '0.6'
+  '0.7'
+  '0.8'
+  '0.9'
+  '1.0'
+  '1.1'
+  '1.2'
+  '1.3'
+  '1.4'
+  '1.5'
+  '1.6'
+  '1.7'
+  '1.8'
+  '1.9'
+  '2.0'
 )
 
 declare -A _rig_volume_options=(
@@ -225,11 +267,27 @@ _rig_volume_completion() {
       _mamba_filter_option '--format' "$current" "${_rig_volume_format_values[@]}"
       return
       ;;
+    --balance=*)
+      _mamba_filter_option '--balance' "$current" "${_rig_volume_balance_values[@]}"
+      return
+      ;;
+    --channel-gain=*)
+      _mamba_filter_option '--channel-gain' "$current" "${_rig_volume_channel_gain_values[@]}"
+      return
+      ;;
   esac
 
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_volume_format_values[@]}"
+      return
+      ;;
+    --balance|-b)
+      _mamba_filter "$current" "${_rig_volume_balance_values[@]}"
+      return
+      ;;
+    --channel-gain)
+      _mamba_filter "$current" "${_rig_volume_channel_gain_values[@]}"
       return
       ;;
   esac
@@ -278,12 +336,59 @@ _rig_brightness_level_values=(
 )
 
 _rig_brightness_gamma_values=(
+  '0.5'
+  '0.6'
+  '0.7'
+  '0.8'
+  '0.9'
+  '1.0'
+  '1.1'
+  '1.2'
+  '1.3'
+  '1.4'
+  '1.5'
+  '1.6'
+  '1.7'
+  '1.8'
+  '1.9'
+  '2.0'
+  '2.1'
+  '2.2'
+  '2.3'
+  '2.4'
+  '2.5'
+  '2.6'
+  '2.7'
+  '2.8'
+  '2.9'
+  '3.0'
 )
 
 _rig_brightness_temperature_values=(
 )
 
 _rig_brightness_contrast_values=(
+  '0.0'
+  '0.1'
+  '0.2'
+  '0.3'
+  '0.4'
+  '0.5'
+  '0.6'
+  '0.7'
+  '0.8'
+  '0.9'
+  '1.0'
+  '1.1'
+  '1.2'
+  '1.3'
+  '1.4'
+  '1.5'
+  '1.6'
+  '1.7'
+  '1.8'
+  '1.9'
+  '2.0'
 )
 
 _rig_brightness_display_values=(
@@ -316,11 +421,27 @@ _rig_brightness_completion() {
       _mamba_filter_option '--format' "$current" "${_rig_brightness_format_values[@]}"
       return
       ;;
+    --gamma=*)
+      _mamba_filter_option '--gamma' "$current" "${_rig_brightness_gamma_values[@]}"
+      return
+      ;;
+    --contrast=*)
+      _mamba_filter_option '--contrast' "$current" "${_rig_brightness_contrast_values[@]}"
+      return
+      ;;
   esac
 
   case "$previous" in
     --format)
       _mamba_filter "$current" "${_rig_brightness_format_values[@]}"
+      return
+      ;;
+    --gamma|-g)
+      _mamba_filter "$current" "${_rig_brightness_gamma_values[@]}"
+      return
+      ;;
+    --contrast)
+      _mamba_filter "$current" "${_rig_brightness_contrast_values[@]}"
       return
       ;;
   esac

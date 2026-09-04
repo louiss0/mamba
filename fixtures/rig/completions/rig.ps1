@@ -100,6 +100,9 @@ $script:MambaRigPositionalSlots['root.volume'] = @{
     0 = [PSCustomObject]@{ Choices = @('output', 'input'); Description = 'Simulated audio target.' }
     }
 $script:MambaRigValueHandlers['root.volume.--format'] = @('text', 'json', 'yaml')
+$script:MambaRigValueHandlers['root.volume.--balance'] = @('-1.0', '-0.9', '-0.8', '-0.7', '-0.6', '-0.5', '-0.4', '-0.3', '-0.2', '-0.1', '0.0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0')
+$script:MambaRigValueHandlers['root.volume.-b'] = $script:MambaRigValueHandlers['root.volume.--balance']
+$script:MambaRigValueHandlers['root.volume.--channel-gain'] = @('0.0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '2.0')
 $script:MambaRigInputs['root.brightness'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
@@ -121,6 +124,9 @@ $script:MambaRigChildren['root.brightness'] = @(
     )
 $script:MambaRigPositionalSlots['root.brightness'] = @{}
 $script:MambaRigValueHandlers['root.brightness.--format'] = @('text', 'json', 'yaml')
+$script:MambaRigValueHandlers['root.brightness.--gamma'] = @('0.5', '0.6', '0.7', '0.8', '0.9', '1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '2.0', '2.1', '2.2', '2.3', '2.4', '2.5', '2.6', '2.7', '2.8', '2.9', '3.0')
+$script:MambaRigValueHandlers['root.brightness.-g'] = $script:MambaRigValueHandlers['root.brightness.--gamma']
+$script:MambaRigValueHandlers['root.brightness.--contrast'] = @('0.0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '2.0')
 $script:MambaRigInputs['root.power'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }

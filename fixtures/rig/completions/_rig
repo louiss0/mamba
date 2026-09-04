@@ -19,9 +19,9 @@ _rig_volume() {
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '{-d,--device}[Simulated audio device name.]:device:' \
     '{-l,--level}[Simulated volume level, from 0 through 100.]:level:_numbers -l 0 -m 100' \
-    '{-b,--balance}[Simulated stereo balance, from -1.0 through 1.0.]:balance:_numbers -f -l -1.0 -m 1.0' \
+    '{-b,--balance}[Simulated stereo balance, from -1.0 through 1.0.]:balance:(-1.0 -0.9 -0.8 -0.7 -0.6 -0.5 -0.4 -0.3 -0.2 -0.1 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0)' \
     '*--channel[Repeatable simulated audio channel name.]:channel:' \
-    '*--channel-gain[Repeatable channel gain, from 0.0 through 2.0.]:channel-gain:_numbers -f -l 0.0 -m 2.0' \
+    '*--channel-gain[Repeatable channel gain, from 0.0 through 2.0.]:channel-gain:(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0)' \
     '1:target:(output input)' \
     '*::argument:'
   case $state in
@@ -44,9 +44,9 @@ _rig_brightness() {
     '*{-v,--verbose}[Increase output verbosity.]' \
     '--format[Simulated output format\\: text, json, or yaml.]:format:(text json yaml)' \
     '{-l,--level}[Brightness percentage, from 0 through 100.]:level:_numbers -l 0 -m 100' \
-    '{-g,--gamma}[Display gamma, from 0.5 through 3.0.]:gamma:_numbers -f -l 0.5 -m 3.0' \
+    '{-g,--gamma}[Display gamma, from 0.5 through 3.0.]:gamma:(0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.1 2.2 2.3 2.4 2.5 2.6 2.7 2.8 2.9 3.0)' \
     '{-t,--temperature}[Color temperature in simulated Kelvin.]:temperature:_numbers -l 1000 -m 10000' \
-    '--contrast[Contrast multiplier, from 0.0 through 2.0.]:contrast:_numbers -f -l 0.0 -m 2.0' \
+    '--contrast[Contrast multiplier, from 0.0 through 2.0.]:contrast:(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0)' \
     '*{-d,--display}[Repeatable simulated display name.]:display:' \
     '*::argument:'
   case $state in

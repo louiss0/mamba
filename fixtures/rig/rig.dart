@@ -207,6 +207,7 @@ _MockCommand _volumeCommand() => _MockCommand(
       short: 'b',
       min: -1,
       max: 1,
+      step: .1,
       description: 'Simulated stereo balance, from -1.0 through 1.0.',
     ),
     RepeatableStringOption(
@@ -217,6 +218,7 @@ _MockCommand _volumeCommand() => _MockCommand(
       'channel-gain',
       min: 0,
       max: 2,
+      step: .1,
       description: 'Repeatable channel gain, from 0.0 through 2.0.',
     ),
   ],
@@ -308,6 +310,7 @@ _MockCommand _brightnessCommand() => _MockCommand(
       short: 'g',
       min: .5,
       max: 3,
+      step: .1,
       description: 'Display gamma, from 0.5 through 3.0.',
     ),
     IntOption(
@@ -321,6 +324,7 @@ _MockCommand _brightnessCommand() => _MockCommand(
       'contrast',
       min: 0,
       max: 2,
+      step: .1,
       description: 'Contrast multiplier, from 0.0 through 2.0.',
     ),
   ],
