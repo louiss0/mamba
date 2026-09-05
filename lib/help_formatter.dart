@@ -207,13 +207,15 @@ final class MambaHelpFormatter extends HelpFormatter {
   OptionalString _optionalPositional(Positional positional) =>
       formatIntoOptionalString(_positionalExpression(positional));
 
-  OptionalString _variadic(Variadic variadic) => formatIntoOptionalString(
-    '-- ${switch (variadic) {
-      RepeatedChoiceVariadic(:final choices) => '(${_choiceExpression(choices)})...',
+  FormattedString _variadic(Variadic variadic) {
+    final expression = switch (variadic) {
+      RepeatedChoiceVariadic(:final choices) =>
+        '(${_choiceExpression(choices)})...',
       ChoiceVariadic(:final choices) => '(${_choiceExpression(choices)})',
       NormalVariadic() => '...',
-    }}',
-  );
+    };
+    return FormattedString('-- $expression'.dimGray);
+  }
 
   String _positionalExpression(Positional positional) {
     final name = switch (positional) {

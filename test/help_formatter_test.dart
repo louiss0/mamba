@@ -396,7 +396,7 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool < source > [ target ] [ -- ... ]'));
+        expect(help, startsWith('tool < source > [ target ] -- ...'));
       });
 
       test('renders choice names for a choice variadic', () {
@@ -410,7 +410,7 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool [ -- (json|yaml) ]'));
+        expect(help, startsWith('tool -- (json|yaml)'));
       });
 
       test('renders an ellipsis after repeated choice variadics', () {
@@ -424,7 +424,7 @@ void main() {
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool [ -- (json|yaml)... ]'));
+        expect(help, startsWith('tool -- (json|yaml)...'));
       });
     });
 
