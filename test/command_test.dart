@@ -446,7 +446,7 @@ void main() {
     });
 
     test('registers a variadic without any positionals', () {
-      final extra = NormalVariadic('extra');
+      final extra = NormalVariadic();
 
       final command = _VariadicCommand(variadic: extra);
 
@@ -456,14 +456,13 @@ void main() {
     });
 
     test('registers a NormalVariadic under variadic', () {
-      final extra = NormalVariadic('extra');
+      final extra = NormalVariadic();
 
       expect(_VariadicCommand(variadic: extra).variadic, same(extra));
     });
 
     test('registers a ChoiceVariadic under variadic', () {
       final formats = ChoiceVariadic<OutputFormat>(
-        'formats',
         choices: OutputFormat.values,
         defaultValue: OutputFormat.yaml,
       );
@@ -475,7 +474,6 @@ void main() {
 
     test('forwards the variadic through group commands', () {
       final formats = ChoiceVariadic<OutputFormat>(
-        'formats',
         choices: OutputFormat.values,
       );
 

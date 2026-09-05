@@ -210,7 +210,7 @@ final class MambaHelpFormatter extends HelpFormatter {
   OptionalString _variadic(Variadic variadic) => formatIntoOptionalString(
     '-- ${switch (variadic) {
       ChoiceVariadic(:final choices) => '(${_choiceExpression(choices)})',
-      NormalVariadic() => variadic.name,
+      NormalVariadic() => 'value',
     }}*',
   );
 

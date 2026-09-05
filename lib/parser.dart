@@ -953,7 +953,7 @@ class Parser {
         variadic is! RepeatedChoiceVariadic &&
         values.length > 1) {
       throw MambaParseException(
-        'The ${variadic.name} variadic accepts only one value.',
+        'The registered variadic accepts only one value.',
       );
     }
     for (final (index, value) in values.indexed) {
@@ -963,8 +963,7 @@ class Parser {
           break;
         default:
           throw MambaParseException(
-            "The term at index $index isn't accepted by "
-            'the ${variadic.name} variadic',
+            "The term at index $index isn't accepted by the registered variadic",
           );
       }
     }

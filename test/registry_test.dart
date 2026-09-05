@@ -1515,7 +1515,7 @@ void main() {
 
     group('Variadic', () {
       test('holds the variadic input under variadic', () {
-        final extra = NormalVariadic('extra');
+        final extra = NormalVariadic();
 
         final registry = CommandRegistry.create(
           'tool',
@@ -1527,7 +1527,7 @@ void main() {
       });
 
       test('accepts a variadic without any registered positionals', () {
-        final extra = NormalVariadic('extra');
+        final extra = NormalVariadic();
 
         final registry = CommandRegistry.create(
           'tool',
@@ -1544,7 +1544,6 @@ void main() {
 
       test('holds a nested command variadic under its registry', () {
         final formats = ChoiceVariadic<DeploymentFormat>(
-          'formats',
           choices: DeploymentFormat.values,
           defaultValue: DeploymentFormat.yaml,
         );
@@ -1560,10 +1559,7 @@ void main() {
       });
 
       test('exports the variadic input as variadic in toMap', () {
-        final extra = NormalVariadic(
-          'extra',
-          description: 'Everything that follows.',
-        );
+        final extra = NormalVariadic(description: 'Everything that follows.');
 
         final registry = CommandRegistry.create(
           'tool',
@@ -1578,7 +1574,6 @@ void main() {
 
       test('exports choice variadic members and defaults in toMap', () {
         final formats = ChoiceVariadic<DeploymentFormat>(
-          'formats',
           description: 'Output formats.',
           choices: DeploymentFormat.values,
           defaultValue: DeploymentFormat.yaml,
@@ -1597,20 +1592,9 @@ void main() {
         });
       });
 
-      test('rejects invalid variadic names', () {
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            variadic: NormalVariadic('bad!'),
-          ),
-          throwsA(isA<MambaRegistryError>()),
-        );
-      });
-
       test('keeps dash variadics separate from ordinary positionals', () {
         final positional = Positional('extra');
-        final variadic = NormalVariadic('extra');
+        final variadic = NormalVariadic();
 
         final registry = CommandRegistry.create(
           'tool',
@@ -2002,20 +1986,12 @@ void main() {
       );
     });
 
-    test('rejects empty positional and variadic names', () {
+    test('rejects empty positional names', () {
       expect(
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
           mandatoryPositionals: [Positional('')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          variadic: NormalVariadic(''),
         ),
         throwsA(isA<MambaRegistryError>()),
       );

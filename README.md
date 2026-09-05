@@ -116,7 +116,7 @@ its post-`--` values are validated and remain available as raw
 **Help.** Mandatory names appear as bare red operands; discretionary names use
 compact dim brackets such as `[target]`. Choice members are joined with `|`,
 bounded repetitions use `{1,N}`, and a variadic uses a dash expression such as
-`[-- extra*]`.
+`[-- value*]`.
 
 ```dart
 final class Switch extends Command {

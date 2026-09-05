@@ -78,20 +78,22 @@ final class ChoicePositional<T extends Enum> extends Positional
   }) : choices = List.unmodifiable(choices);
 }
 
-/// A named, validated sequence of values supplied after `--`.
+/// A validated sequence of values supplied after `--`.
 ///
 /// Register it in `variadic`; the parser leaves ordinary positionals to the
 /// mandatory and discretionary definitions, then validates every token after
 /// `--`. Validated values remain available to commands as raw trailing
 /// arguments.
-sealed class Variadic extends NamedInput {
-  const new(String name, {String? description}) : super(name, description);
+sealed class Variadic {
+  const new({this.description});
+
+  final String? description;
 }
 
 final class NormalVariadic extends Variadic with RegExpValidated {
   final RegExp regExp;
 
-  new(super.name, {super.description, RegExp? regExp})
+  new({super.description, RegExp? regExp})
     : regExp = regExp ?? RegExpValidated.anyToken;
 
   @override
@@ -103,12 +105,8 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
   @override
   final List<T> choices;
   final T? defaultValue;
-  new(
-    super.name, {
-    super.description,
-    required List<T> choices,
-    this.defaultValue,
-  }) : choices = List.unmodifiable(choices);
+  new({super.description, required List<T> choices, this.defaultValue})
+    : choices = List.unmodifiable(choices);
 }
 
 /// A choice variadic whose strict choices repeat across dash arguments.
@@ -116,12 +114,7 @@ final class ChoiceVariadic<T extends Enum> extends Variadic
 /// [ChoiceVariadic] accepts one trailing choice. This subtype accepts every
 /// trailing choice and renders completions as an unbounded series.
 final class RepeatedChoiceVariadic<T extends Enum> extends ChoiceVariadic<T> {
-  new(
-    super.name, {
-    super.description,
-    required super.choices,
-    super.defaultValue,
-  });
+  new({super.description, required super.choices, super.defaultValue});
 }
 
 /// A positional that collects several tokens, one per repetition plus the

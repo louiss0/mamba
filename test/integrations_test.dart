@@ -425,10 +425,7 @@ complete -c spec -n '__mamba_option_available weight _ true' -l weight -x'''),
                     times: 2,
                   ),
                 ],
-                variadic: RepeatedChoiceVariadic<_Sku>(
-                  'extra',
-                  choices: _Sku.values,
-                ),
+                variadic: RepeatedChoiceVariadic<_Sku>(choices: _Sku.values),
               ),
             ],
           ),
@@ -952,9 +949,7 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
 
     test('gates a single-value choice variadic after its first value', () {
       final output = convertFish(
-        specRegistry(
-          variadic: ChoiceVariadic<_Sku>('extra', choices: _Sku.values),
-        ),
+        specRegistry(variadic: ChoiceVariadic<_Sku>(choices: _Sku.values)),
       );
 
       final declaration = fishDeclaration(output, "-a 'basic standard'");
@@ -976,7 +971,7 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
 
     test('keeps normal variadics candidate-free after --', () {
       final output = convertFish(
-        specRegistry(variadic: NormalVariadic('extra', regExp: RegExp(r'.+'))),
+        specRegistry(variadic: NormalVariadic(regExp: RegExp(r'.+'))),
       );
 
       expect(output, isNot(contains('__mamba_after_double_dash\' -f -a')));
@@ -1121,10 +1116,7 @@ compdef _spec spec
                     times: 2,
                   ),
                 ],
-                variadic: RepeatedChoiceVariadic<_Sku>(
-                  'extra',
-                  choices: _Sku.values,
-                ),
+                variadic: RepeatedChoiceVariadic<_Sku>(choices: _Sku.values),
               ),
             ], 'Configure the application.'),
           ],
@@ -1560,10 +1552,7 @@ compdef _spec spec
         'offers variadic choices only after the separator',
         () => convertZsh(
           specRegistry(
-            variadic: RepeatedChoiceVariadic<_Sku>(
-              'extra',
-              choices: _Sku.values,
-            ),
+            variadic: RepeatedChoiceVariadic<_Sku>(choices: _Sku.values),
           ).toMap(),
         ),
         allOf(
@@ -1660,9 +1649,8 @@ compdef _spec spec
 
     test('completes the first variadic value after the separator', () async {
       final completion = convertBash(
-        specRegistry(
-          variadic: ChoiceVariadic<_Level>('level', choices: _Level.values),
-        ).toMap(),
+        specRegistry(variadic: ChoiceVariadic<_Level>(choices: _Level.values))
+            .toMap(),
       );
 
       expect(await completeBash(completion, ['spec', '--', '']), [
@@ -1673,9 +1661,8 @@ compdef _spec spec
 
     test('stops completing a single variadic after one value', () async {
       final completion = convertBash(
-        specRegistry(
-          variadic: ChoiceVariadic<_Level>('level', choices: _Level.values),
-        ).toMap(),
+        specRegistry(variadic: ChoiceVariadic<_Level>(choices: _Level.values))
+            .toMap(),
       );
 
       expect(
@@ -1922,7 +1909,6 @@ compdef _spec spec
                   ),
                 ],
                 variadic: RepeatedChoiceVariadic<_Format>(
-                  'extra',
                   choices: _Format.values,
                 ),
                 accessors: [
@@ -2116,9 +2102,8 @@ compdef _spec spec
 
     test('emits choices for a single-value variadic', () {
       final completion = convertBash(
-        specRegistry(
-          variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
-        ).toMap(),
+        specRegistry(variadic: ChoiceVariadic<_Format>(choices: _Format.values))
+            .toMap(),
       );
 
       expect(completion, contains("_mamba_filter \"\$current\" 'json' 'yaml'"));
@@ -2127,10 +2112,7 @@ compdef _spec spec
     test('emits choices for a repeated variadic', () {
       final completion = convertBash(
         specRegistry(
-          variadic: RepeatedChoiceVariadic<_Format>(
-            'extra',
-            choices: _Format.values,
-          ),
+          variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         ).toMap(),
       );
 
@@ -2146,7 +2128,6 @@ compdef _spec spec
                 'set',
                 'Set configuration.',
                 variadic: RepeatedChoiceVariadic<_Format>(
-                  'extra',
                   choices: _Format.values,
                 ),
               ),
@@ -3199,9 +3180,8 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('emits a variadic handler for a single-value choice variadic', () {
       final completion = convertPs(
-        specRegistry(
-          variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
-        ).toMap(),
+        specRegistry(variadic: ChoiceVariadic<_Format>(choices: _Format.values))
+            .toMap(),
       );
 
       expect(completion, contains(r"Choices = @('json', 'yaml')"));
@@ -3211,10 +3191,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
     test('emits a variadic handler for a repeated choice variadic', () {
       final completion = convertPs(
         specRegistry(
-          variadic: RepeatedChoiceVariadic<_Format>(
-            'extra',
-            choices: _Format.values,
-          ),
+          variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         ).toMap(),
       );
 
@@ -3393,7 +3370,6 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
                 'serve',
                 'Serve.',
                 variadic: RepeatedChoiceVariadic<_Format>(
-                  'extra',
                   choices: _Format.values,
                 ),
               ),
@@ -4303,7 +4279,7 @@ completion:
     group("variadic", () {
       test("choice variadics complete the first argument after --", () {
         final registry = specRegistry(
-          variadic: ChoiceVariadic<_Format>('extra', choices: _Format.values),
+          variadic: ChoiceVariadic<_Format>(choices: _Format.values),
         );
 
         expect(
@@ -4324,10 +4300,7 @@ completion:
 
       test("repeated choice variadics complete every argument after --", () {
         final registry = specRegistry(
-          variadic: RepeatedChoiceVariadic<_Format>(
-            'extra',
-            choices: _Format.values,
-          ),
+          variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         );
 
         expect(
@@ -4349,7 +4322,7 @@ completion:
           mandatoryPositionals: [
             ChoicePositional<_Format>('format', choices: _Format.values),
           ],
-          variadic: ChoiceVariadic<_Level>('extra', choices: _Level.values),
+          variadic: ChoiceVariadic<_Level>(choices: _Level.values),
         );
 
         expect(
@@ -4927,7 +4900,6 @@ commands:
                     RepeatedChoicePositional<_Sku>('sku', choices: _Sku.values),
                   ],
                   variadic: RepeatedChoiceVariadic<_Format>(
-                    'extra',
                     choices: _Format.values,
                   ),
                 ),

@@ -740,7 +740,7 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
     return choices.isEmpty
         ? ['$indent:']
         : [
-            "${indent}_values '${_escape(variadic['name'] as String? ?? 'value')}' ${choices.map(_quote).join(' ')}",
+            "${indent}_values 'value' ${choices.map(_quote).join(' ')}",
           ];
   }
 

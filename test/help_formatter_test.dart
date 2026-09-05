@@ -391,12 +391,12 @@ void main() {
           'Tool command.',
           mandatoryPositionals: [Positional('source')],
           discretionaryPositionals: [Positional('target')],
-          variadic: NormalVariadic('extra'),
+          variadic: NormalVariadic(),
         );
 
         final help = _withoutAnsi(MambaHelpFormatter().format(registry));
 
-        expect(help, startsWith('tool < source > [ target ] [ -- extra* ]'));
+        expect(help, startsWith('tool < source > [ target ] [ -- value* ]'));
       });
 
       test('renders choice names for a choice variadic', () {
@@ -404,7 +404,6 @@ void main() {
           'tool',
           'Tool command.',
           variadic: ChoiceVariadic<_OutputFormat>(
-            'formats',
             choices: _OutputFormat.values,
           ),
         );

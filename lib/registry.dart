@@ -1844,7 +1844,6 @@ final class CommandRegistry {
     _validateNamedInputs(flags, 'Flag');
     _validateAccessors(accessors);
     _validatePositionals(mandatoryPositionals, discretionaryPositionals);
-    _validateVariadic(variadic);
     _validateNumericRanges([
       ...?options,
       ...?pairedOptions?.expand((group) => group.options),
@@ -1870,11 +1869,6 @@ final class CommandRegistry {
         for (final input in inheritedInputs) input.name: input,
       },
     );
-  }
-
-  static void _validateVariadic(Variadic? variadic) {
-    if (variadic == null) return;
-    _validatePositionalName(variadic.name);
   }
 
   static void _validateAliases(
@@ -2077,7 +2071,6 @@ final class CommandRegistry {
         case ChoiceOption(:final choices, :final defaultValue) ||
             ChoicePositional(:final choices, :final defaultValue) ||
             RepeatedChoicePositional(:final choices, :final defaultValue) ||
-            ChoiceVariadic(:final choices, :final defaultValue) ||
             AccessorChoiceOption(:final choices, :final defaultValue):
           validate(choices, defaultValue, input.name);
         case PairChoiceOption(:final choices):
@@ -2113,11 +2106,17 @@ final class CommandRegistry {
       }
       validateInput(positional);
     }
+    void validateVariadic(Variadic input) {
+      if (input case ChoiceVariadic(:final choices, :final defaultValue)) {
+        validate(choices, defaultValue, 'variadic');
+      }
+    }
+
     [
       ...?pairedOptions?.expand((option) => option.options),
       ...?discretionaryPositionals,
     ].forEach(validateInput);
-    if (variadic != null) validateInput(variadic);
+    if (variadic != null) validateVariadic(variadic);
     accessors?.forEach(validateAccessor);
   }
 

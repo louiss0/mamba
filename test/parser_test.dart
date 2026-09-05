@@ -1434,7 +1434,7 @@ void main() {
 
   group('Parses Variadics correctly', () {
     test('validates trailing arguments without adding them to positionals', () {
-      final subject = parser(variadic: NormalVariadic('extra'));
+      final subject = parser(variadic: NormalVariadic());
 
       final result = subject.parse(['--', 'one', 'two', 'three']);
 
@@ -1443,14 +1443,14 @@ void main() {
     });
 
     test('does not gather values when no trailing arguments are supplied', () {
-      final result = parser(variadic: NormalVariadic('extra')).parse(['tool']);
+      final result = parser(variadic: NormalVariadic()).parse(['tool']);
 
       expect(result.$2, (singles: null, repeated: null));
       expect(result.$4, isEmpty);
     });
 
     test('does not absorb ordinary positional arguments', () {
-      final subject = parser(variadic: NormalVariadic('extra'));
+      final subject = parser(variadic: NormalVariadic());
 
       expectParseError(subject, ['ordinary']);
     });
@@ -1460,7 +1460,7 @@ void main() {
       final subject = parser(
         flags: [BooleanFlag('force')],
         options: [IntOption('retries')],
-        variadic: NormalVariadic('extra'),
+        variadic: NormalVariadic(),
       );
 
       final result = subject.parse([
@@ -1480,7 +1480,7 @@ void main() {
 
     test('matches every NormalVariadic value against its regex', () {
       final subject = parser(
-        variadic: NormalVariadic('ids', regExp: RegExp(r'^\d+$')),
+        variadic: NormalVariadic(regExp: RegExp(r'^\d+$')),
       );
 
       final result = subject.parse(['--', '12', '34', '56']);
@@ -1491,7 +1491,7 @@ void main() {
 
     test('reports the exact failing index for a NormalVariadic value', () {
       final subject = parser(
-        variadic: NormalVariadic('ids', regExp: RegExp(r'^\d+$')),
+        variadic: NormalVariadic(regExp: RegExp(r'^\d+$')),
       );
 
       expect(
@@ -1500,7 +1500,7 @@ void main() {
           isA<MambaParseException>().having(
             (error) => error.message,
             'message',
-            allOf(contains('index 1'), contains('ids')),
+            allOf(contains('index 1'), contains('variadic')),
           ),
         ),
       );
@@ -1508,11 +1508,7 @@ void main() {
 
     test('does not gather an omitted choice variadic default', () {
       final result = parser(
-        variadic: ChoiceVariadic(
-          'modes',
-          choices: Mode.values,
-          defaultValue: Mode.auto,
-        ),
+        variadic: ChoiceVariadic(choices: Mode.values, defaultValue: Mode.auto),
       ).parse(['--']);
 
       expect(result.$2, (singles: null, repeated: null));
@@ -1522,7 +1518,6 @@ void main() {
     test('accepts only enum member names for a ChoiceVariadic', () {
       final subject = parser(
         variadic: RepeatedChoiceVariadic<Mode>(
-          'modes',
           choices: Mode.values,
           defaultValue: Mode.auto,
         ),
@@ -1536,7 +1531,7 @@ void main() {
 
     test('reports the exact failing index for a ChoiceVariadic value', () {
       final subject = parser(
-        variadic: RepeatedChoiceVariadic<Mode>('modes', choices: Mode.values),
+        variadic: RepeatedChoiceVariadic<Mode>(choices: Mode.values),
       );
 
       expect(
@@ -1545,7 +1540,7 @@ void main() {
           isA<MambaParseException>().having(
             (error) => error.message,
             'message',
-            allOf(contains('index 2'), contains('modes')),
+            allOf(contains('index 2'), contains('variadic')),
           ),
         ),
       );
@@ -1554,7 +1549,7 @@ void main() {
     test('validates dash values after mandatory positionals', () {
       final subject = parser(
         mandatoryPositionals: [Positional('source')],
-        variadic: NormalVariadic('extra'),
+        variadic: NormalVariadic(),
       );
 
       final result = subject.parse(['input.txt', '--', 'one', 'two']);
@@ -1566,7 +1561,7 @@ void main() {
     test('validates dash values after discretionary positionals', () {
       final subject = parser(
         discretionaryPositionals: [Positional('target')],
-        variadic: NormalVariadic('extra'),
+        variadic: NormalVariadic(),
       );
 
       final result = subject.parse(['output.txt', '--', 'one', 'two']);
@@ -1582,7 +1577,7 @@ void main() {
           RepeatedStringPositional('files'),
           Positional('last'),
         ],
-        variadic: NormalVariadic('extra'),
+        variadic: NormalVariadic(),
       );
 
       final result = subject.parse(['a', 'f1', 'f2', 'b', '--', 'v1', 'v2']);
@@ -1601,7 +1596,7 @@ void main() {
           RepeatedStringPositional('files'),
         ],
         discretionaryPositionals: [Positional('target')],
-        variadic: NormalVariadic('extra'),
+        variadic: NormalVariadic(),
       );
 
       final result = subject.parse(['a', 'f1', 'f2', 't', '--', 'v1', 'v2']);
@@ -1617,7 +1612,7 @@ void main() {
       final subject = parser(
         mandatoryPositionals: [Positional('first')],
         discretionaryPositionals: [RepeatedStringPositional('more')],
-        variadic: NormalVariadic('extra'),
+        variadic: NormalVariadic(),
       );
 
       final result = subject.parse(['a', 'm1', 'm2', '--', 'v1', 'v2']);
@@ -1682,7 +1677,7 @@ void main() {
 
     test('makes ChoiceVariadic single-valued', () {
       final subject = parser(
-        variadic: ChoiceVariadic<Mode>('mode', choices: Mode.values),
+        variadic: ChoiceVariadic<Mode>(choices: Mode.values),
       );
 
       expect(subject.parse(['--', 'auto']).$4, ['auto']);
