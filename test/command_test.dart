@@ -30,7 +30,7 @@ class TestGroupCommand extends GroupCommand {
   ) {
     return runChildCommand(
       commandPath,
-      (singles: null, repeated: null, variadic: null),
+      (singles: null, repeated: null),
       (
         accessors: null,
         boolFlags: null,
@@ -113,7 +113,7 @@ void main() {
     stringOptions: null,
   );
   registerFallbackValue(emptyInputs);
-  registerFallbackValue((singles: null, repeated: null, variadic: null));
+  registerFallbackValue((singles: null, repeated: null));
 
   group("CompletionCommand", () {
     group('preset', () {
@@ -134,7 +134,6 @@ void main() {
           (
             singles: {'shell': ShellCompletion.bash.name, 'path': path},
             repeated: null,
-            variadic: null,
           ),
           emptyInputs,
           [],
@@ -157,7 +156,7 @@ void main() {
           test("The path ${$case.expected} is written for ${$case.shell}", () {
             completionCommand.createdPaths.clear();
             completionCommand.run(
-              (singles: {'shell': $case.shell}, repeated: null, variadic: null),
+              (singles: {'shell': $case.shell}, repeated: null),
               emptyInputs,
               [],
             );
@@ -199,7 +198,6 @@ void main() {
                 (
                   singles: {'shell': $case.shell, "path": $case.path},
                   repeated: null,
-                  variadic: null,
                 ),
                 emptyInputs,
                 [],
@@ -228,7 +226,6 @@ void main() {
                     'path': 'ffff.${TestCompletionCommand.commandName}',
                   },
                   repeated: null,
-                  variadic: null,
                 ),
                 emptyInputs,
                 [],
@@ -247,7 +244,6 @@ void main() {
                   'path': 'ffff.bash',
                 },
                 repeated: null,
-                variadic: null,
               ),
               emptyInputs,
               [],
@@ -288,7 +284,6 @@ void main() {
               (
                 singles: {'shell': $case.shell, 'path': $case.path},
                 repeated: null,
-                variadic: null,
               ),
               emptyInputs,
               [],
@@ -354,11 +349,7 @@ void main() {
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
-      await git.run(
-        (singles: null, repeated: null, variadic: null),
-        emptyInputs,
-        [],
-      );
+      await git.run((singles: null, repeated: null), emptyInputs, []);
 
       verify(() => stashPop.run(any(), any(), any())).called(1);
     });
@@ -402,7 +393,7 @@ void main() {
     test('returns empty output when no default child is configured', () async {
       expect(
         await groupCommand.run(
-          (singles: null, repeated: null, variadic: null),
+          (singles: null, repeated: null),
           emptyInputs,
           [],
         ),

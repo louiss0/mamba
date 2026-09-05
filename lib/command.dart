@@ -82,7 +82,8 @@ final class ChoicePositional<T extends Enum> extends Positional
 ///
 /// Register it in `variadic`; the parser leaves ordinary positionals to the
 /// mandatory and discretionary definitions, then validates every token after
-/// `--` and stores the values in the `variadic` map of [ParsedPositionals].
+/// `--`. Validated values remain available to commands as raw trailing
+/// arguments.
 sealed class Variadic extends NamedInput {
   const new(String name, {String? description}) : super(name, description);
 }
@@ -623,10 +624,6 @@ typedef ParsedSingleOptions = ({
 typedef ParsedPositionals = ({
   Map<String, String>? singles,
   Map<String, List<String>>? repeated,
-
-  /// Values after `--` keyed by their registered variadic name; `null` when no
-  /// registered variadic value is supplied.
-  Map<String, List<String>>? variadic,
 });
 
 /// A declarative command definition and its executable behavior.

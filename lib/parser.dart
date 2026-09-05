@@ -18,7 +18,8 @@ typedef ParsedArguments = (
 ///
 /// It accepts command paths, long and short options, bundled flags, negatable
 /// boolean flags, dotted accessors, positionals, and trailing arguments after
-/// `--`. A registered variadic validates and names only those trailing values.
+/// `--`. A registered variadic validates those trailing values without
+/// gathering them.
 /// It returns the selected path and typed input maps without executing a
 /// command.
 class Parser {
@@ -163,17 +164,13 @@ class Parser {
     final positionals = help
         ? (singles: null, repeated: null)
         : _parsePositionals(registry, positionalValues);
-    final parsedPositionals = (
-      singles: positionals.singles,
-      repeated: positionals.repeated,
-      variadic: help ? null : _parseVariadic(registry, trailingArguments),
-    );
+    if (!help) _validateVariadic(registry, trailingArguments);
     // Help controls dispatch but is not part of the command's user inputs.
     boolFlags.remove(registry.helpFlag.name);
 
     return (
       command,
-      parsedPositionals,
+      positionals,
       (
         boolFlags: boolFlags.isEmpty ? null : boolFlags,
         countFlags: registry.countFlags == null ? null : countFlags,
@@ -944,24 +941,14 @@ class Parser {
         _ => _matchesEntirely(positional.regex, value),
       };
 
-  /// Collects values after `--` into the registered variadic.
+  /// Validates values after `--` against the registered variadic.
   ///
-  /// Each collected token must satisfy its own validation, and a failure names
-  /// the exact index inside the variadic sequence so callers can locate it.
-  Map<String, List<String>>? _parseVariadic(
-    CommandRegistry registry,
-    List<String> values,
-  ) {
+  /// Variadic values are intentionally not added to [ParsedPositionals]. They
+  /// remain in [ParsedArguments.trailingArguments] so commands can gather or
+  /// interpret them according to their own needs.
+  void _validateVariadic(CommandRegistry registry, List<String> values) {
     final variadic = registry.variadic;
-    if (variadic == null) return null;
-    if (values.isEmpty) {
-      return switch (variadic) {
-        ChoiceVariadic(defaultValue: final defaultValue?) => {
-          variadic.name: [defaultValue.name],
-        },
-        _ => null,
-      };
-    }
+    if (variadic == null || values.isEmpty) return;
     if (variadic is ChoiceVariadic &&
         variadic is! RepeatedChoiceVariadic &&
         values.length > 1) {
@@ -969,20 +956,18 @@ class Parser {
         'The ${variadic.name} variadic accepts only one value.',
       );
     }
-    return {
-      variadic.name: [
-        for (final (index, value) in values.indexed)
-          switch (variadic) {
-            NormalVariadic() when _matchesEntirely(variadic.regex, value) =>
-              value,
-            ChoiceVariadic() when _hasChoice(variadic.choices, value) => value,
-            _ => throw MambaParseException(
-              "The term at index $index isn't accepted by "
-              'the ${variadic.name} variadic',
-            ),
-          },
-      ],
-    };
+    for (final (index, value) in values.indexed) {
+      switch (variadic) {
+        case NormalVariadic() when _matchesEntirely(variadic.regex, value):
+        case ChoiceVariadic() when _hasChoice(variadic.choices, value):
+          break;
+        default:
+          throw MambaParseException(
+            "The term at index $index isn't accepted by "
+            'the ${variadic.name} variadic',
+          );
+      }
+    }
   }
 
   bool _isAccessor(String path, CommandRegistry registry) =>

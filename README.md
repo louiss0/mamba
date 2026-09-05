@@ -98,9 +98,10 @@ value. Register it in `mandatoryPositionals` to require it or
 `discretionaryPositionals` to accept it only when present. Its default
 expression accepts one non-whitespace token.
 
-`Variadic` is separate from ordinary positionals. It names and validates the
-values after `--`; it never accepts extra tokens left over after mandatory and
-discretionary positionals are filled.
+`Variadic` is separate from ordinary positionals. It validates the values after
+`--`; it never accepts extra tokens left over after mandatory and discretionary
+positionals are filled. Validated values are passed to `run` as raw
+`trailingArguments`.
 
 **Parser.** After identifying command names and named inputs, the parser
 assigns positional tokens in declaration order. Each expression must match the
@@ -109,8 +110,8 @@ values are errors. Values are returned by name in `ParsedPositionals`, a record
 with a `singles` map for `Positional` values and a `repeated` map holding the
 collected lists of `RepeatedStringPositional` and `RepeatedChoicePositional`,
 the two concrete `RepeatedPositional` kinds. When a variadic is registered,
-its validated post-`--` values appear by name in the `variadic` map. The same
-tokens remain available as raw `trailingArguments`.
+its post-`--` values are validated and remain available as raw
+`trailingArguments`; they are not included in `ParsedPositionals`.
 
 **Help.** Mandatory names appear as bare red operands; discretionary names use
 compact dim brackets such as `[target]`. Choice members are joined with `|`,
@@ -388,8 +389,7 @@ supplied.
 inputs can appear before, between, or after command path segments. The selected
 command's registry determines valid inputs and positionals. Parsing ends at
 `--`, and all following tokens become `trailingArguments`. A registered
-variadic also validates and names those tokens without absorbing ordinary
-positionals.
+variadic also validates those tokens without absorbing ordinary positionals.
 
 **Help.** A group lists its direct children in **Commands** with their short
 descriptions. Like every command, its usage begins with name, positionals, and

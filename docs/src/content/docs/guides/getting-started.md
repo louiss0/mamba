@@ -56,7 +56,11 @@ class Run extends Command {
   String get shortDescription => "Run the application.";
 
   @override
-  Future<String> run(ParsedPositonals positionals, ParsedInputs inputs, List<String> variadic) async {
+  Future<String> run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) async {
 
     return "This ran"
   }

@@ -1433,23 +1433,20 @@ void main() {
   });
 
   group('Parses Variadics correctly', () {
-    test('sends every argument after -- into the variadic array', () {
+    test('validates trailing arguments without adding them to positionals', () {
       final subject = parser(variadic: NormalVariadic('extra'));
 
       final result = subject.parse(['--', 'one', 'two', 'three']);
 
-      expect(result.$2.variadic, {
-        'extra': ['one', 'two', 'three'],
-      });
-      expect(result.$2.singles, isNull);
-      expect(result.$2.repeated, isNull);
+      expect(result.$2, (singles: null, repeated: null));
       expect(result.$4, ['one', 'two', 'three']);
     });
 
-    test('leaves the variadic map empty without arguments', () {
+    test('does not gather values when no trailing arguments are supplied', () {
       final result = parser(variadic: NormalVariadic('extra')).parse(['tool']);
 
-      expect(result.$2.variadic, isNull);
+      expect(result.$2, (singles: null, repeated: null));
+      expect(result.$4, isEmpty);
     });
 
     test('does not absorb ordinary positional arguments', () {
@@ -1477,11 +1474,8 @@ void main() {
 
       expect(result.$3.boolFlags, {'force': true});
       expect(result.$3.intOptions, {'retries': 2});
-      expect(result.$2.singles, isNull);
-      expect(result.$2.repeated, isNull);
-      expect(result.$2.variadic, {
-        'extra': ['a', 'b'],
-      });
+      expect(result.$2, (singles: null, repeated: null));
+      expect(result.$4, ['a', 'b']);
     });
 
     test('matches every NormalVariadic value against its regex', () {
@@ -1491,9 +1485,8 @@ void main() {
 
       final result = subject.parse(['--', '12', '34', '56']);
 
-      expect(result.$2.variadic, {
-        'ids': ['12', '34', '56'],
-      });
+      expect(result.$2, (singles: null, repeated: null));
+      expect(result.$4, ['12', '34', '56']);
     });
 
     test('reports the exact failing index for a NormalVariadic value', () {
@@ -1513,18 +1506,17 @@ void main() {
       );
     });
 
-    test('applies an omitted choice variadic default', () {
-      final variadic = parser(
+    test('does not gather an omitted choice variadic default', () {
+      final result = parser(
         variadic: ChoiceVariadic(
           'modes',
           choices: Mode.values,
           defaultValue: Mode.auto,
         ),
-      ).parse(['--']).$2;
+      ).parse(['--']);
 
-      expect(variadic.variadic, {
-        'modes': ['auto'],
-      });
+      expect(result.$2, (singles: null, repeated: null));
+      expect(result.$4, isEmpty);
     });
 
     test('accepts only enum member names for a ChoiceVariadic', () {
@@ -1538,9 +1530,8 @@ void main() {
 
       final result = subject.parse(['--', 'auto', 'always', 'auto']);
 
-      expect(result.$2.variadic, {
-        'modes': ['auto', 'always', 'auto'],
-      });
+      expect(result.$2, (singles: null, repeated: null));
+      expect(result.$4, ['auto', 'always', 'auto']);
     });
 
     test('reports the exact failing index for a ChoiceVariadic value', () {
@@ -1560,7 +1551,7 @@ void main() {
       );
     });
 
-    test('collects dash values after mandatory positionals', () {
+    test('validates dash values after mandatory positionals', () {
       final subject = parser(
         mandatoryPositionals: [Positional('source')],
         variadic: NormalVariadic('extra'),
@@ -1569,12 +1560,10 @@ void main() {
       final result = subject.parse(['input.txt', '--', 'one', 'two']);
 
       expect(result.$2.singles, {'source': 'input.txt'});
-      expect(result.$2.variadic, {
-        'extra': ['one', 'two'],
-      });
+      expect(result.$4, ['one', 'two']);
     });
 
-    test('collects dash values after discretionary positionals', () {
+    test('validates dash values after discretionary positionals', () {
       final subject = parser(
         discretionaryPositionals: [Positional('target')],
         variadic: NormalVariadic('extra'),
@@ -1583,12 +1572,10 @@ void main() {
       final result = subject.parse(['output.txt', '--', 'one', 'two']);
 
       expect(result.$2.singles, {'target': 'output.txt'});
-      expect(result.$2.variadic, {
-        'extra': ['one', 'two'],
-      });
+      expect(result.$4, ['one', 'two']);
     });
 
-    test('collects dash values after Mandatory, Repeated, Mandatory', () {
+    test('validates dash values after Mandatory, Repeated, Mandatory', () {
       final subject = parser(
         mandatoryPositionals: [
           Positional('first'),
@@ -1604,12 +1591,10 @@ void main() {
       expect(result.$2.repeated, {
         'files': ['f1', 'f2'],
       });
-      expect(result.$2.variadic, {
-        'extra': ['v1', 'v2'],
-      });
+      expect(result.$4, ['v1', 'v2']);
     });
 
-    test('collects dash values after Mandatory, Repeated, Discretionary', () {
+    test('validates dash values after Mandatory, Repeated, Discretionary', () {
       final subject = parser(
         mandatoryPositionals: [
           Positional('first'),
@@ -1625,12 +1610,10 @@ void main() {
       expect(result.$2.repeated, {
         'files': ['f1', 'f2'],
       });
-      expect(result.$2.variadic, {
-        'extra': ['v1', 'v2'],
-      });
+      expect(result.$4, ['v1', 'v2']);
     });
 
-    test('collects dash values after Mandatory, Discretionary, Repeated', () {
+    test('validates dash values after Mandatory, Discretionary, Repeated', () {
       final subject = parser(
         mandatoryPositionals: [Positional('first')],
         discretionaryPositionals: [RepeatedStringPositional('more')],
@@ -1643,9 +1626,7 @@ void main() {
       expect(result.$2.repeated, {
         'more': ['m1', 'm2'],
       });
-      expect(result.$2.variadic, {
-        'extra': ['v1', 'v2'],
-      });
+      expect(result.$4, ['v1', 'v2']);
     });
 
     test('rejects leftover values when no other postionals are registered', () {
@@ -1704,9 +1685,7 @@ void main() {
         variadic: ChoiceVariadic<Mode>('mode', choices: Mode.values),
       );
 
-      expect(subject.parse(['--', 'auto']).$2.variadic, {
-        'mode': ['auto'],
-      });
+      expect(subject.parse(['--', 'auto']).$4, ['auto']);
       expectParseError(subject, ['--', 'auto', 'always']);
     });
   });
