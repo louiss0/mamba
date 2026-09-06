@@ -801,13 +801,14 @@ enum ShellCompletion { bash, zsh, fish, powershell, carapace }
 class CompletionCommand extends Command {
   late final RegistryMap registryMap;
 
-  final void Function(String path) _createFile;
+  final void Function(String path) createFile;
 
   @override
   String get name => 'completion';
 
   @override
   String get shortDescription => 'Generate completion for various shells';
+
   new({
     void Function(String)? createFile,
     super.longDescription,
@@ -815,7 +816,7 @@ class CompletionCommand extends Command {
     super.mandatoryPositionals,
     super.discretionaryPositionals,
     super.options,
-  }) : _createFile = createFile ?? _createFileSynchronously;
+  }) : createFile = createFile ?? _createFileSynchronously;
 
   new preset(void Function(String path)? createFile, {String? longDescription})
     : this(
@@ -859,10 +860,6 @@ class CompletionCommand extends Command {
 
     createFile(path);
     return 'Created completion $shell in $path';
-  }
-
-  void createFile(String path) {
-    _createFile(path);
   }
 
   String _extensionFor(String shell) => switch (shell) {
