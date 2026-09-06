@@ -1271,24 +1271,28 @@ final class CommandRegistry {
       ];
     }
 
-    final registeredMandatoryPositionals = mandatoryPositionals;
-    final registeredDiscretionaryPositionals = discretionaryPositionals;
-    if (registeredMandatoryPositionals != null ||
-        registeredDiscretionaryPositionals != null) {
-      map['positionals'] = {
-        for (final positional
-            in registeredMandatoryPositionals?.values ?? const <Positional>[])
-          positional.name: _mapPositional(positional, true),
-        for (final positional
-            in registeredDiscretionaryPositionals?.values ??
-                const <Positional>[])
-          positional.name: _mapPositional(positional, false),
-      };
-    }
+    // Mamba's executor root has no positional or variadic inputs. Keep these
+    // fields on nested command maps, where the command owns their parsing.
+    if (parent != null) {
+      final registeredMandatoryPositionals = mandatoryPositionals;
+      final registeredDiscretionaryPositionals = discretionaryPositionals;
+      if (registeredMandatoryPositionals != null ||
+          registeredDiscretionaryPositionals != null) {
+        map['positionals'] = {
+          for (final positional
+              in registeredMandatoryPositionals?.values ?? const <Positional>[])
+            positional.name: _mapPositional(positional, true),
+          for (final positional
+              in registeredDiscretionaryPositionals?.values ??
+                  const <Positional>[])
+            positional.name: _mapPositional(positional, false),
+        };
+      }
 
-    final registeredVariadic = variadic;
-    if (registeredVariadic != null) {
-      map['variadic'] = _mapVariadic(registeredVariadic);
+      final registeredVariadic = variadic;
+      if (registeredVariadic != null) {
+        map['variadic'] = _mapVariadic(registeredVariadic);
+      }
     }
 
     final registeredAccessors = accessors;
@@ -1299,9 +1303,9 @@ final class CommandRegistry {
       };
     }
 
-    // Root inputs are already represented by flags and options. Only groups
-    // need separate published collections to retain the distinction between
-    // local and descendant-published inputs.
+    // Root inputs are already represented by flags and options. Only nested
+    // commands need separate published collections to retain the distinction
+    // between local and descendant-published inputs.
     if (parent != null) {
       final persistentFlags = publishedFlags;
       if (persistentFlags != null) {

@@ -38,6 +38,38 @@ CommandRegistry specRegistry({
   commands: commands,
 );
 
+/// Builds a command-level map for completion tests that exercise command-owned
+/// positionals and variadics without placing them on the executor root.
+RegistryMap specCommandMap({
+  List<Flag>? flags,
+  List<Option>? options,
+  List<PairedOptions>? pairedOptions,
+  List<Positional>? mandatoryPositionals,
+  List<Positional>? discretionaryPositionals,
+  Variadic? variadic,
+  List<AccessorListOption>? accessors,
+}) {
+  final root = CommandRegistry.create(
+    'root',
+    'root command',
+    commands: [
+      TestCommand(
+        'spec',
+        'spec command',
+        flags: flags,
+        options: options,
+        pairedOptions: pairedOptions,
+        mandatoryPositionals: mandatoryPositionals,
+        discretionaryPositionals: discretionaryPositionals,
+        variadic: variadic,
+        accessors: accessors,
+      ),
+    ],
+  );
+  final commands = root.toMap().map['commands'] as Map;
+  return RegistryMap(Map<String, dynamic>.from(commands['spec'] as Map));
+}
+
 /// Renders the Carapace spec exported by [registryMap].
 String convertSpec(RegistryMap registryMap) =>
     CarapaceSpecConverter(registryMap).convert();
@@ -311,6 +343,9 @@ void main() {
   group('ToFishCompletionConverter', () {
     String convertFish(CommandRegistry registry) =>
         ToFishCompletionConverter(registry.toMap()).convert();
+
+    String convertFishMap(RegistryMap registryMap) =>
+        ToFishCompletionConverter(registryMap).convert();
 
     String fishDeclarations(String output) => output
         .split('\n')
@@ -895,8 +930,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     });
 
     test('keeps unconstrained positionals in the slot sequence', () {
-      final output = convertFish(
-        specRegistry(
+      final output = convertFishMap(
+        specCommandMap(
           mandatoryPositionals: [
             NormalPositional('path'),
             ChoicePositional<_Format>('format', choices: _Format.values),
@@ -908,8 +943,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     });
 
     test('emits every bounded repeated positional slot', () {
-      final output = convertFish(
-        specRegistry(
+      final output = convertFishMap(
+        specCommandMap(
           discretionaryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -933,8 +968,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     test(
       'composes root positional conditions without a leading conjunction',
       () {
-        final output = convertFish(
-          specRegistry(
+        final output = convertFishMap(
+          specCommandMap(
             mandatoryPositionals: [
               ChoicePositional<_Format>('format', choices: _Format.values),
             ],
@@ -948,8 +983,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     );
 
     test('gates a single-value choice variadic after its first value', () {
-      final output = convertFish(
-        specRegistry(variadic: ChoiceVariadic<_Sku>(choices: _Sku.values)),
+      final output = convertFishMap(
+        specCommandMap(variadic: ChoiceVariadic<_Sku>(choices: _Sku.values)),
       );
 
       final declaration = fishDeclaration(output, "-a 'basic standard'");
@@ -1533,7 +1568,7 @@ compdef _spec spec
       (
         'expands repeated positional choice slots',
         () => convertZsh(
-          specRegistry(
+          specCommandMap(
             mandatoryPositionals: [
               RepeatedChoicePositional<_Level>(
                 'level',
@@ -1541,7 +1576,7 @@ compdef _spec spec
                 times: 2,
               ),
             ],
-          ).toMap(),
+          ),
         ),
         allOf(
           contains("'1:level:(debug info)'"),
@@ -1551,9 +1586,9 @@ compdef _spec spec
       (
         'offers variadic choices only after the separator',
         () => convertZsh(
-          specRegistry(
+          specCommandMap(
             variadic: RepeatedChoiceVariadic<_Sku>(choices: _Sku.values),
-          ).toMap(),
+          ),
         ),
         allOf(
           contains(r'if (( ${words[(I:--)]} )); then'),
@@ -1649,8 +1684,9 @@ compdef _spec spec
 
     test('completes the first variadic value after the separator', () async {
       final completion = convertBash(
-        specRegistry(variadic: ChoiceVariadic<_Level>(choices: _Level.values))
-            .toMap(),
+        specCommandMap(
+          variadic: ChoiceVariadic<_Level>(choices: _Level.values),
+        ),
       );
 
       expect(await completeBash(completion, ['spec', '--', '']), [
@@ -1661,8 +1697,9 @@ compdef _spec spec
 
     test('stops completing a single variadic after one value', () async {
       final completion = convertBash(
-        specRegistry(variadic: ChoiceVariadic<_Level>(choices: _Level.values))
-            .toMap(),
+        specCommandMap(
+          variadic: ChoiceVariadic<_Level>(choices: _Level.values),
+        ),
       );
 
       expect(
@@ -2067,12 +2104,12 @@ compdef _spec spec
       'keeps an unconstrained positional slot before a choice positional',
       () {
         final completion = convertBash(
-          specRegistry(
+          specCommandMap(
             mandatoryPositionals: [
               NormalPositional('path'),
               ChoicePositional<_Format>('format', choices: _Format.values),
             ],
-          ).toMap(),
+          ),
         );
 
         expect(completion, contains('    1)'));
@@ -2085,7 +2122,7 @@ compdef _spec spec
 
     test('limits repeated positional choices to times plus one slots', () {
       final completion = convertBash(
-        specRegistry(
+        specCommandMap(
           mandatoryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -2093,7 +2130,7 @@ compdef _spec spec
               times: 2,
             ),
           ],
-        ).toMap(),
+        ),
       );
 
       expect(completion, contains('    0|1|2)'));
@@ -2102,8 +2139,9 @@ compdef _spec spec
 
     test('emits choices for a single-value variadic', () {
       final completion = convertBash(
-        specRegistry(variadic: ChoiceVariadic<_Format>(choices: _Format.values))
-            .toMap(),
+        specCommandMap(
+          variadic: ChoiceVariadic<_Format>(choices: _Format.values),
+        ),
       );
 
       expect(completion, contains("_mamba_filter \"\$current\" 'json' 'yaml'"));
@@ -2111,9 +2149,9 @@ compdef _spec spec
 
     test('emits choices for a repeated variadic', () {
       final completion = convertBash(
-        specRegistry(
+        specCommandMap(
           variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
-        ).toMap(),
+        ),
       );
 
       expect(completion, contains("_mamba_filter \"\$current\" 'json' 'yaml'"));
@@ -3147,12 +3185,12 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       'keeps an unconstrained positional slot before a choice positional',
       () {
         final completion = convertPs(
-          specRegistry(
+          specCommandMap(
             mandatoryPositionals: [
               NormalPositional('path'),
               ChoicePositional<_Format>('format', choices: _Format.values),
             ],
-          ).toMap(),
+          ),
         );
 
         expect(completion, contains(r"Choices = @('json', 'yaml')"));
@@ -3162,7 +3200,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('limits repeated positional choices to times plus one slots', () {
       final completion = convertPs(
-        specRegistry(
+        specCommandMap(
           mandatoryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -3170,7 +3208,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
               times: 2,
             ),
           ],
-        ).toMap(),
+        ),
       );
 
       expect(completion, contains(r"1 = [PSCustomObject]@"));
@@ -3180,8 +3218,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('emits a variadic handler for a single-value choice variadic', () {
       final completion = convertPs(
-        specRegistry(variadic: ChoiceVariadic<_Format>(choices: _Format.values))
-            .toMap(),
+        specCommandMap(
+          variadic: ChoiceVariadic<_Format>(choices: _Format.values),
+        ),
       );
 
       expect(completion, contains(r"Choices = @('json', 'yaml')"));
@@ -3190,9 +3229,9 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('emits a variadic handler for a repeated choice variadic', () {
       final completion = convertPs(
-        specRegistry(
+        specCommandMap(
           variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
-        ).toMap(),
+        ),
       );
 
       expect(completion, contains(r"Repeatable = $true"));
@@ -4198,7 +4237,7 @@ persistentflags:
 
     group("positionals", () {
       test("choice positionals are rendered", () {
-        final registry = specRegistry(
+        final registry = specCommandMap(
           mandatoryPositionals: [
             ChoicePositional<_Format>('format', choices: _Format.values),
           ],
@@ -4208,7 +4247,7 @@ persistentflags:
         );
 
         expect(
-          convertSpec(registry.toMap()),
+          convertSpec(registry),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -4224,7 +4263,7 @@ completion:
       });
 
       test("unconstrained positionals preserve later choice slots", () {
-        final registry = specRegistry(
+        final registry = specCommandMap(
           mandatoryPositionals: [
             NormalPositional('path'),
             ChoicePositional<_Format>('format', choices: _Format.values),
@@ -4232,7 +4271,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry.toMap()),
+          convertSpec(registry),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -4247,7 +4286,7 @@ completion:
       });
 
       test("repeated choice positionals render bounded slots", () {
-        final registry = specRegistry(
+        final registry = specCommandMap(
           discretionaryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -4258,7 +4297,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry.toMap()),
+          convertSpec(registry),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -4278,12 +4317,12 @@ completion:
 
     group("variadic", () {
       test("choice variadics complete the first argument after --", () {
-        final registry = specRegistry(
+        final registry = specCommandMap(
           variadic: ChoiceVariadic<_Format>(choices: _Format.values),
         );
 
         expect(
-          convertSpec(registry.toMap()),
+          convertSpec(registry),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -4299,12 +4338,12 @@ completion:
       });
 
       test("repeated choice variadics complete every argument after --", () {
-        final registry = specRegistry(
+        final registry = specCommandMap(
           variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         );
 
         expect(
-          convertSpec(registry.toMap()),
+          convertSpec(registry),
           equalsYaml('''
 name: "spec"
 description: "spec command"
@@ -4318,7 +4357,7 @@ completion:
       });
 
       test("keeps ordinary and dash completions separate", () {
-        final registry = specRegistry(
+        final registry = specCommandMap(
           mandatoryPositionals: [
             ChoicePositional<_Format>('format', choices: _Format.values),
           ],
@@ -4326,7 +4365,7 @@ completion:
         );
 
         expect(
-          convertSpec(registry.toMap()),
+          convertSpec(registry),
           equalsYaml('''
 name: "spec"
 description: "spec command"

@@ -1479,6 +1479,8 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       _mapOrNull(command['persistentOptions']),
       localOptions?.keys,
     );
+    // Carapace has one persistent input section for inherited values. The
+    // executor root's flags and options therefore become persistentflags.
     placeFlags(localFlags, isRoot);
     placeFlags(persistentFlags, true);
     placeOptions(localOptions, isRoot, optionGroups: optionGroups);

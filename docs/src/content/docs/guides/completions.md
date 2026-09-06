@@ -33,22 +33,23 @@ When this class is extended you can use the `registryMap` to generate compeltion
 `registryMap` is a validated, immutable description of the complete command
 tree. The executor assigns it before a `CompletionCommand` runs, so a
 completion generator can use it without retaining a live `CommandRegistry`.
-Every command map, including nested commands, has the following shape.
+The root map describes the executor. Nested command maps add command-owned
+positionals, variadics, and inputs published to descendants.
 
-| Field | Required | Contents |
-| --- | --- | --- |
-| `name` | Yes | The command name. A child command's name matches its key in the parent `commands` map. |
-| `description` | Yes | The short description, followed by the long description when one exists. |
-| `aliases` | No | A list of alternative command spellings. |
-| `flags` | No | A map of command-local flag names to flag maps. Mamba always adds the built-in `help` flag map. |
-| `persistentFlags` | No | A map of flag names to flag maps inherited by descendant commands. |
-| `options` | No | A map of command-local option names to option maps. |
-| `persistentOptions` | No | A map of option names to option maps inherited by descendant commands. |
-| `optionGroups` | No | A list of maps that describe paired-option groups. |
-| `positionals` | No | A map of positional argument names to positional maps. |
-| `variadic` | No | A map that describes the trailing positional argument. |
-| `accessors` | No | A map of accessor names to accessor maps. |
-| `commands` | No | A map of child command names to command maps with this same shape. |
+| Field | Root map | Nested command maps | Contents |
+| --- | --- | --- | --- |
+| `name` | Required | Required | The command name. A child command's name matches its key in the parent `commands` map. |
+| `description` | Required | Required | The short description, followed by the long description when one exists. |
+| `aliases` | Optional | Optional | A list of alternative command spellings. |
+| `flags` | Optional | Optional | A map of command-local flag names to flag maps. Mamba always adds the built-in `help` flag map. |
+| `persistentFlags` | Not allowed | Optional | A map of flag names to flag maps inherited by descendant commands. |
+| `options` | Optional | Optional | A map of command-local option names to option maps. |
+| `persistentOptions` | Not allowed | Optional | A map of option names to option maps inherited by descendant commands. |
+| `optionGroups` | Optional | Optional | A list of maps that describe paired-option groups. |
+| `positionals` | Not allowed | Optional | A map of positional argument names to positional maps. |
+| `variadic` | Not allowed | Optional | A map that describes the trailing positional argument. |
+| `accessors` | Optional | Optional | A map of accessor names to accessor maps. |
+| `commands` | Optional | Optional | A map of child command names to command maps with this same shape. |
 
 ### Flag maps
 
@@ -101,6 +102,7 @@ Each `optionGroups` entry has the following fields.
 
 ### Positional and variadic maps
 
+Only nested command maps contain positional and variadic inputs.
 `positionals` uses the positional name as its key.
 
 | Field | Required | Contents |
