@@ -2,6 +2,140 @@ import 'package:mamba/command.dart';
 
 import 'errors.dart';
 
+/// The typed registry description exported for completion integrations.
+///
+/// Commands and accessor groups use classes because Dart record typedefs cannot
+/// refer to themselves recursively.
+typedef RegistryRecord = ({
+  String name,
+  String description,
+  List<RegistryCommand>? commands,
+  RegistryVariadic? variadic,
+  List<RegistryPositional>? positionals,
+  List<RegistryFlag>? flags,
+  List<RegistryFlag>? persistentFlags,
+  List<RegistryOption>? options,
+  List<RegistryOption>? persistentOptions,
+  List<RegistryAccessor>? accessors,
+});
+
+typedef RegistryFlag = ({
+  String name,
+  String? short,
+  bool? defaultValue,
+  bool? negatable,
+  bool hidden,
+  String? description,
+});
+
+typedef RegistryOption = ({
+  String name,
+  String? short,
+  bool required,
+  bool hidden,
+  String? description,
+  String valueType,
+  bool? repeatable,
+  bool? variant,
+  List<String>? choices,
+  String? defaultValue,
+  String? pattern,
+  num? min,
+  num? max,
+  num? step,
+  List<String>? pairedOptions,
+});
+
+typedef RegistryPositional = ({
+  String name,
+  bool required,
+  String? description,
+  List<String>? choices,
+  String? defaultValue,
+  bool? repeatable,
+  int? times,
+  String? pattern,
+});
+
+typedef RegistryVariadic = ({
+  String? description,
+  List<String>? choices,
+  String? defaultValue,
+  bool? repeatable,
+  String? pattern,
+});
+
+typedef RegistryOptionGroup = ({
+  String mode,
+  bool required,
+  List<String> members,
+});
+
+final class RegistryCommand {
+  new({
+    required this.name,
+    required this.description,
+    this.aliases,
+    this.commands,
+    this.variadic,
+    this.positionals,
+    this.flags,
+    this.persistentFlags,
+    this.options,
+    this.persistentOptions,
+    this.optionGroups,
+    this.accessors,
+  });
+
+  final String name;
+  final String description;
+  final List<String>? aliases;
+  final List<RegistryCommand>? commands;
+  final RegistryVariadic? variadic;
+  final List<RegistryPositional>? positionals;
+  final List<RegistryFlag>? flags;
+  final List<RegistryFlag>? persistentFlags;
+  final List<RegistryOption>? options;
+  final List<RegistryOption>? persistentOptions;
+  final List<RegistryOptionGroup>? optionGroups;
+  final List<RegistryAccessor>? accessors;
+}
+
+final class RegistryAccessor {
+  RegistryAccessor.group({
+    required this.name,
+    required this.hidden,
+    this.description,
+    required List<RegistryAccessor> options,
+  }) : kind = 'group',
+       valueType = null,
+       choices = null,
+       defaultValue = null,
+       pattern = null,
+       options = List.unmodifiable(options);
+
+  RegistryAccessor.value({
+    required this.name,
+    required this.valueType,
+    this.description,
+    this.choices,
+    this.defaultValue,
+    this.pattern,
+  }) : kind = 'value',
+       hidden = null,
+       options = null;
+
+  final String name;
+  final String kind;
+  final bool? hidden;
+  final String? description;
+  final String? valueType;
+  final List<String>? choices;
+  final String? defaultValue;
+  final String? pattern;
+  final List<RegistryAccessor>? options;
+}
+
 /// Properties accepted in a serialised [CommandRegistry] map.
 ///
 /// Each property validates the shape written by [CommandRegistry.toMap]. The
