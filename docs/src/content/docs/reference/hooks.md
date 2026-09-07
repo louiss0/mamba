@@ -42,7 +42,24 @@ outer wrapper around the command.
 
 Normal hooks are hooks that any command can run! 
 The way for a command to use them is by using the `HookRunner` mixin. 
-The hook runner mixin forces the command to override the `preRun` method and supplies the `postRun` one. 
+The hook runner mixin forces the command to override the `preRun` method and supplies the `postRun` one.
+
+### `preRun`
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `input` | `ProcessedStandardInput?` | Piped standard input, or `null` when standard input is not piped. |
+| `context` | `MambaReadContext` | Read-only command context. |
+| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
+| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
+
+### `postRun`
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `context` | `MambaReadContext` | Read-only command context. |
+| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
+| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
 
 ## Persistent Hooks 
 
@@ -51,3 +68,19 @@ If a command is found in the path these functions will run before the selected c
 These hooks are the ones that allow for the context to be changed!
 The way for a comamnd to use them is by using the `PersistentHookRunner` mixin. 
 It forces the user to override the `postPersistentRun` method and supplies the `prePersistentRun` one.
+
+### `prePersistentRun`
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `context` | `MambaContext` | Mutable command context shared with descendant commands and hooks. |
+| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
+| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
+
+### `postPersistentRun`
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `context` | `MambaContext` | Mutable command context shared with descendant commands and hooks. |
+| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
+| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
