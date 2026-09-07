@@ -1,308 +1,79 @@
 ---
-title: options
+title: Options
 description: This is how options are defined in mamba
 ---
 
-
-In mamba Options are words that are paired with string, booleans, and floats!
-They can be repeated, hidden, and required. 
-Some options are allowed to be grouped where they must be supplied together or picked from one another. 
-Options can even be written with dots to represent the dot operator in most programming languages!
-
-## Primitive
-
-A primitive option is an option that represents strings, int's or doubles!
-They can be required, and hidden. They can even have a short flag.
-
-You write an option like this! 
-
-```dart
-StringOption(
-  'name',
-);
-```
-
-To give it a short flag, you can use the `short` parameter.
-
-```dart
-StringOption(
-  'name',
-  short: 'n',
-);
-```
-
-To give it a description you can use the `description` parameter.
-
-```dart
-StringOption(
-  'name',
-  description: 'The name of the person',
-);
-```
-
-To make it hidden you can use the `hidden` parameter.
-
-```dart
-StringOption(
-  'name',
-  hidden: true,
-);
-```
-
-To make it required you can use the `required` parameter.
-
-```dart
-StringOption(
-  'name',
-  required: true,
-);
-```
-
-:::note[The examples above apply to the other options]
-
-### String Option
-
-A string option is an option that validates whether a series of charaters is valid! 
-When registered it's regex is used to validate the input. By default the `\S+` is used.
-This means no white space!
-
-To override the default regex of a string you do it like this!
-
-```dart
-StringOption(
-  'name',
-  regex: RegExp(r'\w+'),
-);
-```
-
-### Int Option 
-
-An int option is an option that can only accept integers as values! 
-It can also have a min or a max! Negative int's are accepted! 
-
-To write an int option you do it like this!
-
-```dart
-IntOption(
-  'age',
-);
-```
-
-To configure a min option you write it like this!
-
-```dart
-IntOption(
-  'age',
-  min: 0,
-);
-```
-
-To configure a max option you write it like this!
-
-```dart
-IntOption(
-  'age',
-  max: 120,
-);
-```
-
-### Double Option 
-
-A double option is an option that can only accept double as values! 
-It can also have a min or a max!
-
-To write a double option you do it like this!
-
-```dart
-DoubleOption(
-  'height',
-);
-```
-
-To configure a min option you write it like this!
-
-```dart
-DoubleOption(
-  'height',
-  min: 0.0,
-);
-```
-
-To configure a max option you write it like this!
-
-```dart
-DoubleOption(
-  'height',
-  max: 5.5,
-);
-```
-
-## Choice Option 
-
-A choice option is an option that uses enum to valadate a series of choices!
-
-
-```dart
-
-enum Color {
-  red,
-  blue,
-  green,
-}
-
-ChoiceOption(
-  'color',
-  choices: Color.values,
-);
-```
-
-To add a default value to a choice option you write it like this!
-
-```dart
-ChoiceOption(
-  'color',
-  choices: Color.values,
-  defaultValue: Color.red,
-);
-```
-
-## Repeatable
-
-A repeatable option is just an array of string, int or double.
-They accept the same options as their primitive forms.
-They just ensure that arrays are produced from them instead of single values.
-
-To write a repeatable string option you do it like this!
-
-```dart
-RepeatableStringOption(
-  'tags',
-);
-```
-
-To write a repeatable int option you do it like this!
-
-```dart
-RepeatableIntOption(
-  'ports',
-);
-```
-
-To write a repeatable double option you do it like this!
-
-```dart
-RepeatableDoubleOption(
-  'scores',
-);
-```
-
-## Paired Options
-
-Paired Options represent options that are connected together.
-The user must either choose from them or bring them all!
-The  `PairedOptions` class is used to bring together a series of `PairOption`'s together.
-A pair option is what decides name and type of each option. 
-Paired options decide the relationship between the options.
-
-To write a paired options you do it like this!
-
-```dart
-PairedOptions(
-  [
-    PairStringOption(
-      'username',
-    ),
-    PairIntOption(
-      'age',
-    ),
-    PairDoubleOption('height'),
-  ],
-);
-```
-
-To make paired options required you write this!
-
-```dart
-PairedOptions(
-  [
-    PairStringOption(
-      'username',
-    ),
-    PairStringOption(
-      'password',
-    ),
-  ],
-  required: true,
-);
-```
-
-
-
-To give them a description you write it like this!
-
-```dart
-PairedOptions(
-  [
-    PairStringOption(
-      'username',
-    ),
-    PairStringOption(
-      'password',
-    ),
-  ],
-  description: 'The are the credentials',
-);
-```
-
-## Accessor
-
-In mamba we call options that allow you to use multiple dot in between each word _accessor options_ or _accessors_ for short.
-These options are a series of options that are written in a way that represents a schema! but using lists.
-They can't be required or repeatable! They can't have short options either! 
-
-To write an accessor option you write this! 
-
-```dart
-AccessorListOption('core', [
-  AccessorStringOption('ssh-comand'),
-  AccessorStringOption('editor'),
-  AccessorStringOption('pager'),
-]);
-```
-:::note[The name of the top level is the name that must be written before the `.` and the name of what needs to be accessed]
-
-Accessor Options can nest them selves or children! The primitives are `AccessorStringOption`, `AccessorIntOption`, `AccessorDoubleOption` and `AccessorChoiceOption`.
-
-:::warning[These kinds of options can't decide anything about themseleves the can only do what the primitive version of themselves can do.]
-
-
-```dart
-AccessorListOption('user', [
-  AccessorStringOption('name'),
-]);
-```
-
-```dart
-AccessorListOption('core', [
-  AccessorIntOption(
-    'gitProxyPort',
-  ),
-]);
-```
-
-```dart
-AccessorListOption('pack', [
-  AccessorDoubleOption(
-    'compressionLimit',
-  ),
-]);
-```
-
-```dart
-AccessorListOption('core', [
-  AccessorChoiceOption(
-    'autocrlf',
-    choices: ['true', 'false', 'input'],
-  ),
-]);
-```
+Options are named inputs that accept values. Mamba provides single-value,
+repeatable, paired, and accessor options. The tables below list every
+constructible option class and the behavior it provides.
+
+## Shared configuration
+
+The following parameters are shared by multiple option families. Parameters not
+shown in a class's simplified signature are listed here.
+
+| Parameter | Applies to | Behavior |
+| --- | --- | --- |
+| `description` | All option, paired-option, and accessor classes | Optional help text. |
+| `short` | Single-value options, repeatable options, and paired option members | Optional one-letter short alias. |
+| `required` | Single-value options, repeatable options, and `PairedOptions` | Whether the option or group must be supplied. Defaults to `false`. |
+| `hidden` | Single-value options, repeatable options, and `AccessorListOption` | Keeps the input parseable while omitting it from help. Defaults to `false`. An accessor list hides all of its descendants. |
+
+## Single-value options
+
+Register these classes in `Command.options` for command-local options or in
+`Executor.options` for global options. A `GroupCommand` can publish them to its
+descendants with `propagatedOptions`.
+
+| Class | Simplified signature | Accepts and behavior |
+| --- | --- | --- |
+| `StringOption` | `StringOption(name, {regex})` | One non-whitespace token by default. Use `regex` to require a complete match against another pattern. |
+| `IntOption` | `IntOption(name, {min, max})` | One signed decimal integer. `min` and `max` are inclusive bounds. |
+| `DoubleOption` | `DoubleOption(name, {min, max, step})` | One signed decimal number. `min` and `max` are inclusive bounds. `step` requires both bounds and accepts increments from `min` that reach `max`. |
+| `ChoiceOption<T extends Enum>` | `ChoiceOption(name, {required choices, defaultValue})` | One name from the supplied enum members. `defaultValue` is used when the option is omitted. |
+
+## Repeatable options
+
+Register these classes in `Command.options` or `Executor.options`. A
+`GroupCommand` can publish them to descendants with `propagatedOptions`. Each
+occurrence adds one value to the parsed list for that option.
+
+| Class | Simplified signature | Accepts and behavior |
+| --- | --- | --- |
+| `RepeatableStringOption` | `RepeatableStringOption(name, {regex})` | Repeated non-whitespace tokens by default. Use `regex` to require a complete match against another pattern. |
+| `RepeatableIntOption` | `RepeatableIntOption(name, {min, max})` | Repeated signed decimal integers. `min` and `max` are inclusive bounds. |
+| `RepeatableDoubleOption` | `RepeatableDoubleOption(name, {min, max, step})` | Repeated signed decimal numbers. `min` and `max` are inclusive bounds. `step` requires both bounds and accepts increments from `min` that reach `max`. |
+| `RepeatableChoiceOption<T extends Enum>` | `RepeatableChoiceOption(name, choices)` | Repeated names from the supplied enum members. |
+
+## Paired options
+
+Register a `PairedOptions` group in `Command.pairedOptions`. Its member
+classes are supplied in the group's `options` list; they are not registered
+individually. By default, the members form an all-or-none group. Set `variant`
+to `true` to make members alternatives instead.
+
+| Class | Simplified signature | Accepts and behavior |
+| --- | --- | --- |
+| `PairedOptions` | `PairedOptions(options, {variant})` | A group of paired members. `required` makes the group mandatory; `variant` allows one member instead of requiring all members together. |
+| `PairStringOption` | `PairStringOption(name, {regex})` | One non-whitespace token by default. Use `regex` to require a complete match against another pattern. |
+| `PairIntOption` | `PairIntOption(name, {min, max})` | One signed decimal integer. `min` and `max` are inclusive bounds. |
+| `PairDoubleOption` | `PairDoubleOption(name, {min, max, step})` | One signed decimal number. `min` and `max` are inclusive bounds. `step` requires both bounds and accepts increments from `min` that reach `max`. |
+| `PairChoiceOption<T extends Enum>` | `PairChoiceOption(name, {required choices})` | One name from the supplied enum members. Paired choice members do not have defaults. |
+| `RepeatablePairStringOption` | `RepeatablePairStringOption(name, {regex})` | Repeated non-whitespace tokens by default. Use `regex` to require a complete match against another pattern. |
+| `RepeatablePairIntOption` | `RepeatablePairIntOption(name, {min, max})` | Repeated signed decimal integers. `min` and `max` are inclusive bounds. |
+| `RepeatablePairDoubleOption` | `RepeatablePairDoubleOption(name, {min, max, step})` | Repeated signed decimal numbers. `min` and `max` are inclusive bounds. `step` requires both bounds and accepts increments from `min` that reach `max`. |
+
+## Accessor options
+
+An accessor is a dotted option path. Register top-level `AccessorListOption`
+instances in `Command.accessors` for command-local accessors or in
+`Executor.accessors` for global accessors. Put nested lists and primitive
+accessors in an accessor list's `options` collection.
+
+| Class | Simplified signature | Accepts and behavior |
+| --- | --- | --- |
+| `AccessorListOption` | `AccessorListOption(name, options)` | A named path segment that groups nested accessor lists or primitive accessor values. |
+| `AccessorStringOption` | `AccessorStringOption(name, {regex})` | One non-whitespace token by default. Use `regex` to require a complete match against another pattern. |
+| `AccessorIntOption` | `AccessorIntOption(name)` | One signed decimal integer. |
+| `AccessorDoubleOption` | `AccessorDoubleOption(name)` | One signed decimal number. |
+| `AccessorChoiceOption<T extends Enum>` | `AccessorChoiceOption(name, {required choices, defaultValue})` | One name from the supplied enum members. `defaultValue` is used when the accessor is omitted. |
