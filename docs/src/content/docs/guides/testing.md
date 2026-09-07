@@ -98,8 +98,8 @@ To trigger a failure based on an invalid value you must!
 1. Register a cli argument, flag or, option 
 2. Pass an invalid value!
 
-:::note
-Step 1: You need to now replace the error with a registered positional!
+:::tip[Step 1: You need to now replace the error with a registered positional!]
+
 ```dart  del={3}  
   FutureOr<String> run() {
 
@@ -112,8 +112,8 @@ Step 1: You need to now replace the error with a registered positional!
 :::
 
 
-:::note
-Step 2: Register a mandatory positional!
+:::tip[Step 2: Register a mandatory positional!]
+
 ```dart ins={3-10}
 @override
 String get description => "Add something";
@@ -126,7 +126,9 @@ Add({
 ```
 :::
 
-:::note
-Step 3: Then run the tests
+:::tip[Step 3: Then run the tests]
+```dart
+dart test
+```
 This time you should get a failure result and the test should fail!
 :::
