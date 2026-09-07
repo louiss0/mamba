@@ -35,9 +35,10 @@ flowchart TD
 
 ## Fake executor
 
-The fake executor follows the same selection, validation, and pre-hook flow,
-but returns a result for the test to inspect. It never writes to process streams
-and does not run post-hooks.
+The fake executor follows the same selection, validation, pre-hook, and
+post-hook flow, but returns a result for the test to inspect. It never writes
+to process streams. A post-hook failure ends execution without producing a
+result.
 
 ```mermaid
 flowchart TD
@@ -52,12 +53,14 @@ flowchart TD
     H -->|Yes| I["Read piped standard input<br/>and run the pre-hook"]
     H -->|No| J["Run the selected command"]
     I --> J
-    J --> K["Return command output as a success result"]
+    J --> K["Prepare command output as a success result"]
+    E --> L["Run the command post-hook"]
+    K --> L
+    L --> M["Run persistent post-hooks<br/>from inner group to outer group"]
+    M --> N["Return the success result"]
 
-    C -. "Validation failure" .-> L["Return a failure result"]
-    G -. "Hook or command failure" .-> L
-
-    M["Do not run command or persistent post-hooks"]
-    K -.-> M
-    E -.-> M
+    C -. "Validation failure" .-> O["Return a failure result"]
+    G -. "Hook or command failure" .-> O
+    L -. "Command post-hook failure" .-> P["End execution without a result"]
+    M -. "Persistent post-hook failure" .-> P
 ```
