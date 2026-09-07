@@ -6,8 +6,8 @@ class TestGroupCommand extends GroupCommand {
     super.commands,
     this.shortDescription, {
     super.aliases,
-    super.inheritedFlags,
-    super.inheritedOptions,
+    super.propagatedFlags,
+    super.propagatedOptions,
     super.flags,
     super.options,
     super.mandatoryPositionals,

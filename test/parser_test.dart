@@ -815,8 +815,8 @@ void main() {
     test('parses root-qualified commands around inherited inputs', () {
       final config = _ParserGroupCommand(
         'config',
-        inheritedFlags: [BooleanFlag('verbose', short: 'v')],
-        inheritedOptions: [IntOption('retries')],
+        propagatedFlags: [BooleanFlag('verbose', short: 'v')],
+        propagatedOptions: [IntOption('retries')],
         [_ParserCommand('get')],
       );
       final subject = Parser(
@@ -878,7 +878,7 @@ void main() {
             commands: [
               _ParserGroupCommand(
                 'config',
-                inheritedOptions: [IntOption('retries')],
+                propagatedOptions: [IntOption('retries')],
                 [_ParserCommand('get')],
               ),
             ],
@@ -900,7 +900,7 @@ void main() {
           commands: [
             _ParserGroupCommand(
               'config',
-              inheritedFlags: [BooleanFlag('color', negatable: true)],
+              propagatedFlags: [BooleanFlag('color', negatable: true)],
               [_ParserCommand('get')],
             ),
           ],
@@ -921,7 +921,7 @@ void main() {
           commands: [
             _ParserGroupCommand(
               'group',
-              inheritedOptions: [StringOption('target', regex: RegExp(r'\S+'))],
+              propagatedOptions: [StringOption('target', regex: RegExp(r'\S+'))],
               [_ParserCommand('leaf')],
             ),
           ],
@@ -1690,8 +1690,8 @@ class _ParserGroupCommand extends GroupCommand {
   new(
     this.name,
     super.commands, {
-    super.inheritedFlags,
-    super.inheritedOptions,
+    super.propagatedFlags,
+    super.propagatedOptions,
   });
 
   @override

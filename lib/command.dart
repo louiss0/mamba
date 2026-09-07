@@ -691,8 +691,8 @@ abstract class GroupCommand extends Command {
     List<Command> commands, {
     List<String>? defaultSubCommandPath,
     super.aliases,
-    List<Flag>? inheritedFlags,
-    List<Option>? inheritedOptions,
+    List<Flag>? propagatedFlags,
+    List<Option>? propagatedOptions,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,
@@ -702,8 +702,8 @@ abstract class GroupCommand extends Command {
     super.pairedOptions,
     super.accessors,
   }) : commands = List.unmodifiable(commands),
-       inheritedFlags = _copyList(inheritedFlags),
-       inheritedOptions = _copyList(inheritedOptions),
+       inheritedFlags = _copyList(propagatedFlags),
+       inheritedOptions = _copyList(propagatedOptions),
        defaultSubCommandPath = _copyDefaultSubCommandPath(
          defaultSubCommandPath,
        ) {

@@ -842,7 +842,7 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
               'config',
               [TestCommand('set', 'Set a value.')],
               'Configure settings.',
-              inheritedOptions: [StringOption('profile')],
+              propagatedOptions: [StringOption('profile')],
             ),
           ],
         ),
@@ -867,7 +867,7 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
               'config',
               [TestCommand('set', 'Set a value.')],
               'Configure settings.',
-              inheritedOptions: [IntOption('retries')],
+              propagatedOptions: [IntOption('retries')],
               options: [StringOption('retries')],
             ),
           ],
@@ -1809,7 +1809,7 @@ compdef _spec spec
               'config',
               [TestCommand('set', 'Set configuration.')],
               'Configure.',
-              inheritedOptions: [
+              propagatedOptions: [
                 ChoiceOption<_Format>('format', choices: _Format.values),
               ],
             ),
@@ -4537,11 +4537,11 @@ commands:
               'container',
               [TestCommand('list', 'list containers')],
               'manage containers',
-              inheritedFlags: [
+              propagatedFlags: [
                 BooleanFlag('color'),
                 CountFlag('verbose', short: 'v', hidden: true),
               ],
-              inheritedOptions: [
+              propagatedOptions: [
                 IntOption('namespace', short: 'n', required: true),
               ],
             ),
@@ -4582,7 +4582,7 @@ commands:
                 'container',
                 [TestCommand('list', 'list containers')],
                 'manage containers',
-                inheritedFlags: [BooleanFlag('color')],
+                propagatedFlags: [BooleanFlag('color')],
               ),
             ],
           );
@@ -4650,8 +4650,8 @@ commands:
               'container',
               [TestCommand('list', 'list containers')],
               'manage containers',
-              inheritedFlags: [BooleanFlag('force', short: 'f')],
-              inheritedOptions: [IntOption('retries', short: 'r')],
+              propagatedFlags: [BooleanFlag('force', short: 'f')],
+              propagatedOptions: [IntOption('retries', short: 'r')],
               flags: [BooleanFlag('local-force', short: 'F')],
               options: [IntOption('retries', short: 'R')],
             ),
@@ -4699,8 +4699,8 @@ commands:
                 TestCommand('remove', 'remove a remote'),
               ],
               'manage remotes',
-              inheritedFlags: [BooleanFlag('force')],
-              inheritedOptions: [
+              propagatedFlags: [BooleanFlag('force')],
+              propagatedOptions: [
                 IntOption('depth', short: 'd', required: true),
               ],
             ),
@@ -4708,7 +4708,7 @@ commands:
               'auth',
               [TestCommand('login', 'log in')],
               'manage credentials',
-              inheritedFlags: [CountFlag('attempts')],
+              propagatedFlags: [CountFlag('attempts')],
             ),
           ],
         );
@@ -4781,14 +4781,14 @@ commands:
                 'vm',
                 [TestCommand('list', 'list virtual machines')],
                 'manage virtual machines',
-                inheritedFlags: [BooleanFlag('no-wait')],
+                propagatedFlags: [BooleanFlag('no-wait')],
               ),
               TestGroupCommand(
                 'storage',
                 [TestCommand('check-name', 'check name availability')],
                 'manage storage accounts',
-                inheritedFlags: [BooleanFlag('https-only')],
-                inheritedOptions: [
+                propagatedFlags: [BooleanFlag('https-only')],
+                propagatedOptions: [
                   StringOption('account-name', regex: RegExp(r'\S+')),
                 ],
               ),
@@ -4811,23 +4811,23 @@ commands:
                               ),
                             ],
                             'manage a record sets',
-                            inheritedOptions: [DoubleOption('ttl')],
+                            propagatedOptions: [DoubleOption('ttl')],
                           ),
                         ],
                         'manage record sets',
-                        inheritedOptions: [
+                        propagatedOptions: [
                           StringOption('relative-name', regex: RegExp(r'\S+')),
                         ],
                       ),
                     ],
                     'manage dns zones',
-                    inheritedOptions: [
+                    propagatedOptions: [
                       StringOption('zone-name', regex: RegExp(r'\S+')),
                     ],
                   ),
                 ],
                 'manage networks',
-                inheritedOptions: [IntOption('timeout')],
+                propagatedOptions: [IntOption('timeout')],
               ),
             ],
           );
@@ -4930,7 +4930,7 @@ commands:
                 ),
               ],
               'manage virtual machines',
-              inheritedFlags: [BooleanFlag('no-wait')],
+              propagatedFlags: [BooleanFlag('no-wait')],
               mandatoryPositionals: [
                 ChoicePositional<_Sku>('sku', choices: _Sku.values),
               ],
