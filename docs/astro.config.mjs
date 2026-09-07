@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import mermaid from 'astro-mermaid';
 
 const siteUrl = process.env.PUBLIC_SITE_URL;
 
@@ -8,6 +9,7 @@ const siteUrl = process.env.PUBLIC_SITE_URL;
 export default defineConfig({
 	site: siteUrl,
 	integrations: [
+		mermaid(),
 		starlight({
 			title: 'Mamba',
 			description: 'A list-defined Dart framework for command-line applications.',
