@@ -1,74 +1,29 @@
 ---
-title: flags
+title: Flags
 description: Make flags in Mamba
 ---
 
+Flags are named inputs that do not accept values. Mamba provides boolean flags
+and count flags. The tables below list every constructible flag class and the
+behavior it provides.
 
-In Mamba a flag is an entity that represents either a boolean or an integer that's based on how many times it's seen.
-They can have a long or a short option! But they can't have arguments passed to them!
-They can also be negatable! They can't be repeatable at all!
+## Shared configuration
 
-## Bool Flags 
+The following parameters are shared by both flag classes.
 
-A bool flag is just a boolean flag it's written like this! 
+| Parameter | Behavior |
+| --- | --- |
+| `description` | Optional help text. |
+| `short` | Optional one-letter short alias. |
+| `hidden` | Keeps the flag parseable while omitting it from help. Defaults to `false`. |
 
-```dart
-BooleanFlag("active");
-```
+## Flags
 
-To give it a short option you write this. 
+Register these classes in `Command.flags` for command-local flags or in
+`Executor.flags` for global flags. A `GroupCommand` can publish them to its
+descendants with `propagatedFlags`.
 
-```dart
-BooleanFlag("active", short: "a");
-```
-
-:::warning[Short flag names must be one letter]
-
-To make it negatable to write it like this. 
-
-```dart
-BooleanFlag("active", negatable: true);
-```
-
-:::note[The negaable flag will allow the user to use `no-` to indicate the opposite value]
-
-To write a description for the flag you write this. 
-
-```dart
-BooleanFlag("active", description: "Active flag ");
-```
-
-To make it hidden by help you write this. 
-
-```dart
-BooleanFlag("active", hidden: true);
-```
-
-To give it a default value you write this. 
-
-```dart
-BooleanFlag("active", defaultValue: false);
-```
-
-## Count Flags
-
-A count flag is a flag that represents an integer! It's a flag that has it's default value as zero.
-It's value is 0 by default when it's not used but registered!
-
-To type it out you write this. 
-
-```dart
-CountFlag("count");
-```
-
-To give it a short option you write this. 
-
-```dart
-CountFlag("count", short: "c");
-```
-
-To give it a description you write this. 
-
-```dart
-CountFlag("count", description: "Count flag");
-```
+| Class | Simplified signature | Accepts and behavior |
+| --- | --- | --- |
+| `BooleanFlag` | `BooleanFlag(name, {defaultValue, negatable})` | A flag that stores a boolean value. `defaultValue` defaults to `false`. When `negatable` is `true`, the flag also accepts the `--no-<name>` spelling. |
+| `CountFlag` | `CountFlag(name)` | A flag that stores the number of times it appears. Its value is `0` when it is not supplied. |
