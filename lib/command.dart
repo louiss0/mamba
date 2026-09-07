@@ -722,7 +722,7 @@ abstract class GroupCommand extends Command {
   String get shortDescription;
 
   /// Runs the descendant addressed by a non-empty relative [path].
-  FutureOr<String> runChildCommand(
+  FutureOr<String?> runChildCommand(
     List<String> path,
     ParsedPositionals positionals,
     ParsedNamedInputs input,
@@ -757,7 +757,7 @@ abstract class GroupCommand extends Command {
       children = command is GroupCommand ? command.commands : null;
     }
 
-    return (await command!.run(positionals, input, trailingArguments)) ?? '';
+    return (await command!.run(positionals, input, trailingArguments));
   }
 
   static List<String>? _copyDefaultSubCommandPath(List<String>? path) {

@@ -25,7 +25,7 @@ class TestGroupCommand extends GroupCommand {
         accessors: null,
       );
 
-  FutureOr<String> runWithNothingBasedOnCommandPathWithNothing(
+  FutureOr<String?> runWithNothingBasedOnCommandPathWithNothing(
     List<String> commandPath,
   ) {
     return runChildCommand(
