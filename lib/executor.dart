@@ -16,8 +16,10 @@ final class const MambaSuccessResult(final String? output)
     extends MambaExecutionResult;
 
 /// Captures a Mamba exception produced by a failed fake execution.
-final class const MambaFailureResult(final MambaException exception)
-    extends MambaExecutionResult;
+final class MambaFailureResult(final MambaException _exception)
+    extends MambaExecutionResult {
+  String get message => _exception.message;
+}
 
 /// Whether a filesystem failure represents a closed inherited input pipe.
 ///

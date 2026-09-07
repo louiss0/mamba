@@ -55,10 +55,13 @@ void main() {
 
       final result = await executor.execute(['create', 'snake']);
 
-      expect(result, isA<MambaFailureResult>());
       expect(
-        (result as MambaFailureResult).exception.toString(),
-        contains('already exists'),
+        result,
+        isA<MambaFailureResult>().having(
+          (r) => r.message,
+          'message',
+          contains('already exists'),
+        ),
       );
     });
   });
@@ -148,10 +151,13 @@ void main() {
         commandFile.path,
       ]);
 
-      expect(result, isA<MambaFailureResult>());
       expect(
-        (result as MambaFailureResult).exception.toString(),
-        contains('requires --append'),
+        result,
+        isA<MambaFailureResult>().having(
+          (r) => r.message,
+          'message',
+          contains('requires --append'),
+        ),
       );
     });
 
@@ -167,10 +173,13 @@ void main() {
         '--append',
       ]);
 
-      expect(result, isA<MambaFailureResult>());
       expect(
-        (result as MambaFailureResult).exception.toString(),
-        contains('must already exist'),
+        result,
+        isA<MambaFailureResult>().having(
+          (r) => r.message,
+          'message',
+          contains('must already exist'),
+        ),
       );
     });
   });
