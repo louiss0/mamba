@@ -1,6 +1,8 @@
 ---
 title: Testing 
 description: Test your Commands by using the Fake Executor.
+sidebar:
+  order: 2
 ---
 
 When it comes to testing your commands you need to use a different version of the `Executor`. 

@@ -1,6 +1,8 @@
 ---
 title: Getting Started
 description: Use Mamba in a project scaffolded by Dart
+sidebar:
+  order: 1
 ---
 
 If you are using Mamba for a Console project! You need to need to start by using `dart pub add mamba`. 
