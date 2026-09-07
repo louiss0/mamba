@@ -1,8 +1,20 @@
 import 'dart:io';
 
-const _versionPattern = r'^\d+\.\d+\.\d+$';
+const _releaseVersionPattern =
+    r'^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?$';
+
+bool isReleaseVersion(String version) =>
+    RegExp(_releaseVersionPattern).hasMatch(version);
+
+bool isReleaseTag(String tag) =>
+    tag.startsWith('v') && isReleaseVersion(tag.substring(1));
 
 Future<void> main(List<String> arguments) async {
+  if (arguments.firstOrNull == '--validate-tag') {
+    _validateReleaseTag(arguments);
+    return;
+  }
+
   final release = _parseRelease(arguments);
   final version = release.version;
 
@@ -29,6 +41,15 @@ Future<void> main(List<String> arguments) async {
   );
 }
 
+void _validateReleaseTag(List<String> arguments) {
+  if (arguments.length == 2 && isReleaseTag(arguments[1])) return;
+
+  stderr.writeln(
+    'Expected a v-prefixed stable or prerelease semantic version tag without build metadata.',
+  );
+  exitCode = 64;
+}
+
 Release _parseRelease(List<String> arguments) {
   String? version;
   var push = false;
@@ -51,8 +72,11 @@ Release _parseRelease(List<String> arguments) {
     }
   }
 
-  if (version == null || !RegExp(_versionPattern).hasMatch(version)) {
-    stderr.writeln('Pass a stable semantic version with --version X.Y.Z.');
+  if (version == null || !isReleaseVersion(version)) {
+    stderr.writeln(
+      'Pass a stable or prerelease semantic version without build metadata '
+      'with --version X.Y.Z[-PRERELEASE].',
+    );
     _printUsageAndExit();
   }
 
@@ -60,7 +84,9 @@ Release _parseRelease(List<String> arguments) {
 }
 
 Never _printUsageAndExit() {
-  stdout.writeln('Usage: dart run tool/release.dart --version X.Y.Z [--push]');
+  stdout.writeln(
+    'Usage: dart run tool/release.dart --version X.Y.Z[-PRERELEASE] [--push]',
+  );
   exitCode = 64;
   exit(exitCode);
 }
@@ -89,6 +115,19 @@ Future<void> _verifyReleaseState(String version) async {
   if (pubspecVersion != version) {
     throw StateError(
       'pubspec.yaml has version $pubspecVersion; expected $version.',
+    );
+  }
+
+  final executable = await File('bin/mamba.dart').readAsString();
+  final executableVersion = RegExp(r"const _mambaVersion = '([^']+)';")
+      .firstMatch(executable)
+      ?.group(1);
+  if (executableVersion == null) {
+    throw StateError('bin/mamba.dart does not declare _mambaVersion.');
+  }
+  if (executableVersion != version) {
+    throw StateError(
+      'bin/mamba.dart has version $executableVersion; expected $version.',
     );
   }
 

@@ -54,6 +54,7 @@ $script:MambaRigInputs['root'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -81,6 +82,7 @@ $script:MambaRigInputs['root.volume'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--mute'; Description = 'Mute the simulated target.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -110,6 +112,7 @@ $script:MambaRigInputs['root.brightness'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -134,6 +137,7 @@ $script:MambaRigInputs['root.power'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--force'; Description = 'Describe simulated force behavior without bypassing safety.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -154,6 +158,7 @@ $script:MambaRigInputs['root.process'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -179,6 +184,7 @@ $script:MambaRigInputs['root.clean'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--include-hidden'; Description = 'Include simulated hidden items in the description.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -202,6 +208,7 @@ $script:MambaRigInputs['root.completion'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -216,6 +223,7 @@ $script:MambaRigInputs['root.network'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -232,6 +240,7 @@ $script:MambaRigInputs['root.network.wifi'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -248,6 +257,7 @@ $script:MambaRigInputs['root.network.wifi.connect'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--hidden'; Description = 'Describe a hidden simulated network.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -264,6 +274,7 @@ $script:MambaRigInputs['root.network.wifi.disconnect'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -277,6 +288,7 @@ $script:MambaRigInputs['root.network.wifi.scan'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--hidden'; Description = 'Include hidden simulated networks.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -291,6 +303,7 @@ $script:MambaRigInputs['root.network.wifi.status'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -303,6 +316,7 @@ $script:MambaRigInputs['root.network.dns'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -318,6 +332,7 @@ $script:MambaRigInputs['root.network.dns.get'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -331,6 +346,7 @@ $script:MambaRigInputs['root.network.dns.set'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -345,6 +361,7 @@ $script:MambaRigInputs['root.network.dns.reset'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -358,6 +375,7 @@ $script:MambaRigInputs['root.network.proxy'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -376,6 +394,7 @@ $script:MambaRigInputs['root.network.ping'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -391,6 +410,7 @@ $script:MambaRigInputs['root.profile'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -407,6 +427,7 @@ $script:MambaRigInputs['root.profile.save'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -420,6 +441,7 @@ $script:MambaRigInputs['root.profile.apply'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--force'; Description = 'Describe simulated force behavior without bypassing safety.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -436,6 +458,7 @@ $script:MambaRigInputs['root.profile.remove'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--force'; Description = 'Confirm simulated profile removal.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
@@ -451,6 +474,7 @@ $script:MambaRigInputs['root.profile.list'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Show what would happen without changing anything.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--version'; Description = 'Show the application version.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--verbose'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '-v'; Description = 'Increase output verbosity.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     [PSCustomObject]@{ Spelling = '--format'; Description = 'Simulated output format: text, json, or yaml.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }

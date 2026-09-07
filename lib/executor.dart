@@ -53,19 +53,27 @@ abstract interface class MambaExecutor<ReturnType> {
 ///
 /// Create one instance at the application's composition root. It owns the root
 /// metadata, global inputs, command tree, context, and help formatter used to
-/// construct each executor.
+/// construct each executor. Its required version must be Semantic Version 2.0.0
+/// and is printed by the built-in global `--version` flag.
 final class Executor {
+  static final RegExp _semanticVersion = RegExp(
+    r'^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+(?:[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$',
+  );
+
   static final List<Flag> _defaultFlags = [
     BooleanFlag(
       'dry-run',
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
+    BooleanFlag('version', description: 'Show the application version.'),
   ];
 
   final String name;
 
   final String shortDescription;
+
+  final String _version;
 
   final String? longDescription;
 
@@ -86,6 +94,7 @@ final class Executor {
   new(
     this.name,
     this.shortDescription,
+    String version,
     List<Command> commands, {
     this.longDescription,
     List<AccessorListOption>? accessors,
@@ -94,7 +103,8 @@ final class Executor {
     List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
-  }) : commands = List.unmodifiable(commands),
+  }) : _version = _validateVersion(version),
+       commands = List.unmodifiable(commands),
        accessors = accessors == null ? null : List.unmodifiable(accessors),
        flags = flags == null ? null : List.unmodifiable(flags),
        options = options == null ? null : List.unmodifiable(options),
@@ -102,6 +112,15 @@ final class Executor {
          name,
          defaultCommandPath,
        );
+
+  static String _validateVersion(String version) {
+    if (_semanticVersion.hasMatch(version)) return version;
+    throw MambaRegistryError.value(
+      version,
+      'version',
+      'must be a Semantic Version 2.0.0 value (for example, 1.2.3 or 1.2.3-rc.1).',
+    );
+  }
 
   /// Creates an executor for tests that returns success or failure values.
   ///
@@ -159,9 +178,8 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
 
   @override
   Future<MambaExecutionResult> execute(List<String> args) async {
-    late final _ExecutionResult result;
     try {
-      result = await _execution.execute(args);
+      final result = await _execution.execute(args);
       return MambaSuccessResult(result.output);
     } on Exception catch (exception) {
       return MambaFailureResult(
@@ -169,14 +187,6 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
             ? exception
             : MambaException(exception.toString()),
       );
-    } finally {
-      if (result.postRun case final postRun?) {
-        await postRun();
-      }
-
-      for (final postPersistentRun in result.postPersistentRuns) {
-        await postPersistentRun();
-      }
     }
   }
 }
@@ -227,12 +237,15 @@ final class _Execution {
 
   final List<String>? _defaultSubCommandPath;
 
+  final String _version;
+
   final List<Command>? commands;
 
   new(Executor factory)
     : _helpFormatter = factory.helpFormatter ?? MambaHelpFormatter(),
       _context = factory.context ?? MambaContext(),
       _defaultSubCommandPath = factory.defaultCommandPath,
+      _version = factory._version,
       _registry = CommandRegistry.create(
         factory.name,
         factory.shortDescription,
@@ -260,6 +273,17 @@ final class _Execution {
     final selectedRegistry = _registry
         .registryForArguments(executionArguments)
         .withInheritedInputs();
+    final versionRequested = inputs.boolFlags?['version'] == true;
+    if (versionRequested) {
+      final versionOutput = '${_registry.name} $_version';
+      return (
+        output: parsed.help
+            ? '$versionOutput\n\n${_helpFormatter.format(selectedRegistry)}'
+            : versionOutput,
+        postRun: null,
+        postPersistentRuns: const <FutureOr<void> Function()>[],
+      );
+    }
     if (parsed.help || command == null) {
       return (
         output: _helpFormatter.format(selectedRegistry),

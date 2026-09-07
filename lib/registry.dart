@@ -906,6 +906,7 @@ final class CommandRegistry {
   CommandRegistry registryForArguments(List<String> args) {
     var registry = this;
     var helpRequested = false;
+    var versionRequested = false;
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
@@ -917,20 +918,20 @@ final class CommandRegistry {
       final inputLength = registry.registeredInputTokenLength(token);
       if (inputLength != null) {
         helpRequested = helpRequested || _containsHelpFlagToken(token);
+        versionRequested = versionRequested || _containsVersionFlagToken(token);
         offset += inputLength;
         continue;
       }
-      if (helpRequested) {
-        offset++;
-        continue;
-      }
-
       final children = registry.commandRegistries ?? const <CommandRegistry>[];
       final commandName = registry.aliases?[token] ?? token;
       final command = children
           .where((candidate) => candidate.name == commandName)
           .firstOrNull;
       if (command == null) {
+        if (helpRequested || versionRequested) {
+          offset++;
+          continue;
+        }
         // A leaf command's remaining bare tokens belong to its positional
         // parser, not to a nonexistent child command. Leave them in place so
         // Parser can validate the command's positionals and report any extra
@@ -954,6 +955,8 @@ final class CommandRegistry {
       (token.startsWith('-') &&
           !token.startsWith('--') &&
           token.substring(1).contains('h'));
+
+  bool _containsVersionFlagToken(String token) => token == '--version';
 
   /// Whether [token] is a registered boolean or count flag.
   ///

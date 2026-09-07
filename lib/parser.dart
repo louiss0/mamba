@@ -53,9 +53,16 @@ class Parser {
     for (var index = 0; index < args.length; index++) {
       if (commandIndexes.contains(index)) continue;
       if (consumed.contains(index)) continue;
-      if (boolFlags[registry.helpFlag.name] == true) break;
 
       final token = args[index];
+      if (_isMetaFlagRequested(boolFlags, registry)) {
+        if (token == '--') {
+          trailingArguments.addAll(args.skip(index + 1));
+          break;
+        }
+        _parseMetaFlag(token, registry, boolFlags);
+        continue;
+      }
       if (token == '--') {
         trailingArguments.addAll(args.skip(index + 1));
         break;
@@ -129,9 +136,10 @@ class Parser {
     }
 
     final help = boolFlags[registry.helpFlag.name] == true;
+    final versionRequested = boolFlags['version'] == true;
     _addBooleanDefaults(registry, boolFlags);
     _addCountDefaults(registry, countFlags);
-    if (!help) {
+    if (!help && !versionRequested) {
       _addChoiceDefaults(
         registry,
         stringOptions,
@@ -161,10 +169,12 @@ class Parser {
         repeatedDoubleOptions,
       );
     }
-    final positionals = help
+    final positionals = help || versionRequested
         ? (singles: null, repeated: null)
         : _parsePositionals(registry, positionalValues);
-    if (!help) _validateVariadic(registry, trailingArguments);
+    if (!help && !versionRequested) {
+      _validateVariadic(registry, trailingArguments);
+    }
     // Help controls dispatch but is not part of the command's user inputs.
     boolFlags.remove(registry.helpFlag.name);
 
@@ -245,6 +255,7 @@ class Parser {
     final command = <String>[];
     var registry = _registry;
     var helpRequested = false;
+    var versionRequested = false;
     var offset = 0;
     while (offset < args.length) {
       final token = args[offset];
@@ -268,10 +279,11 @@ class Parser {
       final inputLength = registry.registeredInputTokenLength(token);
       if (inputLength != null) {
         helpRequested = helpRequested || _containsHelpFlagToken(token);
+        versionRequested = versionRequested || _containsVersionFlagToken(token);
         offset += inputLength;
         continue;
       }
-      if (helpRequested) {
+      if (helpRequested || versionRequested) {
         offset++;
         continue;
       }
@@ -295,6 +307,26 @@ class Parser {
       (token.startsWith('-') &&
           !token.startsWith('--') &&
           token.substring(1).contains('h'));
+
+  bool _containsVersionFlagToken(String token) => token == '--version';
+
+  bool _isMetaFlagRequested(
+    Map<String, bool> boolFlags,
+    CommandRegistry registry,
+  ) =>
+      boolFlags[registry.helpFlag.name] == true || boolFlags['version'] == true;
+
+  void _parseMetaFlag(
+    String token,
+    CommandRegistry registry,
+    Map<String, bool> boolFlags,
+  ) {
+    if (token == '--help' || token == '-h') {
+      boolFlags[registry.helpFlag.name] = true;
+      return;
+    }
+    if (token == '--version') boolFlags['version'] = true;
+  }
 
   Set<int> _commandTokenIndexes(List<String> args, List<String> command) {
     final indexes = <int>{};

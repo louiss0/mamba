@@ -144,6 +144,7 @@ Executor createRigExecutor() {
   return Executor(
     'rig',
     _rigDescription,
+    '1.0.0',
     _rigCommands(state),
     longDescription: _rigLongDescription,
     options: _rigOptions(),
@@ -161,6 +162,7 @@ RegistryRecord createRigRegistryRecord() => CommandRegistry.create(
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
+    BooleanFlag('version', description: 'Show the application version.'),
   ],
   options: _rigOptions(),
   commands: _rigCommands(_RigMockState()),

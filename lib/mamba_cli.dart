@@ -83,6 +83,7 @@ dev_dependencies:
 Executor createExecutor() => Executor(
   '$packageName',
   'A command-line application.',
+  '1.0.0',
   [],
 );
 ''';
@@ -304,6 +305,7 @@ void main() {
     final result = await Executor(
       'app',
       'A command-line application.',
+      '1.0.0',
       [$commands],
     ).fake().execute([]);
 

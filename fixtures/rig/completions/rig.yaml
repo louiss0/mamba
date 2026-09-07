@@ -7,6 +7,7 @@ description: |-
 persistentflags:
   -h, --help: "Show this help message."
   --dry-run: "Show what would happen without changing anything."
+  --version: "Show the application version."
   -v, --verbose*: "Increase output verbosity."
   --format?=:
     description: "Simulated output format: text, json, or yaml."

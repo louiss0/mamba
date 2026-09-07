@@ -35,6 +35,7 @@ _rig_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -170,6 +171,7 @@ _rig_volume_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '-m'
@@ -322,6 +324,7 @@ _rig_brightness_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -470,6 +473,7 @@ _rig_power_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '-f'
@@ -549,6 +553,7 @@ _rig_process_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -651,6 +656,7 @@ _rig_clean_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '--include-hidden'
@@ -734,6 +740,7 @@ _rig_completion_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -812,6 +819,7 @@ _rig_network_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -832,6 +840,7 @@ _rig_network_wifi_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -852,6 +861,7 @@ _rig_network_wifi_connect_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '--hidden'
@@ -926,6 +936,7 @@ _rig_network_wifi_disconnect_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -991,6 +1002,7 @@ _rig_network_wifi_scan_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '--hidden'
@@ -1057,6 +1069,7 @@ _rig_network_wifi_status_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1160,6 +1173,7 @@ _rig_network_dns_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1180,6 +1194,7 @@ _rig_network_dns_get_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1245,6 +1260,7 @@ _rig_network_dns_set_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1314,6 +1330,7 @@ _rig_network_dns_reset_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1421,6 +1438,7 @@ _rig_network_proxy_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1506,6 +1524,7 @@ _rig_network_ping_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1620,6 +1639,7 @@ _rig_profile_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1640,6 +1660,7 @@ _rig_profile_save_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )
@@ -1704,6 +1725,7 @@ _rig_profile_apply_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '--force'
@@ -1777,6 +1799,7 @@ _rig_profile_remove_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
   '-f'
@@ -1843,6 +1866,7 @@ _rig_profile_list_flags=(
   '-h'
   '--help'
   '--dry-run'
+  '--version'
   '-v'
   '--verbose'
 )

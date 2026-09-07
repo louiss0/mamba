@@ -11,7 +11,12 @@ String _withoutAnsi(String value) =>
 
 void main() {
   group('ExecutorFactory', () {
-    final factory = Executor('mamba', 'A command-line application.', []);
+    final factory = Executor(
+      'mamba',
+      'A command-line application.',
+      '1.0.0',
+      [],
+    );
 
     test('creates a fake executor that returns a success result', () async {
       final MambaExecutor<MambaExecutionResult> executor = factory.fake();
@@ -47,9 +52,14 @@ void main() {
   group('completion commands', () {
     test('receive the complete root record when nested', () async {
       final completion = _CompletionCommand();
-      final executor = Executor('mamba', 'A command-line application.', [
-        _DefaultGroup([completion], defaultSubCommandPath: ['completion']),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _DefaultGroup([completion], defaultSubCommandPath: ['completion']),
+        ],
+      ).fake();
 
       final result = await executor.execute(['group']);
 
@@ -69,6 +79,7 @@ void main() {
       final executor = Executor(
         'mamba',
         'A command-line application.',
+        '1.0.0',
         options: [StringOption('name', short: 'n')],
         [_InputCommand('run')],
       ).fake();
@@ -82,6 +93,7 @@ void main() {
       final executor = Executor(
         'mamba',
         'A command-line application.',
+        '1.0.0',
         options: [StringOption('config', regex: RegExp(r'\S+'))],
         [_InputCommand('run')],
       ).fake();
@@ -103,12 +115,17 @@ void main() {
 
     test('does not pass the internal help flag to commands', () async {
       final received = <String, bool>{};
-      final executor = Executor('mamba', 'A command-line application.', [
-        _InputCommand(
-          'run',
-          onRun: (inputs) => received.addAll(inputs.boolFlags ?? {}),
-        ),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _InputCommand(
+            'run',
+            onRun: (inputs) => received.addAll(inputs.boolFlags ?? {}),
+          ),
+        ],
+      ).fake();
 
       final result = await executor.execute(['run']);
 
@@ -117,9 +134,12 @@ void main() {
     });
 
     test('ignores options after help once the command is known', () async {
-      final executor = Executor('mamba', 'A command-line application.', [
-        _InputCommand('run'),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [_InputCommand('run')],
+      ).fake();
 
       final result = await executor.execute(['run', '--help', '--unknown']);
 
@@ -131,12 +151,17 @@ void main() {
     });
 
     test('resolves command help after a value-taking option', () async {
-      final executor = Executor('mamba', 'A command-line application.', [
-        _InputCommand(
-          'run',
-          options: [StringOption('config', regex: RegExp(r'\S+'))],
-        ),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _InputCommand(
+            'run',
+            options: [StringOption('config', regex: RegExp(r'\S+'))],
+          ),
+        ],
+      ).fake();
 
       final result = await executor.execute([
         'run',
@@ -152,6 +177,211 @@ void main() {
     });
   });
 
+  group('version reporting', () {
+    group('valid Semantic Version 2.0.0 values', () {
+      for (final version in [
+        '0.0.0',
+        '1.2.3',
+        '1.2.3-rc.1',
+        '1.2.3-alpha-1.9',
+        '1.2.3-0+001',
+        '1.2.3+build.42',
+        '1.2.3-rc.1+build.42',
+      ]) {
+        test('accepts $version', () {
+          expect(
+            () => Executor('mamba', 'A command-line application.', version, []),
+            returnsNormally,
+          );
+        });
+      }
+    });
+
+    group('invalid versions', () {
+      for (final version in [
+        '',
+        'v1.2.3',
+        '1.2',
+        '01.2.3',
+        '1.02.3',
+        '1.2.03',
+        '1.2.3-',
+        '1.2.3-01',
+        '1.2.3-alpha..1',
+        '1.2.3+build..42',
+        '1.2.3+build_42',
+      ]) {
+        test('rejects $version', () {
+          expect(
+            () => Executor('mamba', 'A command-line application.', version, []),
+            throwsA(
+              isA<MambaRegistryError>().having(
+                (error) => error.message,
+                'message',
+                contains('Semantic Version 2.0.0'),
+              ),
+            ),
+          );
+        });
+      }
+    });
+
+    test(
+      'prints the configured version without running the selected command',
+      () async {
+        var ran = false;
+        final executor = Executor(
+          'mamba',
+          'A command-line application.',
+          '1.2.3-rc.1+build.42',
+          [_InputCommand('run', onRun: (_) => ran = true)],
+        ).fake();
+
+        final result = await executor.execute(['run', '--version']);
+
+        expect(result, isA<MambaSuccessResult>());
+        expect(
+          (result as MambaSuccessResult).output,
+          'mamba 1.2.3-rc.1+build.42',
+        );
+        expect(ran, isFalse);
+      },
+    );
+
+    test('accepts version before or after a command before --', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.2.3',
+        [_InputCommand('run')],
+      ).fake();
+
+      for (final arguments in [
+        ['--version', 'run'],
+        ['run', '--version'],
+      ]) {
+        final result = await executor.execute(arguments);
+
+        expect(
+          result,
+          isA<MambaSuccessResult>().having(
+            (value) => value.output,
+            'output',
+            'mamba 1.2.3',
+          ),
+        );
+      }
+    });
+
+    test('does not treat --version after -- as a framework flag', () async {
+      var receivedVersion = true;
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.2.3',
+        [
+          _InputCommand(
+            'run',
+            onRun: (inputs) =>
+                receivedVersion = inputs.boolFlags?['version'] == true,
+          ),
+        ],
+      ).fake();
+
+      final result = await executor.execute(['run', '--', '--version']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(receivedVersion, isFalse);
+    });
+
+    test('exposes version false to ordinary command runs', () async {
+      bool? receivedVersion;
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.2.3',
+        [
+          _InputCommand(
+            'run',
+            onRun: (inputs) => receivedVersion = inputs.boolFlags?['version'],
+          ),
+        ],
+      ).fake();
+
+      await executor.execute(['run']);
+
+      expect(receivedVersion, isFalse);
+    });
+
+    test('prints version before selected help in either flag order', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.2.3',
+        [_InputCommand('run')],
+      ).fake();
+
+      for (final arguments in [
+        ['--version', 'run', '--help'],
+        ['run', '--help', '--version'],
+      ]) {
+        final result = await executor.execute(arguments);
+        final output = _withoutAnsi((result as MambaSuccessResult).output!);
+
+        expect(output, startsWith('mamba 1.2.3\n\nmamba run'));
+      }
+    });
+
+    test('ignores tokens after version but rejects tokens before it', () async {
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.2.3',
+        [_InputCommand('run')],
+      ).fake();
+
+      expect(
+        await executor.execute(['--version', '--unknown']),
+        isA<MambaSuccessResult>(),
+      );
+      expect(
+        await executor.execute(['--unknown', '--version']),
+        isA<MambaFailureResult>(),
+      );
+    });
+
+    test('lists version in help and completion records', () async {
+      final completion = _CompletionCommand();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.2.3',
+        [completion],
+      ).fake();
+
+      final result = await executor.execute(['--help']);
+
+      expect((result as MambaSuccessResult).output, contains('--version'));
+      expect(
+        completion.registryRecord.flags!.any((flag) => flag.name == 'version'),
+        isTrue,
+      );
+    });
+
+    test('rejects application-defined version flags', () {
+      expect(
+        () => Executor(
+          'mamba',
+          'A command-line application.',
+          '1.2.3',
+          [],
+          flags: [BooleanFlag('version')],
+        ).fake(),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+  });
+
   group('default commands', () {
     test(
       'snapshots caller-owned command collections at factory creation',
@@ -160,6 +390,7 @@ void main() {
         final factory = Executor(
           'mamba',
           'A command-line application.',
+          '1.0.0',
           commands,
         );
         commands.add(_Command('later'));
@@ -172,7 +403,7 @@ void main() {
 
     test('rejects an empty root default path as a registry error', () {
       expect(
-        () => Executor('mamba', 'A command-line application.', [
+        () => Executor('mamba', 'A command-line application.', '1.0.0', [
           _Command('run'),
         ], defaultCommandPath: []),
         throwsA(isA<MambaRegistryError>()),
@@ -182,6 +413,7 @@ void main() {
       final executor = Executor(
         'mamba',
         'A command-line application.',
+        '1.0.0',
         [_InputCommand('run')],
         options: [StringOption('config', regex: RegExp(r'\S+'))],
         defaultCommandPath: ['run'],
@@ -199,9 +431,17 @@ void main() {
     test(
       'help targets the explicitly named group before its default',
       () async {
-        final executor = Executor('mamba', 'A command-line application.', [
-          _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['serve']),
-        ]).fake();
+        final executor = Executor(
+          'mamba',
+          'A command-line application.',
+          '1.0.0',
+          [
+            _DefaultGroup(
+              [_Command('serve')],
+              defaultSubCommandPath: ['serve'],
+            ),
+          ],
+        ).fake();
 
         final result = await executor.execute(['group', '--help']);
 
@@ -217,6 +457,7 @@ void main() {
       final executor = Executor(
         'mamba',
         'A command-line application.',
+        '1.0.0',
         [_Command('run')],
         defaultCommandPath: ['run'],
       ).fake();
@@ -234,12 +475,17 @@ void main() {
       'does not run child post-hooks when a group selects its default',
       () async {
         final events = <String>[];
-        final executor = Executor('mamba', 'A command-line application.', [
-          _DefaultGroup(
-            [_HookCommand('serve', events)],
-            defaultSubCommandPath: ['serve'],
-          ),
-        ]).fake();
+        final executor = Executor(
+          'mamba',
+          'A command-line application.',
+          '1.0.0',
+          [
+            _DefaultGroup(
+              [_HookCommand('serve', events)],
+              defaultSubCommandPath: ['serve'],
+            ),
+          ],
+        ).fake();
 
         final result = await executor.execute(['group']);
 
@@ -249,9 +495,17 @@ void main() {
     );
 
     test('returns a failure for an unknown group default path', () async {
-      final executor = Executor('mamba', 'A command-line application.', [
-        _DefaultGroup([_Command('serve')], defaultSubCommandPath: ['missing']),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _DefaultGroup(
+            [_Command('serve')],
+            defaultSubCommandPath: ['missing'],
+          ),
+        ],
+      ).fake();
 
       final result = await executor
           .execute(['group'])
@@ -285,9 +539,14 @@ void main() {
 
     test('does not track non-Exception command failures', () async {
       final events = <String>[];
-      final executor = Executor('mamba', 'A command-line application.', [
-        _PersistentGroup(events, [_StringThrowingCommand()]),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _PersistentGroup(events, [_StringThrowingCommand()]),
+        ],
+      ).fake();
 
       await expectLater(
         executor.execute(['group', 'throwing']),
@@ -298,9 +557,16 @@ void main() {
 
     test('does not run post-hooks that throw Errors', () async {
       final events = <String>[];
-      final executor = Executor('mamba', 'A command-line application.', [
-        _PersistentGroup(events, [_FailingPostHookCommand(throwsError: true)]),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _PersistentGroup(events, [
+            _FailingPostHookCommand(throwsError: true),
+          ]),
+        ],
+      ).fake();
 
       expect(
         await executor.execute(['group', 'failing']),
@@ -310,9 +576,12 @@ void main() {
     });
 
     test('does not run post-hooks', () async {
-      final executor = Executor('mamba', 'A command-line application.', [
-        _FailingPostHookCommand(),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [_FailingPostHookCommand()],
+      ).fake();
 
       expect(await executor.execute(['failing']), isA<MambaSuccessResult>());
     });
@@ -321,16 +590,21 @@ void main() {
   group('persistent hooks', () {
     test('does not run persistent post-hooks that throw Errors', () async {
       final events = <String>[];
-      final executor = Executor('mamba', 'A command-line application.', [
-        _PersistentGroup(events, [
-          _PersistentGroup(
-            events,
-            [_Command('serve')],
-            errorPost: true,
-            name: 'inner',
-          ),
-        ], name: 'outer'),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _PersistentGroup(events, [
+            _PersistentGroup(
+              events,
+              [_Command('serve')],
+              errorPost: true,
+              name: 'inner',
+            ),
+          ], name: 'outer'),
+        ],
+      ).fake();
 
       expect(
         await executor.execute(['outer', 'inner', 'serve']),
@@ -341,16 +615,21 @@ void main() {
 
     test('does not run persistent post-hooks', () async {
       final events = <String>[];
-      final executor = Executor('mamba', 'A command-line application.', [
-        _PersistentGroup(events, [
-          _PersistentGroup(
-            events,
-            [_Command('serve')],
-            failPost: true,
-            name: 'inner',
-          ),
-        ], name: 'outer'),
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'A command-line application.',
+        '1.0.0',
+        [
+          _PersistentGroup(events, [
+            _PersistentGroup(
+              events,
+              [_Command('serve')],
+              failPost: true,
+              name: 'inner',
+            ),
+          ], name: 'outer'),
+        ],
+      ).fake();
 
       expect(
         await executor.execute(['outer', 'inner', 'serve']),
@@ -364,9 +643,12 @@ void main() {
       () async {
         final events = <String>[];
         final group = _PersistentGroup(events, [_Command('serve')]);
-        final executor = Executor('mamba', 'A command-line application.', [
-          group,
-        ]).fake();
+        final executor = Executor(
+          'mamba',
+          'A command-line application.',
+          '1.0.0',
+          [group],
+        ).fake();
 
         await executor.execute(['group', 'serve']);
 

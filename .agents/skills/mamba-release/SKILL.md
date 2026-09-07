@@ -1,16 +1,16 @@
 ---
 name: mamba-release
-description: Prepare and publish stable Mamba releases through the repository's tag-triggered pub.dev workflow.
+description: Prepare and publish stable or prerelease Mamba releases through the repository's tag-triggered pub.dev workflow.
 ---
 
 # Mamba Release
 
 Mamba publishes through `.github/workflows/publish.yml` when `main` receives a
-pushed tag matching `vMAJOR.MINOR.PATCH`.
+pushed `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-PRERELEASE` tag.
 
-For a release, require a stable semantic version with no `v` prefix. Ensure
-`pubspec.yaml` has that exact version and `CHANGELOG.md` includes a
-`## <version>` section.
+For a release, require a stable or prerelease semantic version with no `v`
+prefix and no build metadata. Ensure `pubspec.yaml` and the Mamba CLI version
+have that exact version and `CHANGELOG.md` includes a `## <version>` section.
 
 Run the repository preflight before any release mutation:
 
@@ -18,9 +18,9 @@ Run the repository preflight before any release mutation:
 dart run tool/release.dart --version <version>
 ```
 
-The script requires a clean `main` worktree, checks the version and changelog,
-formats the project, runs analysis and tests, and runs `dart pub publish
---dry-run`.
+The script requires a clean `main` worktree, checks the pubspec version, Mamba
+CLI version, and changelog, formats the project, runs analysis and tests, and
+runs `dart pub publish --dry-run`.
 
 Report the preflight result and obtain explicit confirmation before pushing a
 release tag. After confirmation, run:

@@ -22,6 +22,7 @@ void main() {
       final executor = Executor(
         'mamba',
         'Scaffold Mamba command-line applications.',
+        '1.0.0',
         [command],
       ).fake();
 
@@ -34,9 +35,14 @@ void main() {
         allOf(contains('name: snake'), contains('mamba: ^0.3.0')),
       );
       expect(
+        File('${temporaryDirectory.path}/snake/lib/snake.dart')
+            .readAsStringSync(),
+        allOf(contains('Executor('), contains("'1.0.0'")),
+      );
+      expect(
         File('${temporaryDirectory.path}/snake/bin/snake.dart')
             .readAsStringSync(),
-        allOf(contains('Executor('), contains('.create()')),
+        contains('.create()'),
       );
       expect(
         File('${temporaryDirectory.path}/snake/test/snake_test.dart')
@@ -50,6 +56,7 @@ void main() {
       final executor = Executor(
         'mamba',
         'Scaffold Mamba command-line applications.',
+        '1.0.0',
         [command],
       ).fake();
 
@@ -80,9 +87,12 @@ void main() {
     tearDown(() => temporaryDirectory.deleteSync(recursive: true));
 
     test('scaffolds a regular hook command and its fake test suite', () async {
-      final executor = Executor('mamba', 'Scaffold Mamba applications.', [
-        command,
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'Scaffold Mamba applications.',
+        '1.0.0',
+        [command],
+      ).fake();
 
       final result = await executor.execute([
         'command',
@@ -111,9 +121,12 @@ void main() {
       () async {
         final commandFile = File('${temporaryDirectory.path}/commands.dart')
           ..writeAsStringSync('library commands;\n');
-        final executor = Executor('mamba', 'Scaffold Mamba applications.', [
-          command,
-        ]).fake();
+        final executor = Executor(
+          'mamba',
+          'Scaffold Mamba applications.',
+          '1.0.0',
+          [command],
+        ).fake();
 
         final result = await executor.execute([
           'command',
@@ -141,9 +154,12 @@ void main() {
     test('requires --append when a file argument is provided', () async {
       final commandFile = File('${temporaryDirectory.path}/commands.dart')
         ..writeAsStringSync('library commands;\n');
-      final executor = Executor('mamba', 'Scaffold Mamba applications.', [
-        command,
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'Scaffold Mamba applications.',
+        '1.0.0',
+        [command],
+      ).fake();
 
       final result = await executor.execute([
         'command',
@@ -162,9 +178,12 @@ void main() {
     });
 
     test('requires an existing file when appending', () async {
-      final executor = Executor('mamba', 'Scaffold Mamba applications.', [
-        command,
-      ]).fake();
+      final executor = Executor(
+        'mamba',
+        'Scaffold Mamba applications.',
+        '1.0.0',
+        [command],
+      ).fake();
 
       final result = await executor.execute([
         'command',
