@@ -5,7 +5,12 @@ sidebar:
   order: 1
 ---
 
-If you are using Mamba for a Console project! You need to need to start by using `dart pub add mamba`. 
+If you are using Mamba for a Console project!
+You need to need to start by using 
+
+```sh
+dart pub add mamba
+```
 After installing Mamba you should start by replacing the code in the root lib folder with this.
 
 ```dart
@@ -18,6 +23,7 @@ Future<void> main(List<String> args) {
 }
 ```
 
+:::note
 After this you should do `dart run lib/my-app.dart`. 
 When you run that command you should see the help menu.
 
@@ -35,6 +41,7 @@ _______________________________________________________________
 [ -v|--verbose ] Increase output verbosity.
 ___________________________________________
 ```
+:::
 
 This help menu will show the name of the CLI, the description, and global flags.
 
@@ -47,7 +54,8 @@ These flags are useful.
 The executor is a factory that allows only the registration of commands, flags and options.
 It's not the root command! If you want to register a command for it to execute by default.
 
-You must first make a command! 
+:::tip[You must first make a command!]
+ 
 
 ```dart
 class Run extends Command {
@@ -68,8 +76,9 @@ class Run extends Command {
   }
 }
 ```
+:::
 
-Register the command! 
+:::tip[Register the command] 
 
 ```dart
 Future<void> main(List<String> args){
@@ -81,8 +90,9 @@ Future<void> main(List<String> args){
   ).create().execute(args);
 }
 ```
+:::
 
-Then provide the `defaultCommandPath` option. 
+:::tip[Then provide the `defaultCommandPath` option.]
 
 ```dart
 Future<void> main(List<String> args){
@@ -95,16 +105,17 @@ Future<void> main(List<String> args){
   ).create().execute(args);
 }
 ```
+:::
 
-Then you can run `dart run lib/my-app.dart` again!
+:::tip[Then you can run `dart run lib/my-app.dart` again!]
 
 You'll see the default command run!
 
 ```sh
 This ran
 ```
+:::
 
-**This is how you use Mamba!** 
 
 :::tip[Wanna see the the run in help?]
 
@@ -128,4 +139,25 @@ run Run the application.
 ------------------------
 ```
 
+:::
+
+## Using the Mamba CLI
+
+If you don't have a project that's created yet you should create one by using the Mamba CLI! 
+
+You can activate it globally
+
+```sh
+dart pub global activate mamba
+```
+
+When you do you then use the mamba create command. 
+
+```sh
+mamba create curl 
+```
+
+:::note
+The folder structure that's created should be similar to the CLI console project!
+But it should have Mamba's executor set up.  
 :::
