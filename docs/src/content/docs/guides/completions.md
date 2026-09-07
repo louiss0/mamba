@@ -1,6 +1,6 @@
 ---
-title: completions
-description: "Mamba's support for completions for common shells and using tools"
+title: Completions
+description: "Mamba's support for native shell completions and support for tools that do it"
 ---
 
 Mamba has support for Bash, ZSH, Fish and Powershell completions!
