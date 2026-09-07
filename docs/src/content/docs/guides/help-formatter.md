@@ -1,9 +1,9 @@
 ---
 title: Create a custom help formatter
-description: Replace Mamba's default help output with a formatter designed for your CLI.
+description: Extend or implement Mamba's help formatter abstraction for your CLI.
 ---
 
-This guide shows you how to replace Mamba's default help output with your own layout and visual style. It assumes that you already have an `Executor` and at least one command.
+This guide shows you how to replace Mamba's default help output by extending or implementing its formatter abstraction.
 
 ## Understand the help DSL
 
@@ -13,20 +13,145 @@ Mamba writes a required value as `< VALUE >` and an optional value as `[ VALUE ]
 
 A repeatable option uses `(--tag TAG)+`. A repeated positional includes its accepted count, such as `FILE{1,3}`. A regular trailing value is shown as `-- ...`, a trailing choice as `-- (json|yaml)`, and a repeatable trailing choice as `-- (json|yaml)...`. When an option accepts an unrestricted value, its name becomes an uppercase placeholder, so `--output-path` is presented as `--output-path OUTPUT_PATH`.
 
-The `HelpFormatter` methods preserve these meanings with typed fragments. `formatIntoRequiredString()` creates `< ... >`, `formatIntoOptionalString()` creates `[ ... ]`, `formatIntoOrString()` joins alternatives with `|`, and `formatIntoPairString()` joins dependent values with `&`. The returned fragments expose their rendered text through `.string`.
+The formatter interface preserves these meanings with typed fragments. `formatIntoRequiredString()` creates `< ... >`, `formatIntoOptionalString()` creates `[ ... ]`, `formatIntoOrString()` joins alternatives with `|`, and `formatIntoPairString()` joins dependent values with `&`. The returned fragments expose their rendered text through `.string`.
 
 Keep these forms consistent even when you change the surrounding layout. Users should be able to tell what is required, optional, repeatable, or related without relying on color alone.
 
-## Create the formatter
+## Choose between extending and implementing
 
-Extend `HelpFormatter`, not `MambaHelpFormatter`. The default formatter is final, while `HelpFormatter` is the customization boundary.
+`HelpFormatter` is an abstract class and the formatter type accepted by `Executor`. It supports two customization approaches:
 
-Create a formatter next to your application's executor. The following formatter produces a compact usage line followed by descriptions, flags, options, and child commands:
+- Extend `HelpFormatter` to inherit Mamba's concrete DSL fragment methods and provide only the layout operations your class still requires.
+- Implement `HelpFormatter` to replace every member of the contract, including the styling of each DSL fragment.
+
+`MambaHelpFormatter` is the final default implementation. Use it directly when you want Mamba's built-in help; application formatters extend or implement `HelpFormatter` instead.
+
+Choose based on how much policy you want to own. Extending is useful when Mamba's DSL styling already communicates the right meaning. Implementing is useful when layout, branding, and semantic colors must all belong to your application.
+
+## Style output with ChalkDart
+
+Mamba uses [ChalkDart](https://pub.dev/packages/chalkdart) for terminal styling and re-exports its `chalk` API. An import of `package:mamba/mamba.dart` is enough to use it in a formatter:
 
 ```dart
 import 'package:mamba/mamba.dart';
 
-final class CompactHelpFormatter extends HelpFormatter {
+final heading = chalk.bold.blue('Commands');
+final warning = chalk.yellow('A value is required.');
+final branded = chalk.hex('#7C3AED').bold('Deploy');
+final precise = chalk.rgb(125, 211, 252)('SOURCE');
+```
+
+Call a named style such as `chalk.cyan()`, chain styles such as `chalk.bold.yellow()`, or create a palette with `chalk.hex()` and `chalk.rgb()`. ChalkDart composes the ANSI Select Graphic Rendition sequences expected by Mamba's formatted fragment types.
+
+Distinguish a theme color from a semantic color. A theme color identifies your product and works well for headings or borders. A semantic color identifies a role, such as required values, optional values, alternatives, or paired values, and must retain that meaning throughout the output.
+
+Use both kinds of color as reinforcement rather than as the only source of meaning. The DSL punctuation still needs to explain the command when output is copied into a log, read without color, or interpreted by someone who cannot distinguish parts of your palette.
+
+## Design the formatter around user needs
+
+Use `HelpFormatter` when the user needs a different route through the information. Before writing code, decide what question the help output should answer first. A command-discovery tool might lead with child commands; an automation tool might lead with exact usage; a safety-critical command might place required values and consequences before optional controls.
+
+Treat help as a user interface, not as a dump of the registry. Establish an information hierarchy, keep related declarations together, and make the most likely next action easy to find. At the same time, keep the registry as the source of truth: honor hidden declarations, render inherited inputs, and avoid hand-written command names that can drift away from registration.
+
+Keep `format()` deterministic and side-effect free. Its job is to transform the selected `CommandRegistry` into a string. It should not parse arguments, execute commands, or write directly to the terminal.
+
+## Extend `HelpFormatter`
+
+Extend `HelpFormatter` when you want to reuse its DSL fragment methods. Your subclass must implement `format()` and `formatLongDescription()`, while methods such as `formatIntoRequiredString()` and `formatIntoSectionTitle()` remain available to compose the output.
+
+This command-first formatter is suitable for a CLI whose root help primarily directs users toward a subcommand:
+
+```dart
+import 'package:mamba/mamba.dart';
+
+final class CommandFirstHelpFormatter extends HelpFormatter {
+  @override
+  String format(CommandRegistry registry) {
+    final buffer = StringBuffer()
+      ..writeln(chalk.bold(registry.fullPath.join(' ')))
+      ..writeln(registry.shortDescription);
+
+    final longDescription = registry.longDescription;
+    if (longDescription != null) {
+      formatLongDescription(buffer, longDescription);
+    }
+
+    final commands = registry.commandRegistries ?? const [];
+    if (commands.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln(formatIntoSectionTitle('Commands').string);
+      for (final command in commands) {
+        buffer.writeln(
+          '  ${command.name} '
+          '${formatIntoEntryDescription(command.shortDescription).string}',
+        );
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  @override
+  void formatLongDescription(
+    StringBuffer buffer,
+    String longDescription,
+  ) {
+    buffer
+      ..writeln()
+      ..writeln(longDescription);
+  }
+}
+```
+
+Inherited methods can still be overridden individually. For example, override only `formatIntoSectionTitle()` to apply a brand theme while preserving the default semantic treatment of required, optional, paired, and alternative values.
+
+This focused example does not render inputs. Add every declaration family used by your application, or use the more complete layout below as a starting point.
+
+## Implement `HelpFormatter`
+
+Implement `HelpFormatter` when you do not want to inherit any formatter behavior. An implementation must provide `format()`, `formatLongDescription()`, and every DSL fragment method.
+
+The following formatter produces a compact usage line followed by descriptions, flags, options, and child commands. It uses a brand color for navigation and consistent semantic colors for the DSL:
+
+```dart
+import 'package:mamba/mamba.dart';
+
+final class CompactHelpFormatter implements HelpFormatter {
+  @override
+  RequiredString formatIntoRequiredString(String syntax) =>
+      RequiredString(chalk.yellow.bold(syntax));
+
+  @override
+  OptionalString formatIntoOptionalString(String syntax) =>
+      OptionalString(chalk.gray(syntax));
+
+  @override
+  SectionTitleString formatIntoSectionTitle(String title) =>
+      SectionTitleString(chalk.hex('#7C3AED').bold(title));
+
+  @override
+  EntryDescriptionString formatIntoEntryDescription(String description) =>
+      EntryDescriptionString(chalk.white(description));
+
+  @override
+  OrString formatIntoOrString(
+    String primaryMember,
+    Iterable<String> alternativeMembers,
+  ) => OrString(
+    chalk.magenta(primaryMember),
+    alternativeMembers.map((member) => chalk.magenta(member)),
+  );
+
+  @override
+  PairString formatIntoPairString(
+    String primaryMember,
+    Iterable<String> pairMembers,
+  ) => PairString(
+    chalk.cyan(primaryMember),
+    pairMembers.map((member) => chalk.cyan(member)),
+  );
+
   @override
   String format(CommandRegistry registry) {
     final buffer = StringBuffer()
@@ -174,29 +299,11 @@ final class CompactHelpFormatter extends HelpFormatter {
 }
 ```
 
-This example intentionally focuses on the declarations most applications use. If your command surface includes accessor trees or paired options, add sections for them before adopting the formatter. A custom formatter owns the complete help output; Mamba does not append declarations that your `format()` method leaves out.
-
-## Apply your visual style
-
-The inherited fragment methods already produce ANSI-styled output. Override them when you want to change the emphasis while retaining the DSL delimiters:
-
-```dart
-@override
-RequiredString formatIntoRequiredString(String syntax) =>
-    RequiredString(chalk.cyan(syntax));
-
-@override
-OptionalString formatIntoOptionalString(String syntax) =>
-    OptionalString(chalk.gray(syntax));
-```
-
-Pass styled text to these fragment types. `FormattedString` and its specialized forms validate that the value contains ANSI styling, while `RequiredString` and `OptionalString` add their own `< ... >` and `[ ... ]` delimiters.
-
-You can also override `formatIntoSectionTitle()`, `formatIntoEntryDescription()`, `formatIntoOrString()`, or `formatIntoPairString()` when your layout uses those fragment types. Keep semantic information visible in punctuation and wording instead of communicating it only through a particular color.
+This example intentionally focuses on the declarations most applications use. If your command surface includes accessor trees or paired options, add sections for them before adopting the formatter. A custom formatter owns the complete help output; Mamba does not append declarations that `format()` leaves out.
 
 ## Install the formatter
 
-Pass one formatter instance to the `Executor` that composes your application:
+Pass either formatter to the executor. This example installs the complete interface implementation:
 
 ```dart
 final executor = Executor(
@@ -211,7 +318,7 @@ final executor = Executor(
 );
 ```
 
-The production executor uses it for root help, nested command help, and help returned when no command is selected. The formatter receives the registry for the selected command path with inherited declarations already resolved.
+The production executor uses the instance for root help, nested command help, and help returned when no command is selected. It supplies the registry for the selected command path with inherited declarations already resolved.
 
 ## Check the result
 
@@ -225,6 +332,8 @@ $ dart run bin/mamba_example.dart deploy --help
 Before shipping the formatter, check that:
 
 - required and optional values remain distinguishable without color;
+- theme colors are limited to branding and navigation;
+- semantic colors keep the same meaning throughout the output;
 - the displayed path matches the selected command;
 - hidden declarations remain hidden;
 - inherited declarations appear on nested commands;
@@ -232,4 +341,4 @@ Before shipping the formatter, check that:
 - descriptions remain readable when ANSI color is unavailable;
 - commands with no options or children do not produce empty headings.
 
-If the output satisfies those checks, the formatter can replace `MambaHelpFormatter` without changing command registration, parsing, or execution.
+If the output satisfies those checks, your formatter can change Mamba's presentation without changing command registration, parsing, or execution.
