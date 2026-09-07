@@ -157,8 +157,9 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
 
   @override
   Future<MambaExecutionResult> execute(List<String> args) async {
+    late final _ExecutionResult result;
     try {
-      final result = await _execution.execute(args);
+      result = await _execution.execute(args);
       return MambaSuccessResult(result.output);
     } on Exception catch (exception) {
       return MambaFailureResult(
@@ -166,6 +167,14 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
             ? exception
             : MambaException(exception.toString()),
       );
+    } finally {
+      if (result.postRun case final postRun?) {
+        await postRun();
+      }
+
+      for (final postPersistentRun in result.postPersistentRuns) {
+        await postPersistentRun();
+      }
     }
   }
 }
@@ -195,6 +204,7 @@ final class _CreateExecutor implements MambaExecutor<void> {
         exitCode = 1;
       }
     }
+
     for (final postPersistentRun in result.postPersistentRuns) {
       try {
         await postPersistentRun();
