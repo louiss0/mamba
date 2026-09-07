@@ -40,14 +40,8 @@ positionals, variadics, and inputs published to descendants.
 | --- | --- | --- | --- |
 | `name` | Required | Required | The command name. A child command's name matches its key in the parent `commands` map. |
 | `description` | Required | Required | The short description, followed by the long description when one exists. |
-| `aliases` | Optional | Optional | A list of alternative command spellings. |
 | `flags` | Optional | Optional | A map of command-local flag names to flag maps. Mamba always adds the built-in `help` flag map. |
-| `persistentFlags` | Not allowed | Optional | A map of flag names to flag maps inherited by descendant commands. |
 | `options` | Optional | Optional | A map of command-local option names to option maps. |
-| `persistentOptions` | Not allowed | Optional | A map of option names to option maps inherited by descendant commands. |
-| `optionGroups` | Optional | Optional | A list of maps that describe paired-option groups. |
-| `positionals` | Not allowed | Optional | A map of positional argument names to positional maps. |
-| `variadic` | Not allowed | Optional | A map that describes the trailing positional argument. |
 | `accessors` | Optional | Optional | A map of accessor names to accessor maps. |
 | `commands` | Optional | Optional | A map of child command names to command maps with this same shape. |
 
@@ -102,7 +96,6 @@ Each `optionGroups` entry has the following fields.
 
 ### Positional and variadic maps
 
-Only nested command maps contain positional and variadic inputs.
 `positionals` uses the positional name as its key.
 
 | Field | Required | Contents |
@@ -145,3 +138,45 @@ group map or a value map.
 | `choices` | No | The available choice names; required when `valueType` is `choice`. |
 | `default` | No | The selected default choice name. |
 | `pattern` | No | The regular-expression pattern for the accessor value. |
+
+To extract values from the registry map you'll need to use pattern matching at the top level!
+Make a function that will recursively process the commands that are returned.
+
+
+```dart
+
+class Config extends  CompletionCommand {
+
+  @override
+  String get name => 'config';
+
+  @override
+  String get shortDescription => 'Configure this app';
+
+
+String _processSubcommands(List<Command>) {
+
+
+  return commands.map((command) => {
+    '${command.name}': '${command.shortDescription}'
+  }).join('\n');
+  
+}
+
+@override
+FutureOr<String?> run(
+  ParsedPositionals positionals,
+  ParsedNamedInputs inputs,
+  List<String> trailingArguments,
+) {
+
+}
+
+var completion = "";
+
+final (:name, :description, :commands, :flags, :options, :accessors) = registryMap;
+
+ completion = "//$description\n$name_completion() {  }" _processSubcommands(commands);
+
+} 
+```
