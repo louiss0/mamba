@@ -793,13 +793,14 @@ abstract class GroupCommand extends Command {
 
 enum ShellCompletion { bash, zsh, fish, powershell, carapace }
 
-/// A command that generates output from the executor's complete command map.
+/// A command that generates output from the executor's complete command record.
 ///
-/// The [Executor] assigns [registryMap] when it creates an execution
-/// environment. Subclasses can pass this validated map to an integration
+/// The [Executor] assigns [registryRecord] when it creates an execution
+/// environment. Subclasses can pass this typed record to an integration
 /// without creating or retaining a live registry.
 class CompletionCommand extends Command {
-  late final RegistryMap registryMap;
+  /// The typed registry assigned by the executor.
+  late RegistryRecord registryRecord;
 
   final void Function(String path) createFile;
 
@@ -851,7 +852,7 @@ class CompletionCommand extends Command {
     final extension = _extensionFor(shell);
 
     if (path.isNotEmpty && !_isValidPath(path, extension)) {
-      final commandName = registryMap.map['name'];
+      final commandName = registryRecord.name;
       throw MambaException(
         'When shell is $shell the path must end in $extension and must have '
         '$commandName in the file name',
@@ -879,8 +880,8 @@ class CompletionCommand extends Command {
       0,
       fileName.length - extension.length,
     );
-    final commandName = registryMap.map['name'];
-    return commandName is String &&
+    final commandName = registryRecord.name;
+    return commandName.isNotEmpty &&
         fileNameWithoutExtension.contains(commandName);
   }
 

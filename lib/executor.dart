@@ -232,8 +232,8 @@ final class _Execution {
         commands: factory.commands,
       ),
       commands = List.unmodifiable(factory.commands) {
-    final registryMap = _registry.toMap();
-    _assignCompletionRegistryMap(commands, registryMap);
+    final registryRecord = _registry.toMap();
+    _assignCompletionRegistryRecord(commands, registryRecord);
   }
 
   Future<_ExecutionResult> execute(List<String> args) async {
@@ -285,15 +285,15 @@ final class _Execution {
     );
   }
 
-  void _assignCompletionRegistryMap(
+  void _assignCompletionRegistryRecord(
     Iterable<Command>? candidates,
-    RegistryMap registryMap,
+    RegistryRecord registryRecord,
   ) {
     if (candidates == null) return;
     for (final command in candidates) {
-      if (command is CompletionCommand) command.registryMap = registryMap;
+      if (command is CompletionCommand) command.registryRecord = registryRecord;
       if (command is GroupCommand) {
-        _assignCompletionRegistryMap(command.commands, registryMap);
+        _assignCompletionRegistryRecord(command.commands, registryRecord);
       }
     }
   }

@@ -45,7 +45,7 @@ void main() {
   });
 
   group('completion commands', () {
-    test('receive the complete root map when nested', () async {
+    test('receive the complete root record when nested', () async {
       final completion = _CompletionCommand();
       final executor = Executor('mamba', 'A command-line application.', [
         _DefaultGroup([completion], defaultSubCommandPath: ['completion']),
@@ -55,11 +55,10 @@ void main() {
 
       expect(result, isA<MambaSuccessResult>());
       expect((result as MambaSuccessResult).output, 'mamba');
-      final commands =
-          completion.registryMap.map['commands'] as Map<String, dynamic>;
-      final group = commands['group'] as Map<String, dynamic>;
+      final commands = completion.registryRecord.commands!;
+      final group = commands.singleWhere((command) => command.name == 'group');
       expect(
-        (group['commands'] as Map<String, dynamic>).containsKey('completion'),
+        group.commands!.any((command) => command.name == 'completion'),
         isTrue,
       );
     });
@@ -406,7 +405,7 @@ final class _CompletionCommand extends CompletionCommand {
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
-  ) => registryMap.map['name'] as String;
+  ) => registryRecord.name;
 }
 
 final class _InputCommand extends Command {

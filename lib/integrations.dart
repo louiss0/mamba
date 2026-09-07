@@ -4,11 +4,42 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
 import 'package:yaml_writer/yaml_writer.dart';
 
-List<String> _steppedDoubleValuesFromMap(Map<String, dynamic> value) {
-  final min = value['min'];
-  final max = value['max'];
-  final step = value['step'];
-  if (value['valueType'] != 'double' ||
+List<String> _stringList(List<String>? values) => values ?? const [];
+
+List<T> _mergeNamed<T>(List<T> inputs, String Function(T) getName) => [
+  for (final name in inputs.map(getName).toSet())
+    inputs.lastWhere((input) => getName(input) == name),
+];
+
+List<RegistryFlag> _mergeFlags(List<RegistryFlag> flags) =>
+    _mergeNamed(flags, (flag) => flag.name);
+
+List<RegistryOption> _mergeOptions(List<RegistryOption> options) =>
+    _mergeNamed(options, (option) => option.name);
+
+RegistryOption _accessorOption(RegistryAccessor accessor, String name) => (
+  name: name,
+  short: null,
+  required: false,
+  hidden: false,
+  description: accessor.description,
+  valueType: accessor.valueType!,
+  repeatable: null,
+  variant: null,
+  choices: accessor.choices,
+  defaultValue: accessor.defaultValue,
+  pattern: accessor.pattern,
+  min: null,
+  max: null,
+  step: null,
+  pairedOptions: null,
+);
+
+List<String> _steppedDoubleValuesFor(RegistryOption value) {
+  final min = value.min;
+  final max = value.max;
+  final step = value.step;
+  if (value.valueType != 'double' ||
       min is! num ||
       max is! num ||
       step is! num) {
@@ -34,26 +65,40 @@ List<String> _steppedDoubleValues(double min, double max, double step) {
   ];
 }
 
-/// Converts a validated [RegistryMap] into an integration-specific artifact.
-abstract class RegistryMapConverter {
-  new(this.registryMap);
+/// Converts a typed registry description into an integration-specific artifact.
+abstract class RegistryRecordConverter {
+  new(this.registry);
 
-  final RegistryMap registryMap;
+  final RegistryRecord registry;
+
+  RegistryCommand get _root => RegistryCommand(
+    name: registry.name,
+    description: registry.description,
+    commands: registry.commands,
+    flags: registry.flags,
+    persistentFlags: registry.persistentFlags,
+    options: registry.options,
+    persistentOptions: registry.persistentOptions,
+    optionGroups: registry.optionGroups,
+    positionals: registry.positionals,
+    variadic: registry.variadic,
+    accessors: registry.accessors,
+  );
 
   String convert();
 }
 
-/// Compiles a registry map into a portable Bash completion script.
+/// Compiles a registry record into a portable Bash completion script.
 ///
 /// Bash associative-array values are strings, not arrays. Each option map
 /// therefore points at an indexed array containing its finite value choices.
-final class ToBashCompletionConverter extends RegistryMapConverter {
-  new(super.registryMap);
+final class ToBashCompletionConverter extends RegistryRecordConverter {
+  new(super.registry);
 
   @override
   String convert() {
-    final root = registryMap.map;
-    final rootName = root['name'] as String;
+    final root = _root;
+    final rootName = root.name;
     final lines = <String>[_filterFunction()];
     final rootFlags = _flagsFor(root);
     final rootOptions = _optionsFor(root);
@@ -66,11 +111,11 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
       options: rootOptions,
       global: true,
     );
-    final commands = _mapOrNull(root['commands']);
+    final commands = root.commands;
     _writeRoutingTables(lines, root, [rootName]);
     if (commands != null) {
-      for (final command in commands.values) {
-        _writeCommand(lines, _map(command), [rootName], rootFlags, rootOptions);
+      for (final command in commands) {
+        _writeCommand(lines, command, [rootName], rootFlags, rootOptions);
       }
     }
     _writeRootHandler(lines, root, [rootName], rootOptions);
@@ -81,7 +126,7 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
 
   void _writeRoutingTables(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path,
   ) {
     final rootName = path.first;
@@ -89,50 +134,47 @@ final class ToBashCompletionConverter extends RegistryMapConverter {
     final valueOptions = <String>[];
 
     void collect(
-      Map<String, dynamic> parent,
+      RegistryCommand parent,
       List<String> parentPath,
-      Map<String, dynamic> inheritedOptions, {
+      List<RegistryOption> inheritedOptions, {
       required bool isRoot,
     }) {
-      final persistentOptions =
-          _mapOrNull(parent['persistentOptions']) ?? const <String, dynamic>{};
+      final persistentOptions = parent.persistentOptions ?? const [];
       final localOptions = _optionsFor(parent, includePersistent: false);
-      final availableOptions = {
+      final availableOptions = _mergeOptions([
         ...inheritedOptions,
         ...persistentOptions,
         ...localOptions,
-      };
+      ]);
       final parentIdentifier = _pathIdentifier(parentPath);
-      for (final entry in availableOptions.entries) {
-        final option = _map(entry.value);
-        valueOptions.add('  [${_quote('$parentIdentifier|--${entry.key}')}]=1');
-        if (option['short'] case final String short) {
+      for (final entry in availableOptions) {
+        final option = entry;
+        valueOptions.add(
+          '  [${_quote('$parentIdentifier|--${entry.name}')}]=1',
+        );
+        if (option.short case final String short) {
           valueOptions.add('  [${_quote('$parentIdentifier|-$short')}]=1');
         }
       }
 
-      final children = _mapOrNull(parent['commands']);
+      final children = parent.commands;
       if (children == null) return;
       final descendantOptions = isRoot
           ? availableOptions
-          : {...inheritedOptions, ...persistentOptions};
-      for (final child in children.values) {
-        final childMap = _map(child);
-        final childPath = [...parentPath, childMap['name'] as String];
+          : _mergeOptions([...inheritedOptions, ...persistentOptions]);
+      for (final child in children) {
+        final childPath = [...parentPath, child.name];
         final handler = '_${_pathIdentifier(childPath)}_completion';
-        for (final spelling in [
-          childMap['name'] as String,
-          ..._stringList(childMap['aliases']),
-        ]) {
+        for (final spelling in [child.name, ..._stringList(child.aliases)]) {
           routes.add(
             '  [${_quote('$parentIdentifier|$spelling')}]=${_quote(handler)}',
           );
         }
-        collect(childMap, childPath, descendantOptions, isRoot: false);
+        collect(child, childPath, descendantOptions, isRoot: false);
       }
     }
 
-    collect(command, path, const {}, isRoot: true);
+    collect(command, path, const [], isRoot: true);
     lines.addAll([
       'declare -A _${_identifier(rootName)}_command_routes=(',
       ...routes,
@@ -231,9 +273,9 @@ _mamba_filter_option() {
 
   void _writeRootHandler(
     List<String> lines,
-    Map<String, dynamic> root,
+    RegistryCommand root,
     List<String> path,
-    Map<String, dynamic> options,
+    List<RegistryOption> options,
   ) {
     final function = '_${_pathIdentifier(path)}_root_completion';
     lines.addAll([
@@ -272,39 +314,37 @@ _mamba_filter_option() {
 
   void _writeCommand(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> parentPath,
-    Map<String, dynamic> inheritedFlags,
-    Map<String, dynamic> inheritedOptions,
+    List<RegistryFlag> inheritedFlags,
+    List<RegistryOption> inheritedOptions,
   ) {
-    final path = [...parentPath, command['name'] as String];
-    final persistentFlags =
-        _mapOrNull(command['persistentFlags']) ?? const <String, dynamic>{};
-    final persistentOptions =
-        _mapOrNull(command['persistentOptions']) ?? const <String, dynamic>{};
-    final flags = {
+    final path = [...parentPath, command.name];
+    final persistentFlags = command.persistentFlags ?? const [];
+    final persistentOptions = command.persistentOptions ?? const [];
+    final flags = _mergeFlags([
       ...inheritedFlags,
       ...persistentFlags,
-      ...?_mapOrNull(command['flags']),
-    };
-    final options = {
+      ...?command.flags,
+    ]);
+    final options = _mergeOptions([
       ...inheritedOptions,
       ...persistentOptions,
       ..._optionsFor(command, includePersistent: false),
-    };
+    ]);
     _writeInputTables(lines, command, path, flags: flags, options: options);
-    final children = _mapOrNull(command['commands']);
+    final children = command.commands;
     if (children != null) {
-      final descendantFlags = {...inheritedFlags, ...persistentFlags};
-      final descendantOptions = {...inheritedOptions, ...persistentOptions};
-      for (final child in children.values) {
-        _writeCommand(
-          lines,
-          _map(child),
-          path,
-          descendantFlags,
-          descendantOptions,
-        );
+      final descendantFlags = _mergeFlags([
+        ...inheritedFlags,
+        ...persistentFlags,
+      ]);
+      final descendantOptions = _mergeOptions([
+        ...inheritedOptions,
+        ...persistentOptions,
+      ]);
+      for (final child in children) {
+        _writeCommand(lines, child, path, descendantFlags, descendantOptions);
       }
     }
 
@@ -345,21 +385,21 @@ _mamba_filter_option() {
 
   void _writeInputTables(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path, {
-    required Map<String, dynamic> flags,
-    required Map<String, dynamic> options,
+    required List<RegistryFlag> flags,
+    required List<RegistryOption> options,
     bool global = false,
   }) {
-    _writeDescription(lines, command['description'] as String);
+    _writeDescription(lines, command.description);
     final visibleFlags = <String>[];
-    for (final entry in flags.entries) {
-      final flag = _map(entry.value);
-      if (flag['hidden'] == true) continue;
-      final short = flag['short'] as String?;
+    for (final entry in flags) {
+      final flag = entry;
+      if (flag.hidden == true) continue;
+      final short = flag.short;
       if (short != null) visibleFlags.add('-$short');
-      visibleFlags.add('--${entry.key}');
-      if (flag['negatable'] == true) visibleFlags.add('--no-${entry.key}');
+      visibleFlags.add('--${entry.name}');
+      if (flag.negatable == true) visibleFlags.add('--no-${entry.name}');
     }
     final flagVariable = _variable(path, 'flags');
     lines.addAll([
@@ -374,12 +414,12 @@ _mamba_filter_option() {
 
     final optionVariable = _variable(path, 'options');
     final optionEntries = <String>[];
-    for (final entry in options.entries) {
-      final option = _map(entry.value);
-      if (option['hidden'] == true) continue;
-      final valuesVariable = _variable(path, '${entry.key}_values');
-      final choices = _stringList(option['choices']);
-      final steppedValues = _steppedDoubleValuesFromMap(option);
+    for (final entry in options) {
+      final option = entry;
+      if (option.hidden == true) continue;
+      final valuesVariable = _variable(path, '${entry.name}_values');
+      final choices = _stringList(option.choices);
+      final steppedValues = _steppedDoubleValuesFor(option);
       lines.addAll([
         '$valuesVariable=(',
         for (final choice in [...choices, ...steppedValues])
@@ -388,9 +428,9 @@ _mamba_filter_option() {
         '',
       ]);
       optionEntries.add(
-        '  [${_quote('--${entry.key}')}]=${_quote(valuesVariable)}',
+        '  [${_quote('--${entry.name}')}]=${_quote(valuesVariable)}',
       );
-      if (option['short'] case final String short) {
+      if (option.short case final String short) {
         optionEntries.add('  [${_quote('-$short')}]=${_quote(valuesVariable)}');
       }
     }
@@ -398,16 +438,16 @@ _mamba_filter_option() {
   }
 
   List<String> _valueCases(
-    Map<String, dynamic> options,
+    List<RegistryOption> options,
     List<String> path,
     String indent,
   ) {
     return [
-      for (final entry in options.entries)
-        if (_stringList(_map(entry.value)['choices']).isNotEmpty ||
-            _steppedDoubleValuesFromMap(_map(entry.value)).isNotEmpty) ...[
+      for (final entry in options)
+        if (_stringList(entry.choices).isNotEmpty ||
+            _steppedDoubleValuesFor(entry).isNotEmpty) ...[
           '$indent${_optionPattern(entry)})',
-          '$indent  _mamba_filter "\$current" ${_arrayValues(_variable(path, '${entry.key}_values'))}',
+          '$indent  _mamba_filter "\$current" ${_arrayValues(_variable(path, '${entry.name}_values'))}',
           '$indent  return',
           '$indent  ;;',
         ],
@@ -415,38 +455,38 @@ _mamba_filter_option() {
   }
 
   List<String> _inlineValueCases(
-    Map<String, dynamic> options,
+    List<RegistryOption> options,
     List<String> path,
     String indent,
   ) {
     return [
-      for (final entry in options.entries)
-        if (_stringList(_map(entry.value)['choices']).isNotEmpty ||
-            _steppedDoubleValuesFromMap(_map(entry.value)).isNotEmpty) ...[
-          '$indent--${entry.key}=*)',
-          '$indent  _mamba_filter_option ${_quote('--${entry.key}')} "\$current" ${_arrayValues(_variable(path, '${entry.key}_values'))}',
+      for (final entry in options)
+        if (_stringList(entry.choices).isNotEmpty ||
+            _steppedDoubleValuesFor(entry).isNotEmpty) ...[
+          '$indent--${entry.name}=*)',
+          '$indent  _mamba_filter_option ${_quote('--${entry.name}')} "\$current" ${_arrayValues(_variable(path, '${entry.name}_values'))}',
           '$indent  return',
           '$indent  ;;',
         ],
     ];
   }
 
-  List<String> _commandCases(Map<String, dynamic> command, String indent) {
-    final commands = _mapOrNull(command['commands']);
+  List<String> _commandCases(RegistryCommand command, String indent) {
+    final commands = command.commands;
     if (commands == null) return const [];
     return [
       '${indent}_mamba_filter "\$current" ${[
-        for (final child in commands.values) ...[_quote(_map(child)['name'] as String), for (final alias in _stringList(_map(child)['aliases'])) _quote(alias)],
+        for (final child in commands) ...[_quote(child.name), for (final alias in _stringList(child.aliases)) _quote(alias)],
       ].join(' ')}',
     ];
   }
 
   void _writePositionalHandler(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path,
   ) {
-    final positionals = _mapOrNull(command['positionals']);
+    final positionals = command.positionals;
     final function = '_complete_${_pathIdentifier(path)}_positional';
     lines.addAll(['$function() {', r'  local current="$1"']);
     if (positionals != null) {
@@ -455,10 +495,9 @@ _mamba_filter_option() {
         r'  case "$index" in',
       ]);
       var index = 0;
-      for (final positional in positionals.values) {
-        final map = _map(positional);
-        final choices = _stringList(map['choices']);
-        final times = map['repeatable'] == true ? map['times'] as int : 0;
+      for (final positional in positionals) {
+        final choices = _stringList(positional.choices);
+        final times = positional.repeatable == true ? positional.times! : 0;
         if (choices.isNotEmpty) {
           final indexes = [
             for (var slot = 0; slot <= times; slot++) index + slot,
@@ -478,17 +517,17 @@ _mamba_filter_option() {
 
   void _writeVariadicHandler(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path,
   ) {
-    final variadic = _mapOrNull(command['variadic']);
+    final variadic = command.variadic;
     final choices = variadic == null
         ? const <String>[]
-        : _stringList(variadic['choices']);
+        : _stringList(variadic.choices);
     final function = '_complete_${_pathIdentifier(path)}_variadic';
     lines.addAll(['$function() {', r'  local current="$1"']);
     if (choices.isNotEmpty) {
-      if (variadic!['repeatable'] == true) {
+      if (variadic!.repeatable == true) {
         lines.add(
           '  _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
         );
@@ -510,9 +549,9 @@ _mamba_filter_option() {
     ]);
   }
 
-  String _optionPattern(MapEntry<String, dynamic> entry) {
-    final short = _map(entry.value)['short'] as String?;
-    return '--${entry.key}${short == null ? '' : '|-$short'}';
+  String _optionPattern(RegistryOption entry) {
+    final short = entry.short;
+    return '--${entry.name}${short == null ? '' : '|-$short'}';
   }
 
   String _arrayValues(String variable) => r'"${' + variable + r'[@]}"';
@@ -530,93 +569,74 @@ _mamba_filter_option() {
 
   String _quote(String value) => "'${value.replaceAll("'", "'\\\"'\\\"")}'";
 
-  Map<String, dynamic> _map(Object? value) =>
-      Map<String, dynamic>.from(value as Map);
-
-  Map<String, dynamic>? _mapOrNull(Object? value) =>
-      value is Map ? _map(value) : null;
-
-  List<String> _stringList(Object? value) => switch (value) {
-    List() => value.cast<String>(),
-    _ => const [],
-  };
-
-  Iterable<({String path, Map<String, dynamic> value})> _accessorLeaves(
-    Map<String, dynamic>? accessors, {
+  Iterable<({String path, RegistryOption value})> _accessorLeaves(
+    List<RegistryAccessor>? accessors, {
     String? parentPath,
   }) sync* {
     if (accessors == null) return;
-    for (final entry in accessors.entries) {
-      final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
-      final value = _map(entry.value);
-      if (value['kind'] == 'group') {
-        yield* _accessorLeaves(_mapOrNull(value['options']), parentPath: path);
+    for (final entry in accessors) {
+      final path = parentPath == null
+          ? entry.name
+          : '$parentPath.${entry.name}';
+      final value = entry;
+      if (value.kind == 'group') {
+        yield* _accessorLeaves(value.options, parentPath: path);
       } else {
-        yield (path: path, value: value);
+        yield (path: path, value: _accessorOption(value, path));
       }
     }
   }
 
-  Map<String, dynamic> _flagsFor(Map<String, dynamic> command) => {
-    ...?_mapOrNull(command['persistentFlags']),
-    ...?_mapOrNull(command['flags']),
-  };
+  List<RegistryFlag> _flagsFor(RegistryCommand command) =>
+      _mergeFlags([...?command.persistentFlags, ...?command.flags]);
 
-  Map<String, dynamic> _optionsFor(
-    Map<String, dynamic> command, {
+  List<RegistryOption> _optionsFor(
+    RegistryCommand command, {
     bool includePersistent = true,
-  }) => {
-    if (includePersistent) ...?_mapOrNull(command['persistentOptions']),
-    ...?_mapOrNull(command['options']),
-    for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
-      accessor.path: accessor.value,
-  };
+  }) => _mergeOptions([
+    if (includePersistent) ...?command.persistentOptions,
+    ...?command.options,
+    for (final accessor in _accessorLeaves(command.accessors)) accessor.value,
+  ]);
 }
 
-/// Compiles a registry map into a native Zsh completion function.
-final class ToZshCompletionConverter extends RegistryMapConverter {
-  new(super.registryMap);
+/// Compiles a registry record into a native Zsh completion function.
+final class ToZshCompletionConverter extends RegistryRecordConverter {
+  new(super.registry);
 
   @override
   String convert() {
-    final root = _map(registryMap.map);
-    final rootName = root['name'] as String;
+    final root = _root;
+    final rootName = root.name;
     final lines = <String>['#compdef $rootName', ''];
-    _writeCommand(lines, root, [rootName], const {}, const {});
+    _writeCommand(lines, root, [rootName], const [], const []);
     lines.add('compdef _${_pathIdentifier([rootName])} $rootName');
     return '${lines.join('\n')}\n';
   }
 
   void _writeCommand(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path,
-    Map<String, dynamic> inheritedFlags,
-    Map<String, dynamic> inheritedOptions,
+    List<RegistryFlag> inheritedFlags,
+    List<RegistryOption> inheritedOptions,
   ) {
-    final flags = {
+    final flags = _mergeFlags([
       ...inheritedFlags,
-      ...?_mapOrNull(command['persistentFlags']),
-      ...?_mapOrNull(command['flags']),
-    };
-    final options = {
+      ...?command.persistentFlags,
+      ...?command.flags,
+    ]);
+    final options = _mergeOptions([
       ...inheritedOptions,
-      ...?_mapOrNull(command['persistentOptions']),
-      ...?_mapOrNull(command['options']),
-      for (final accessor in _accessorLeaves(_mapOrNull(command['accessors'])))
-        if (!accessor.hidden) accessor.path: accessor.value,
-    };
-    final children = _mapOrNull(command['commands']);
+      ...?command.persistentOptions,
+      ...?command.options,
+      for (final accessor in _accessorLeaves(command.accessors))
+        if (!accessor.hidden) accessor.value,
+    ]);
+    final children = command.commands;
     if (children != null) {
-      for (final child in children.values) {
-        final childMap = _map(child);
-        _writeCommand(
-          lines,
-          childMap,
-          [...path, childMap['name'] as String],
-          flags,
-          options,
-        );
+      for (final child in children) {
+        _writeCommand(lines, child, [...path, child.name], flags, options);
       }
     }
 
@@ -632,9 +652,9 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
     if (children != null) {
       lines.addAll([
         r'  case "$words[2]" in',
-        for (final child in children.values) ...[
-          '    ${_commandPatterns(_map(child))})',
-          '      _${_pathIdentifier([...path, _map(child)['name'] as String])}',
+        for (final child in children) ...[
+          '    ${_commandPatterns(child)})',
+          '      _${_pathIdentifier([...path, child.name])}',
           '      return',
           '      ;;',
         ],
@@ -657,7 +677,7 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
         '    command)',
         '      local -a commands',
         '      commands=(',
-        for (final child in children.values) ..._commandCandidates(_map(child)),
+        for (final child in children) ..._commandCandidates(child),
         '      )',
         "      _describe 'command' commands",
         '      ;;',
@@ -667,18 +687,16 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
   }
 
   List<String> _argumentSpecs(
-    Map<String, dynamic> flags,
-    Map<String, dynamic> options,
-    Map<String, dynamic> command,
-    Map<String, dynamic>? children,
+    List<RegistryFlag> flags,
+    List<RegistryOption> options,
+    RegistryCommand command,
+    List<RegistryCommand>? children,
   ) {
     final specs = <String>[
-      for (final entry in flags.entries)
-        if (_map(entry.value)['hidden'] != true)
-          ..._flagSpecs(entry.key, _map(entry.value)),
-      for (final entry in options.entries)
-        if (_map(entry.value)['hidden'] != true)
-          _optionSpec(entry.key, _map(entry.value)),
+      for (final entry in flags)
+        if (entry.hidden != true) ..._flagSpecs(entry.name, entry),
+      for (final entry in options)
+        if (entry.hidden != true) _optionSpec(entry.name, entry),
       ..._positionalSpecs(command),
       if (children != null) "'1:command:->command'",
       "'*::argument:'",
@@ -689,43 +707,38 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
     ];
   }
 
-  List<String> _flagSpecs(String name, Map<String, dynamic> flag) {
-    final description = _description(flag['description'] as String?);
-    final short = flag['short'] as String?;
-    final repeatable = flag.containsKey('default') ? '' : '*';
+  List<String> _flagSpecs(String name, RegistryFlag flag) {
+    final description = _description(flag.description);
+    final short = flag.short;
+    final repeatable = (flag.defaultValue != null) ? '' : '*';
     final primary = short == null
         ? "'$repeatable--$name[$description]'"
         : "'$repeatable{-$short,--$name}[$description]'";
-    return [
-      primary,
-      if (flag['negatable'] == true) "'--no-$name[$description]'",
-    ];
+    return [primary, if (flag.negatable == true) "'--no-$name[$description]'"];
   }
 
-  String _optionSpec(String name, Map<String, dynamic> option) {
-    final repeatable = option['repeatable'] == true ? '*' : '';
-    final short = option['short'] as String?;
+  String _optionSpec(String name, RegistryOption option) {
+    final repeatable = option.repeatable == true ? '*' : '';
+    final short = option.short;
     final spelling = short == null ? '--$name' : '{-$short,--$name}';
     final valueName = _escape(name);
-    return "'$repeatable$spelling[${_description(option['description'] as String?)}]:$valueName:${_valueAction(option)}'";
+    return "'$repeatable$spelling[${_description(option.description)}]:$valueName:${_valueAction(option)}'";
   }
 
-  List<String> _positionalSpecs(Map<String, dynamic> command) {
-    final positionals = _mapOrNull(command['positionals']);
+  List<String> _positionalSpecs(RegistryCommand command) {
+    final positionals = command.positionals;
     if (positionals == null) return const [];
     final specs = <String>[];
     var index = 1;
-    for (final entry in positionals.entries) {
-      final positional = _map(entry.value);
-      final repetitions = positional['repeatable'] == true
-          ? positional['times'] as int? ?? 0
+    for (final entry in positionals) {
+      final positional = entry;
+      final repetitions = positional.repeatable == true
+          ? positional.times ?? 0
           : 0;
       for (var count = 0; count <= repetitions; count++) {
-        final optional = positional['required'] == true && count == 0
-            ? ':'
-            : '::';
+        final optional = positional.required == true && count == 0 ? ':' : '::';
         specs.add(
-          "'$index$optional${_escape(entry.key)}:${_valueAction(positional)}'",
+          "'$index$optional${_escape(entry.name)}:${_choiceAction(positional.choices)}'",
         );
         index++;
       }
@@ -733,49 +746,48 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
     return specs;
   }
 
-  List<String> _variadicLines(Map<String, dynamic> command, String indent) {
-    final variadic = _mapOrNull(command['variadic']);
+  List<String> _variadicLines(RegistryCommand command, String indent) {
+    final variadic = command.variadic;
     if (variadic == null) return ['$indent:'];
-    final choices = _stringList(variadic['choices']);
+    final choices = _stringList(variadic.choices);
     return choices.isEmpty
         ? ['$indent:']
-        : [
-            "${indent}_values 'value' ${choices.map(_quote).join(' ')}",
-          ];
+        : ["${indent}_values 'value' ${choices.map(_quote).join(' ')}"];
   }
 
-  String _valueAction(Map<String, dynamic> value) {
-    final choices = _stringList(value['choices']);
-    final steppedValues = _steppedDoubleValuesFromMap(value);
+  String _choiceAction(List<String>? choices) =>
+      choices == null || choices.isEmpty
+      ? ''
+      : '(${choices.map(_escape).join(' ')})';
+
+  String _valueAction(RegistryOption value) {
+    final choices = _stringList(value.choices);
+    final steppedValues = _steppedDoubleValuesFor(value);
     if (choices.isNotEmpty || steppedValues.isNotEmpty) {
       return '(${[...choices, ...steppedValues].map(_escape).join(' ')})';
     }
-    final minimum = value['min'] as num?;
-    final maximum = value['max'] as num?;
+    final minimum = value.min;
+    final maximum = value.max;
     final bounds = [
       if (minimum != null) '-l $minimum',
       if (maximum != null) '-m $maximum',
     ].join(' ');
-    return switch (value['valueType']) {
+    return switch (value.valueType) {
       'int' => '_numbers${bounds.isEmpty ? '' : ' $bounds'}',
       'double' => '_numbers -f${bounds.isEmpty ? '' : ' $bounds'}',
       _ => '',
     };
   }
 
-  String _commandPatterns(Map<String, dynamic> command) => [
-    command['name'] as String,
-    ..._stringList(command['aliases']),
-  ].map(_escape).join('|');
+  String _commandPatterns(RegistryCommand command) =>
+      [command.name, ..._stringList(command.aliases)].map(_escape).join('|');
 
-  List<String> _commandCandidates(Map<String, dynamic> command) {
-    final description = _escape(
-      (command['description'] as String).split('\n').first,
-    );
+  List<String> _commandCandidates(RegistryCommand command) {
+    final description = _escape((command.description).split('\n').first);
     return [
-      "        '${_escape(command['name'] as String)}:$description'",
-      for (final alias in _stringList(command['aliases']))
-        "        '${_escape(alias)}:Alias for ${_escape(command['name'] as String)}'",
+      "        '${_escape(command.name)}:$description'",
+      for (final alias in _stringList(command.aliases))
+        "        '${_escape(alias)}:Alias for ${_escape(command.name)}'",
     ];
   }
 
@@ -796,59 +808,49 @@ final class ToZshCompletionConverter extends RegistryMapConverter {
   String _identifier(String value) =>
       value.replaceAll('-', '_').replaceAll('.', '_');
 
-  Map<String, dynamic> _map(Object? value) =>
-      Map<String, dynamic>.from(value as Map);
-
-  Map<String, dynamic>? _mapOrNull(Object? value) =>
-      value is Map ? _map(value) : null;
-
-  List<String> _stringList(Object? value) => switch (value) {
-    List() => value.cast<String>(),
-    _ => const [],
-  };
-
-  Iterable<({String path, Map<String, dynamic> value, bool hidden})>
-  _accessorLeaves(
-    Map<String, dynamic>? accessors, {
+  Iterable<({String path, RegistryOption value, bool hidden})> _accessorLeaves(
+    List<RegistryAccessor>? accessors, {
     String? parentPath,
     bool ancestorHidden = false,
   }) sync* {
     if (accessors == null) return;
-    for (final entry in accessors.entries) {
-      final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
-      final value = _map(entry.value);
-      final hidden = ancestorHidden || value['hidden'] == true;
-      if (value['kind'] == 'group') {
+    for (final entry in accessors) {
+      final path = parentPath == null
+          ? entry.name
+          : '$parentPath.${entry.name}';
+      final value = entry;
+      final hidden = ancestorHidden || value.hidden == true;
+      if (value.kind == 'group') {
         yield* _accessorLeaves(
-          _mapOrNull(value['options']),
+          value.options,
           parentPath: path,
           ancestorHidden: hidden,
         );
       } else {
-        yield (path: path, value: value, hidden: hidden);
+        yield (path: path, value: _accessorOption(value, path), hidden: hidden);
       }
     }
   }
 }
 
-/// Compiles a registry map into Fish `complete` declarations.
+/// Compiles a registry record into Fish `complete` declarations.
 ///
 /// The generated helpers route rules to the selected command path and keep
 /// positional and post-`--` choices separate. Parser validation remains in
 /// Mamba; Fish only advertises the static command grammar.
-final class ToFishCompletionConverter extends RegistryMapConverter {
-  new(super.registryMap);
+final class ToFishCompletionConverter extends RegistryRecordConverter {
+  new(super.registry);
 
   @override
   String convert() {
-    final root = _map(registryMap.map);
-    final rootName = root['name'] as String;
+    final root = _root;
+    final rootName = root.name;
     final lines = <String>[
-      '# Completion for $rootName: ${_summary(root['description'] as String)}',
+      '# Completion for $rootName: ${_summary(root.description)}',
       _helpers(),
       '',
     ];
-    _writeCommand(lines, root, [rootName], const [], const {}, const {});
+    _writeCommand(lines, root, [rootName], const [], const [], const []);
     return '${lines.join('\n')}\n';
   }
 
@@ -1043,28 +1045,28 @@ end''';
 
   void _writeCommand(
     List<String> lines,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path,
     List<String> ancestorSpecs,
-    Map<String, dynamic> inheritedFlags,
-    Map<String, dynamic> inheritedOptions,
+    List<RegistryFlag> inheritedFlags,
+    List<RegistryOption> inheritedOptions,
   ) {
-    final persistentFlags = {
+    final persistentFlags = _mergeFlags([
       ...inheritedFlags,
-      ...?_mapOrNull(command['persistentFlags']),
-    };
-    final flags = {...persistentFlags, ...?_mapOrNull(command['flags'])};
-    final persistentOptions = {
+      ...?command.persistentFlags,
+    ]);
+    final flags = _mergeFlags([...persistentFlags, ...?command.flags]);
+    final persistentOptions = _mergeOptions([
       ...inheritedOptions,
-      ...?_mapOrNull(command['persistentOptions']),
-    };
-    final options = {...persistentOptions, ...?_mapOrNull(command['options'])};
-    final children = _mapOrNull(command['commands']);
+      ...?command.persistentOptions,
+    ]);
+    final options = _mergeOptions([...persistentOptions, ...?command.options]);
+    final children = command.commands;
     final spec = _commandSpec(
       command,
       flags,
       options,
-      _mapOrNull(command['accessors']),
+      command.accessors,
       children,
     );
     final specs = [...ancestorSpecs, spec];
@@ -1077,26 +1079,22 @@ end''';
       condition,
       flags,
       options,
-      _mapOrNull(command['accessors']),
+      command.accessors,
     );
     _writePositionals(lines, path.first, command, condition, specs);
     _writeVariadic(lines, path.first, command, condition);
 
     if (children == null) return;
     final childCondition = _helperCondition('__mamba_selecting_child', specs);
-    for (final child in children.values) {
-      final childMap = _map(child);
-      final names = [
-        childMap['name'] as String,
-        ..._stringList(childMap['aliases']),
-      ];
+    for (final child in children) {
+      final names = [child.name, ..._stringList(child.aliases)];
       lines.add(
-        "complete -c ${_quoteBare(path.first)}${_conditionArgument(childCondition)} -f -a ${_quote(names.join(' '))} -d ${_quote(_summary(childMap['description'] as String))}",
+        "complete -c ${_quoteBare(path.first)}${_conditionArgument(childCondition)} -f -a ${_quote(names.join(' '))} -d ${_quote(_summary(child.description))}",
       );
       _writeCommand(
         lines,
-        childMap,
-        [...path, childMap['name'] as String],
+        child,
+        [...path, child.name],
         specs,
         path.length == 1 ? flags : persistentFlags,
         path.length == 1 ? options : persistentOptions,
@@ -1108,53 +1106,53 @@ end''';
     List<String> lines,
     String executable,
     String condition,
-    Map<String, dynamic> flags,
-    Map<String, dynamic> options,
-    Map<String, dynamic>? accessors,
+    List<RegistryFlag> flags,
+    List<RegistryOption> options,
+    List<RegistryAccessor>? accessors,
   ) {
-    for (final entry in flags.entries) {
-      final flag = _map(entry.value);
-      if (flag['hidden'] == true) continue;
-      final switches = <String>['-l ${_quoteBare(entry.key)}'];
-      if (flag['short'] case final String short) {
+    for (final entry in flags) {
+      final flag = entry;
+      if (flag.hidden == true) continue;
+      final switches = <String>['-l ${_quoteBare(entry.name)}'];
+      if (flag.short case final String short) {
         switches.insert(0, '-s $short');
       }
       lines.add(
-        'complete -c $executable${_conditionArgument(condition)} ${switches.join(' ')}${_description(flag['description'])}',
+        'complete -c $executable${_conditionArgument(condition)} ${switches.join(' ')}${_description(flag.description)}',
       );
-      if (flag['negatable'] == true) {
+      if (flag.negatable == true) {
         lines.add(
-          'complete -c $executable${_conditionArgument(condition)} -l no-${_quoteBare(entry.key)}${_description(flag['description'])}',
+          'complete -c $executable${_conditionArgument(condition)} -l no-${_quoteBare(entry.name)}${_description(flag.description)}',
         );
       }
     }
     final accessorOptions = _accessorLeaves(accessors);
-    final mergedOptions = <String, Map<String, dynamic>>{
-      for (final entry in options.entries) entry.key: _map(entry.value),
-      for (final leaf in accessorOptions) leaf.path: leaf.value,
-    };
-    for (final entry in mergedOptions.entries) {
-      final option = entry.value;
-      if (option['hidden'] == true) continue;
-      final short = option['short'] as String?;
-      final type = option['valueType'] as String?;
-      final choices = _stringList(option['choices']);
-      final steppedValues = _steppedDoubleValuesFromMap(option);
+    final mergedOptions = _mergeOptions([
+      ...options,
+      for (final leaf in accessorOptions) leaf.value,
+    ]);
+    for (final entry in mergedOptions) {
+      final option = entry;
+      if (option.hidden == true) continue;
+      final short = option.short;
+      final type = option.valueType;
+      final choices = _stringList(option.choices);
+      final steppedValues = _steppedDoubleValuesFor(option);
       final completionValues = [...choices, ...steppedValues];
       final switches = <String>[
         if (short != null) '-s $short',
-        '-l ${_quoteBare(entry.key)}',
+        '-l ${_quoteBare(entry.name)}',
         choices.isNotEmpty || type == 'int' || type == 'double' ? '-x' : '-r',
         if (completionValues.isNotEmpty)
           '-a ${_quote(completionValues.join(' '))}',
       ];
       final available =
-          '__mamba_option_available ${_quoteBare(entry.key)} ${short ?? '_'} ${option['repeatable'] == true}';
+          '__mamba_option_available ${_quoteBare(entry.name)} ${short ?? '_'} ${option.repeatable == true}';
       final availability = condition.isEmpty
           ? available
           : '$condition; and $available';
       lines.add(
-        'complete -c $executable -n ${_quote(availability)} ${switches.join(' ')}${_description(option['description'])}',
+        'complete -c $executable -n ${_quote(availability)} ${switches.join(' ')}${_description(option.description)}',
       );
     }
   }
@@ -1162,18 +1160,18 @@ end''';
   void _writePositionals(
     List<String> lines,
     String executable,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     String condition,
     List<String> specs,
   ) {
-    final positionals = _mapOrNull(command['positionals']);
+    final positionals = command.positionals;
     if (positionals == null) return;
     var slot = 0;
-    for (final value in positionals.values) {
-      final positional = _map(value);
-      final choices = _stringList(positional['choices']);
-      final times = positional['repeatable'] == true
-          ? (positional['times'] as int)
+    for (final value in positionals) {
+      final positional = value;
+      final choices = _stringList(positional.choices);
+      final times = positional.repeatable == true
+          ? (positional.times as int)
           : 0;
       for (var occurrence = 0; occurrence <= times; occurrence++, slot++) {
         if (choices.isEmpty) continue;
@@ -1183,7 +1181,7 @@ end''';
           _helperCondition('__mamba_positional_slot $slot', specs),
         ]);
         lines.add(
-          "complete -c ${_quoteBare(executable)} -n ${_quote(positionalCondition)} -f -a ${_quote(choices.join(' '))}${_description(positional['description'])}",
+          "complete -c ${_quoteBare(executable)} -n ${_quote(positionalCondition)} -f -a ${_quote(choices.join(' '))}${_description(positional.description)}",
         );
       }
     }
@@ -1192,56 +1190,56 @@ end''';
   void _writeVariadic(
     List<String> lines,
     String executable,
-    Map<String, dynamic> command,
+    RegistryCommand command,
     String condition,
   ) {
-    final variadic = _mapOrNull(command['variadic']);
+    final variadic = command.variadic;
     if (variadic == null) return;
-    final choices = _stringList(variadic['choices']);
+    final choices = _stringList(variadic.choices);
     if (choices.isEmpty) return;
     final variadicCondition = _joinConditions([
       condition,
       '__mamba_after_double_dash',
-      '__mamba_variadic_available ${variadic['repeatable'] == true}',
+      '__mamba_variadic_available ${variadic.repeatable == true}',
     ]);
     lines.add(
-      "complete -c ${_quoteBare(executable)} -n ${_quote(variadicCondition)} -f -a ${_quote(choices.join(' '))}${_description(variadic['description'])}",
+      "complete -c ${_quoteBare(executable)} -n ${_quote(variadicCondition)} -f -a ${_quote(choices.join(' '))}${_description(variadic.description)}",
     );
   }
 
   String _commandSpec(
-    Map<String, dynamic> command,
-    Map<String, dynamic> flags,
-    Map<String, dynamic> options,
-    Map<String, dynamic>? accessors,
-    Map<String, dynamic>? children,
+    RegistryCommand command,
+    List<RegistryFlag> flags,
+    List<RegistryOption> options,
+    List<RegistryAccessor>? accessors,
+    List<RegistryCommand>? children,
   ) {
     final longFlags = <String>[];
     final shortFlags = <String>[];
-    for (final entry in flags.entries) {
-      final flag = _map(entry.value);
-      longFlags.add(entry.key);
-      if (flag['negatable'] == true) longFlags.add('no-${entry.key}');
-      if (flag['short'] case final String short) shortFlags.add(short);
+    for (final entry in flags) {
+      final flag = entry;
+      longFlags.add(entry.name);
+      if (flag.negatable == true) longFlags.add('no-${entry.name}');
+      if (flag.short case final String short) shortFlags.add(short);
     }
-    final mergedOptions = <String, Map<String, dynamic>>{
-      for (final entry in options.entries) entry.key: _map(entry.value),
+    final mergedOptions = _mergeOptions([
+      ...options,
       for (final leaf in _accessorLeaves(accessors, includeHidden: true))
-        leaf.path: leaf.value,
-    };
-    final longOptions = mergedOptions.keys.toList();
+        leaf.value,
+    ]);
+    final longOptions = mergedOptions.map((option) => option.name).toList();
     final shortOptions = [
-      for (final option in mergedOptions.values)
-        if (option['short'] case final String short) short,
+      for (final option in mergedOptions)
+        if (option.short case final String short) short,
     ];
     final childNames = [
-      for (final child in children?.values ?? const <dynamic>[]) ...[
-        _map(child)['name'] as String,
-        ..._stringList(_map(child)['aliases']),
+      for (final child in children ?? const <RegistryCommand>[]) ...[
+        child.name,
+        ..._stringList(child.aliases),
       ],
     ];
     return [
-      [command['name'] as String, ..._stringList(command['aliases'])].join(','),
+      [command.name, ..._stringList(command.aliases)].join(','),
       longFlags.join(','),
       shortFlags.join(','),
       longOptions.join(','),
@@ -1263,56 +1261,49 @@ end''';
   String _quoteBare(String value) => value;
   String _quote(String value) =>
       "'${value.replaceAll(r'\', r'\\').replaceAll("'", r"\'")}'";
-  Map<String, dynamic> _map(Object? value) =>
-      Map<String, dynamic>.from(value as Map);
-  Map<String, dynamic>? _mapOrNull(Object? value) =>
-      value is Map ? _map(value) : null;
-  List<String> _stringList(Object? value) =>
-      value is List ? value.cast<String>() : const [];
 
-  Iterable<({String path, Map<String, dynamic> value})> _accessorLeaves(
-    Map<String, dynamic>? accessors, {
+  Iterable<({String path, RegistryOption value})> _accessorLeaves(
+    List<RegistryAccessor>? accessors, {
     String? parent,
     bool includeHidden = false,
   }) sync* {
     if (accessors == null) return;
-    for (final entry in accessors.entries) {
-      final path = parent == null ? entry.key : '$parent.${entry.key}';
-      final value = _map(entry.value);
-      if (value['kind'] == 'group') {
-        if (!includeHidden && value['hidden'] == true) continue;
+    for (final entry in accessors) {
+      final path = parent == null ? entry.name : '$parent.${entry.name}';
+      final value = entry;
+      if (value.kind == 'group') {
+        if (!includeHidden && value.hidden == true) continue;
         yield* _accessorLeaves(
-          _mapOrNull(value['options']),
+          value.options,
           parent: path,
           includeHidden: includeHidden,
         );
       } else {
-        yield (path: path, value: value);
+        yield (path: path, value: _accessorOption(value, path));
       }
     }
   }
 }
 
-/// Converts a [RegistryMap] into a Carapace completion spec.
+/// Converts a typed registry record into a Carapace completion spec.
 ///
-/// The map carries all input semantics needed to reproduce the complete
-/// Carapace output without retaining a live command definition.
-final class CarapaceSpecConverter extends RegistryMapConverter {
-  new(super.registryMap);
+/// Only the generated Carapace document is represented as a map.
+final class CarapaceSpecConverter extends RegistryRecordConverter {
+  new(super.registry);
 
   @override
   String convert() {
     final map = {
-      'name': _commandName(registryMap.map),
-      ..._commandBody(registryMap.map, isRoot: true),
+      'name': _commandName(_root),
+      ..._commandBody(_root, isRoot: true),
     };
 
     return YamlWriter().write(map);
   }
 
   /// Translates one command and its descendants into the Carapace command body.
-  Map<String, dynamic> _commandBody(
-    Map<String, dynamic> command, {
+  Map<String, Object> _commandBody(
+    RegistryCommand command, {
     required bool isRoot,
   }) {
     final flagEntries = <String, Object>{};
@@ -1332,23 +1323,23 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       );
     }
 
-    void placeFlag(String name, Map<String, dynamic> flag, bool persistent) {
-      final booleanFlag = flag.containsKey('default');
+    void placeFlag(String name, RegistryFlag flag, bool persistent) {
+      final booleanFlag = (flag.defaultValue != null);
       placeEntry(
         name,
         persistent,
         _inputKey(
           name: name,
-          short: flag['short'] as String?,
+          short: flag.short,
           repeatable: !booleanFlag,
           mandatory: false,
-          hidden: flag['hidden'] as bool,
+          hidden: flag.hidden,
           takesValue: false,
         ),
-        flag['description'] as String?,
-        defaultValue: booleanFlag && flag['default'] == true ? true : null,
+        flag.description,
+        defaultValue: booleanFlag && flag.defaultValue == true ? true : null,
       );
-      if (booleanFlag && flag['negatable'] == true) {
+      if (booleanFlag && flag.negatable == true) {
         placeEntry(
           'no-$name',
           persistent,
@@ -1357,17 +1348,17 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
             short: null,
             repeatable: false,
             mandatory: false,
-            hidden: flag['hidden'] as bool,
+            hidden: flag.hidden,
             takesValue: false,
           ),
-          flag['description'] as String?,
+          flag.description,
         );
       }
     }
 
     void placeOption(
       String name,
-      Map<String, dynamic> option,
+      RegistryOption option,
       bool persistent, {
       bool? required,
       bool? hidden,
@@ -1378,50 +1369,51 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
         persistent,
         _inputKey(
           name: name,
-          short: option['short'] as String?,
-          repeatable: option['repeatable'] == true,
-          mandatory: required ?? option['required'] as bool,
-          hidden: hidden ?? option['hidden'] as bool,
+          short: option.short,
+          repeatable: option.repeatable == true,
+          mandatory: required ?? option.required,
+          hidden: hidden ?? option.hidden,
           takesValue: true,
         ),
-        description ?? option['description'] as String?,
-        defaultValue: option['default'],
+        description ?? option.description,
+        defaultValue: option.defaultValue,
       );
     }
 
     void placeOptions(
-      Map<String, dynamic>? options,
+      List<RegistryOption>? options,
       bool persistent, {
-      List<Map<String, dynamic>> optionGroups = const [],
+      List<RegistryOptionGroup> optionGroups = const [],
     }) {
       if (options == null) return;
       final groupedMembers = {
-        for (final group in optionGroups) ..._stringList(group['members']),
+        for (final group in optionGroups) ..._stringList(group.members),
       };
       final pairedMembers = <String>{
-        for (final value in options.values)
-          if (value is Map) ..._stringList(_map(value)['pairedOptions']),
+        for (final value in options) ..._stringList(value.pairedOptions),
       };
 
-      for (final entry in options.entries) {
-        final name = entry.key;
+      for (final entry in options) {
+        final name = entry.name;
         if (groupedMembers.contains(name)) continue;
-        final option = _map(entry.value);
-        final pairedOptions = _stringList(option['pairedOptions']);
+        final option = entry;
+        final pairedOptions = _stringList(option.pairedOptions);
         if (pairedOptions.isNotEmpty) {
-          if (option['variant'] == true) {
+          if (option.variant == true) {
             exclusiveGroups.add([name, ...pairedOptions]);
             continue;
           }
           placeOption(name, option, persistent);
           for (final pairName in pairedOptions) {
-            final pairValue = options[pairName];
-            if (pairValue is Map) {
+            final pairValue = options
+                .where((option) => option.name == pairName)
+                .firstOrNull;
+            if (pairValue != null) {
               placeOption(
                 pairName,
-                _map(pairValue),
+                pairValue,
                 persistent,
-                required: option['required'] as bool,
+                required: option.required,
                 hidden: false,
               );
             }
@@ -1433,16 +1425,18 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       }
 
       for (final group in optionGroups) {
-        final members = _stringList(group['members']);
-        final mode = group['mode'] as String;
-        final required = group['required'] as bool;
+        final members = _stringList(group.members);
+        final mode = group.mode;
+        final required = group.required;
         final requirement = mode == 'oneOf' && required
             ? 'Runtime requires exactly one of: ${members.map((member) => '--$member').join(', ')}.'
             : null;
         for (final member in members) {
-          final value = options[member];
-          if (value is Map) {
-            final option = _map(value);
+          final value = options
+              .where((option) => option.name == member)
+              .firstOrNull;
+          if (value != null) {
+            final option = value;
             placeOption(
               member,
               option,
@@ -1450,7 +1444,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
               required: mode == 'all' && required,
               description: requirement == null
                   ? null
-                  : '${option['description'] ?? ''} $requirement',
+                  : '${option.description ?? ''} $requirement',
             );
           }
         }
@@ -1461,23 +1455,26 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       }
     }
 
-    void placeFlags(Map<String, dynamic>? flags, bool persistent) {
+    void placeFlags(List<RegistryFlag>? flags, bool persistent) {
       if (flags == null) return;
-      for (final entry in flags.entries) {
-        placeFlag(entry.key, _map(entry.value), persistent);
+      for (final entry in flags) {
+        placeFlag(entry.name, entry, persistent);
       }
     }
 
-    final localFlags = _mapOrNull(command['flags']);
-    final localOptions = _mapOrNull(command['options']);
-    final optionGroups = _mapList(command['optionGroups']);
+    final localFlags = command.flags;
+    final localOptions = command.options;
+    final optionGroups =
+        (command.optionGroups ?? const <RegistryOptionGroup>[]);
     final persistentFlags = _withoutLocalOverrides(
-      _mapOrNull(command['persistentFlags']),
-      localFlags?.keys,
+      command.persistentFlags,
+      localFlags?.map((flag) => flag.name),
+      (flag) => flag.name,
     );
     final persistentOptions = _withoutLocalOverrides(
-      _mapOrNull(command['persistentOptions']),
-      localOptions?.keys,
+      command.persistentOptions,
+      localOptions?.map((option) => option.name),
+      (option) => option.name,
     );
     // Carapace has one persistent input section for inherited values. The
     // executor root's flags and options therefore become persistentflags.
@@ -1485,7 +1482,7 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     placeFlags(persistentFlags, true);
     placeOptions(localOptions, isRoot, optionGroups: optionGroups);
     placeOptions(persistentOptions, true);
-    for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
+    for (final accessor in _accessorLeaves(command.accessors)) {
       placeEntry(
         accessor.path,
         false,
@@ -1497,15 +1494,13 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
           hidden: accessor.hidden,
           takesValue: true,
         ),
-        accessor.value['description'] as String?,
-        defaultValue: accessor.value['default'],
+        accessor.value.description,
+        defaultValue: accessor.value.defaultValue,
       );
     }
 
-    final body = <String, dynamic>{
-      'description': command['description'] as String,
-    };
-    final aliases = command['aliases'];
+    final body = <String, Object>{'description': command.description};
+    final aliases = command.aliases;
     if (aliases != null) body['aliases'] = _stringList(aliases);
     if (flagEntries.isNotEmpty) body['flags'] = flagEntries;
     if (persistentEntries.isNotEmpty) {
@@ -1516,82 +1511,76 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
     final completion = _completionFor(command);
     if (completion.isNotEmpty) body['completion'] = completion;
 
-    final commands = _mapOrNull(command['commands']);
+    final commands = command.commands;
     if (commands != null) {
       body['commands'] = [
-        for (final child in commands.values)
-          if (child is Map)
-            {
-              'name': _commandName(_map(child)),
-              ..._commandBody(_map(child), isRoot: false),
-            },
+        for (final child in commands)
+          {'name': _commandName(child), ..._commandBody(child, isRoot: false)},
       ];
     }
     return body;
   }
 
-  /// Builds completion values from semantic metadata carried by one map level.
-  Map<String, dynamic> _completionFor(Map<String, dynamic> command) {
+  /// Builds completion values from the command's typed input metadata.
+  Map<String, Object> _completionFor(RegistryCommand command) {
     final positionalChoices = <List<String>>[];
     final flagChoices = <String, List<String>>{};
 
     List<String> choicePairs(List<String> choices) => [
       for (final choice in choices) ...[choice, choice],
     ];
-    final positionals = _mapOrNull(command['positionals']);
+    final positionals = command.positionals;
     if (positionals != null) {
-      for (final positionalValue in positionals.values) {
-        final positional = _map(positionalValue);
-        final values = _stringList(positional['choices']);
-        final times = positional['repeatable'] == true
-            ? positional['times'] as int? ?? 0
-            : 0;
+      for (final positionalValue in positionals) {
+        final positional = positionalValue;
+        final values = _stringList(positional.choices);
+        final times = positional.repeatable == true ? positional.times ?? 0 : 0;
         for (var slot = 0; slot <= times; slot++) {
           positionalChoices.add(values);
         }
       }
     }
 
-    final options = _mapOrNull(command['options']);
+    final options = command.options;
     if (options != null) {
-      for (final entry in options.entries) {
-        final option = _map(entry.value);
-        switch (option['valueType']) {
+      for (final entry in options) {
+        final option = entry;
+        switch (option.valueType) {
           case 'choice':
-            flagChoices[entry.key] = _stringList(option['choices']);
+            flagChoices[entry.name] = _stringList(option.choices);
           case 'int':
-            final min = option['min'];
-            final max = option['max'];
+            final min = option.min;
+            final max = option.max;
             if (min is num && max is num) {
-              flagChoices[entry.key] = [
+              flagChoices[entry.name] = [
                 r'$carapace.number.Range({start: '
                     '$min, end: $max})',
               ];
             }
           case 'double':
-            final values = _steppedDoubleValuesFromMap(option);
-            if (values.isNotEmpty) flagChoices[entry.key] = values;
+            final values = _steppedDoubleValuesFor(option);
+            if (values.isNotEmpty) flagChoices[entry.name] = values;
         }
       }
     }
 
     final dashChoices = <List<String>>[];
     final dashAnyChoices = <String>[];
-    final variadic = _mapOrNull(command['variadic']);
+    final variadic = command.variadic;
     if (variadic != null) {
-      final values = _stringList(variadic['choices']);
-      if (values.isNotEmpty && variadic['repeatable'] == true) {
+      final values = _stringList(variadic.choices);
+      if (values.isNotEmpty && variadic.repeatable == true) {
         dashAnyChoices.addAll(values);
       } else if (values.isNotEmpty) {
         dashChoices.add(choicePairs(values));
       }
     }
 
-    for (final accessor in _accessorLeaves(_mapOrNull(command['accessors']))) {
+    for (final accessor in _accessorLeaves(command.accessors)) {
       final value = accessor.value;
-      switch (value['valueType']) {
+      switch (value.valueType) {
         case 'choice':
-          flagChoices[accessor.path] = _stringList(value['choices']);
+          flagChoices[accessor.path] = _stringList(value.choices);
       }
     }
 
@@ -1624,68 +1613,51 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
       ? (description ?? '')
       : {'description': description ?? '', 'default': defaultValue};
 
-  String _commandName(Map<String, dynamic> command) =>
-      command['name'] as String;
+  String _commandName(RegistryCommand command) => command.name;
 
-  Map<String, dynamic>? _mapOrNull(Object? value) =>
-      value is Map ? _map(value) : null;
-
-  Map<String, dynamic> _map(Object? value) =>
-      Map<String, dynamic>.from(value as Map);
-
-  List<Map<String, dynamic>> _mapList(Object? value) => switch (value) {
-    List() => value.map(_map).toList(),
-    _ => const [],
-  };
-
-  Iterable<({String path, Map<String, dynamic> value, bool hidden})>
-  _accessorLeaves(
-    Map<String, dynamic>? accessors, {
+  Iterable<({String path, RegistryOption value, bool hidden})> _accessorLeaves(
+    List<RegistryAccessor>? accessors, {
     String? parentPath,
     bool ancestorHidden = false,
   }) sync* {
     if (accessors == null) return;
-    for (final entry in accessors.entries) {
-      final path = parentPath == null ? entry.key : '$parentPath.${entry.key}';
-      final value = _map(entry.value);
-      final hidden = ancestorHidden || value['hidden'] == true;
-      if (value['kind'] == 'group') {
+    for (final entry in accessors) {
+      final path = parentPath == null
+          ? entry.name
+          : '$parentPath.${entry.name}';
+      final value = entry;
+      final hidden = ancestorHidden || value.hidden == true;
+      if (value.kind == 'group') {
         yield* _accessorLeaves(
-          _mapOrNull(value['options']),
+          value.options,
           parentPath: path,
           ancestorHidden: hidden,
         );
         continue;
       }
-      if (value['kind'] == 'value') {
-        yield (path: path, value: value, hidden: hidden);
+      if (value.kind == 'value') {
+        yield (path: path, value: _accessorOption(value, path), hidden: hidden);
         continue;
       }
-      // RegistryMap validation guarantees every accessor is a canonical group
+      // Registry record construction guarantees every accessor is canonical.
       // or value node, so no legacy fallback conversion is required.
       throw StateError('Unsupported canonical accessor kind');
     }
   }
 
-  Map<String, dynamic>? _withoutLocalOverrides(
-    Map<String, dynamic>? persistentInputs,
+  List<T>? _withoutLocalOverrides<T>(
+    List<T>? persistentInputs,
     Iterable<String>? localNames,
+    String Function(T) getName,
   ) {
-    if (persistentInputs == null) return null;
-    final localNameSet = localNames?.toSet() ?? const <String>{};
-    return {
-      for (final entry in persistentInputs.entries)
-        if (!localNameSet.contains(entry.key)) entry.key: entry.value,
-    };
+    final localNamesSet = localNames?.toSet() ?? const <String>{};
+    return persistentInputs
+        ?.where((input) => !localNamesSet.contains(getName(input)))
+        .toList();
   }
-
-  List<String> _stringList(Object? value) => switch (value) {
-    List() => value.cast<String>(),
-    _ => const [],
-  };
 }
 
-/// Compiles a registry map into a native PowerShell argument completer.
+/// Compiles a registry record into a native PowerShell argument completer.
 ///
 /// The generated script registers a single `Register-ArgumentCompleter -Native`
 /// handler and resolves every element strictly left of the cursor against
@@ -1701,8 +1673,8 @@ final class CarapaceSpecConverter extends RegistryMapConverter {
 /// All candidate `CompletionResult` objects flow out individually through the
 /// success pipeline so PowerShell presents them as separate entries.
 /// The emitted syntax targets Windows PowerShell 5.1 and PowerShell 7 or newer.
-final class ToPowerShellCompletionConverter extends RegistryMapConverter {
-  new(super.registryMap);
+final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
+  new(super.registry);
 
   /// Upper bound on the inclusive integer range Mamba emits for an option
   /// with both `min` and `max` bounds. Wider intervals stay unbound.
@@ -1711,8 +1683,8 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// Uses the root command name to isolate each generated artifact's
   /// PowerShell variables and helper functions.
   String get _powerShellNamespace {
-    final root = _map(registryMap.map);
-    return 'Mamba${_pascalCase(root['name'] as String)}';
+    final root = _root;
+    return 'Mamba${_pascalCase(root.name)}';
   }
 
   String _state(String name) => r'$script:' + _powerShellNamespace + name;
@@ -1725,13 +1697,13 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
 
   @override
   String convert() {
-    final root = _map(registryMap.map);
-    final rootName = root['name'] as String;
+    final root = _root;
+    final rootName = root.name;
     final lines = <String>[
-      ..._header(rootName, root['description'] as String),
+      ..._header(rootName, root.description),
       ..._native(root),
       ..._tableInitializers(),
-      ..._recurse(root, ['root'], const {}, const {}, const {}, isRoot: true),
+      ..._recurse(root, ['root'], const [], const [], const [], isRoot: true),
       ..._runtimeHelpers(),
       ..._register(rootName),
     ];
@@ -1761,21 +1733,21 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// Global lookup from canonical command name to canonical command name; the
   /// resolver flattens an alias token into its canonical spelling using this
   /// map before resolving the rest of the command line.
-  List<String> _native(Map<String, dynamic> root) {
+  List<String> _native(RegistryCommand root) {
     final entries = <String>["    'root' = 'root'"];
-    void walk(Map<String, dynamic>? commands) {
+    void walk(List<RegistryCommand>? commands) {
       if (commands == null) return;
-      for (final entry in commands.entries) {
-        final child = _map(entry.value);
-        entries.add("    ${_psQuote(entry.key)} = ${_psQuote(entry.key)}");
-        for (final alias in _stringList(child['aliases'])) {
-          entries.add("    ${_psQuote(alias)} = ${_psQuote(entry.key)}");
+      for (final entry in commands) {
+        final child = entry;
+        entries.add("    ${_psQuote(entry.name)} = ${_psQuote(entry.name)}");
+        for (final alias in _stringList(child.aliases)) {
+          entries.add("    ${_psQuote(alias)} = ${_psQuote(entry.name)}");
         }
-        walk(_mapOrNull(child['commands']));
+        walk(child.commands);
       }
     }
 
-    walk(_mapOrNull(root['commands']));
+    walk(root.commands);
     return ['${_state('NativeCommands')} = @{', ...entries, '}', ''];
   }
 
@@ -1796,50 +1768,63 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// flattened into dotted spellings, and the built-in help.
   List<String> _nativeInputSets(
     List<String> path,
-    Map<String, dynamic> flags,
-    Map<String, dynamic> options,
-    Map<String, _AccessorLeaf> accessors,
+    List<RegistryFlag> flags,
+    List<RegistryOption> options,
+    List<_AccessorLeaf> accessors,
   ) {
     final entries = <String>[];
     // Always include --help and -h first. The registry's help entry is
     // skipped below so it cannot be emitted twice.
     entries.addAll(
-      _flagInputsFor('help', {
-        'description': 'Show this help message.',
-        'short': 'h',
-      }, help: true),
+      _flagInputsFor('help', (
+        name: 'help',
+        description: 'Show this help message.',
+        short: 'h',
+        defaultValue: false,
+        negatable: false,
+        hidden: false,
+      ), help: true),
     );
 
-    for (final entry in flags.entries) {
-      if (entry.key == 'help') continue;
-      final flag = _map(entry.value);
-      if (flag['hidden'] == true) continue;
+    for (final entry in flags) {
+      if (entry.name == 'help') continue;
+      final flag = entry;
+      if (flag.hidden == true) continue;
       // Count flags omit the boolean-only default and negatable properties.
-      final isCount = !flag.containsKey('default');
-      entries.add(_row('--${entry.key}', flag, isFlag: true, isCount: isCount));
-      if (flag['short'] case final String short) {
-        entries.add(_row('-$short', flag, isFlag: true, isCount: isCount));
+      final isCount = !(flag.defaultValue != null);
+      entries.add(
+        _row(
+          '--${entry.name}',
+          flag.description,
+          isFlag: true,
+          isCount: isCount,
+        ),
+      );
+      if (flag.short case final String short) {
+        entries.add(
+          _row('-$short', flag.description, isFlag: true, isCount: isCount),
+        );
       }
-      if (!isCount && flag['negatable'] == true) {
-        entries.add(_row('--no-${entry.key}', flag, isFlag: true));
+      if (!isCount && flag.negatable == true) {
+        entries.add(_row('--no-${entry.name}', flag.description, isFlag: true));
       }
     }
 
-    for (final entry in options.entries) {
-      final option = _map(entry.value);
-      if (option['hidden'] == true) continue;
-      final isRepeatable = option['repeatable'] == true;
-      entries.add(_row('--${entry.key}', option, isRepeatable: isRepeatable));
-      if (option['short'] case final String short) {
-        entries.add(_row('-$short', option, isRepeatable: isRepeatable));
+    for (final entry in options) {
+      final option = entry;
+      if (option.hidden == true) continue;
+      final isRepeatable = option.repeatable == true;
+      entries.add(
+        _row('--${entry.name}', option.description, isRepeatable: isRepeatable),
+      );
+      if (option.short case final String short) {
+        entries.add(
+          _row('-$short', option.description, isRepeatable: isRepeatable),
+        );
       }
     }
-    for (final leaf in accessors.values) {
-      entries.add(
-        _row('--${leaf.path}', {
-          'description': leaf.description,
-        }, isAccessor: true),
-      );
+    for (final leaf in accessors) {
+      entries.add(_row('--${leaf.path}', leaf.description, isAccessor: true));
     }
     final pathKey = path.join('.');
     return [
@@ -1851,19 +1836,21 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
 
   List<String> _flagInputsFor(
     String name,
-    Map<String, dynamic> flag, {
+    RegistryFlag flag, {
     required bool help,
   }) {
-    final entries = <String>[_row('--$name', flag, isFlag: true, help: help)];
-    if (flag['short'] case final String short) {
-      entries.add(_row('-$short', flag, isFlag: true, help: help));
+    final entries = <String>[
+      _row('--$name', flag.description, isFlag: true, help: help),
+    ];
+    if (flag.short case final String short) {
+      entries.add(_row('-$short', flag.description, isFlag: true, help: help));
     }
     return entries;
   }
 
   String _row(
     String spelling,
-    Map<String, dynamic> descriptor, {
+    String? description, {
     bool isFlag = false,
     bool isCount = false,
     bool isRepeatable = false,
@@ -1872,7 +1859,7 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   }) =>
       '    [PSCustomObject]@{'
       ' Spelling = ${_psQuote(spelling)};'
-      ' Description = ${_psQuoteOrNull(descriptor['description'] as String?)};'
+      ' Description = ${_psQuoteOrNull(description)};'
       ' IsFlag = ${_psBool(isFlag)};'
       ' IsCount = ${_psBool(isCount)};'
       ' IsRepeatable = ${_psBool(isRepeatable)};'
@@ -1881,27 +1868,24 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       ' }';
 
   /// Subcommand candidates at the given path.
-  List<String> _nativeChildren(
-    Map<String, dynamic> command,
-    List<String> path,
-  ) {
-    final children = _mapOrNull(command['commands']);
+  List<String> _nativeChildren(RegistryCommand command, List<String> path) {
+    final children = command.commands;
     final entries = <String>[];
     if (children != null) {
-      for (final entry in children.entries) {
-        final child = _map(entry.value);
-        final description = _summary(child['description'] as String?);
+      for (final entry in children) {
+        final child = entry;
+        final description = _summary(child.description);
         entries.add(
           '    [PSCustomObject]@{'
-          ' Name = ${_psQuote(entry.key)};'
+          ' Name = ${_psQuote(entry.name)};'
           ' Description = ${_psQuoteOrNull(description)}'
           ' }',
         );
-        for (final alias in _stringList(child['aliases'])) {
+        for (final alias in _stringList(child.aliases)) {
           entries.add(
             '    [PSCustomObject]@{'
             ' Name = ${_psQuote(alias)};'
-            ' Description = ${_psQuoteOrNull('Alias for ${entry.key}. ${description ?? ''}')}'
+            ' Description = ${_psQuoteOrNull('Alias for ${entry.name}. ${description ?? ''}')}'
             ' }',
           );
         }
@@ -1917,11 +1901,8 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
 
   /// Positional slot table for the given path. Each slot exposes its finite
   /// choice list and description for the dispatcher to consult.
-  List<String> _nativePositionals(
-    Map<String, dynamic> command,
-    List<String> path,
-  ) {
-    final positionals = _mapOrNull(command['positionals']);
+  List<String> _nativePositionals(RegistryCommand command, List<String> path) {
+    final positionals = command.positionals;
     if (positionals == null || positionals.isEmpty) {
       return [
         "${_state('PositionalSlots')}[${_psQuote(path.join('.'))}] = @{}",
@@ -1931,18 +1912,16 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
       "${_state('PositionalSlots')}[${_psQuote(path.join('.'))}] = @{",
     ];
     var slot = 0;
-    for (final entry in positionals.entries) {
-      final positional = _map(entry.value);
-      final choices = _stringList(positional['choices']);
-      final times = positional['repeatable'] == true
-          ? positional['times'] as int? ?? 0
-          : 0;
+    for (final entry in positionals) {
+      final positional = entry;
+      final choices = _stringList(positional.choices);
+      final times = positional.repeatable == true ? positional.times ?? 0 : 0;
       for (var occurrence = 0; occurrence <= times; occurrence++, slot++) {
         if (choices.isEmpty) continue;
         lines.add(
           '    $slot = [PSCustomObject]@{'
           ' Choices = @(${choices.map(_psQuote).join(', ')});'
-          ' Description = ${_psQuoteOrNull(positional['description'] as String?)}'
+          ' Description = ${_psQuoteOrNull(positional.description)}'
           ' }',
         );
       }
@@ -1954,27 +1933,27 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// Value-handler arrays for choice options and accessor choice leaves.
   List<String> _nativeValueHandlers(
     List<String> path,
-    Map<String, dynamic> options,
-    Map<String, _AccessorLeaf> accessors,
+    List<RegistryOption> options,
+    List<_AccessorLeaf> accessors,
   ) {
     final lines = <String>[];
-    for (final entry in options.entries) {
-      final option = _map(entry.value);
-      if (option['hidden'] == true) continue;
+    for (final entry in options) {
+      final option = entry;
+      if (option.hidden == true) continue;
       final values = _staticValuesFor(option);
       if (values.isEmpty) continue;
-      final longKey = '${path.join('.')}.--${entry.key}';
+      final longKey = '${path.join('.')}.--${entry.name}';
       lines.add(
         "${_state('ValueHandlers')}[${_psQuote(longKey)}] = @(${values.map(_psQuote).join(', ')})",
       );
-      if (option['short'] case final String short) {
+      if (option.short case final String short) {
         final shortKey = '${path.join('.')}.-$short';
         lines.add(
           "${_state('ValueHandlers')}[${_psQuote(shortKey)}] = ${_state('ValueHandlers')}[${_psQuote(longKey)}]",
         );
       }
     }
-    for (final leaf in accessors.values) {
+    for (final leaf in accessors) {
       if (leaf.choices.isEmpty) continue;
       final key = '${path.join('.')}.--${leaf.path}';
       lines.add(
@@ -1987,17 +1966,14 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   /// Variadic handler for a command. The handler stores its choice list and
   /// repeatability flag; the dispatcher reads both to decide whether to
   /// emit candidates after `--`.
-  List<String> _nativeVariadic(
-    Map<String, dynamic> command,
-    List<String> path,
-  ) {
-    final variadic = _mapOrNull(command['variadic']);
+  List<String> _nativeVariadic(RegistryCommand command, List<String> path) {
+    final variadic = command.variadic;
     if (variadic == null) return const [];
-    final choices = _stringList(variadic['choices']);
+    final choices = _stringList(variadic.choices);
     return [
       "${_state('VariadicHandlers')}[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
           ' Choices = @(${choices.map(_psQuote).join(', ')});'
-          ' Repeatable = ${_psBool(variadic['repeatable'] == true)}'
+          ' Repeatable = ${_psBool(variadic.repeatable == true)}'
           ' }',
     ];
   }
@@ -2007,34 +1983,30 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
   // ---------------------------------------------------------------------
 
   List<String> _recurse(
-    Map<String, dynamic> command,
+    RegistryCommand command,
     List<String> path,
-    Map<String, dynamic> inheritedFlags,
-    Map<String, dynamic> inheritedOptions,
-    Map<String, _AccessorLeaf> inheritedAccessors, {
+    List<RegistryFlag> inheritedFlags,
+    List<RegistryOption> inheritedOptions,
+    List<_AccessorLeaf> inheritedAccessors, {
     required bool isRoot,
   }) {
-    final children =
-        _mapOrNull(command['commands']) ?? const <String, dynamic>{};
-    final persistentFlags =
-        _mapOrNull(command['persistentFlags']) ?? const <String, dynamic>{};
-    final persistentOptions =
-        _mapOrNull(command['persistentOptions']) ?? const <String, dynamic>{};
-    final flags = {
+    final children = command.commands ?? const <RegistryCommand>[];
+    final persistentFlags = command.persistentFlags ?? const [];
+    final persistentOptions = command.persistentOptions ?? const [];
+    final flags = _mergeFlags([
       ...inheritedFlags,
       ...persistentFlags,
-      ...?_mapOrNull(command['flags']),
-    };
-    final options = {
+      ...?command.flags,
+    ]);
+    final options = _mergeOptions([
       ...inheritedOptions,
       ...persistentOptions,
-      ...?_mapOrNull(command['options']),
-    };
-    final localAccessors = {
-      for (final leaf in _accessorLeaves(_mapOrNull(command['accessors'])))
-        leaf.path: leaf,
-    };
-    final accessors = {...inheritedAccessors, ...localAccessors};
+      ...?command.options,
+    ]);
+    final accessors = _mergeNamed([
+      ...inheritedAccessors,
+      ..._accessorLeaves(command.accessors),
+    ], (leaf) => leaf.path);
     final lines = <String>[
       ..._nativeInputSets(path, flags, options, accessors),
       ..._nativeChildren(command, path),
@@ -2044,17 +2016,17 @@ final class ToPowerShellCompletionConverter extends RegistryMapConverter {
     ];
     final descendantFlags = isRoot
         ? flags
-        : {...inheritedFlags, ...persistentFlags};
+        : _mergeFlags([...inheritedFlags, ...persistentFlags]);
     final descendantOptions = isRoot
         ? options
-        : {...inheritedOptions, ...persistentOptions};
+        : _mergeOptions([...inheritedOptions, ...persistentOptions]);
     final descendantAccessors = isRoot ? accessors : inheritedAccessors;
-    for (final entry in children.entries) {
-      final child = _map(entry.value);
+    for (final entry in children) {
+      final child = entry;
       lines.addAll(
         _recurse(
           child,
-          [...path, entry.key],
+          [...path, entry.name],
           descendantFlags,
           descendantOptions,
           descendantAccessors,
@@ -2335,44 +2307,38 @@ function Write-MambaCompletionResult {
     return value.split('\n').first;
   }
 
-  List<String> _staticValuesFor(Map<String, dynamic> option) {
+  List<String> _staticValuesFor(RegistryOption option) {
     return [
-      ..._stringList(option['choices']),
+      ..._stringList(option.choices),
       ..._integerRangeValues(option),
-      ..._steppedDoubleValuesFromMap(option),
+      ..._steppedDoubleValuesFor(option),
     ];
   }
 
-  List<String> _integerRangeValues(Map<String, dynamic> option) {
-    if (option['valueType'] != 'int') return const [];
-    final min = option['min'];
-    final max = option['max'];
+  List<String> _integerRangeValues(RegistryOption option) {
+    if (option.valueType != 'int') return const [];
+    final min = option.min;
+    final max = option.max;
     if (min is! int || max is! int) return const [];
     final size = max - min + 1;
     if (size <= 0 || size > _maxStaticRangeSize) return const [];
     return [for (var n = min; n <= max; n++) n.toString()];
   }
 
-  Map<String, dynamic> _map(Object? value) =>
-      Map<String, dynamic>.from(value as Map);
-
-  Map<String, dynamic>? _mapOrNull(Object? value) =>
-      value is Map ? _map(value) : null;
-
   Iterable<_AccessorLeaf> _accessorLeaves(
-    Map<String, dynamic>? accessors, {
+    List<RegistryAccessor>? accessors, {
     String parent = '',
     bool ancestorHidden = false,
   }) sync* {
     if (accessors == null) return;
-    for (final entry in accessors.entries) {
-      final value = _map(entry.value);
-      final path = parent.isEmpty ? entry.key : '$parent.${entry.key}';
-      if (value['kind'] == 'group') {
-        final hidden = ancestorHidden || value['hidden'] == true;
+    for (final entry in accessors) {
+      final value = entry;
+      final path = parent.isEmpty ? entry.name : '$parent.${entry.name}';
+      if (value.kind == 'group') {
+        final hidden = ancestorHidden || value.hidden == true;
         if (hidden) continue;
         yield* _accessorLeaves(
-          _mapOrNull(value['options']),
+          value.options,
           parent: path,
           ancestorHidden: hidden,
         );
@@ -2380,16 +2346,13 @@ function Write-MambaCompletionResult {
       }
       yield _AccessorLeaf(
         path: path,
-        description: value['description'] as String?,
-        choices: value['valueType'] == 'choice'
-            ? _stringList(value['choices'])
+        description: value.description,
+        choices: value.valueType == 'choice'
+            ? _stringList(value.choices)
             : const <String>[],
       );
     }
   }
-
-  List<String> _stringList(Object? value) =>
-      value is List ? value.cast<String>() : const [];
 }
 
 class _AccessorLeaf({
@@ -2398,7 +2361,7 @@ class _AccessorLeaf({
   required final List<String> choices,
 });
 
-/// Writes a map-derived Carapace spec to the platform's spec directory.
+/// Writes a record-derived Carapace spec to the platform's spec directory.
 ///
 /// Production writers use the operating system's Carapace configuration
 /// directory. Development writers use a matching directory below the system
@@ -2406,14 +2369,13 @@ class _AccessorLeaf({
 final class CarapaceSpecWriter {
   new(this.converter, {this.development = false, String? outputPath})
     : path =
-          outputPath ??
-          _carapaceSpecPath(converter.registryMap.map['name'], development);
+          outputPath ?? _carapaceSpecPath(converter.registry.name, development);
 
   final CarapaceSpecConverter converter;
   final bool development;
   final String path;
 
-  /// Writes the converted registry map and returns the created file.
+  /// Writes the converted registry record and returns the created file.
   File write() {
     try {
       final file = File(path);

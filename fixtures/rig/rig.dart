@@ -80,11 +80,11 @@ final class _RigCompletionCommand extends CompletionCommand {
   String run(_, ParsedNamedInputs inputs, _) {
     final shell = inputs.stringOptions?['shell'] ?? 'carapace';
     final completion = switch (shell) {
-      'carapace' => CarapaceSpecConverter(registryMap).convert(),
-      'bash' => ToBashCompletionConverter(registryMap).convert(),
-      'fish' => ToFishCompletionConverter(registryMap).convert(),
-      'zsh' => ToZshCompletionConverter(registryMap).convert(),
-      'powershell' => ToPowerShellCompletionConverter(registryMap).convert(),
+      'carapace' => CarapaceSpecConverter(registryRecord).convert(),
+      'bash' => ToBashCompletionConverter(registryRecord).convert(),
+      'fish' => ToFishCompletionConverter(registryRecord).convert(),
+      'zsh' => ToZshCompletionConverter(registryRecord).convert(),
+      'powershell' => ToPowerShellCompletionConverter(registryRecord).convert(),
       _ => throw MambaException('Unsupported completion shell: $shell'),
     };
     return completion.trimRight();
@@ -151,7 +151,7 @@ Executor createRigExecutor() {
 }
 
 /// Returns the complete registry used to generate fixture completions.
-RegistryMap createRigRegistryMap() => CommandRegistry.create(
+RegistryRecord createRigRegistryRecord() => CommandRegistry.create(
   'rig',
   _rigDescription,
   longDescription: _rigLongDescription,

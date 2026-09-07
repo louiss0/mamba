@@ -8,6 +8,8 @@ import 'fixtures.dart';
 
 enum VariantChoice { one }
 
+enum _Format { json, yaml }
+
 enum DeploymentFormat { yaml, json }
 
 /// Expected metadata for a flag exported by a registry.
@@ -71,10 +73,8 @@ final class CommandExpectation {
   final List<CommandExpectation>? commands;
 }
 
-/// Builds the expected map for a registry level from its [name] and
-/// [description] plus optional category expectations, with an optional
-/// [commands] list whose records recurse through this builder.
-Map<String, dynamic> buildRegistryExpectation(
+/// Matches exported fields directly, without serializing the record.
+Matcher matchRegistry(
   String name,
   String description, {
   List<String>? aliases,
@@ -84,175 +84,289 @@ Map<String, dynamic> buildRegistryExpectation(
   List<AccessorExpectation>? accessors,
   List<CommandExpectation>? commands,
 }) {
-  Map<String, dynamic> mapFlags(List<FlagExpectation> entries) => {
-    'help': {
-      'short': 'h',
-      'default': false,
-      'negatable': false,
-      'hidden': false,
-      'description': 'Show this help message.',
-    },
-    for (final entry in entries)
-      entry.$1: {
-        if (entry.short != null || entry.defaultValue != null)
-          'short': entry.short,
-        if (entry.defaultValue != null) 'default': entry.defaultValue,
-        if (entry.negatable != null) 'negatable': entry.negatable,
-        'hidden': entry.hidden,
-        'description': entry.description,
-      },
-  };
-
-  Map<String, dynamic> mapOptions(List<OptionExpectation> entries) => {
-    for (final entry in entries)
-      entry.$1: {
-        'short': entry.short,
-        'required': entry.required,
-        'hidden': entry.hidden,
-        'description': entry.description,
-        'repeatable': ?entry.repeatable,
-        'variant': ?entry.variant,
-        'choices': ?entry.choices,
-        'default': ?entry.choiceDefault,
-      },
-  };
-
-  Map<String, dynamic> mapPositionals(List<PositionalExpectation> entries) => {
-    for (final entry in entries)
-      entry.$1: {'required': entry.required, 'description': entry.description},
-  };
-
-  Object? mapAccessor(AccessorExpectation entry) {
-    final options = entry.options;
-    if (options == null) {
-      return {
-        'kind': 'value',
-        'valueType': 'string',
-        'description': entry.description,
-      };
-    }
-    return {
-      'kind': 'group',
-      'hidden': entry.hidden,
-      'description': entry.description,
-      'options': {
-        for (final option in options) option.name: mapAccessor(option),
-      },
-    };
-  }
-
-  Map<String, dynamic> mapAccessors(List<AccessorExpectation> entries) => {
-    for (final entry in entries) entry.name: mapAccessor(entry),
-  };
-
-  Map<String, dynamic> mapCommand(CommandExpectation entry) => {
-    'name': entry.name,
-    'description': entry.description,
-    'flags': mapFlags(entry.flags ?? const []),
-    if (entry.options case final options?) 'options': mapOptions(options),
-    if (entry.positionals case final positionals?)
-      'positionals': mapPositionals(positionals),
-    if (entry.accessors case final accessors?)
-      'accessors': mapAccessors(accessors),
-    if (entry.commands case final commands?)
-      'commands': {
-        for (final command in commands) command.name: mapCommand(command),
-      },
-  };
-
-  return {
-    'name': name,
-    'description': description,
-    'aliases': ?aliases,
-    'flags': mapFlags(flags ?? const []),
-    if (options case final options?) 'options': mapOptions(options),
-    if (positionals case final positionals?)
-      'positionals': mapPositionals(positionals),
-    if (accessors case final accessors?) 'accessors': mapAccessors(accessors),
-    if (commands case final commands?)
-      'commands': {
-        for (final command in commands) command.name: mapCommand(command),
-      },
-  };
-}
-
-/// Removes metadata newly required by integration consumers so existing map
-/// assertions can continue to focus on their original registry fields.
-Map<String, dynamic> withoutIntegrationMetadata(Map<String, dynamic> source) {
-  final map = Map<String, dynamic>.from(source);
-  map
-    ..remove('persistentFlags')
-    ..remove('persistentOptions');
-
-  final options = map['options'];
-  if (options is Map) {
-    map['options'] = <String, dynamic>{
-      for (final entry in options.entries)
-        entry.key as String: Map<String, dynamic>.from(entry.value as Map)
-          ..remove('valueType')
-          ..remove('pairedOptions')
-          ..remove('pattern'),
-    };
-  }
-
-  final positionals = map['positionals'];
-  if (positionals is Map) {
-    map['positionals'] = <String, dynamic>{
-      for (final entry in positionals.entries)
-        entry.key as String: Map<String, dynamic>.from(entry.value as Map)
-          ..remove('choices')
-          ..remove('default')
-          ..remove('repeatable')
-          ..remove('times')
-          ..remove('pattern'),
-    };
-  }
-
-  final variadic = map['variadic'];
-  if (variadic is Map) {
-    map['variadic'] = Map<String, dynamic>.from(variadic)
-      ..remove('repeatable')
-      ..remove('pattern');
-  }
-
-  Map<String, dynamic> withoutAccessorPattern(Object source) {
-    final accessor = Map<String, dynamic>.from(source as Map);
-    final options = accessor['options'];
-    if (options is Map) {
-      accessor['options'] = <String, dynamic>{
-        for (final entry in options.entries)
-          entry.key as String: withoutAccessorPattern(entry.value),
-      };
-    } else {
-      accessor.remove('pattern');
-    }
-    return accessor;
-  }
-
-  final accessors = map['accessors'];
-  if (accessors is Map) {
-    map['accessors'] = <String, dynamic>{
-      for (final entry in accessors.entries)
-        entry.key as String: withoutAccessorPattern(entry.value),
-    };
-  }
-
-  final commands = map['commands'];
-  if (commands is Map) {
-    map['commands'] = <String, dynamic>{
-      for (final entry in commands.entries)
-        entry.key as String: withoutIntegrationMetadata(
-          Map<String, dynamic>.from(entry.value as Map),
+  List<Matcher> matchFlags(List<FlagExpectation>? flags) => [
+    isA<RegistryFlag>()
+        .having((flag) => flag.name, 'name', 'help')
+        .having((flag) => flag.short, 'short', 'h')
+        .having((flag) => flag.defaultValue, 'default', false)
+        .having((flag) => flag.negatable, 'negatable', false)
+        .having((flag) => flag.hidden, 'hidden', false)
+        .having(
+          (flag) => flag.description,
+          'description',
+          'Show this help message.',
         ),
-    };
-  }
-  return map;
+    for (final expected in flags ?? const <FlagExpectation>[])
+      isA<RegistryFlag>()
+          .having((flag) => flag.name, 'name', expected.$1)
+          .having((flag) => flag.short, 'short', expected.short)
+          .having((flag) => flag.defaultValue, 'default', expected.defaultValue)
+          .having((flag) => flag.negatable, 'negatable', expected.negatable)
+          .having((flag) => flag.hidden, 'hidden', expected.hidden)
+          .having(
+            (flag) => flag.description,
+            'description',
+            expected.description,
+          ),
+  ];
+
+  Matcher? matchOptions(List<OptionExpectation>? options) => options == null
+      ? null
+      : unorderedEquals(
+          options.map(
+            (expected) => isA<RegistryOption>()
+                .having((option) => option.name, 'name', expected.$1)
+                .having((option) => option.short, 'short', expected.short)
+                .having(
+                  (option) => option.required,
+                  'required',
+                  expected.required,
+                )
+                .having((option) => option.hidden, 'hidden', expected.hidden)
+                .having(
+                  (option) => option.description,
+                  'description',
+                  expected.description,
+                )
+                .having(
+                  (option) => option.repeatable,
+                  'repeatable',
+                  expected.repeatable,
+                )
+                .having((option) => option.variant, 'variant', expected.variant)
+                .having((option) => option.choices, 'choices', expected.choices)
+                .having(
+                  (option) => option.defaultValue,
+                  'default',
+                  expected.choiceDefault,
+                ),
+          ),
+        );
+
+  List<Matcher>? matchPositionals(List<PositionalExpectation>? positionals) =>
+      positionals
+          ?.map(
+            (expected) => isA<RegistryPositional>()
+                .having((positional) => positional.name, 'name', expected.$1)
+                .having(
+                  (positional) => positional.required,
+                  'required',
+                  expected.required,
+                )
+                .having(
+                  (positional) => positional.description,
+                  'description',
+                  expected.description,
+                ),
+          )
+          .toList();
+
+  Matcher matchAccessor(AccessorExpectation expected) => isA<RegistryAccessor>()
+      .having((accessor) => accessor.name, 'name', expected.name)
+      .having(
+        (accessor) => accessor.description,
+        'description',
+        expected.description,
+      )
+      .having(
+        (accessor) => accessor.kind,
+        'kind',
+        expected.options == null ? 'value' : 'group',
+      )
+      .having(
+        (accessor) => accessor.hidden,
+        'hidden',
+        expected.options == null ? null : expected.hidden,
+      )
+      .having(
+        (accessor) => accessor.options,
+        'options',
+        expected.options?.map(matchAccessor).toList(),
+      );
+
+  Matcher matchCommand(CommandExpectation expected) => isA<RegistryCommand>()
+      .having((command) => command.name, 'name', expected.name)
+      .having(
+        (command) => command.description,
+        'description',
+        expected.description,
+      )
+      .having(
+        (command) => command.flags,
+        'flags',
+        unorderedEquals(matchFlags(expected.flags)),
+      )
+      .having(
+        (command) => command.options,
+        'options',
+        matchOptions(expected.options),
+      )
+      .having(
+        (command) => command.positionals,
+        'positionals',
+        matchPositionals(expected.positionals),
+      )
+      .having(
+        (command) => command.accessors,
+        'accessors',
+        expected.accessors?.map(matchAccessor).toList(),
+      )
+      .having(
+        (command) => command.commands,
+        'commands',
+        expected.commands?.map(matchCommand).toList(),
+      );
+
+  return isA<RegistryRecord>()
+      .having((registry) => registry.name, 'name', name)
+      .having((registry) => registry.description, 'description', description)
+      .having(
+        (registry) => registry.flags,
+        'flags',
+        unorderedEquals(matchFlags(flags)),
+      )
+      .having((registry) => registry.options, 'options', matchOptions(options))
+      .having(
+        (registry) => registry.positionals,
+        'positionals',
+        matchPositionals(positionals),
+      )
+      .having(
+        (registry) => registry.accessors,
+        'accessors',
+        accessors?.map(matchAccessor).toList(),
+      )
+      .having(
+        (registry) => registry.commands,
+        'commands',
+        commands?.map(matchCommand).toList(),
+      );
 }
 
 void main() {
   group('CommandRegistry', () {
     group("toMap", () {
-      test("makes the map based on the inputs ", () {
+      test(
+        'preserves paired groups and choice metadata in immutable records',
+        () {
+          final registry = CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            pairedOptions: [
+              PairedOptions([
+                PairStringOption('username'),
+                PairIntOption('port'),
+              ], required: true),
+            ],
+            commands: [
+              TestCommand(
+                'run',
+                'Run command.',
+                aliases: ['r'],
+                options: [
+                  ChoiceOption<_Format>(
+                    'format',
+                    choices: _Format.values,
+                    defaultValue: _Format.json,
+                  ),
+                ],
+                mandatoryPositionals: [
+                  ChoicePositional('source', choices: _Format.values),
+                ],
+                variadic: ChoiceVariadic(choices: _Format.values),
+                accessors: [
+                  AccessorListOption('settings', [
+                    AccessorStringOption('path'),
+                  ]),
+                ],
+              ),
+            ],
+          );
+          final record = registry.toMap();
+          final group = record.optionGroups!.single;
+          expect(group.mode, 'all');
+          expect(group.required, isTrue);
+          expect(group.members, ['username', 'port']);
+          expect(record.options!.first.pairedOptions, ['username', 'port']);
+          expect(() => group.members.clear(), throwsUnsupportedError);
+          expect(() => record.optionGroups!.clear(), throwsUnsupportedError);
+
+          final child = record.commands!.single;
+          final direct = registry.commandRegistries!.single.toMap();
+          expect(child.aliases, ['r']);
+          expect(child.options!.single.name, direct.options!.single.name);
+          expect(child.options!.single.choices, ['json', 'yaml']);
+          expect(child.options!.single.defaultValue, 'json');
+          expect(
+            child.positionals!.single.name,
+            direct.positionals!.single.name,
+          );
+          expect(child.variadic!.choices, direct.variadic!.choices);
+          expect(child.accessors!.single.options!.single.name, 'path');
+          expect(() => child.aliases!.clear(), throwsUnsupportedError);
+          expect(
+            () => child.options!.single.choices!.clear(),
+            throwsUnsupportedError,
+          );
+          expect(() => child.positionals!.clear(), throwsUnsupportedError);
+          expect(
+            () => child.variadic!.choices!.clear(),
+            throwsUnsupportedError,
+          );
+          expect(
+            () => child.accessors!.single.options!.clear(),
+            throwsUnsupportedError,
+          );
+        },
+      );
+
+      test('exports variant membership on paired option records', () {
+        final record = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          pairedOptions: [
+            PairedOptions([
+              PairStringOption('token'),
+              PairStringOption('password'),
+            ], variant: true),
+          ],
+        ).toMap();
+        expect(record.optionGroups!.single.mode, 'oneOf');
+        expect(record.options!.map((option) => option.variant), [true, true]);
+      });
+
+      test(
+        'keeps published inputs distinct from local inputs on child records',
+        () {
+          final record = CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            commands: [
+              TestGroupCommand(
+                'group',
+                [TestCommand('run', 'Run command.')],
+                'Group command.',
+                flags: [BooleanFlag('local')],
+                inheritedFlags: [BooleanFlag('shared')],
+                options: [StringOption('local-path')],
+                inheritedOptions: [StringOption('shared-path')],
+              ),
+            ],
+          ).toMap();
+          final group = record.commands!.single;
+          expect(group.flags!.map((flag) => flag.name), ['help', 'local']);
+          expect(group.persistentFlags!.single.name, 'shared');
+          expect(group.options!.single.name, 'local-path');
+          expect(group.persistentOptions!.single.name, 'shared-path');
+          expect(() => group.persistentFlags!.clear(), throwsUnsupportedError);
+          expect(
+            () => group.persistentOptions!.clear(),
+            throwsUnsupportedError,
+          );
+        },
+      );
+
+      test("exports a record from the inputs", () {
         final color = BooleanFlag('color', negatable: true);
         final verbose = CountFlag('verbose');
         final name = StringOption('name', regex: RegExp(r'\S+'));
@@ -275,67 +389,65 @@ void main() {
         );
 
         expect(
-          withoutIntegrationMetadata(registry.toMap()),
-          equals(
-            buildRegistryExpectation(
-              'tool',
-              'Tool command.',
+          registry.toMap(),
+          matchRegistry(
+            'tool',
+            'Tool command.',
 
-              flags: [
-                (
-                  'color',
-                  short: null,
-                  defaultValue: false,
-                  negatable: true,
-                  hidden: false,
-                  description: null,
-                ),
-                (
-                  'verbose',
-                  short: null,
-                  defaultValue: null,
-                  negatable: null,
-                  hidden: false,
-                  description: null,
-                ),
-              ],
+            flags: [
+              (
+                'color',
+                short: null,
+                defaultValue: false,
+                negatable: true,
+                hidden: false,
+                description: null,
+              ),
+              (
+                'verbose',
+                short: null,
+                defaultValue: null,
+                negatable: null,
+                hidden: false,
+                description: null,
+              ),
+            ],
 
-              options: [
-                (
-                  'name',
-                  short: null,
-                  required: false,
-                  hidden: false,
-                  description: null,
-                  repeatable: null,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-                (
-                  'tag',
-                  short: null,
-                  required: false,
-                  hidden: false,
-                  description: null,
-                  repeatable: true,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-              ],
+            options: [
+              (
+                'name',
+                short: null,
+                required: false,
+                hidden: false,
+                description: null,
+                repeatable: null,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+              (
+                'tag',
+                short: null,
+                required: false,
+                hidden: false,
+                description: null,
+                repeatable: true,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+            ],
 
-              positionals: null,
+            positionals: null,
 
-              accessors: [
-                AccessorExpectation(
-                  'user',
-                  description: null,
-                  options: [AccessorExpectation('profile', description: null)],
-                ),
-              ],
-              aliases: null,
-            ),
+            accessors: [
+              AccessorExpectation(
+                'user',
+                description: null,
+                options: [AccessorExpectation('profile', description: null)],
+              ),
+            ],
+            aliases: null,
           ),
         );
       });
@@ -350,75 +462,105 @@ void main() {
           );
 
           expect(
-            withoutIntegrationMetadata(registry.toMap()),
-            equals(
-              buildRegistryExpectation(
-                'tool',
+            registry.toMap(),
+            matchRegistry(
+              'tool',
 
-                'Tool command.\n\nThis is a tool meant to be used to make ',
-                aliases: null,
-                flags: null,
-                options: null,
-                positionals: null,
-                accessors: null,
-              ),
+              'Tool command.\n\nThis is a tool meant to be used to make ',
+              aliases: null,
+              flags: null,
+              options: null,
+              positionals: null,
+              accessors: null,
             ),
           );
         },
       );
 
-      test(
-        "When a command is added it's added to a commands prop that's a map",
-        () {
-          final registry = CommandRegistry.create(
-            'git',
-            'Save snapshots of your code and be able to send them anywhere',
-            commands: [
-              TestCommand('add', 'Add a file to the staging area'),
+      test("exports commands as an ordered list of typed descriptions", () {
+        final registry = CommandRegistry.create(
+          'git',
+          'Save snapshots of your code and be able to send them anywhere',
+          commands: [
+            TestCommand('add', 'Add a file to the staging area'),
+            TestCommand('commit', 'Take a snapshot of your code'),
+            TestGroupCommand("worktree", [
+              TestCommand(
+                'add',
+                'Make a new work tree',
+                mandatoryPositionals: [
+                  Positional('path', description: 'The path to the work tree'),
+                ],
+                discretionaryPositionals: [
+                  Positional(
+                    "commit-ish",
+                    description:
+                        "Choosse a commit to use to scaffold the worktree",
+                  ),
+                ],
+              ),
               TestCommand('commit', 'Take a snapshot of your code'),
-              TestGroupCommand("worktree", [
-                TestCommand(
-                  'add',
-                  'Make a new work tree',
-                  mandatoryPositionals: [
-                    Positional(
-                      'path',
-                      description: 'The path to the work tree',
-                    ),
-                  ],
-                  discretionaryPositionals: [
-                    Positional(
-                      "commit-ish",
-                      description:
-                          "Choosse a commit to use to scaffold the worktree",
-                    ),
-                  ],
-                ),
-                TestCommand('commit', 'Take a snapshot of your code'),
-              ], "Place your code in separate repo that can be merged"),
-            ],
-          );
+            ], "Place your code in separate repo that can be merged"),
+          ],
+        );
 
-          expect(
-            withoutIntegrationMetadata(registry.toMap()),
-            equals(
-              buildRegistryExpectation(
-                'git',
+        expect(
+          registry.toMap(),
+          matchRegistry(
+            'git',
 
-                'Save snapshots of your code and be able to send them anywhere',
-                aliases: null,
+            'Save snapshots of your code and be able to send them anywhere',
+            aliases: null,
+            flags: null,
+            options: null,
+            positionals: null,
+            accessors: null,
+
+            commands: [
+              CommandExpectation(
+                'add',
+                'Add a file to the staging area',
                 flags: null,
                 options: null,
                 positionals: null,
                 accessors: null,
-
+                commands: null,
+              ),
+              CommandExpectation(
+                'commit',
+                'Take a snapshot of your code',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+                commands: null,
+              ),
+              CommandExpectation(
+                'worktree',
+                'Place your code in separate repo that can be merged',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
                 commands: [
                   CommandExpectation(
                     'add',
-                    'Add a file to the staging area',
+                    'Make a new work tree',
                     flags: null,
                     options: null,
-                    positionals: null,
+                    positionals: [
+                      (
+                        'path',
+                        required: true,
+                        description: 'The path to the work tree',
+                      ),
+                      (
+                        'commit-ish',
+                        required: false,
+                        description:
+                            "Choosse a commit to use to scaffold the worktree",
+                      ),
+                    ],
                     accessors: null,
                     commands: null,
                   ),
@@ -431,51 +573,12 @@ void main() {
                     accessors: null,
                     commands: null,
                   ),
-                  CommandExpectation(
-                    'worktree',
-                    'Place your code in separate repo that can be merged',
-                    flags: null,
-                    options: null,
-                    positionals: null,
-                    accessors: null,
-                    commands: [
-                      CommandExpectation(
-                        'add',
-                        'Make a new work tree',
-                        flags: null,
-                        options: null,
-                        positionals: [
-                          (
-                            'path',
-                            required: true,
-                            description: 'The path to the work tree',
-                          ),
-                          (
-                            'commit-ish',
-                            required: false,
-                            description: "Choosse a commit to use to scaffold the worktree",
-                          ),
-                        ],
-                        accessors: null,
-                        commands: null,
-                      ),
-                      CommandExpectation(
-                        'commit',
-                        'Take a snapshot of your code',
-                        flags: null,
-                        options: null,
-                        positionals: null,
-                        accessors: null,
-                        commands: null,
-                      ),
-                    ],
-                  ),
                 ],
               ),
-            ),
-          );
-        },
-      );
+            ],
+          ),
+        );
+      });
 
       test("Adds commands recursively", () {
         final registry = CommandRegistry.create(
@@ -498,88 +601,86 @@ void main() {
         );
 
         expect(
-          withoutIntegrationMetadata(registry.toMap()),
-          equals(
-            buildRegistryExpectation(
-              'tool',
-              'Tool command.',
-              aliases: null,
-              flags: null,
-              options: null,
-              positionals: null,
-              accessors: null,
+          registry.toMap(),
+          matchRegistry(
+            'tool',
+            'Tool command.',
+            aliases: null,
+            flags: null,
+            options: null,
+            positionals: null,
+            accessors: null,
 
-              commands: [
-                CommandExpectation(
-                  'sub',
-                  'Sub command.',
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                  commands: null,
-                ),
-                CommandExpectation(
-                  'one',
-                  'Group one.',
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                  commands: [
-                    CommandExpectation(
-                      'two',
-                      'Group two.',
-                      flags: null,
-                      options: null,
-                      positionals: null,
-                      accessors: null,
-                      commands: [
-                        CommandExpectation(
-                          'three',
-                          'Group three.',
-                          flags: null,
-                          options: null,
-                          positionals: null,
-                          accessors: null,
-                          commands: [
-                            CommandExpectation(
-                              'four',
-                              'Group four.',
-                              flags: null,
-                              options: null,
-                              positionals: null,
-                              accessors: null,
-                              commands: [
-                                CommandExpectation(
-                                  'five',
-                                  'Group five.',
-                                  flags: null,
-                                  options: null,
-                                  positionals: null,
-                                  accessors: null,
-                                  commands: [
-                                    CommandExpectation(
-                                      'sub',
-                                      'Sub command.',
-                                      flags: null,
-                                      options: null,
-                                      positionals: null,
-                                      accessors: null,
-                                      commands: null,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            commands: [
+              CommandExpectation(
+                'sub',
+                'Sub command.',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+                commands: null,
+              ),
+              CommandExpectation(
+                'one',
+                'Group one.',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+                commands: [
+                  CommandExpectation(
+                    'two',
+                    'Group two.',
+                    flags: null,
+                    options: null,
+                    positionals: null,
+                    accessors: null,
+                    commands: [
+                      CommandExpectation(
+                        'three',
+                        'Group three.',
+                        flags: null,
+                        options: null,
+                        positionals: null,
+                        accessors: null,
+                        commands: [
+                          CommandExpectation(
+                            'four',
+                            'Group four.',
+                            flags: null,
+                            options: null,
+                            positionals: null,
+                            accessors: null,
+                            commands: [
+                              CommandExpectation(
+                                'five',
+                                'Group five.',
+                                flags: null,
+                                options: null,
+                                positionals: null,
+                                accessors: null,
+                                commands: [
+                                  CommandExpectation(
+                                    'sub',
+                                    'Sub command.',
+                                    flags: null,
+                                    options: null,
+                                    positionals: null,
+                                    accessors: null,
+                                    commands: null,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       });
@@ -631,89 +732,85 @@ void main() {
           ],
         );
 
-        final map = withoutIntegrationMetadata(registry.toMap());
+        final record = registry.toMap();
 
         expect(
-          map,
-          equals(
-            buildRegistryExpectation(
-              'git',
-              'Create a new Git repository.',
-              aliases: null,
-              flags: null,
-              options: null,
-              positionals: null,
-              accessors: null,
+          record,
+          matchRegistry(
+            'git',
+            'Create a new Git repository.',
+            aliases: null,
+            flags: null,
+            options: null,
+            positionals: null,
+            accessors: null,
 
-              commands: [
-                CommandExpectation(
-                  'config',
-                  'Configure Git.',
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: [
-                    AccessorExpectation(
-                      'branch',
-                      description: null,
-                      options: [
-                        AccessorExpectation(
-                          'main',
-                          description: null,
-                          options: [
-                            AccessorExpectation(
-                              'remote',
-                              description:
-                                  'The remote to fetch from or push to.',
-                            ),
-                            AccessorExpectation(
-                              'merge',
-                              description: 'The upstream branch to merge.',
-                            ),
-                            AccessorExpectation(
-                              'rebase',
-                              description: 'Whether to rebase instead of merge when pulling.',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    AccessorExpectation(
-                      'remote',
-                      description: null,
-                      options: [
-                        AccessorExpectation(
-                          'origin',
-                          description: null,
-                          options: [
-                            AccessorExpectation(
-                              'url',
-                              description: 'The URL of a remote repository.',
-                            ),
-                            AccessorExpectation(
-                              'pushurl',
-                              description:
-                                  'The push URL of a remote repository.',
-                            ),
-                            AccessorExpectation(
-                              'fetch',
-                              description:
-                                  'The default set of refspecs for fetch.',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                  commands: null,
-                ),
-              ],
-            ),
+            commands: [
+              CommandExpectation(
+                'config',
+                'Configure Git.',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: [
+                  AccessorExpectation(
+                    'branch',
+                    description: null,
+                    options: [
+                      AccessorExpectation(
+                        'main',
+                        description: null,
+                        options: [
+                          AccessorExpectation(
+                            'remote',
+                            description: 'The remote to fetch from or push to.',
+                          ),
+                          AccessorExpectation(
+                            'merge',
+                            description: 'The upstream branch to merge.',
+                          ),
+                          AccessorExpectation(
+                            'rebase',
+                            description: 'Whether to rebase instead of merge when pulling.',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  AccessorExpectation(
+                    'remote',
+                    description: null,
+                    options: [
+                      AccessorExpectation(
+                        'origin',
+                        description: null,
+                        options: [
+                          AccessorExpectation(
+                            'url',
+                            description: 'The URL of a remote repository.',
+                          ),
+                          AccessorExpectation(
+                            'pushurl',
+                            description: 'The push URL of a remote repository.',
+                          ),
+                          AccessorExpectation(
+                            'fetch',
+                            description:
+                                'The default set of refspecs for fetch.',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+                commands: null,
+              ),
+            ],
           ),
         );
       });
 
-      test('maps options properly', () {
+      test('exports options properly', () {
         final registry = CommandRegistry.create(
           'curl',
           'Do HTTP Requests',
@@ -745,79 +842,77 @@ void main() {
         );
 
         expect(
-          withoutIntegrationMetadata(registry.toMap()),
-          equals(
-            buildRegistryExpectation(
-              'curl',
-              'Do HTTP Requests',
+          registry.toMap(),
+          matchRegistry(
+            'curl',
+            'Do HTTP Requests',
 
-              options: [
-                (
-                  'url',
-                  short: 'u',
-                  required: true,
-                  hidden: false,
-                  description: 'URL(s) to work with.',
-                  repeatable: null,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-                (
-                  'retry',
-                  short: null,
-                  required: false,
-                  hidden: false,
-                  description: 'Retry on transient problems.',
-                  repeatable: null,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-                (
-                  'max-time',
-                  short: 'm',
-                  required: false,
-                  hidden: false,
-                  description: 'Maximum time allowed for a transfer.',
-                  repeatable: null,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-                (
-                  'header',
-                  short: 'H',
-                  required: false,
-                  hidden: false,
-                  description: 'Pass custom headers to the server.',
-                  repeatable: true,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-                (
-                  'data',
-                  short: 'd',
-                  required: false,
-                  hidden: false,
-                  description: 'HTTP POST data.',
-                  repeatable: true,
-                  variant: null,
-                  choices: null,
-                  choiceDefault: null,
-                ),
-              ],
-              aliases: null,
-              flags: null,
-              positionals: null,
-              accessors: null,
-            ),
+            options: [
+              (
+                'url',
+                short: 'u',
+                required: true,
+                hidden: false,
+                description: 'URL(s) to work with.',
+                repeatable: null,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+              (
+                'retry',
+                short: null,
+                required: false,
+                hidden: false,
+                description: 'Retry on transient problems.',
+                repeatable: null,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+              (
+                'max-time',
+                short: 'm',
+                required: false,
+                hidden: false,
+                description: 'Maximum time allowed for a transfer.',
+                repeatable: null,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+              (
+                'header',
+                short: 'H',
+                required: false,
+                hidden: false,
+                description: 'Pass custom headers to the server.',
+                repeatable: true,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+              (
+                'data',
+                short: 'd',
+                required: false,
+                hidden: false,
+                description: 'HTTP POST data.',
+                repeatable: true,
+                variant: null,
+                choices: null,
+                choiceDefault: null,
+              ),
+            ],
+            aliases: null,
+            flags: null,
+            positionals: null,
+            accessors: null,
           ),
         );
       });
 
-      test("maps flags properly", () {
+      test("exports flags properly", () {
         final registry = CommandRegistry.create(
           'rsync',
           'Synchronize files and directories.',
@@ -846,56 +941,54 @@ void main() {
         );
 
         expect(
-          withoutIntegrationMetadata(registry.toMap()),
-          equals(
-            buildRegistryExpectation(
-              'rsync',
-              'Synchronize files and directories.',
+          registry.toMap(),
+          matchRegistry(
+            'rsync',
+            'Synchronize files and directories.',
 
-              flags: [
-                (
-                  'verbose',
-                  short: 'v',
-                  defaultValue: null,
-                  negatable: null,
-                  hidden: false,
-                  description: 'Increase verbosity.',
-                ),
-                (
-                  'quiet',
-                  short: 'q',
-                  defaultValue: null,
-                  negatable: null,
-                  hidden: false,
-                  description: 'Suppress non-error messages.',
-                ),
-                (
-                  'dry-run',
-                  short: 'n',
-                  defaultValue: false,
-                  negatable: false,
-                  hidden: false,
-                  description: 'Perform a trial run with no changes made.',
-                ),
-                (
-                  'archive',
-                  short: 'a',
-                  defaultValue: false,
-                  negatable: false,
-                  hidden: false,
-                  description: 'Enable archive mode.',
-                ),
-              ],
-              aliases: null,
-              options: null,
-              positionals: null,
-              accessors: null,
-            ),
+            flags: [
+              (
+                'verbose',
+                short: 'v',
+                defaultValue: null,
+                negatable: null,
+                hidden: false,
+                description: 'Increase verbosity.',
+              ),
+              (
+                'quiet',
+                short: 'q',
+                defaultValue: null,
+                negatable: null,
+                hidden: false,
+                description: 'Suppress non-error messages.',
+              ),
+              (
+                'dry-run',
+                short: 'n',
+                defaultValue: false,
+                negatable: false,
+                hidden: false,
+                description: 'Perform a trial run with no changes made.',
+              ),
+              (
+                'archive',
+                short: 'a',
+                defaultValue: false,
+                negatable: false,
+                hidden: false,
+                description: 'Enable archive mode.',
+              ),
+            ],
+            aliases: null,
+            options: null,
+            positionals: null,
+            accessors: null,
           ),
         );
       });
 
-      test("maps positionals properly", () {
+      test("exports positionals properly", () {
         final registry = CommandRegistry.create(
           'docker',
           'Manage containers.',
@@ -967,131 +1060,129 @@ void main() {
         );
 
         expect(
-          withoutIntegrationMetadata(registry.toMap()),
-          equals(
-            buildRegistryExpectation(
-              'docker',
-              'Manage containers.',
-              aliases: null,
-              flags: null,
-              options: null,
-              positionals: null,
-              accessors: null,
+          registry.toMap(),
+          matchRegistry(
+            'docker',
+            'Manage containers.',
+            aliases: null,
+            flags: null,
+            options: null,
+            positionals: null,
+            accessors: null,
 
-              commands: [
-                CommandExpectation(
-                  'run',
-                  'Create and run a new container from an image.',
-                  flags: null,
-                  options: null,
-                  positionals: [
-                    ('image', required: true, description: 'The image to run.'),
-                    (
-                      'command',
-                      required: false,
-                      description: 'The command to run.',
-                    ),
-                    (
-                      'arguments',
-                      required: false,
-                      description: 'Arguments for the command.',
-                    ),
-                  ],
-                  accessors: null,
-                  commands: null,
-                ),
-                CommandExpectation(
-                  'exec',
-                  'Execute a command in a running container.',
-                  flags: null,
-                  options: null,
-                  positionals: [
-                    (
-                      'container',
-                      required: true,
-                      description: 'The running container.',
-                    ),
-                    (
-                      'command',
-                      required: true,
-                      description: 'The command to execute.',
-                    ),
-                    (
-                      'arguments',
-                      required: false,
-                      description: 'Arguments for the command.',
-                    ),
-                  ],
-                  accessors: null,
-                  commands: null,
-                ),
-                CommandExpectation(
-                  'cp',
-                  'Copy files between a container and the local filesystem.',
-                  flags: null,
-                  options: null,
-                  positionals: [
-                    (
-                      'source-path',
-                      required: true,
-                      description: 'The source path.',
-                    ),
-                    (
-                      'destination-path',
-                      required: true,
-                      description: 'The destination path.',
-                    ),
-                  ],
-                  accessors: null,
-                  commands: null,
-                ),
-                CommandExpectation(
-                  'rename',
-                  'Rename a container.',
-                  flags: null,
-                  options: null,
-                  positionals: [
-                    (
-                      'container',
-                      required: true,
-                      description: 'The container to rename.',
-                    ),
-                    (
-                      'new-name',
-                      required: true,
-                      description: 'The new container name.',
-                    ),
-                  ],
-                  accessors: null,
-                  commands: null,
-                ),
-                CommandExpectation(
-                  'commit',
-                  "Create a new image from a container's changes.",
-                  flags: null,
-                  options: null,
-                  positionals: [
-                    (
-                      'container',
-                      required: true,
-                      description: 'The container to commit.',
-                    ),
-                    (
-                      'repository',
-                      required: false,
-                      description: 'The target repository.',
-                    ),
-                  ],
-                  accessors: null,
-                  commands: null,
-                ),
-              ],
-            ),
+            commands: [
+              CommandExpectation(
+                'run',
+                'Create and run a new container from an image.',
+                flags: null,
+                options: null,
+                positionals: [
+                  ('image', required: true, description: 'The image to run.'),
+                  (
+                    'command',
+                    required: false,
+                    description: 'The command to run.',
+                  ),
+                  (
+                    'arguments',
+                    required: false,
+                    description: 'Arguments for the command.',
+                  ),
+                ],
+                accessors: null,
+                commands: null,
+              ),
+              CommandExpectation(
+                'exec',
+                'Execute a command in a running container.',
+                flags: null,
+                options: null,
+                positionals: [
+                  (
+                    'container',
+                    required: true,
+                    description: 'The running container.',
+                  ),
+                  (
+                    'command',
+                    required: true,
+                    description: 'The command to execute.',
+                  ),
+                  (
+                    'arguments',
+                    required: false,
+                    description: 'Arguments for the command.',
+                  ),
+                ],
+                accessors: null,
+                commands: null,
+              ),
+              CommandExpectation(
+                'cp',
+                'Copy files between a container and the local filesystem.',
+                flags: null,
+                options: null,
+                positionals: [
+                  (
+                    'source-path',
+                    required: true,
+                    description: 'The source path.',
+                  ),
+                  (
+                    'destination-path',
+                    required: true,
+                    description: 'The destination path.',
+                  ),
+                ],
+                accessors: null,
+                commands: null,
+              ),
+              CommandExpectation(
+                'rename',
+                'Rename a container.',
+                flags: null,
+                options: null,
+                positionals: [
+                  (
+                    'container',
+                    required: true,
+                    description: 'The container to rename.',
+                  ),
+                  (
+                    'new-name',
+                    required: true,
+                    description: 'The new container name.',
+                  ),
+                ],
+                accessors: null,
+                commands: null,
+              ),
+              CommandExpectation(
+                'commit',
+                "Create a new image from a container's changes.",
+                flags: null,
+                options: null,
+                positionals: [
+                  (
+                    'container',
+                    required: true,
+                    description: 'The container to commit.',
+                  ),
+                  (
+                    'repository',
+                    required: false,
+                    description: 'The target repository.',
+                  ),
+                ],
+                accessors: null,
+                commands: null,
+              ),
+            ],
           ),
         );
       });
 
-      test("maps nested commands with flags and options correctly", () {
+      test("exports nested commands with flags and options correctly", () {
         final registry = CommandRegistry.create(
           'git',
           'Track and manage source code.',
@@ -1209,226 +1300,220 @@ void main() {
         );
 
         expect(
-          withoutIntegrationMetadata(registry.toMap()),
-          equals(
-            buildRegistryExpectation(
-              'git',
-              'Track and manage source code.',
-              aliases: null,
-              flags: null,
-              options: null,
-              positionals: null,
-              accessors: null,
+          registry.toMap(),
+          matchRegistry(
+            'git',
+            'Track and manage source code.',
+            aliases: null,
+            flags: null,
+            options: null,
+            positionals: null,
+            accessors: null,
 
-              commands: [
-                CommandExpectation(
-                  'remote',
-                  'Manage tracked repositories.',
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                  commands: [
-                    CommandExpectation(
-                      'add',
-                      'Add a tracked repository.',
-                      flags: [
-                        (
-                          'fetch',
-                          short: 'f',
-                          defaultValue: false,
-                          negatable: false,
-                          hidden: false,
-                          description: 'Fetch the remote after adding it.',
-                        ),
-                        (
-                          'tags',
-                          short: null,
-                          defaultValue: false,
-                          negatable: true,
-                          hidden: false,
-                          description: 'Import every tag from the remote.',
-                        ),
-                      ],
-                      options: [
-                        (
-                          'track',
-                          short: 't',
-                          required: false,
-                          hidden: false,
-                          description: 'A branch to track.',
-                          repeatable: true,
-                          variant: null,
-                          choices: null,
-                          choiceDefault: null,
-                        ),
-                        (
-                          'master',
-                          short: 'm',
-                          required: false,
-                          hidden: false,
-                          description: 'The remote default branch.',
-                          repeatable: null,
-                          variant: null,
-                          choices: null,
-                          choiceDefault: null,
-                        ),
-                        (
-                          'mirror',
-                          short: null,
-                          required: false,
-                          hidden: false,
-                          description: 'The mirror direction.',
-                          repeatable: null,
-                          variant: null,
-                          choices: null,
-                          choiceDefault: null,
-                        ),
-                      ],
-                      positionals: [
-                        (
-                          'name',
-                          required: true,
-                          description: 'The remote name.',
-                        ),
-                        ('url', required: true, description: 'The remote URL.'),
-                      ],
-                      accessors: null,
-                      commands: null,
-                    ),
-                  ],
-                ),
-                CommandExpectation(
-                  'worktree',
-                  'Manage linked working trees.',
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                  commands: [
-                    CommandExpectation(
-                      'add',
-                      'Create a linked working tree.',
-                      flags: [
-                        (
-                          'force',
-                          short: 'f',
-                          defaultValue: null,
-                          negatable: null,
-                          hidden: false,
-                          description: 'Override worktree safety checks.',
-                        ),
-                        (
-                          'detach',
-                          short: 'd',
-                          defaultValue: false,
-                          negatable: false,
-                          hidden: false,
-                          description: 'Detach HEAD in the new worktree.',
-                        ),
-                      ],
-                      options: [
-                        (
-                          'new-branch',
-                          short: 'b',
-                          required: false,
-                          hidden: false,
-                          description: 'The branch to create.',
-                          repeatable: null,
-                          variant: null,
-                          choices: null,
-                          choiceDefault: null,
-                        ),
-                        (
-                          'reason',
-                          short: null,
-                          required: false,
-                          hidden: false,
-                          description: 'Why the worktree is locked.',
-                          repeatable: null,
-                          variant: null,
-                          choices: null,
-                          choiceDefault: null,
-                        ),
-                      ],
-                      positionals: [
-                        (
-                          'path',
-                          required: true,
-                          description: 'The worktree path.',
-                        ),
-                        (
-                          'commit-ish',
-                          required: false,
-                          description: 'The revision to check out.',
-                        ),
-                      ],
-                      accessors: null,
-                      commands: null,
-                    ),
-                  ],
-                ),
-                CommandExpectation(
-                  'stash',
-                  'Stash working directory changes.',
-                  flags: null,
-                  options: null,
-                  positionals: null,
-                  accessors: null,
-                  commands: [
-                    CommandExpectation(
-                      'push',
-                      'Stash changes in the working directory.',
-                      flags: [
-                        (
-                          'patch',
-                          short: 'p',
-                          defaultValue: false,
-                          negatable: false,
-                          hidden: false,
-                          description: 'Select changes interactively.',
-                        ),
-                        (
-                          'include-untracked',
-                          short: 'u',
-                          defaultValue: false,
-                          negatable: false,
-                          hidden: false,
-                          description: 'Include untracked files.',
-                        ),
-                      ],
-                      options: [
-                        (
-                          'message',
-                          short: 'm',
-                          required: false,
-                          hidden: false,
-                          description: 'The stash message.',
-                          repeatable: null,
-                          variant: null,
-                          choices: null,
-                          choiceDefault: null,
-                        ),
-                      ],
-                      positionals: [
-                        (
-                          'pathspec',
-                          required: false,
-                          description: 'A path to stash.',
-                        ),
-                      ],
-                      accessors: null,
-                      commands: null,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            commands: [
+              CommandExpectation(
+                'remote',
+                'Manage tracked repositories.',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+                commands: [
+                  CommandExpectation(
+                    'add',
+                    'Add a tracked repository.',
+                    flags: [
+                      (
+                        'fetch',
+                        short: 'f',
+                        defaultValue: false,
+                        negatable: false,
+                        hidden: false,
+                        description: 'Fetch the remote after adding it.',
+                      ),
+                      (
+                        'tags',
+                        short: null,
+                        defaultValue: false,
+                        negatable: true,
+                        hidden: false,
+                        description: 'Import every tag from the remote.',
+                      ),
+                    ],
+                    options: [
+                      (
+                        'track',
+                        short: 't',
+                        required: false,
+                        hidden: false,
+                        description: 'A branch to track.',
+                        repeatable: true,
+                        variant: null,
+                        choices: null,
+                        choiceDefault: null,
+                      ),
+                      (
+                        'master',
+                        short: 'm',
+                        required: false,
+                        hidden: false,
+                        description: 'The remote default branch.',
+                        repeatable: null,
+                        variant: null,
+                        choices: null,
+                        choiceDefault: null,
+                      ),
+                      (
+                        'mirror',
+                        short: null,
+                        required: false,
+                        hidden: false,
+                        description: 'The mirror direction.',
+                        repeatable: null,
+                        variant: null,
+                        choices: null,
+                        choiceDefault: null,
+                      ),
+                    ],
+                    positionals: [
+                      ('name', required: true, description: 'The remote name.'),
+                      ('url', required: true, description: 'The remote URL.'),
+                    ],
+                    accessors: null,
+                    commands: null,
+                  ),
+                ],
+              ),
+              CommandExpectation(
+                'worktree',
+                'Manage linked working trees.',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+                commands: [
+                  CommandExpectation(
+                    'add',
+                    'Create a linked working tree.',
+                    flags: [
+                      (
+                        'force',
+                        short: 'f',
+                        defaultValue: null,
+                        negatable: null,
+                        hidden: false,
+                        description: 'Override worktree safety checks.',
+                      ),
+                      (
+                        'detach',
+                        short: 'd',
+                        defaultValue: false,
+                        negatable: false,
+                        hidden: false,
+                        description: 'Detach HEAD in the new worktree.',
+                      ),
+                    ],
+                    options: [
+                      (
+                        'new-branch',
+                        short: 'b',
+                        required: false,
+                        hidden: false,
+                        description: 'The branch to create.',
+                        repeatable: null,
+                        variant: null,
+                        choices: null,
+                        choiceDefault: null,
+                      ),
+                      (
+                        'reason',
+                        short: null,
+                        required: false,
+                        hidden: false,
+                        description: 'Why the worktree is locked.',
+                        repeatable: null,
+                        variant: null,
+                        choices: null,
+                        choiceDefault: null,
+                      ),
+                    ],
+                    positionals: [
+                      (
+                        'path',
+                        required: true,
+                        description: 'The worktree path.',
+                      ),
+                      (
+                        'commit-ish',
+                        required: false,
+                        description: 'The revision to check out.',
+                      ),
+                    ],
+                    accessors: null,
+                    commands: null,
+                  ),
+                ],
+              ),
+              CommandExpectation(
+                'stash',
+                'Stash working directory changes.',
+                flags: null,
+                options: null,
+                positionals: null,
+                accessors: null,
+                commands: [
+                  CommandExpectation(
+                    'push',
+                    'Stash changes in the working directory.',
+                    flags: [
+                      (
+                        'patch',
+                        short: 'p',
+                        defaultValue: false,
+                        negatable: false,
+                        hidden: false,
+                        description: 'Select changes interactively.',
+                      ),
+                      (
+                        'include-untracked',
+                        short: 'u',
+                        defaultValue: false,
+                        negatable: false,
+                        hidden: false,
+                        description: 'Include untracked files.',
+                      ),
+                    ],
+                    options: [
+                      (
+                        'message',
+                        short: 'm',
+                        required: false,
+                        hidden: false,
+                        description: 'The stash message.',
+                        repeatable: null,
+                        variant: null,
+                        choices: null,
+                        choiceDefault: null,
+                      ),
+                    ],
+                    positionals: [
+                      (
+                        'pathspec',
+                        required: false,
+                        description: 'A path to stash.',
+                      ),
+                    ],
+                    accessors: null,
+                    commands: null,
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       });
 
-      group("maps paired options properly", () {
+      group("exports paired options properly", () {
         test('exports command aliases and hidden inputs for a release CLI', () {
           final registry = CommandRegistry.create(
             'release',
@@ -1447,34 +1532,33 @@ void main() {
             ],
           );
 
-          final exported = withoutIntegrationMetadata(registry.toMap());
+          final exported = registry.toMap();
 
-          expect(exported['commands']['publish']['aliases'], ['push']);
-          expect(exported['flags']['dry-run'], {
-            'short': null,
-            'default': false,
-            'negatable': false,
-            'hidden': true,
-            'description': null,
-          });
-          expect(exported['options']['token'], {
-            'short': null,
-            'required': false,
-            'hidden': true,
-            'description': null,
-          });
-          expect(exported['accessors']['internal'], {
-            'kind': 'group',
-            'hidden': true,
-            'description': null,
-            'options': {
-              'trace-id': {
-                'kind': 'value',
-                'valueType': 'string',
-                'description': null,
-              },
-            },
-          });
+          expect(exported.commands!.single.aliases, ['push']);
+          expect(exported.flags!.last, (
+            name: 'dry-run',
+            short: null,
+            defaultValue: false,
+            negatable: false,
+            hidden: true,
+            description: null,
+          ));
+          final option = exported.options!.single;
+          expect(option.name, 'token');
+          expect(option.short, isNull);
+          expect(option.required, isFalse);
+          expect(option.hidden, isTrue);
+          expect(option.description, isNull);
+          final accessor = exported.accessors!.single;
+          expect(accessor.name, 'internal');
+          expect(accessor.kind, 'group');
+          expect(accessor.hidden, isTrue);
+          expect(accessor.description, isNull);
+          final leaf = accessor.options!.single;
+          expect(leaf.name, 'trace-id');
+          expect(leaf.kind, 'value');
+          expect(leaf.valueType, 'string');
+          expect(leaf.description, isNull);
         });
       });
     });
@@ -1534,10 +1618,7 @@ void main() {
 
         expect(registry.mandatoryPositionals, isNull);
         expect(registry.discretionaryPositionals, isNull);
-        expect(
-          withoutIntegrationMetadata(registry.toMap()).containsKey('variadic'),
-          isFalse,
-        );
+        expect((registry.toMap().variadic != null), isFalse);
       });
 
       test('holds a nested command variadic under its registry', () {
@@ -1565,10 +1646,7 @@ void main() {
           variadic: extra,
         );
 
-        expect(
-          withoutIntegrationMetadata(registry.toMap()).containsKey('variadic'),
-          isFalse,
-        );
+        expect((registry.toMap().variadic != null), isFalse);
       });
 
       test('exports choice variadic members and defaults in toMap', () {
@@ -1584,10 +1662,7 @@ void main() {
           variadic: formats,
         );
 
-        expect(
-          withoutIntegrationMetadata(registry.toMap()).containsKey('variadic'),
-          isFalse,
-        );
+        expect((registry.toMap().variadic != null), isFalse);
       });
 
       test('keeps dash variadics separate from ordinary positionals', () {
@@ -2276,72 +2351,6 @@ void main() {
   });
 
   group('framework consistency fixes', () {
-    test('allows RegistryMap positional and named names to overlap', () {
-      expect(
-        () => RegistryMap({
-          'name': 'tool',
-          'description': 'Tool command.',
-          'flags': {
-            'value': {'hidden': false, 'description': null},
-          },
-          'positionals': {
-            'value': {'required': false, 'description': null},
-          },
-        }),
-        returnsNormally,
-      );
-    });
-
-    test('synthesizes canonical help and rejects caller redefinitions', () {
-      final map = RegistryMap({'name': 'tool', 'description': 'Tool command.'});
-      expect((map.map['flags'] as Map)['help']['short'], 'h');
-      expect(
-        () => RegistryMap({
-          'name': 'tool',
-          'description': 'Tool command.',
-          'flags': {
-            'help': {
-              'short': 'h',
-              'default': true,
-              'negatable': false,
-              'hidden': false,
-              'description': 'Show this help message.',
-            },
-          },
-        }),
-        throwsA(isA<MambaIntegrationException>()),
-      );
-    });
-
-    test('rejects local and persistent cross-kind collisions', () {
-      expect(
-        () => RegistryMap({
-          'name': 'tool',
-          'description': 'Tool command.',
-          'flags': {
-            'help': {
-              'short': 'h',
-              'default': false,
-              'negatable': false,
-              'hidden': false,
-              'description': 'Show this help message.',
-            },
-            'color': {'hidden': false, 'description': null},
-          },
-          'persistentOptions': {
-            'color': {
-              'short': null,
-              'required': false,
-              'hidden': false,
-              'description': null,
-              'valueType': 'string',
-            },
-          },
-        }),
-        throwsA(isA<MambaIntegrationException>()),
-      );
-    });
-
     test('rejects synthesized negated flag collisions', () {
       expect(
         () => CommandRegistry.create(
@@ -2369,30 +2378,6 @@ void main() {
       );
     });
 
-    test('RegistryMap rejects nested accessor help names', () {
-      expect(
-        () => RegistryMap({
-          'name': 'tool',
-          'description': 'Tool command.',
-          'accessors': {
-            'server': {
-              'kind': 'group',
-              'hidden': false,
-              'description': null,
-              'options': {
-                'help': {
-                  'kind': 'value',
-                  'valueType': 'string',
-                  'description': null,
-                },
-              },
-            },
-          },
-        }),
-        throwsA(isA<MambaIntegrationException>()),
-      );
-    });
-
     test('direct registry creation snapshots caller-owned collections', () {
       final commands = <Command>[TestCommand('initial', 'Initial.')];
       final flags = <Flag>[BooleanFlag('visible')];
@@ -2408,7 +2393,10 @@ void main() {
       expect(registry.commandRegistries, hasLength(1));
       expect(registry.boolFlags, contains('visible'));
       expect(registry.boolFlags, isNot(contains('later-flag')));
-      expect(registry.toMap()['commands'], isNot(contains('later')));
+      expect(
+        registry.toMap().commands?.map((command) => command.name),
+        isNot(contains('later')),
+      );
     });
 
     test('cardinality overrides replace the inherited option shape', () {

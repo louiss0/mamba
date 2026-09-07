@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:mamba/command.dart';
-import 'package:mamba/errors.dart';
 import 'package:mamba/integrations.dart';
 import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
@@ -38,9 +37,9 @@ CommandRegistry specRegistry({
   commands: commands,
 );
 
-/// Builds a command-level map for completion tests that exercise command-owned
+/// Builds a command-level record for completion tests that exercise command-owned
 /// positionals and variadics without placing them on the executor root.
-RegistryMap specCommandMap({
+RegistryRecord specCommandRecord({
   List<Flag>? flags,
   List<Option>? options,
   List<PairedOptions>? pairedOptions,
@@ -66,22 +65,21 @@ RegistryMap specCommandMap({
       ),
     ],
   );
-  final commands = root.toMap().map['commands'] as Map;
-  return RegistryMap(Map<String, dynamic>.from(commands['spec'] as Map));
+  return root.commandRegistries!.single.toMap();
 }
 
-/// Renders the Carapace spec exported by [registryMap].
-String convertSpec(RegistryMap registryMap) =>
-    CarapaceSpecConverter(registryMap).convert();
+/// Renders the Carapace spec exported by [registry].
+String convertSpec(RegistryRecord registry) =>
+    CarapaceSpecConverter(registry).convert();
 
-String convertBash(RegistryMap registryMap) =>
-    ToBashCompletionConverter(registryMap).convert();
+String convertBash(RegistryRecord registry) =>
+    ToBashCompletionConverter(registry).convert();
 
-String convertZsh(RegistryMap registryMap) =>
-    ToZshCompletionConverter(registryMap).convert();
+String convertZsh(RegistryRecord registry) =>
+    ToZshCompletionConverter(registry).convert();
 
-String convertPs(RegistryMap registryMap) =>
-    ToPowerShellCompletionConverter(registryMap).convert();
+String convertPs(RegistryRecord registry) =>
+    ToPowerShellCompletionConverter(registry).convert();
 
 Future<List<String>> completeBash(
   String completion,
@@ -344,8 +342,8 @@ void main() {
     String convertFish(CommandRegistry registry) =>
         ToFishCompletionConverter(registry.toMap()).convert();
 
-    String convertFishMap(RegistryMap registryMap) =>
-        ToFishCompletionConverter(registryMap).convert();
+    String convertFishRecord(RegistryRecord registry) =>
+        ToFishCompletionConverter(registry).convert();
 
     String fishDeclarations(String output) => output
         .split('\n')
@@ -930,8 +928,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     });
 
     test('keeps unconstrained positionals in the slot sequence', () {
-      final output = convertFishMap(
-        specCommandMap(
+      final output = convertFishRecord(
+        specCommandRecord(
           mandatoryPositionals: [
             NormalPositional('path'),
             ChoicePositional<_Format>('format', choices: _Format.values),
@@ -943,8 +941,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     });
 
     test('emits every bounded repeated positional slot', () {
-      final output = convertFishMap(
-        specCommandMap(
+      final output = convertFishRecord(
+        specCommandRecord(
           discretionaryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -968,8 +966,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     test(
       'composes root positional conditions without a leading conjunction',
       () {
-        final output = convertFishMap(
-          specCommandMap(
+        final output = convertFishRecord(
+          specCommandRecord(
             mandatoryPositionals: [
               ChoicePositional<_Format>('format', choices: _Format.values),
             ],
@@ -983,8 +981,8 @@ complete -c spec -n '__mamba_at_path \'spec|help|h|||config\' \'config|help|h|||
     );
 
     test('gates a single-value choice variadic after its first value', () {
-      final output = convertFishMap(
-        specCommandMap(variadic: ChoiceVariadic<_Sku>(choices: _Sku.values)),
+      final output = convertFishRecord(
+        specCommandRecord(variadic: ChoiceVariadic<_Sku>(choices: _Sku.values)),
       );
 
       final declaration = fishDeclaration(output, "-a 'basic standard'");
@@ -1397,24 +1395,13 @@ compdef _spec spec
       (
         'omits leaves in hidden accessor groups',
         () => convertZsh(
-          RegistryMap({
-            'name': 'spec',
-            'description': 'spec command',
-            'accessors': {
-              'database': {
-                'kind': 'group',
-                'hidden': true,
-                'description': null,
-                'options': {
-                  'url': {
-                    'kind': 'value',
-                    'description': null,
-                    'valueType': 'string',
-                  },
-                },
-              },
-            },
-          }),
+          specRegistry(
+            accessors: [
+              AccessorListOption('database', [
+                AccessorStringOption('url'),
+              ], hidden: true),
+            ],
+          ).toMap(),
         ),
         isNot(contains('--database.url')),
       ),
@@ -1568,7 +1555,7 @@ compdef _spec spec
       (
         'expands repeated positional choice slots',
         () => convertZsh(
-          specCommandMap(
+          specCommandRecord(
             mandatoryPositionals: [
               RepeatedChoicePositional<_Level>(
                 'level',
@@ -1586,7 +1573,7 @@ compdef _spec spec
       (
         'offers variadic choices only after the separator',
         () => convertZsh(
-          specCommandMap(
+          specCommandRecord(
             variadic: RepeatedChoiceVariadic<_Sku>(choices: _Sku.values),
           ),
         ),
@@ -1684,7 +1671,7 @@ compdef _spec spec
 
     test('completes the first variadic value after the separator', () async {
       final completion = convertBash(
-        specCommandMap(
+        specCommandRecord(
           variadic: ChoiceVariadic<_Level>(choices: _Level.values),
         ),
       );
@@ -1697,7 +1684,7 @@ compdef _spec spec
 
     test('stops completing a single variadic after one value', () async {
       final completion = convertBash(
-        specCommandMap(
+        specCommandRecord(
           variadic: ChoiceVariadic<_Level>(choices: _Level.values),
         ),
       );
@@ -2104,7 +2091,7 @@ compdef _spec spec
       'keeps an unconstrained positional slot before a choice positional',
       () {
         final completion = convertBash(
-          specCommandMap(
+          specCommandRecord(
             mandatoryPositionals: [
               NormalPositional('path'),
               ChoicePositional<_Format>('format', choices: _Format.values),
@@ -2122,7 +2109,7 @@ compdef _spec spec
 
     test('limits repeated positional choices to times plus one slots', () {
       final completion = convertBash(
-        specCommandMap(
+        specCommandRecord(
           mandatoryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -2139,7 +2126,7 @@ compdef _spec spec
 
     test('emits choices for a single-value variadic', () {
       final completion = convertBash(
-        specCommandMap(
+        specCommandRecord(
           variadic: ChoiceVariadic<_Format>(choices: _Format.values),
         ),
       );
@@ -2149,7 +2136,7 @@ compdef _spec spec
 
     test('emits choices for a repeated variadic', () {
       final completion = convertBash(
-        specCommandMap(
+        specCommandRecord(
           variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         ),
       );
@@ -3185,7 +3172,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       'keeps an unconstrained positional slot before a choice positional',
       () {
         final completion = convertPs(
-          specCommandMap(
+          specCommandRecord(
             mandatoryPositionals: [
               NormalPositional('path'),
               ChoicePositional<_Format>('format', choices: _Format.values),
@@ -3200,7 +3187,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('limits repeated positional choices to times plus one slots', () {
       final completion = convertPs(
-        specCommandMap(
+        specCommandRecord(
           mandatoryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -3218,7 +3205,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('emits a variadic handler for a single-value choice variadic', () {
       final completion = convertPs(
-        specCommandMap(
+        specCommandRecord(
           variadic: ChoiceVariadic<_Format>(choices: _Format.values),
         ),
       );
@@ -3229,7 +3216,7 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
 
     test('emits a variadic handler for a repeated choice variadic', () {
       final completion = convertPs(
-        specCommandMap(
+        specCommandRecord(
           variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         ),
       );
@@ -3495,38 +3482,55 @@ Register-ArgumentCompleter -Native -CommandName 'spec' -ScriptBlock {
       expect(convertSpec(registry.toMap()), contains('--no-color: ""'));
     });
 
-    test('renders a RegistryMap without a CommandRegistry', () {
-      final registryMap = RegistryMap({
-        'name': 'from-map',
-        'description': 'A map-defined command.',
-        'flags': {
-          'force': {
-            'short': 'f',
-            'default': false,
-            'negatable': false,
-            'hidden': false,
-            'description': null,
-          },
-        },
-        'options': {
-          'retries': {
-            'short': null,
-            'required': true,
-            'hidden': false,
-            'description': 'Retry attempts.',
-            'valueType': 'int',
-          },
-        },
-      });
+    test('renders a record without a CommandRegistry', () {
+      final RegistryRecord registry = (
+        name: 'from-record',
+        description: 'A record-defined command.',
+        commands: null,
+        variadic: null,
+        positionals: null,
+        persistentFlags: null,
+        persistentOptions: null,
+        optionGroups: null,
+        accessors: null,
+        flags: [
+          (
+            name: 'force',
+            short: 'f',
+            defaultValue: false,
+            negatable: false,
+            hidden: false,
+            description: null,
+          ),
+        ],
+        options: [
+          (
+            name: 'retries',
+            short: null,
+            required: true,
+            hidden: false,
+            description: 'Retry attempts.',
+            valueType: 'int',
+            repeatable: null,
+            variant: null,
+            choices: null,
+            defaultValue: null,
+            pattern: null,
+            min: null,
+            max: null,
+            step: null,
+            pairedOptions: null,
+          ),
+        ],
+      );
 
       expect(
-        CarapaceSpecConverter(registryMap).convert(),
+        CarapaceSpecConverter(registry).convert(),
         equalsYaml('''
-name: "from-map"
-description: "A map-defined command."
+name: "from-record"
+description: "A record-defined command."
 persistentflags:
   -f, --force: ""
-  -h, --help: "Show this help message."
   --retries!=: "Retry attempts."'''),
       );
     });
@@ -3674,24 +3678,6 @@ completion:
       final spec = convertSpec(registry.toMap());
 
       expect(spec, contains('--internal.token?&='));
-    });
-
-    test('rejects legacy description-only accessor maps', () {
-      expect(
-        () => RegistryMap({
-          'name': 'legacy',
-          'description': 'Legacy map.',
-          'accessors': {
-            'profile': {
-              'description': 'Profile settings.',
-              'options': {
-                'name': {'description': 'Profile name.'},
-              },
-            },
-          },
-        }),
-        throwsA(isA<MambaIntegrationException>()),
-      );
     });
 
     group("commands", () {
@@ -4237,7 +4223,7 @@ persistentflags:
 
     group("positionals", () {
       test("choice positionals are rendered", () {
-        final registry = specCommandMap(
+        final registry = specCommandRecord(
           mandatoryPositionals: [
             ChoicePositional<_Format>('format', choices: _Format.values),
           ],
@@ -4263,7 +4249,7 @@ completion:
       });
 
       test("unconstrained positionals preserve later choice slots", () {
-        final registry = specCommandMap(
+        final registry = specCommandRecord(
           mandatoryPositionals: [
             NormalPositional('path'),
             ChoicePositional<_Format>('format', choices: _Format.values),
@@ -4286,7 +4272,7 @@ completion:
       });
 
       test("repeated choice positionals render bounded slots", () {
-        final registry = specCommandMap(
+        final registry = specCommandRecord(
           discretionaryPositionals: [
             RepeatedChoicePositional<_Format>(
               'format',
@@ -4317,7 +4303,7 @@ completion:
 
     group("variadic", () {
       test("choice variadics complete the first argument after --", () {
-        final registry = specCommandMap(
+        final registry = specCommandRecord(
           variadic: ChoiceVariadic<_Format>(choices: _Format.values),
         );
 
@@ -4338,7 +4324,7 @@ completion:
       });
 
       test("repeated choice variadics complete every argument after --", () {
-        final registry = specCommandMap(
+        final registry = specCommandRecord(
           variadic: RepeatedChoiceVariadic<_Format>(choices: _Format.values),
         );
 
@@ -4357,7 +4343,7 @@ completion:
       });
 
       test("keeps ordinary and dash completions separate", () {
-        final registry = specCommandMap(
+        final registry = specCommandRecord(
           mandatoryPositionals: [
             ChoicePositional<_Format>('format', choices: _Format.values),
           ],

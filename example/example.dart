@@ -319,7 +319,7 @@ final class CompletionTaskCommand extends CompletionCommand {
   @override
   String run(_, ParsedNamedInputs inputs, _) {
     final outputFile = CarapaceSpecWriter(
-      CarapaceSpecConverter(registryMap),
+      CarapaceSpecConverter(registryRecord),
       development: false,
       outputPath: inputs.stringOptions?['output'],
     ).write();

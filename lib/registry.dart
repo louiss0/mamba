@@ -16,6 +16,7 @@ typedef RegistryRecord = ({
   List<RegistryFlag>? persistentFlags,
   List<RegistryOption>? options,
   List<RegistryOption>? persistentOptions,
+  List<RegistryOptionGroup>? optionGroups,
   List<RegistryAccessor>? accessors,
 });
 
@@ -102,7 +103,7 @@ final class RegistryCommand {
 }
 
 final class RegistryAccessor {
-  RegistryAccessor.group({
+  new group({
     required this.name,
     required this.hidden,
     this.description,
@@ -114,7 +115,7 @@ final class RegistryAccessor {
        pattern = null,
        options = List.unmodifiable(options);
 
-  RegistryAccessor.value({
+  new value({
     required this.name,
     required this.valueType,
     this.description,
@@ -136,966 +137,6 @@ final class RegistryAccessor {
   final List<RegistryAccessor>? options;
 }
 
-/// Properties accepted in a serialised [CommandRegistry] map.
-///
-/// Each property validates the shape written by [CommandRegistry.toMap]. The
-/// optional [path] preserves the full location of malformed nested data in a
-/// [MambaIntegrationException].
-enum RegistryMapProps {
-  name,
-  description,
-  flags,
-  persistentFlags,
-  persistentOptions,
-  options,
-  optionGroups,
-  commands,
-  accessors,
-  aliases,
-  positionals,
-  variadic;
-
-  Object? parse(Object? value, [String? path]) {
-    final propertyPath = path ?? this.name;
-    switch (this) {
-      case RegistryMapProps.name:
-      case RegistryMapProps.description:
-        _expectString(value, propertyPath);
-      case RegistryMapProps.flags:
-      case RegistryMapProps.persistentFlags:
-        _parseInputCollection(value, propertyPath, _parseFlag);
-      case RegistryMapProps.options:
-      case RegistryMapProps.persistentOptions:
-        _parseInputCollection(value, propertyPath, _parseOption);
-      case RegistryMapProps.optionGroups:
-        _parseOptionGroups(value, propertyPath);
-      case RegistryMapProps.commands:
-        _parseCommands(value, propertyPath);
-      case RegistryMapProps.accessors:
-        _parseAccessors(value, propertyPath);
-      case RegistryMapProps.aliases:
-        _parseAliases(value, propertyPath);
-      case RegistryMapProps.positionals:
-        _parseInputCollection(value, propertyPath, _parsePositional);
-      case RegistryMapProps.variadic:
-        _parseVariadic(value, propertyPath);
-    }
-    return value;
-  }
-}
-
-void _parseCommand(Map<Object?, Object?> value, String path) {
-  final properties = _stringMap(value, path);
-  _validateProperties(
-    properties,
-    path,
-    RegistryMapProps.values.map((property) => property.name).toSet(),
-    const {'name', 'description'},
-  );
-
-  for (final property in RegistryMapProps.values) {
-    final propertyValue = properties[property.name];
-    if (propertyValue != null || properties.containsKey(property.name)) {
-      property.parse(propertyValue, _joinRegistryPath(path, property.name));
-    }
-  }
-  _validateOptionGroupMembers(properties, path);
-  _validateCommandSemantics(properties, path);
-}
-
-final RegExp _registryName = RegExp(r'^[A-Za-z]+(?:[-_][A-Za-z]+)*$');
-final RegExp _registryShortName = RegExp(r'^[A-Za-z]$');
-
-void _validateCommandSemantics(Map<String, Object?> command, String path) {
-  final namePath = _joinRegistryPath(path, 'name');
-  _validateRegistryName(command['name'] as String, namePath);
-
-  final descriptionPath = _joinRegistryPath(path, 'description');
-  final description = command['description'] as String;
-  if (description.isEmpty) {
-    _invalid(description, descriptionPath, 'must not be empty');
-  }
-  // The serialized description starts with the live short description, which
-  // live registration rejects when empty or longer than 150 characters.
-  final shortDescription = description.split('\n\n').first;
-  if (shortDescription.length > 150) {
-    _invalid(
-      shortDescription,
-      descriptionPath,
-      'must not exceed 150 characters before the long description',
-    );
-  }
-
-  final inputCollections = [
-    'flags',
-    'persistentFlags',
-    'options',
-    'persistentOptions',
-    'positionals',
-    'accessors',
-  ];
-  // Positional names occupy a separate namespace: token syntax keeps their
-  // values unambiguous, so live registration permits cross-category sharing.
-  final positionalNames = <String>{};
-  final localNames = <String>{};
-  final persistentNames = <String>{};
-  final localShorts = <String>{};
-  final persistentShorts = <String>{};
-  final negatedFlagNames = <String>{};
-  for (final collectionName in inputCollections) {
-    final value = command[collectionName];
-    if (value is! Map) continue;
-    final collection = _stringMap(
-      value,
-      _joinRegistryPath(path, collectionName),
-    );
-    for (final entry in collection.entries) {
-      final inputPath = _joinRegistryPath(
-        _joinRegistryPath(path, collectionName),
-        entry.key,
-      );
-      _validateRegistryName(entry.key, inputPath);
-      final isPositional = collectionName == 'positionals';
-      final isPersistent =
-          collectionName == 'persistentFlags' ||
-          collectionName == 'persistentOptions';
-      final names = isPositional
-          ? positionalNames
-          : isPersistent
-          ? persistentNames
-          : localNames;
-      final shorts = isPersistent ? persistentShorts : localShorts;
-      if (!names.add(entry.key)) {
-        _invalid(
-          entry.key,
-          inputPath,
-          'collides with another registered input',
-        );
-      }
-      // The built-in help flag is the only input allowed to claim the
-      // reserved help name or its -h short alias.
-      final helpInput = entry.value is Map
-          ? _map(entry.value, inputPath)
-          : const <String, Object?>{};
-      final isHelpFlagEntry =
-          collectionName == 'flags' &&
-          entry.key == 'help' &&
-          helpInput['short'] == 'h' &&
-          helpInput.containsKey('default') &&
-          helpInput.containsKey('negatable');
-      if (entry.key == 'help' && !isHelpFlagEntry) {
-        _invalid(entry.key, inputPath, 'is reserved by the built-in help flag');
-      }
-      if (entry.value is Map) {
-        final input = _map(entry.value, inputPath);
-        final short = input['short'];
-        if (short is String) {
-          if (!_registryShortName.hasMatch(short)) {
-            _invalid(
-              short,
-              _joinRegistryPath(inputPath, 'short'),
-              'must be a single letter',
-            );
-          }
-          if (short == 'h' && !isHelpFlagEntry) {
-            _invalid(
-              short,
-              _joinRegistryPath(inputPath, 'short'),
-              'is reserved by the built-in help flag',
-            );
-          }
-          if (!shorts.add(short)) {
-            _invalid(
-              short,
-              _joinRegistryPath(inputPath, 'short'),
-              'collides with another short alias',
-            );
-          }
-        }
-        if (input['negatable'] == true) {
-          negatedFlagNames.add('no-${entry.key}');
-        }
-      }
-    }
-  }
-  // Local options may replace persistent options of the same name, but every
-  // other local/persistent name collision is ambiguous in the live registry.
-  final localOptions = command['options'] is Map
-      ? _stringMap(command['options'], _joinRegistryPath(path, 'options'))
-      : const <String, Object?>{};
-  final persistentOptions = command['persistentOptions'] is Map
-      ? _stringMap(
-          command['persistentOptions'],
-          _joinRegistryPath(path, 'persistentOptions'),
-        )
-      : const <String, Object?>{};
-  final persistentFlags = command['persistentFlags'] is Map
-      ? _stringMap(
-          command['persistentFlags'],
-          _joinRegistryPath(path, 'persistentFlags'),
-        )
-      : const <String, Object?>{};
-  final localFlags = command['flags'] is Map
-      ? _stringMap(command['flags'], _joinRegistryPath(path, 'flags'))
-      : const <String, Object?>{};
-  for (final name in localNames.intersection(persistentNames)) {
-    if (localOptions.containsKey(name) && persistentOptions.containsKey(name)) {
-      continue;
-    }
-    _invalid(name, path, 'collides between local and persistent inputs');
-  }
-  Map<String, String> shortNames(Map<String, Object?> inputs) => {
-    for (final entry in inputs.entries)
-      if (_map(entry.value, path)['short'] case final String short)
-        short: entry.key,
-  };
-  final localShortNames = shortNames({...localFlags, ...localOptions});
-  final persistentShortNames = shortNames({
-    ...persistentFlags,
-    ...persistentOptions,
-  });
-  for (final short in localShorts.intersection(persistentShorts)) {
-    if (localShortNames[short] == persistentShortNames[short]) continue;
-    _invalid(
-      short,
-      path,
-      'collides between local and persistent short aliases',
-    );
-  }
-
-  // Every map represents the live built-in help flag exactly, rather than a
-  // caller-defined approximation of parser-owned behavior.
-  final help = localFlags['help'];
-  const helpDescription = 'Show this help message.';
-  if ((help != null && help is! Map) ||
-      persistentFlags.containsKey('help') ||
-      (help is Map &&
-          (_map(help, _joinRegistryPath(path, 'flags.help'))['short'] != 'h' ||
-              _map(help, _joinRegistryPath(path, 'flags.help'))['default'] !=
-                  false ||
-              _map(help, _joinRegistryPath(path, 'flags.help'))['negatable'] !=
-                  false ||
-              _map(help, _joinRegistryPath(path, 'flags.help'))['hidden'] !=
-                  false ||
-              _map(
-                    help,
-                    _joinRegistryPath(path, 'flags.help'),
-                  )['description'] !=
-                  helpDescription))) {
-    _invalid(
-      help,
-      _joinRegistryPath(path, 'flags.help'),
-      'must be the canonical built-in help flag',
-    );
-  }
-
-  // A negatable boolean flag also accepts --no-<name>; that synthesized
-  // spelling belongs to the command token namespace and must not collide
-  // with another registered input.
-  final declaredNames = {...localNames, ...persistentNames};
-  for (final negatedName in negatedFlagNames) {
-    if (declaredNames.contains(negatedName)) {
-      _invalid(
-        negatedName,
-        _joinRegistryPath(path, 'flags'),
-        'collides with a synthesized negated flag spelling',
-      );
-    }
-  }
-  final positionals = command['positionals'];
-  final commands = command['commands'];
-  if (positionals is Map && commands is Map) {
-    for (final name in positionals.keys) {
-      if (commands.containsKey(name)) {
-        _invalid(
-          name,
-          _joinRegistryPath(path, 'positionals'),
-          'must not collide with a child command',
-        );
-      }
-    }
-  }
-  final aliases = command['aliases'];
-  if (aliases is List) {
-    final registeredAliases = <String>{};
-    for (final (index, alias) in aliases.indexed) {
-      final aliasPath = _joinRegistryPath(
-        _joinRegistryPath(path, 'aliases'),
-        index.toString(),
-      );
-      _validateRegistryName(alias as String, aliasPath);
-      if (alias == command['name'] || !registeredAliases.add(alias)) {
-        _invalid(
-          alias,
-          aliasPath,
-          'must be unique and differ from the command name',
-        );
-      }
-    }
-  }
-}
-
-void _validateRegistryName(String name, String path) {
-  if (!_registryName.hasMatch(name)) {
-    _invalid(
-      name,
-      path,
-      'must contain letter-led words separated by hyphens or underscores',
-    );
-  }
-}
-
-void _validateOptionGroupMembers(
-  Map<String, Object?> command,
-  String commandPath,
-) {
-  final groups = command['optionGroups'];
-  if (groups is! List) return;
-  final options = command['options'] is Map
-      ? _stringMap(
-          command['options'],
-          _joinRegistryPath(commandPath, 'options'),
-        )
-      : const <String, Object?>{};
-  final groupedMembers = <Object?>{};
-  for (final (groupIndex, entry) in groups.indexed) {
-    final groupPath = _joinRegistryPath(
-      _joinRegistryPath(commandPath, 'optionGroups'),
-      groupIndex.toString(),
-    );
-    final group = _map(entry, groupPath);
-    final members = group['members'] as List;
-    for (final (memberIndex, member) in members.indexed) {
-      final memberPath = _joinRegistryPath(
-        _joinRegistryPath(groupPath, 'members'),
-        memberIndex.toString(),
-      );
-      if (!groupedMembers.add(member)) {
-        _invalid(member, memberPath, 'must belong to only one option group');
-      }
-      if (!options.containsKey(member)) {
-        _invalid(member, memberPath, 'must reference a registered option');
-      }
-      final option = options[member];
-      // Pair options never declare defaults, so no member of any option
-      // group may carry serialized default metadata.
-      if (option is Map && _map(option, memberPath).containsKey('default')) {
-        _invalid(
-          _map(option, memberPath)['default'],
-          _joinRegistryPath(memberPath, 'default'),
-          'must not be declared for pair options',
-        );
-      }
-    }
-  }
-}
-
-void _parseCommands(Object? value, String path) {
-  final commands = _stringMap(value, path);
-  final aliases = <String>{};
-  for (final entry in commands.entries) {
-    final commandPath = _joinRegistryPath(path, entry.key);
-    final command = _map(entry.value, commandPath);
-    _parseCommand(command, commandPath);
-    if (command['name'] != entry.key) {
-      _invalid(
-        command['name'],
-        _joinRegistryPath(commandPath, 'name'),
-        'must match its command collection key',
-      );
-    }
-    for (final alias in command['aliases'] as List? ?? const <Object?>[]) {
-      final aliasPath = _joinRegistryPath(commandPath, 'aliases');
-      if (commands.containsKey(alias) || !aliases.add(alias as String)) {
-        _invalid(
-          alias,
-          aliasPath,
-          'must not collide with a sibling command or alias',
-        );
-      }
-    }
-  }
-}
-
-void _parseInputCollection(
-  Object? value,
-  String path,
-  void Function(Map<String, Object?> value, String path) parseInput,
-) {
-  final inputs = _stringMap(value, path);
-  for (final entry in inputs.entries) {
-    final inputPath = _joinRegistryPath(path, entry.key);
-    parseInput(_map(entry.value, inputPath), inputPath);
-  }
-}
-
-void _parseFlag(Map<String, Object?> value, String path) {
-  const commonProperties = {'hidden', 'description'};
-  const booleanProperties = {'short', 'default', 'negatable'};
-  final isBoolean =
-      value.containsKey('default') || value.containsKey('negatable');
-  _validateProperties(
-    value,
-    path,
-    {...commonProperties, ...booleanProperties},
-    isBoolean ? {...commonProperties, ...booleanProperties} : commonProperties,
-  );
-
-  _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
-  _expectString(
-    value['description'],
-    _joinRegistryPath(path, 'description'),
-    nullable: true,
-  );
-
-  if (isBoolean) {
-    _expectString(
-      value['short'],
-      _joinRegistryPath(path, 'short'),
-      nullable: true,
-    );
-    _expectBool(value['default'], _joinRegistryPath(path, 'default'));
-    _expectBool(value['negatable'], _joinRegistryPath(path, 'negatable'));
-  } else if (value.containsKey('short')) {
-    _expectString(value['short'], _joinRegistryPath(path, 'short'));
-  }
-}
-
-void _parseOption(Map<String, Object?> value, String path) {
-  const requiredProperties = {
-    'short',
-    'required',
-    'hidden',
-    'description',
-    'valueType',
-  };
-  const optionalProperties = {
-    'repeatable',
-    'variant',
-    'choices',
-    'default',
-    'pairedOptions',
-    'pattern',
-    'min',
-    'max',
-    'step',
-  };
-  _validateProperties(value, path, {
-    ...requiredProperties,
-    ...optionalProperties,
-  }, requiredProperties);
-
-  _expectString(
-    value['short'],
-    _joinRegistryPath(path, 'short'),
-    nullable: true,
-  );
-  _expectBool(value['required'], _joinRegistryPath(path, 'required'));
-  _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
-  _expectString(
-    value['description'],
-    _joinRegistryPath(path, 'description'),
-    nullable: true,
-  );
-
-  if (value.containsKey('repeatable')) {
-    _expectBool(value['repeatable'], _joinRegistryPath(path, 'repeatable'));
-  }
-  if (value.containsKey('variant')) {
-    _expectBool(value['variant'], _joinRegistryPath(path, 'variant'));
-  }
-  final choicesPath = _joinRegistryPath(path, 'choices');
-  final defaultPath = _joinRegistryPath(path, 'default');
-  _expectValueType(value['valueType'], _joinRegistryPath(path, 'valueType'));
-  if (value['valueType'] == 'choice' && !value.containsKey('choices')) {
-    _invalid(value, choicesPath, 'is required for a choice option');
-  }
-  if (value.containsKey('choices')) {
-    _parseNonEmptyStringList(value['choices'], choicesPath);
-  }
-  if (value.containsKey('default')) {
-    _expectString(value['default'], defaultPath);
-    if (value['valueType'] != 'choice') {
-      _invalid(
-        value['default'],
-        defaultPath,
-        'is only supported for choice options',
-      );
-    }
-    if (value['required'] == true) {
-      _invalid(
-        value['default'],
-        defaultPath,
-        'must not be declared for a required option',
-      );
-    }
-    if (value['valueType'] == 'choice' &&
-        value['choices'] is List &&
-        !(value['choices'] as List).contains(value['default'])) {
-      _invalid(value['default'], defaultPath, 'must be a registered choice');
-    }
-  }
-  if (value.containsKey('pairedOptions')) {
-    final pairedOptionsPath = _joinRegistryPath(path, 'pairedOptions');
-    _parseStringList(value['pairedOptions'], pairedOptionsPath);
-    if (value['pairedOptions'] is List &&
-        (value['pairedOptions'] as List).isNotEmpty &&
-        value.containsKey('default')) {
-      _invalid(
-        value['default'],
-        _joinRegistryPath(path, 'default'),
-        'must not be declared for pair options',
-      );
-    }
-  }
-  if (value.containsKey('pattern')) {
-    _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
-  }
-  _validateNumericRangeProperties(value, path);
-}
-
-void _validateNumericRangeProperties(Map<String, Object?> value, String path) {
-  final valueType = value['valueType'];
-  final min = value['min'];
-  final max = value['max'];
-  final step = value['step'];
-  if (min == null && max == null && step == null) return;
-  if (valueType != 'int' && valueType != 'double') {
-    _invalid(value, path, 'numeric bounds require an int or double value type');
-  }
-  final isInt = valueType == 'int';
-  for (final entry in {'min': min, 'max': max}.entries) {
-    if (entry.value != null &&
-        (entry.value is! num || (isInt && entry.value is! int))) {
-      _invalid(
-        entry.value,
-        _joinRegistryPath(path, entry.key),
-        'must match the numeric value type',
-      );
-    }
-  }
-  if (min is num && max is num && min > max) {
-    _invalid(max, _joinRegistryPath(path, 'max'), 'must not be less than min');
-  }
-  if (step == null) return;
-  if (valueType != 'double') {
-    _invalid(
-      step,
-      _joinRegistryPath(path, 'step'),
-      'requires a double value type',
-    );
-  }
-  if (step is! num || !step.isFinite || step <= 0) {
-    _invalid(
-      step,
-      _joinRegistryPath(path, 'step'),
-      'must be a finite number greater than zero',
-    );
-  }
-  if (min is! num || max is! num) {
-    _invalid(
-      step,
-      _joinRegistryPath(path, 'step'),
-      'requires both min and max',
-    );
-  }
-  if (!min.isFinite || !max.isFinite) {
-    _invalid(
-      step,
-      _joinRegistryPath(path, 'step'),
-      'requires finite min and max values',
-    );
-  }
-  final increments = (max - min) / step;
-  if ((increments - increments.round()).abs() > 1e-12) {
-    _invalid(
-      step,
-      _joinRegistryPath(path, 'step'),
-      'must evenly divide the range from $min to $max',
-    );
-  }
-}
-
-void _parseOptionGroups(Object? value, String path) {
-  if (value is! List) {
-    _invalid(value, path, 'must be a List of option groups');
-  }
-  for (final (index, entry) in value.indexed) {
-    final groupPath = _joinRegistryPath(path, index.toString());
-    final group = _map(entry, groupPath);
-    const properties = {'mode', 'required', 'members'};
-    _validateProperties(group, groupPath, properties, properties);
-    final modePath = _joinRegistryPath(groupPath, 'mode');
-    _expectString(group['mode'], modePath);
-    if (group['mode'] != 'all' && group['mode'] != 'oneOf') {
-      _invalid(group['mode'], modePath, 'must be all or oneOf');
-    }
-    _expectBool(group['required'], _joinRegistryPath(groupPath, 'required'));
-    final membersPath = _joinRegistryPath(groupPath, 'members');
-    _parseStringList(group['members'], membersPath);
-    if (group['members'] case List(isEmpty: true)) {
-      _invalid(group['members'], membersPath, 'must not be empty');
-    }
-  }
-}
-
-void _parsePositional(Map<String, Object?> value, String path) {
-  const requiredProperties = {'required', 'description'};
-  const optionalProperties = {
-    'choices',
-    'default',
-    'repeatable',
-    'times',
-    'pattern',
-  };
-  _validateProperties(value, path, {
-    ...requiredProperties,
-    ...optionalProperties,
-  }, requiredProperties);
-  _expectBool(value['required'], _joinRegistryPath(path, 'required'));
-  _expectString(
-    value['description'],
-    _joinRegistryPath(path, 'description'),
-    nullable: true,
-  );
-  final choicesPath = _joinRegistryPath(path, 'choices');
-  final defaultPath = _joinRegistryPath(path, 'default');
-  if (value.containsKey('choices')) {
-    _parseNonEmptyStringList(value['choices'], choicesPath);
-  }
-  if (value.containsKey('default')) {
-    _expectString(value['default'], defaultPath);
-    if (!value.containsKey('choices')) {
-      _invalid(
-        value['default'],
-        defaultPath,
-        'is only supported for choice positionals',
-      );
-    }
-    if (value['required'] == true) {
-      _invalid(
-        value['default'],
-        defaultPath,
-        'must not be declared for a required positional',
-      );
-    }
-    if (value['choices'] is List &&
-        !(value['choices'] as List).contains(value['default'])) {
-      _invalid(value['default'], defaultPath, 'must be a registered choice');
-    }
-  }
-  if (value.containsKey('repeatable')) {
-    _expectBool(value['repeatable'], _joinRegistryPath(path, 'repeatable'));
-  }
-  if (value.containsKey('times')) {
-    final timesPath = _joinRegistryPath(path, 'times');
-    _expectNonNegativeInt(value['times'], timesPath);
-    if (value['repeatable'] != true) {
-      _invalid(
-        value['times'],
-        timesPath,
-        'requires repeatable positional metadata',
-      );
-    }
-  }
-  if (value['repeatable'] == true && !value.containsKey('times')) {
-    _invalid(
-      value,
-      _joinRegistryPath(path, 'times'),
-      'is required for a repeated positional',
-    );
-  }
-  if (value.containsKey('pattern')) {
-    _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
-  }
-}
-
-void _parseVariadic(Object? value, String path) {
-  final variadic = _map(value, path);
-  const requiredProperties = {'description'};
-  const optionalProperties = {'choices', 'default', 'repeatable', 'pattern'};
-  _validateProperties(variadic, path, {
-    ...requiredProperties,
-    ...optionalProperties,
-  }, requiredProperties);
-  _expectString(
-    variadic['description'],
-    _joinRegistryPath(path, 'description'),
-    nullable: true,
-  );
-  final choicesPath = _joinRegistryPath(path, 'choices');
-  final defaultPath = _joinRegistryPath(path, 'default');
-  if (variadic.containsKey('choices')) {
-    _parseNonEmptyStringList(variadic['choices'], choicesPath);
-  }
-  if (variadic.containsKey('default')) {
-    _expectString(variadic['default'], defaultPath);
-    if (!variadic.containsKey('choices')) {
-      _invalid(
-        variadic['default'],
-        defaultPath,
-        'is only supported for choice variadics',
-      );
-    }
-    if (variadic['choices'] is List &&
-        !(variadic['choices'] as List).contains(variadic['default'])) {
-      _invalid(variadic['default'], defaultPath, 'must be a registered choice');
-    }
-  }
-  if (variadic.containsKey('repeatable')) {
-    _expectBool(variadic['repeatable'], _joinRegistryPath(path, 'repeatable'));
-  }
-  if (variadic.containsKey('pattern')) {
-    _expectString(variadic['pattern'], _joinRegistryPath(path, 'pattern'));
-  }
-}
-
-void _parseAliases(Object? value, String path) => _parseStringList(value, path);
-
-void _parseAccessors(Object? value, String path) {
-  final accessors = _stringMap(value, path);
-  for (final entry in accessors.entries) {
-    _parseAccessorRoot(
-      _map(entry.value, _joinRegistryPath(path, entry.key)),
-      _joinRegistryPath(path, entry.key),
-    );
-  }
-}
-
-void _parseAccessorRoot(Map<String, Object?> value, String path) =>
-    _parseTypedAccessor(value, path);
-
-void _parseTypedAccessor(Map<String, Object?> value, String path) {
-  final kindPath = _joinRegistryPath(path, 'kind');
-  _expectString(value['kind'], kindPath);
-  switch (value['kind']) {
-    case 'group':
-      const properties = {'kind', 'hidden', 'description', 'options'};
-      _validateProperties(value, path, properties, properties);
-      _expectBool(value['hidden'], _joinRegistryPath(path, 'hidden'));
-      _expectString(
-        value['description'],
-        _joinRegistryPath(path, 'description'),
-        nullable: true,
-      );
-      final optionsPath = _joinRegistryPath(path, 'options');
-      final options = _stringMap(value['options'], optionsPath);
-      for (final entry in options.entries) {
-        final optionPath = _joinRegistryPath(optionsPath, entry.key);
-        _validateRegistryName(entry.key, optionPath);
-        if (entry.key == 'help') {
-          _invalid(
-            entry.key,
-            optionPath,
-            'is reserved by the built-in help flag',
-          );
-        }
-        _parseTypedAccessor(_map(entry.value, optionPath), optionPath);
-      }
-    case 'value':
-      const properties = {
-        'kind',
-        'valueType',
-        'description',
-        'choices',
-        'default',
-        'pattern',
-      };
-      const requiredProperties = {'kind', 'valueType', 'description'};
-      _validateProperties(value, path, properties, requiredProperties);
-      _expectValueType(
-        value['valueType'],
-        _joinRegistryPath(path, 'valueType'),
-      );
-      final choicesPath = _joinRegistryPath(path, 'choices');
-      if (value['valueType'] == 'choice' && !value.containsKey('choices')) {
-        _invalid(value, choicesPath, 'is required for a choice accessor');
-      }
-      _expectString(
-        value['description'],
-        _joinRegistryPath(path, 'description'),
-        nullable: true,
-      );
-      if (value.containsKey('choices')) {
-        _parseNonEmptyStringList(value['choices'], choicesPath);
-      }
-      if (value.containsKey('pattern')) {
-        _expectString(value['pattern'], _joinRegistryPath(path, 'pattern'));
-      }
-      if (value.containsKey('default')) {
-        final defaultPath = _joinRegistryPath(path, 'default');
-        _expectString(value['default'], defaultPath);
-        if (value['valueType'] != 'choice') {
-          _invalid(
-            value['default'],
-            defaultPath,
-            'is only supported for choice accessors',
-          );
-        }
-        final choices = value['choices'];
-        if (value['valueType'] == 'choice' &&
-            choices is List &&
-            !choices.contains(value['default'])) {
-          _invalid(
-            value['default'],
-            defaultPath,
-            'must be a registered accessor choice',
-          );
-        }
-      }
-    default:
-      _invalid(value['kind'], kindPath, 'must be group or value');
-  }
-}
-
-void _validateProperties(
-  Map<String, Object?> value,
-  String path,
-  Set<String> allowedProperties,
-  Set<String> requiredProperties,
-) {
-  for (final entry in value.entries) {
-    if (!allowedProperties.contains(entry.key)) {
-      _invalid(
-        entry.value,
-        _joinRegistryPath(path, entry.key),
-        'is not a supported registry property',
-      );
-    }
-  }
-  for (final property in requiredProperties) {
-    if (!value.containsKey(property)) {
-      _invalid(value, _joinRegistryPath(path, property), 'is required');
-    }
-  }
-}
-
-Map<String, Object?> _map(Object? value, String path) =>
-    _stringMap(value, path);
-
-Map<String, Object?> _stringMap(Object? value, String path) {
-  if (value is! Map) {
-    _invalid(value, path, 'must be a map with String keys');
-  }
-  final parsed = <String, Object?>{};
-  for (final entry in value.entries) {
-    final key = entry.key;
-    if (key is! String || key.isEmpty) {
-      _invalid(key, path, 'map keys must be non-empty Strings');
-    }
-    parsed[key] = entry.value;
-  }
-  return parsed;
-}
-
-void _parseStringList(Object? value, String path) {
-  if (value is! List) {
-    _invalid(value, path, 'must be a List<String>');
-  }
-  for (final (index, entry) in value.indexed) {
-    _expectString(entry, _joinRegistryPath(path, index.toString()));
-  }
-}
-
-void _parseNonEmptyStringList(Object? value, String path) {
-  _parseStringList(value, path);
-  if (value case List(isEmpty: true)) {
-    _invalid(value, path, 'must not be empty');
-  }
-}
-
-Map<String, dynamic> _freezeMap(Map<Object?, Object?> source) =>
-    Map<String, dynamic>.unmodifiable({
-      for (final entry in source.entries)
-        entry.key as String: _freezeValue(entry.value),
-    });
-
-Object? _freezeValue(Object? value) => switch (value) {
-  Map() => _freezeMap(value),
-  List() => List<Object?>.unmodifiable(value.map(_freezeValue)),
-  _ => value,
-};
-
-void _expectString(Object? value, String path, {bool nullable = false}) {
-  if (value == null && nullable) return;
-  if (value is! String) _invalid(value, path, 'must be a String');
-}
-
-void _expectBool(Object? value, String path) {
-  if (value is! bool) _invalid(value, path, 'must be a bool');
-}
-
-void _expectNonNegativeInt(Object? value, String path) {
-  if (value is! int || value < 0) {
-    _invalid(value, path, 'must be a non-negative int');
-  }
-}
-
-void _expectValueType(Object? value, String path) {
-  const valueTypes = {'string', 'int', 'double', 'choice'};
-  if (value is! String || !valueTypes.contains(value)) {
-    _invalid(value, path, 'must be a supported option value type');
-  }
-}
-
-String _joinRegistryPath(String parent, String property) =>
-    parent.isEmpty ? property : '$parent.$property';
-
-Never _invalid(Object? value, String path, String message) =>
-    throw MambaIntegrationException('$path $message (value: $value)');
-
-/// A validated serialisable representation of a command registry.
-///
-/// The root map and every nested command must contain a string `name` and
-/// `description`. All other registry properties are optional.
-extension type RegistryMap._(Map<String, dynamic> map)
-    implements Map<String, dynamic> {
-  new(Map<String, dynamic> map) : this._(_parse(map));
-
-  static Map<String, dynamic> _parse(Map<String, dynamic> map) {
-    // Validate the caller's original map first so diagnostics preserve the
-    // malformed value rather than an implementation-added help entry.
-    _parseCommand(map, '');
-    final normalizedMap = _withBuiltInHelp(map);
-    _parseCommand(normalizedMap, '');
-    return _freezeMap(normalizedMap);
-  }
-
-  /// Makes parser-owned help metadata available to every map-defined command.
-  /// Callers cannot omit or redefine behavior that the parser always owns.
-  static Map<String, dynamic> _withBuiltInHelp(Map<String, dynamic> command) {
-    final normalized = Map<String, dynamic>.from(command);
-    final flags = normalized['flags'];
-    if (flags == null) {
-      normalized['flags'] = {'help': _builtInHelpMap()};
-    } else if (flags is Map) {
-      normalized['flags'] = {
-        ...Map<Object?, Object?>.from(flags),
-        if (!flags.containsKey('help')) 'help': _builtInHelpMap(),
-      };
-    }
-    final commands = normalized['commands'];
-    if (commands is Map) {
-      normalized['commands'] = {
-        for (final entry in commands.entries)
-          entry.key: entry.value is Map
-              ? _withBuiltInHelp(Map<String, dynamic>.from(entry.value))
-              : entry.value,
-      };
-    }
-    return normalized;
-  }
-
-  static Map<String, dynamic> _builtInHelpMap() => {
-    'short': 'h',
-    'default': false,
-    'negatable': false,
-    'hidden': false,
-    'description': 'Show this help message.',
-  };
-}
-
-/// Reports a command name that is not a child of the selected command path.
 final class MambaCommandNotFoundException extends MambaException {
   new(String name, List<String> parentPath, List<String> availableCommands)
     : super(
@@ -1358,210 +399,281 @@ final class CommandRegistry {
     );
   }
 
-  /// Exports this registry as a serializable command description.
+  /// Exports this registry as a typed record description.
   ///
-  /// Includes input kinds, pairing, repetition, and published inputs so map
-  /// consumers can reproduce the complete command surface.
-  RegistryMap toMap() {
+  /// Constructs records directly, without an intermediate serialized map.
+  RegistryRecord toMap() {
     final description = longDescription == null
         ? shortDescription
         : '$shortDescription\n\n$longDescription';
-    final map = <String, dynamic>{
-      'name': name,
-      'description': description,
-      if (commandAliases != null) 'aliases': commandAliases,
-    };
 
-    final registeredBooleanFlags = boolFlags;
-    final registeredCountFlags = countFlags;
-    map['flags'] = _mapFlags([
+    final flags = _recordFlags([
       helpFlag,
-      ...?registeredBooleanFlags?.values,
-    ], registeredCountFlags?.values);
+      ...?(boolFlags?.values),
+    ], countFlags?.values);
 
     final localOptions = <Option>[
-      ...?singleOptions?.values,
-      ...?repeatedOptions?.values,
+      ...?(singleOptions?.values),
+      ...?(repeatedOptions?.values),
     ];
-    if (localOptions.isNotEmpty ||
+    final hasOptions =
+        localOptions.isNotEmpty ||
         singleOptions != null ||
         repeatedOptions != null ||
-        pairedOptionGroups != null) {
-      map['options'] = _mapOptions([
-        ...localOptions,
-        ...?pairedOptionGroups?.expand((group) => group.options),
-      ]);
-    }
-
-    final registeredPairedOptionGroups = pairedOptionGroups;
-    if (registeredPairedOptionGroups != null) {
-      map['optionGroups'] = [
-        for (final group in registeredPairedOptionGroups)
-          {
-            'mode': group.variant ? 'oneOf' : 'all',
-            'required': group.required,
-            'members': [for (final option in group.options) option.name],
-          },
-      ];
-    }
+        pairedOptionGroups != null;
+    final List<RegistryOption>? options = hasOptions
+        ? _recordOptions([
+            ...localOptions,
+            ...?(pairedOptionGroups?.expand((g) => g.options)),
+          ], pairedGroups: pairedOptionGroups)
+        : null;
 
     // Mamba's executor root has no positional or variadic inputs. Keep these
-    // fields on nested command maps, where the command owns their parsing.
+    // fields on nested command records, where the command owns their parsing.
+    RegistryVariadic? variadic;
+    List<RegistryPositional>? positionals;
     if (parent != null) {
       final registeredMandatoryPositionals = mandatoryPositionals;
       final registeredDiscretionaryPositionals = discretionaryPositionals;
       if (registeredMandatoryPositionals != null ||
           registeredDiscretionaryPositionals != null) {
-        map['positionals'] = {
+        positionals = List.unmodifiable([
           for (final positional
               in registeredMandatoryPositionals?.values ?? const <Positional>[])
-            positional.name: _mapPositional(positional, true),
+            _recordPositional(positional, true),
           for (final positional
               in registeredDiscretionaryPositionals?.values ??
                   const <Positional>[])
-            positional.name: _mapPositional(positional, false),
-        };
+            _recordPositional(positional, false),
+        ]);
       }
 
-      final registeredVariadic = variadic;
+      final registeredVariadic = this.variadic;
       if (registeredVariadic != null) {
-        map['variadic'] = _mapVariadic(registeredVariadic);
+        variadic = _recordVariadic(registeredVariadic);
       }
     }
 
     final registeredAccessors = accessors;
-    if (registeredAccessors != null) {
-      map['accessors'] = {
-        for (final entry in registeredAccessors.entries)
-          entry.key: _mapAccessorList(entry.value),
-      };
-    }
+    final List<RegistryAccessor>? accessorsList = registeredAccessors == null
+        ? null
+        : List.unmodifiable([
+            for (final entry in registeredAccessors.entries)
+              _recordAccessorList(entry.value),
+          ]);
 
     // Root inputs are already represented by flags and options. Only nested
     // commands need separate published collections to retain the distinction
     // between local and descendant-published inputs.
+    List<RegistryFlag>? persistentFlags;
+    List<RegistryOption>? persistentOptions;
     if (parent != null) {
-      final persistentFlags = publishedFlags;
-      if (persistentFlags != null) {
-        map['persistentFlags'] = _mapFlags(
-          persistentFlags.whereType<BooleanFlag>(),
-          persistentFlags.whereType<CountFlag>(),
+      final inheritedFlags = publishedFlags;
+      if (inheritedFlags != null) {
+        persistentFlags = _recordFlags(
+          inheritedFlags.whereType<BooleanFlag>(),
+          inheritedFlags.whereType<CountFlag>(),
         );
       }
-      final persistentOptions = publishedOptions;
-      if (persistentOptions != null) {
-        map['persistentOptions'] = _mapOptions(persistentOptions);
+      final inheritedOptions = publishedOptions;
+      if (inheritedOptions != null) {
+        persistentOptions = _recordOptions(
+          inheritedOptions,
+          pairedGroups: pairedOptionGroups,
+        );
       }
     }
 
     final registeredCommands = commandRegistries;
-    if (registeredCommands != null) {
-      map['commands'] = {
-        for (final command in registeredCommands) command.name: command.toMap(),
-      };
-    }
-    return RegistryMap(map);
+    final List<RegistryCommand>? commandsList = registeredCommands == null
+        ? null
+        : List.unmodifiable([
+            for (final command in registeredCommands)
+              command._toCommandRecord(),
+          ]);
+
+    return (
+      name: name,
+      description: description,
+      commands: commandsList,
+      variadic: variadic,
+      positionals: positionals,
+      flags: flags,
+      persistentFlags: persistentFlags,
+      options: options,
+      persistentOptions: persistentOptions,
+      optionGroups: pairedOptionGroups == null
+          ? null
+          : List.unmodifiable([
+              for (final group in pairedOptionGroups!)
+                (
+                  mode: group.variant ? 'oneOf' : 'all',
+                  required: group.required,
+                  members: List<String>.unmodifiable(
+                    group.options.map((option) => option.name),
+                  ),
+                ),
+            ]),
+      accessors: accessorsList,
+    );
   }
 
-  static Map<String, dynamic> _mapFlags(
+  /// Wraps the canonical export with the aliases owned by this child command.
+  RegistryCommand _toCommandRecord() {
+    final record = toMap();
+    return RegistryCommand(
+      name: record.name,
+      description: record.description,
+      aliases: commandAliases == null
+          ? null
+          : List.unmodifiable(commandAliases!),
+      commands: record.commands,
+      variadic: record.variadic,
+      positionals: record.positionals,
+      flags: record.flags,
+      persistentFlags: record.persistentFlags,
+      options: record.options,
+      persistentOptions: record.persistentOptions,
+      optionGroups: record.optionGroups,
+      accessors: record.accessors,
+    );
+  }
+
+  static List<RegistryFlag> _recordFlags(
     Iterable<BooleanFlag>? booleanFlags,
     Iterable<CountFlag>? countFlags,
-  ) => {
+  ) => List.unmodifiable([
     for (final flag in booleanFlags ?? const <BooleanFlag>[])
-      flag.name: _mapBooleanFlag(flag),
+      _recordBooleanFlag(flag),
     for (final flag in countFlags ?? const <CountFlag>[])
-      flag.name: _mapCountFlag(flag),
-  };
+      _recordCountFlag(flag),
+  ]);
 
-  static Map<String, dynamic> _mapBooleanFlag(BooleanFlag flag) => {
-    'short': flag.short,
-    'default': flag.defaultValue,
-    'negatable': flag.negatable,
-    'hidden': flag.hidden,
-    'description': flag.description,
-  };
+  static RegistryFlag _recordBooleanFlag(BooleanFlag flag) => (
+    name: flag.name,
+    short: flag.short,
+    defaultValue: flag.defaultValue,
+    negatable: flag.negatable,
+    hidden: flag.hidden,
+    description: flag.description,
+  );
 
-  static Map<String, dynamic> _mapCountFlag(CountFlag flag) => {
-    if (flag.short != null) 'short': flag.short,
-    'hidden': flag.hidden,
-    'description': flag.description,
-  };
+  static RegistryFlag _recordCountFlag(CountFlag flag) => (
+    name: flag.name,
+    short: flag.short,
+    defaultValue: null,
+    negatable: null,
+    hidden: flag.hidden,
+    description: flag.description,
+  );
 
-  static Map<String, dynamic> _mapOptions(Iterable<NamedInput> options) => {
-    for (final option in options) option.name: _mapOption(option),
-  };
+  static List<RegistryOption> _recordOptions(
+    Iterable<NamedInput> options, {
+    List<PairedOptions>? pairedGroups,
+  }) => List.unmodifiable([
+    for (final option in options)
+      _recordOption(option, pairedGroups: pairedGroups),
+  ]);
 
-  static Map<String, dynamic> _mapOption(NamedInput input) {
-    final (
-      short,
-      required,
-      hidden,
-      description,
-      repeatable,
-      variant,
-      choiceData,
-    ) = switch (input) {
+  static RegistryOption _recordOption(
+    NamedInput input, {
+    List<PairedOptions>? pairedGroups,
+  }) {
+    final choiceData = _recordChoiceData(input);
+    final (short, required, hidden, description, repeatable) = switch (input) {
       Option(
         short: final short,
         required: final required,
         hidden: final hidden,
         description: final description,
       ) =>
-        (
-          short,
-          required,
-          hidden,
-          description,
-          input is RepeatableOption,
-          false,
-          _mapChoiceData(input),
-        ),
+        (short, required, hidden, description, input is RepeatableOption),
       PairOption(short: final short, description: final description) => (
         short,
         false,
         false,
         description,
         input is RepeatablePairOption,
-        false,
-        _mapChoiceData(input),
       ),
       _ => throw ArgumentError('Expected an option input'),
     };
-    return {
-      'short': short,
-      'required': required,
-      'hidden': hidden,
-      'description': description,
-      if (repeatable) 'repeatable': true,
-      if (variant) 'variant': true,
-      ...choiceData,
-      'valueType': _mapOptionValueType(input),
-      if (input is RegExpValidated)
-        'pattern': (input as RegExpValidated).regex.pattern,
-      if (input case NumericRangeValidated(:final min?)) 'min': min,
-      if (input case NumericRangeValidated(:final max?)) 'max': max,
-      if (input case NumericStepValidated(:final step?)) 'step': step,
+    final num? minValue = switch (input) {
+      NumericRangeValidated() => (input as NumericRangeValidated).min,
+      _ => null,
     };
+    final num? maxValue = switch (input) {
+      NumericRangeValidated() => (input as NumericRangeValidated).max,
+      _ => null,
+    };
+    final num? stepValue = switch (input) {
+      NumericStepValidated() => (input as NumericStepValidated).step,
+      _ => null,
+    };
+    return (
+      name: input.name,
+      short: short,
+      required: required,
+      hidden: hidden,
+      description: description,
+      valueType: _recordOptionValueType(input),
+      repeatable: repeatable ? true : null,
+      variant:
+          input is PairOption &&
+              pairedGroups?.any(
+                    (group) => group.variant && group.options.contains(input),
+                  ) ==
+                  true
+          ? true
+          : null,
+      choices: choiceData.choices,
+      defaultValue: choiceData.defaultValue,
+      pattern: input is RegExpValidated
+          ? (input as RegExpValidated).regex.pattern
+          : null,
+      min: minValue,
+      max: maxValue,
+      step: stepValue,
+      pairedOptions: input is PairOption
+          ? _recordPairedOptions(input, pairedGroups)
+          : null,
+    );
   }
 
-  static Map<String, dynamic> _mapChoiceData(NamedInput input) =>
-      switch (input) {
-        ChoiceOption(choices: final choices, defaultValue: final value) ||
-        ChoicePositional(choices: final choices, defaultValue: final value) ||
-        RepeatedChoicePositional(
-          choices: final choices,
-          defaultValue: final value,
-        ) => {
-          'choices': choices.map((choice) => choice.name).toList(),
-          if (value != null) 'default': value.name,
-        },
-        PairChoiceOption(:final choices) => {
-          'choices': choices.map((choice) => choice.name).toList(),
-        },
-        _ => const <String, dynamic>{},
-      };
+  static ({List<String>? choices, String? defaultValue}) _recordChoiceData(
+    NamedInput input,
+  ) => switch (input) {
+    ChoiceOption(:final choices, :final defaultValue) ||
+    ChoicePositional(:final choices, :final defaultValue) ||
+    RepeatedChoicePositional(:final choices, :final defaultValue) => (
+      choices: List.unmodifiable([for (final choice in choices) choice.name]),
+      defaultValue: defaultValue?.name,
+    ),
+    PairChoiceOption(:final choices) => (
+      choices: List.unmodifiable([for (final choice in choices) choice.name]),
+      defaultValue: null,
+    ),
+    _ => (choices: null, defaultValue: null),
+  };
 
-  static String _mapOptionValueType(NamedInput input) => switch (input) {
+  /// Resolves the paired options that share a [PairedOptions] group with
+  /// [input]. Pair members always appear together in [pairedOptionGroups], so
+  /// a registry-level lookup is safe.
+  static List<String> _recordPairedOptions(
+    PairOption input,
+    List<PairedOptions>? pairedGroups,
+  ) {
+    final group = pairedGroups?.firstWhere(
+      (group) => group.options.contains(input),
+      orElse: () => throw ArgumentError(
+        'Pair option ${input.name} is not in a paired group',
+      ),
+    );
+    return List.unmodifiable([
+      for (final member in group!.options) member.name,
+    ]);
+  }
+
+  static String _recordOptionValueType(NamedInput input) => switch (input) {
     StringOption() ||
     RepeatableStringOption() ||
     PairStringOption() ||
@@ -1578,87 +690,101 @@ final class CommandRegistry {
     _ => throw ArgumentError('Expected an option input'),
   };
 
-  static Map<String, dynamic> _mapPositional(
+  static RegistryPositional _recordPositional(
     Positional positional,
     bool required,
-  ) => {
-    'required': required,
-    'description': positional.description,
-    'pattern': positional.regex.pattern,
-    ..._mapChoiceData(positional),
-    if (positional is RepeatedPositional) ...{
-      'repeatable': true,
-      'times': positional.times,
-    },
-  };
-
-  static Map<String, dynamic> _mapVariadic(Variadic variadic) {
-    final map = switch (variadic) {
-      ChoiceVariadic(:final description, :final choices, :final defaultValue) =>
-        {
-          'description': description,
-          'choices': choices.map((choice) => choice.name).toList(),
-          'default': ?defaultValue?.name,
-        },
-      NormalVariadic(:final description, :final regex) => {
-        'description': description,
-        'pattern': regex.pattern,
-      },
-    };
-    if (variadic is RepeatedChoiceVariadic) {
-      map['repeatable'] = true;
-    }
-    return map;
+  ) {
+    final choiceData = _recordChoiceData(positional);
+    final isRepeated = positional is RepeatedPositional;
+    return (
+      name: positional.name,
+      required: required,
+      description: positional.description,
+      choices: choiceData.choices,
+      defaultValue: choiceData.defaultValue,
+      repeatable: isRepeated ? true : null,
+      times: isRepeated ? positional.times : null,
+      pattern: positional.regex.pattern,
+    );
   }
 
-  static Object _mapAccessorList(AccessorListOption accessor) =>
-      _mapAccessor(accessor);
+  static RegistryVariadic _recordVariadic(Variadic variadic) {
+    return switch (variadic) {
+      ChoiceVariadic(:final description, :final choices, :final defaultValue) =>
+        (
+          description: description,
+          choices: List.unmodifiable([
+            for (final choice in choices) choice.name,
+          ]),
+          defaultValue: defaultValue?.name,
+          repeatable: variadic is RepeatedChoiceVariadic ? true : null,
+          pattern: null,
+        ),
+      NormalVariadic(:final description, :final regex) => (
+        description: description,
+        choices: null,
+        defaultValue: null,
+        repeatable: null,
+        pattern: regex.pattern,
+      ),
+    };
+  }
 
-  static Map<String, dynamic> _mapAccessor(AccessorOption accessor) =>
+  static RegistryAccessor _recordAccessorList(AccessorListOption accessor) =>
+      _recordAccessor(accessor);
+
+  static RegistryAccessor _recordAccessor(AccessorOption accessor) =>
       switch (accessor) {
         AccessorListOption(:final hidden, :final description, :final options) =>
-          {
-            'kind': 'group',
-            'hidden': hidden,
-            'description': description,
-            'options': {
-              for (final option in options) option.name: _mapAccessor(option),
-            },
-          },
-        AccessorStringOption(:final description) => {
-          'kind': 'value',
-          'valueType': 'string',
-          'description': description,
-          'pattern': accessor.regex.pattern,
-        },
-        AccessorIntOption(:final description) => {
-          'kind': 'value',
-          'valueType': 'int',
-          'description': description,
-          'pattern': accessor.regex.pattern,
-        },
-        AccessorDoubleOption(:final description) => {
-          'kind': 'value',
-          'valueType': 'double',
-          'description': description,
-          'pattern': accessor.regex.pattern,
-        },
+          RegistryAccessor.group(
+            name: accessor.name,
+            hidden: hidden,
+            description: description,
+            options: List.unmodifiable([
+              for (final option in options) _recordAccessor(option),
+            ]),
+          ),
+        AccessorStringOption(:final description) => RegistryAccessor.value(
+          name: accessor.name,
+          valueType: 'string',
+          description: description,
+          choices: null,
+          defaultValue: null,
+          pattern: accessor.regex.pattern,
+        ),
+        AccessorIntOption(:final description) => RegistryAccessor.value(
+          name: accessor.name,
+          valueType: 'int',
+          description: description,
+          choices: null,
+          defaultValue: null,
+          pattern: accessor.regex.pattern,
+        ),
+        AccessorDoubleOption(:final description) => RegistryAccessor.value(
+          name: accessor.name,
+          valueType: 'double',
+          description: description,
+          choices: null,
+          defaultValue: null,
+          pattern: accessor.regex.pattern,
+        ),
         AccessorChoiceOption(
           :final description,
           :final choices,
           :final defaultValue,
         ) =>
-          {
-            'kind': 'value',
-            'valueType': 'choice',
-            'description': description,
-            'choices': [for (final choice in choices) choice.name],
-            if (defaultValue != null) 'default': defaultValue.name,
-          },
+          RegistryAccessor.value(
+            name: accessor.name,
+            valueType: 'choice',
+            description: description,
+            choices: List.unmodifiable([
+              for (final choice in choices) choice.name,
+            ]),
+            defaultValue: defaultValue?.name,
+            pattern: null,
+          ),
       };
 
-  /// Flags and options published by this level and every ancestor, ordered
-  /// from the root down so nearer declarations replace earlier ones.
   List<Flag> get _inheritableFlags => [
     for (final level in _ancestorChain) ...?level.publishedFlags,
   ];
