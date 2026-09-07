@@ -154,11 +154,14 @@ class Config extends  CompletionCommand {
   String get shortDescription => 'Configure this app';
 
 
+// Used to recursively process subcommands
 String _processSubcommands(List<Command>) {
 
 
-  return commands.map((command) => {
+  return commands.map((command)  {
     '${command.name}': '${command.shortDescription}'
+
+    _processSubcommands(command.commands);
   }).join('\n');
   
 }
@@ -166,14 +169,14 @@ String _processSubcommands(List<Command>) {
 @override
 FutureOr<String?> run(
   ParsedPositionals positionals,
-  ParsedNamedInputs inputs,
+  ParsedNamedInputs inputs
   List<String> trailingArguments,
 ) {
 
 }
 
 var completion = "";
-
+// Used to setup global things
 final (:name, :description, :commands, :flags, :options, :accessors) = registryMap;
 
  completion = "//$description\n$name_completion() {  }" _processSubcommands(commands);
