@@ -756,7 +756,11 @@ final class _HookCommand extends Command with HookRunner {
   }
 
   @override
-  Future<void> postRun(MambaReadContext context) async {
+  Future<void> postRun(
+    MambaReadContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) async {
     events.add('post:$name');
   }
 }
@@ -803,7 +807,11 @@ final class _FailingPostHookCommand extends Command with HookRunner {
   ) => '';
 
   @override
-  void postRun(MambaReadContext context) {
+  void postRun(
+    MambaReadContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) {
     if (throwsError) throw StateError('cleanup failed');
     throw Exception('cleanup failed');
   }

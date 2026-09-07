@@ -916,7 +916,11 @@ mixin HookRunner on Command {
   );
 
   /// Runs after the selected command.
-  FutureOr<void> postRun(MambaReadContext context) {}
+  FutureOr<void> postRun(
+    MambaReadContext context,
+    ParsedPositionals positionals,
+    ParsedSingleOptions options,
+  ) {}
 }
 
 /// Adds hooks around a descendant execution while retaining mutable context.

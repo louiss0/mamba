@@ -308,7 +308,7 @@ final class _Execution {
     if (command case final HookRunner hook) {
       final standardInput = await _readStandardInput();
       await hook.preRun(standardInput, context, positionals, options);
-      postRun = () => hook.postRun(context);
+      postRun = () => hook.postRun(context, positionals, options);
     }
     final output = await command.run(positionals, inputs, trailingArguments);
     return (
