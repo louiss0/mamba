@@ -10,13 +10,15 @@ The way you make those apps is by using the `Executor`.
 To learn how to use this tool you should follow along with this page.
 
 The first thing you should do is make a file that uses the `main()`.
+
 Install mamba with `dart pub get mamba`.
-In the braces of the main function import the Executor using `import 'mamba/mamba.dart'`.
+
+In the braces of the main function import the Executor using `import 'package:mamba/mamba.dart'`.
 
 The page should now look like this! 
 
 ```dart
-import 'mamba/mamba.dart';
+import 'package:mamba/mamba.dart';
 
 void main(List<String> args) {
   
