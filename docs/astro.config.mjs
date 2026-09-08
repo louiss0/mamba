@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
+import { starlightSidebar } from './src/config/starlight';
 
 const siteUrl = process.env.PUBLIC_SITE_URL;
 
@@ -21,20 +22,7 @@ export default defineConfig({
 			favicon: '/mamba-small-logo.png',
 			customCss: ['./src/styles/mamba.css'],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/louiss0/mamba' }],
-			sidebar: [
-				{
-					label: 'Guides',
-          items: [
-            { autogenerate: { directory: 'guides' } }
-					],
-				},
-				{
-					label: 'Reference',
-          items: [
-            { autogenerate: { directory: 'reference' } }
-					],
-				},
-			],
+			sidebar: starlightSidebar,
 		}),
 	],
 });

@@ -7,14 +7,21 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "new-doc": "tsx scripts/new-doc.ts",
+    "test": "node --import tsx --test scripts/new-doc.test.ts"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.9",
     "astro": "^7.1.6",
     "astro-mermaid": "^2.1.0",
     "mermaid": "^11.17.2",
-    "newmd": "^0.1.0",
     "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.7.0",
+    "@types/js-yaml": "^4.0.9",
+    "js-yaml": "^4.3.2",
+    "tsx": "^4.23.13"
   }
 }
