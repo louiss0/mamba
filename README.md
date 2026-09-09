@@ -1,520 +1,332 @@
+# Mamba
 
-
-Mamba is a list-defined Dart framework for command-line applications. Commands
-declare their inputs as fields, so the command surface, parser, and help output
-all come from one definition.
+Mamba is a declarative Dart framework for building command-line applications. It
+lets Dart developers define commands and their inputs once, then uses those
+definitions for parsing, validation, help output, execution, testing, and shell
+completion. Mamba exists to remove the drift and repetitive glue between a
+CLI's syntax and the code that implements it.
 
 [![pub package](https://img.shields.io/pub/v/mamba.svg)](https://pub.dev/packages/mamba)
+[![downloads](https://img.shields.io/pub/dm/mamba.svg)](https://pub.dev/packages/mamba)
 [![license](https://img.shields.io/github/license/louiss0/mamba.svg)](LICENSE)
+[![release workflow](https://github.com/louiss0/mamba/actions/workflows/publish.yml/badge.svg)](https://github.com/louiss0/mamba/actions/workflows/publish.yml)
 
-![mamba logo](https://raw.githubusercontent.com/louiss0/mamba/main/assets/Mamba-CLI.png)
+![Mamba logo](https://raw.githubusercontent.com/louiss0/mamba/main/assets/Mamba-CLI.png)
 
-## Architecture
+[Read the full documentation](https://mamba-docs.onrender.com/)
 
-Mamba keeps definition, validation, and execution separate:
+## Features
 
-1. Commands register names, descriptions, inputs, and behavior.
-2. An `Executor` builds a `CommandRegistry` that organizes and validates those
-   definitions.
-3. A `Parser` reads the selected registry and decides whether an invocation is
-   valid, producing typed values when it is.
-4. The executor selects the matching command and gives it parsed values,
-   trailing arguments, and global context established by hooks.
+- Define commands as Dart classes with typed, validated inputs.
+- Support nested commands through `GroupCommand`.
+- Handle positionals, variadic arguments, boolean and count flags, typed
+  options, repeatable options, paired options, and dotted accessors.
+- Generate help from the same command definitions used by the parser.
+- Add lifecycle hooks and typed executor-scoped context.
+- Test invocations without writing to process streams through `Executor.fake()`.
+- Generate Bash, Zsh, Fish, PowerShell, and Carapace completions.
+- Scaffold new Dart CLI projects and commands with the `mamba` executable.
 
-This separation keeps command definitions declarative, parsing deterministic,
-and execution responsible for orchestration and I/O.
+## Installation
 
-## Getting started
+Mamba requires Dart SDK `^3.13.2`.
 
-Add Mamba to an application with `dart pub add mamba`. Construct an `Executor`
-once in the executable's composition root, then call `create()` for the
-production executor. It writes successful command output to standard output and
-failures to standard error. An empty invocation displays help.
+Add it to an existing Dart package:
 
-```dart
-import 'package:mamba/mamba.dart';
-
-final executor = Executor(
-  'git',
-  'Manage source repositories.',
-  commands: [Commit()],
-).create();
-
-Future<void> main(List<String> args) => executor.execute(args);
+```sh
+dart pub add mamba
 ```
 
-For tests, call `fake()` in one shared test-support file and import that fake
-executor into test files. It returns a `MambaSuccessResult` or
-`MambaFailureResult` for a thrown `Exception` instead of writing to process
-streams. It does not run post-hooks.
+To install the optional project and command scaffolding executable globally:
 
-```dart
-// test/support/git_executor.dart
-import 'package:mamba/mamba.dart';
-
-final testExecutor = Executor(
-  'git',
-  'Manage source repositories.',
-  commands: [Commit()],
-).fake();
+```sh
+dart pub global activate mamba
 ```
 
-Do not use `create()` in tests or `fake()` to build the production executable.
+## Scaffold a project
 
-## Commands
+The global executable can create a Dart console package and add command
+skeletons:
 
-A `Command` registers its `name`, `shortDescription`, optional
-`longDescription`, input lists, and `run` behavior. `run` receives positional
-values, typed named inputs, and arguments after `--`; its returned string is
-sent to the executor's output environment.
+```sh
+mamba create my_app
+cd my_app
+dart pub get
+dart run bin/my_app.dart
+mamba command greet --with-suite
+```
+
+The generated command and test files still need to be registered in the
+application's command list. Run `mamba --help` or `mamba command --help` for
+all scaffolding options.
+
+## Quick start
+
+Create an executable such as `bin/hello.dart`:
 
 ```dart
-import 'dart:async';
-
 import 'package:mamba/mamba.dart';
 
-final class Commit extends Command {
-  Commit() : super();
+final class HelloCommand extends Command {
+  @override
+  String get name => 'hello';
 
   @override
-  String get name => 'commit';
+  String get shortDescription => 'Say hello.';
 
   @override
-  String get shortDescription => 'Record changes to the repository.';
-
-  @override
-  FutureOr<String> run(
+  String run(
     ParsedPositionals positionals,
     ParsedNamedInputs inputs,
     List<String> trailingArguments,
-  ) => 'Committed.';
+  ) => 'Hello from Mamba!';
+}
+
+Future<void> main(List<String> args) => Executor(
+  'hello',
+  'A small Mamba CLI.',
+  '1.0.0',
+  [HelloCommand()],
+).create().execute(args);
+```
+
+Run it with Dart:
+
+```sh
+dart run bin/hello.dart hello
+dart run bin/hello.dart --help
+```
+
+## Usage
+
+### Define commands and inputs
+
+A command declares its syntax in its constructor and receives parsed values in
+`run`:
+
+```dart
+final class AddCommand extends Command {
+  AddCommand()
+      : super(
+          mandatoryPositionals: [NormalPositional('path')],
+          flags: [
+            BooleanFlag('all', short: 'a', description: 'Add every path.'),
+          ],
+          options: [
+            StringOption(
+              'message',
+              short: 'm',
+              description: 'Commit message.',
+              required: true,
+            ),
+          ],
+        );
+
+  @override
+  String get name => 'add';
+
+  @override
+  String get shortDescription => 'Add a path.';
+
+  @override
+  String run(
+    ParsedPositionals positionals,
+    ParsedNamedInputs inputs,
+    List<String> trailingArguments,
+  ) {
+    final path = positionals.singles?['path'];
+    final all = inputs.boolFlags?['all'] == true;
+    final message = inputs.stringOptions?['message'];
+    return 'Adding ${all ? 'all paths' : path} with: $message';
+  }
 }
 ```
 
-### Positionals
+Register it with the application executor:
 
-**Registers.** `Positional` contributes a named, regular-expression-validated
-value. Register it in `mandatoryPositionals` to require it or
-`discretionaryPositionals` to accept it only when present. Its default
-expression accepts one non-whitespace token.
+```dart
+final executor = Executor(
+  'git-like',
+  'Manage source changes.',
+  '1.0.0',
+  [AddCommand()],
+).create();
+```
 
-`Variadic` is separate from ordinary positionals. It validates the values after
-`--`; it never accepts extra tokens left over after mandatory and discretionary
-positionals are filled. Validated values are passed to `run` as raw
+`run` is called only after the invocation has been parsed and validated. It may
+return a `String`, return `null` for no output, or return a `Future`.
+
+### Input types
+
+| Input | Use |
+| --- | --- |
+| `NormalPositional` / `ChoicePositional` | Required or optional values in command order. |
+| `NormalVariadic` / `ChoiceVariadic` | Validate values supplied after `--`. |
+| `BooleanFlag` / `CountFlag` | Valueless switches, aliases, bundles, and verbosity counts. |
+| `StringOption`, `IntOption`, `DoubleOption`, `ChoiceOption` | Typed named values with optional aliases, defaults, ranges, or validation. |
+| `Repeatable*Option` | Collect multiple values into typed lists. |
+| `PairedOptions` | Require members together or choose one member from a variant group. |
+| `AccessorListOption` and accessor leaves | Parse nested values such as `--database.port 5432`. |
+
+Long options accept `--name value` and `--name=value`; short options accept
+`-n value`. Boolean short flags can be bundled, for example `-vvv`. `--` ends
+option parsing and passes the remaining tokens to the command as
 `trailingArguments`.
 
-**Parser.** After identifying command names and named inputs, the parser
-assigns positional tokens in declaration order. Each expression must match the
-whole token. Missing mandatory values, invalid discretionary values, and extra
-values are errors. Values are returned by name in `ParsedPositionals`, a record
-with a `singles` map for `Positional` values and a `repeated` map holding the
-collected lists of `RepeatedStringPositional` and `RepeatedChoicePositional`,
-the two concrete `RepeatedPositional` kinds. When a variadic is registered,
-its post-`--` values are validated and remain available as raw
-`trailingArguments`; they are not included in `ParsedPositionals`.
+### Group commands
 
-**Help.** Mandatory names appear as bare red operands; discretionary names use
-compact dim brackets such as `[target]`. Choice members are joined with `|`,
-bounded repetitions use `{1,N}`, and variadics use dash expressions such as
-`-- ...` or `-- (json|yaml)...` for repeated choices.
+Use `GroupCommand` for nested command paths such as `remote add`. Groups can
+publish inherited flags and options, and can select a child by setting
+`defaultSubCommandPath`.
 
 ```dart
-final class Switch extends Command {
-  Switch()
-    : super(
-        mandatoryPositionals: [NormalPositional('branch')],
-        discretionaryPositionals: [NormalPositional('start-point')],
-      );
-
-  @override
-  String get name => 'switch';
-
-  @override
-  String get shortDescription => 'Switch branches.';
-
-  @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) => 'Switching to ${positionals.singles!['branch']}.';
-}
-```
-
-### Flags
-
-**Registers.** `BooleanFlag` contributes a boolean name, optional one-letter
-`short` alias, default value, and optional negated form. `CountFlag`
-contributes a counter name and optional short alias. `hidden` keeps a flag
-parseable while removing it from help.
-
-**Parser.** Boolean flags accept `--name`, `-s`, and bundles such as `-abc`.
-Negatable boolean flags also accept `--no-name`. Every registered boolean
-appears in `inputs.boolFlags`, using `defaultValue` when absent. Count flags
-accept the same long and short forms and increment on every occurrence in
-`inputs.countFlags`. Flags do not accept `=value`.
-
-**Help.** Visible flags appear in **Flags**, together with the built-in
-`--help` / `-h` flag. Entries use optional brackets and show the long name,
-short alias, and description.
-
-```dart
-final class Commit extends Command {
-  Commit()
-    : super(
-        flags: [
-          BooleanFlag(
-            'interactive',
-            short: 'i',
-            description: 'Select changes interactively.',
-          ),
-          CountFlag(
-            'verbose',
-            short: 'v',
-            description: 'Increase output verbosity.',
-          ),
-        ],
-      );
-
-  @override
-  String get name => 'commit';
-
-  @override
-  String get shortDescription => 'Record changes to the repository.';
-
-  @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) {
-    final interactive = inputs.boolFlags!['interactive'];
-    final verbosity = inputs.countFlags!['verbose'] ?? 0;
-    return 'Interactive: $interactive; verbosity: $verbosity.';
-  }
-}
-```
-
-### Single-value and repeated options
-
-**Registers.** `StringOption`, `IntOption`, `DoubleOption`, and `ChoiceOption`
-register one value by name. Strings use their supplied expression; integers and
-doubles select numeric values; choices accept an enum-member name.
-`RepeatableStringOption`, `RepeatableIntOption`, and `RepeatableDoubleOption`
-register accumulating forms. Double options also accept inclusive `min` and
-`max` bounds plus an optional positive `step`; a stepped range must reach its
-maximum exactly. Ordinary options can have a one-letter short alias, be
-required or hidden, and optional choices can have a default enum value. Required choice options must receive explicit user input and therefore
-cannot declare defaults.
-
-**Parser.** Options accept `--name value`, `--name=value`, or `-s value`. A
-separate value beginning with `-` is rejected unless it is a negative number
-or a string expression explicitly accepts it. Integers accept signed decimal
-integers; doubles accept signed decimal integers or fractions. Strings must
-match their full expression. Choices are stored as
-their enum-member names. Repeated values append to typed lists; ordinary
-options retain the last value. Missing required options and invalid values are
-errors; stepped doubles must match an increment from their minimum to maximum.
-Omitted ordinary choice options receive their default when configured.
-
-**Help.** Visible entries appear in **Options**. Required entries are bare and
-red; optional entries use dim square brackets. The formatter prints literal
-long and short tokens followed by an uppercase value placeholder, such as
-`[-m|--message MESSAGE]`. Choices replace the placeholder with `(one|other)`,
-and repeatable option occurrences use a trailing `+`.
-
-```dart
-enum FixupMode { amend, reword }
-
-final class Commit extends Command {
-  Commit()
-    : super(
-        options: [
-          StringOption(
-            'message',
-            short: 'm',
-            description: 'Commit message.',
-            regex: RegExp(r'.+'),
-            required: true,
-          ),
-          ChoiceOption<FixupMode>(
-            'fixup',
-            description: 'How to update the previous commit.',
-            choices: FixupMode.values,
-            defaultValue: FixupMode.amend,
-          ),
-          RepeatableStringOption(
-            'pathspec',
-            description: 'Limit the commit to a path.',
-          ),
-        ],
-      );
-
-  @override
-  String get name => 'commit';
-
-  @override
-  String get shortDescription => 'Record changes to the repository.';
-
-  @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) {
-    final message = inputs.stringOptions!['message'];
-    final mode = inputs.stringOptions!['fixup'];
-    final paths = inputs.repeatedStringOptions!['pathspec'] ?? const [];
-    return 'Committing $paths with $mode: $message';
-  }
-}
-```
-
-### Paired options and pair members
-
-**Registers.** A `PairedOptions` group registers a non-empty list of
-`PairOption` members; it is not itself an option and lives in its own
-`pairedOptions` list. `PairStringOption`, `PairIntOption`, `PairDoubleOption`,
-and `PairChoiceOption` use the ordinary value rules; `RepeatablePair*Option`
-types accumulate values into typed lists. Pair options never accept member
-defaults. With the default `variant: false`,
-members form a required-together group when any is supplied. With
-`variant: true`, members are alternatives. `required` makes the group mandatory
-or requires one variant.
-
-**Parser.** Every member accepts ordinary option syntax. A non-variant group
-requires every member when any one is passed; a required non-variant group
-reports the missing member names. A variant permits at most one member and a
-required variant needs one. Values are returned in the same typed maps as
-ordinary and repeated options.
-
-**Help.** A paired group appears once in **Options**. Grouped members join
-with ` & ` and variants with `|`. Required groups are bare, optional groups
-use compact square brackets, repeatable members use a grouped `+` quantifier,
-and member descriptions are joined with `; `.
-
-```dart
-enum Format { json, text }
-
-final credentials = PairedOptions(
-  description: 'Account credentials.',
-  required: true,
-  options: [
-    PairStringOption('username', description: 'Account name.'),
-    PairStringOption('password', description: 'Account password.'),
-  ],
-);
-
-final outputFormat = PairedOptions(
-  description: 'Output format.',
-  variant: true,
-  options: [
-    PairChoiceOption<Format>(
-      'json',
-      description: 'Produce JSON.',
-      choices: Format.values,
-    ),
-    PairChoiceOption<Format>(
-      'text',
-      description: 'Produce text.',
-      choices: Format.values,
-    ),
-  ],
-);
-```
-
-### Accessor options
-
-**Registers.** `AccessorStringOption`, `AccessorIntOption`,
-`AccessorDoubleOption`, and `AccessorChoiceOption` register leaf values.
-`AccessorListOption` registers a named object that contains nested accessors;
-lists can nest. They use the same string, numeric, choice, and default rules as
-ordinary options. A hidden accessor list hides its complete subtree from help.
-
-**Parser.** Address a leaf with a dotted long name, such as
-`--database.port 5432` or `--database.port=5432`. Unknown and non-leaf paths
-are errors. The parser validates values, merges supplied paths into nested maps,
-and returns them in `inputs.accessors`. Choice defaults are merged into those
-maps.
-
-**Help.** Visible leaves appear under **Accessor flags** using dotted paths and
-their descriptions. Accessors are optional and do not have short aliases.
-
-```dart
-final class Serve extends Command {
-  Serve()
-    : super(
-        accessors: [
-          AccessorListOption(
-            'database',
-            description: 'Database connection settings.',
-            options: [
-              AccessorStringOption(
-                'host',
-                description: 'Database host.',
-              ),
-              AccessorIntOption(
-                'port',
-                description: 'Database port.',
-              ),
-            ],
-          ),
-        ],
-      );
-
-  @override
-  String get name => 'serve';
-
-  @override
-  String get shortDescription => 'Start the service.';
-
-  @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) => 'Serving with ${inputs.accessors!['database']}.';
-}
-```
-
-## Group commands
-
-**Registers.** A `GroupCommand` has all the command registrations above plus
-child `commands`. It may publish `inheritedFlags` and `inheritedOptions` to
-every descendant; a local same-name definition replaces an inherited one. A
-relative `defaultSubCommandPath` can select a child when no explicit child is
-supplied.
-
-**Parser.** Command names can follow the root name or omit it. Registered
-inputs can appear before, between, or after command path segments. The selected
-command's registry determines valid inputs and positionals. Parsing ends at
-`--`, and all following tokens become `trailingArguments`. A registered
-variadic also validates those tokens without absorbing ordinary positionals.
-
-**Help.** A group lists its direct children in **Commands** with their short
-descriptions. Like every command, its usage begins with name, positionals, and
-quoted short description.
-
-```dart
-final class Remote extends GroupCommand {
-  Remote()
-    : super(
-        [RemoteAdd(), RemoteRemove()],
-        inheritedFlags: [
-          BooleanFlag(
-            'verbose',
-            short: 'v',
-            description: 'Show detailed output.',
-          ),
-        ],
-      );
+final class RemoteCommand extends GroupCommand {
+  RemoteCommand()
+      : super(
+          [RemoteAddCommand()],
+          propagatedFlags: [
+            BooleanFlag('verbose', short: 'v', description: 'Show details.'),
+          ],
+        );
 
   @override
   String get name => 'remote';
 
   @override
-  String get shortDescription => 'Manage remote repositories.';
+  String get shortDescription => 'Manage remotes.';
 }
 ```
 
-Use `defaultSubCommandPath` for a declarative default, or override `run` and
-call `runChildCommand` with a non-empty path relative to the group. A relative
-path cannot include the group's own name.
+### Hooks and context
 
-## Registry
+Mix `HookRunner` into a command for pre- and post-execution work. Mix
+`PersistentHookRunner` into a group to run hooks around descendant commands.
+`MambaContext` provides typed, executor-scoped state that persistent hooks can
+share and mutate.
 
-`CommandRegistry.create` turns a list-defined command surface into a validated,
-navigable command tree. It indexes boolean and count flags, single and repeated
-options, pair members and paired groups, mandatory and discretionary
-positionals, and accessors in separate maps keyed by long name. This keeps each
-input category's meaning intact, supports direct lookup, and avoids scanning a
-heterogeneous list.
+### Shell completions
 
-A group produces a child registry for each direct child. Inherited flags and
-options are carried down the tree, while local same-name definitions take
-precedence. Command registries remain separate because command names form a
-hierarchy rather than an input namespace.
+Add the built-in completion command to expose Mamba's registry to the supported
+completion converters:
 
-Registry construction rejects invalid command or input names, reserved help
-names, invalid short aliases, empty paired groups, duplicate names or aliases,
-accessor collisions, duplicate positionals, and sibling command collisions.
-`registryForArguments` and `isRegisteredFlagToken` support registry navigation.
+```dart
+final class Completion extends CompletionCommand {
+  Completion() : super.preset(null);
+}
+```
 
-## Parser syntax and results
+Register `Completion()` with the executor, then generate an artifact using the
+shell name and an optional output path:
 
-`Parser.parse` accepts tokens and returns a `ParsedArguments` record containing
-the command path, positional map, typed named-input maps, trailing tokens, and a
-`help` control field. The built-in `help` boolean is parsed like any other flag,
-then removed from command inputs; executors format help and skip command
-execution when it is true. Exact `-h` and `--help` set it. Once help is
-encountered, later options are not validated, while command names are still
-resolved. It supports:
+```sh
+dart run bin/hello.dart completion bash ./hello.bash
+dart run bin/hello.dart completion carapace ./hello.yaml
+```
 
-* root-qualified and root-omitted command paths;
-* `--long value` and `--long=value` options and accessor leaves (registered
-  input-looking values use inline `--long=value` syntax);
-* `-s value` short options;
-* `--flag`, `-f`, and bundled short flags such as `-vvv` (including `-h`);
-* `--no-name` for negatable boolean flags;
-* positional, paired, repeated, and accessor forms;
-* `--` as an end-of-options separator; and
-* registered variadic validation for values after `--`.
+For custom completion integrations, extend `CompletionCommand` and use its
+assigned `registryRecord`.
 
-It rejects unknown inputs and commands, malformed or missing values, invalid
-regular-expression or numeric values, unsupported negation, unsatisfied
-required inputs, invalid paired combinations, and invalid positional layouts.
-It validates input; it does not execute commands.
+## Configuration
 
-## Help formatting
+`Executor` is the composition root for an application. In addition to its
+name, description, version, and commands, it can receive:
 
-`HelpFormatter` is the customization boundary for rendering a
-`CommandRegistry`. `MambaHelpFormatter` produces ANSI-styled usage, an optional
-long description surrounded by dashed lines, and non-empty **Flags**,
-**Accessor flags**, **Options**, and **Commands** sections. Hidden inputs remain
-accepted but are omitted from this output.
+- `longDescription` for detailed help;
+- root `flags`, `options`, and `accessors`;
+- `defaultCommandPath` for a command to run when no command is selected;
+- a custom `MambaContext`; and
+- a custom `HelpFormatter`.
 
-`FormattedString` and its subclasses protect styled help fragments.
-`RequiredString` leaves required syntax bare, `OptionalString` supplies compact
-square brackets, and `PairString` and `OrString` express grouped and alternative
-syntax. Custom formatters implement `format` and `formatLongDescription` and
-can reuse these helpers.
+Every executor includes `--help`/`-h`, `--dry-run`, `--verbose`/`-v`, and
+`--version`. Mamba parses these values; application code decides what
+`--dry-run` and `--verbose` mean for its own behavior. `--version` prints the
+semantic version supplied to `Executor`.
 
-## Hooks and context
+## Examples
 
-Mix `HookRunner` into a command to run `preRun` before its selected command and
-`postRun` afterward. The pre-hook receives piped standard input, a read-only
-`MambaReadContext`, positionals, and non-repeated ordinary options.
+The repository includes a persisted task-list CLI in
+[`example/example.dart`](example/example.dart):
 
-Mix `PersistentHookRunner` into a group to run around a selected descendant
-path. It receives mutable `MambaContext`; its mutations are visible to
-children. Persistent post-hooks run in reverse group-path order.
-Both pre-hook APIs may return a `Future`, and the executor awaits setup before
-running the command. Production executors write command output before running
-post-hooks, and report each post-hook `Exception` to standard error. Fake
-executors do not run post-hooks, so hook behavior can be tested directly.
-Other thrown objects propagate unchanged.
+```sh
+dart run example/example.dart create \
+  --title "Review pull request" \
+  --description "Check the parser changes"
+dart run example/example.dart list --pending
+dart run example/example.dart complete 1
+```
 
-`MambaContextKey<T>` provides typed identity keys for context values. Context
-is executor-scoped: repeated calls to `execute` on the same fake or production
-executor share its values. Create a new executor when executions need isolated
-state.
+The task data is stored in the system temporary directory. Use it as a compact
+example of typed options, validated positionals, command errors, and a
+completion command.
 
-## Registry maps and completion integrations
+## Testing
 
-`CommandRegistry.toMap()` exports built-in help, regular-expression patterns,
-paired groups, typed accessor leaves, choice values, defaults, and inherited
-inputs.
-`RegistryMap` deep-copies and freezes this integration boundary, validates its
-semantic invariants, and reports malformed maps as `MambaIntegrationException`.
-Only canonical typed accessor maps are accepted.
+Use `fake()` in tests instead of the production executor. It returns a
+`MambaSuccessResult` or `MambaFailureResult` rather than writing to stdout or
+stderr:
 
-Carapace completion does not assume that arbitrary strings are file paths.
-Choice completions are emitted for ordinary and paired options, positionals,
-and variadics. Integer and double options, including repeated and paired
-options, accept optional inclusive `min` and `max` bounds. A bounded numeric
-range is emitted as a Carapace range completion; a stepped double range is
-instead emitted as every value from its minimum through its maximum. Regex-
-backed inputs do not supply completion values. The Bash, Fish, and Zsh
-converters also enumerate stepped double values. Carapace can represent
-variant members as exclusive but cannot require one of them, so required
-variant descriptions retain that parser-enforced requirement.
+```dart
+final result = await Executor(
+  'hello',
+  'A test CLI.',
+  '1.0.0',
+  [HelloCommand()],
+).fake().execute(['hello']);
+
+expect(result, isA<MambaSuccessResult>());
+```
+
+Run the package tests with:
+
+```sh
+dart test
+```
+
+## Project documentation
+
+The complete guides and API reference are available at
+[https://mamba-docs.onrender.com/](https://mamba-docs.onrender.com/). The
+repository source for the documentation site is in [`docs/`](docs/).
+
+The main library entry point is [`lib/mamba.dart`](lib/mamba.dart). The public
+API is organized around these components:
+
+- `Command` and `GroupCommand` define the CLI surface and behavior.
+- `CommandRegistry` validates and indexes declarations.
+- `Parser` turns tokens into typed values without executing commands.
+- `Executor` handles dispatch, help, output, hooks, and the process boundary.
+- `HelpFormatter` renders the selected command registry.
+- Integration converters translate registry records into completion artifacts.
+
+## Development
+
+For the Dart package:
+
+```sh
+dart pub get
+dart format .
+dart analyze --fatal-infos
+dart test
+```
+
+The documentation site is an Astro Starlight project. To work on it locally:
+
+```sh
+cd docs
+pnpm install
+pnpm dev
+```
+
+Other documentation commands are `pnpm build`, `pnpm preview`, and `pnpm
+test`. See [`docs/README.md`](docs/README.md) for the page generator workflow.
+
+## Contributing
+
+Issues and pull requests are welcome. For code changes, include focused tests
+and run formatting, analysis, and the test suite before submitting a pull
+request. Documentation changes should update the relevant page under `docs/`
+and be checked with the documentation build.
+
+## License
+
+Mamba is released under the [MIT License](LICENSE).
