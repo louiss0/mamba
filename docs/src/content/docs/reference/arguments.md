@@ -289,14 +289,18 @@ FutureOr<String?> run(
 
 :::note[The help formatter shows]
 
-The formatter marks the start of the trailing arguments and shows an unbounded
-expression:
+The formatter marks the start of the trailing arguments in the usage line. It
+also repeats the DSL with `description` in the Arguments section:
 
 ```text
 mamba forward -- ...  'Forward arguments'
+
+Arguments
+
+-- ... Values forwarded to the child process.
 ```
 
-The regular expression and variadic `description` are not shown.
+The regular expression is not shown.
 
 :::
 
@@ -334,13 +338,18 @@ FutureOr<String?> run(
 
 :::note[The help formatter shows]
 
-The formatter places the choices after the `--` separator:
+The formatter places the choices after the `--` separator and shows
+`description` in the Arguments section:
 
 ```text
 mamba export -- (json|yaml)  'Export data'
+
+Arguments
+
+-- (json|yaml) Format forwarded to the exporter.
 ```
 
-It does not show the registered default value or description.
+It does not show the registered default value.
 
 :::
 
@@ -378,12 +387,17 @@ FutureOr<String?> run(
 
 :::note[The help formatter shows]
 
-The ellipsis distinguishes this DSL from the single choice variadic:
+The ellipsis distinguishes this DSL from the single choice variadic. The same
+DSL introduces `description` in the Arguments section:
 
 ```text
 mamba export -- (json|yaml)...  'Export data'
+
+Arguments
+
+-- (json|yaml)... Formats forwarded to the exporter.
 ```
 
-The default value and description are not shown.
+The default value is not shown.
 
 :::

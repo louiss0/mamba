@@ -129,8 +129,8 @@ abstract class HelpFormatter {
 /// Renders a [CommandRegistry] as ANSI-styled command-line help text.
 ///
 /// The output contains usage, an optional long description, and non-empty
-/// Flags, Accessor flags, Options, and Commands sections. Hidden inputs are
-/// accepted by Mamba but omitted from this formatter's output.
+/// Arguments, Flags, Accessor flags, Options, and Commands sections. Hidden
+/// inputs are accepted by Mamba but omitted from this formatter's output.
 final class MambaHelpFormatter extends HelpFormatter {
   @override
   void formatLongDescription(StringBuffer buffer, String longDescription) {
@@ -163,6 +163,15 @@ final class MambaHelpFormatter extends HelpFormatter {
     final longDescription = registry.longDescription;
     if (longDescription != null) {
       formatLongDescription(buffer, longDescription);
+      buffer.writeln();
+    }
+
+    final variadic = registry.variadic;
+    final variadicDescription = variadic?.description;
+    if (variadic != null && variadicDescription != null) {
+      _writeSection(buffer, 'Arguments', [
+        _variadicEntry(variadic, variadicDescription),
+      ]);
       buffer.writeln();
     }
 
@@ -200,6 +209,10 @@ final class MambaHelpFormatter extends HelpFormatter {
 
     return buffer.toString();
   }
+
+  String _variadicEntry(Variadic variadic, String description) =>
+      '${_variadic(variadic).string} '
+      '${formatIntoEntryDescription(description).string}';
 
   RequiredString _requiredPositional(Positional positional) =>
       formatIntoRequiredString(_positionalExpression(positional));

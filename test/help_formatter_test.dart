@@ -399,6 +399,37 @@ void main() {
         expect(help, startsWith('tool < source > [ target ] -- ...'));
       });
 
+      test('renders a variadic description in the Arguments section', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: NormalVariadic(
+            description: 'Forward arguments to the child process.',
+          ),
+        );
+
+        final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+        expect(
+          help,
+          contains(
+            'Arguments\n\n-- ... Forward arguments to the child process.',
+          ),
+        );
+      });
+
+      test('does not add an Arguments section without a description', () {
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          variadic: NormalVariadic(),
+        );
+
+        final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+
+        expect(help, isNot(contains('Arguments')));
+      });
+
       test('renders choice names for a choice variadic', () {
         final registry = CommandRegistry.create(
           'tool',
