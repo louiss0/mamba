@@ -371,8 +371,8 @@ void main() {
         final verbose = CountFlag('verbose');
         final name = StringOption('name', regex: RegExp(r'\S+'));
         final tag = RepeatableStringOption('tag');
-        final source = Positional('source');
-        final target = Positional('target');
+        final source = NormalPositional('source');
+        final target = NormalPositional('target');
 
         final profile = AccessorListOption('user', [
           AccessorStringOption('profile'),
@@ -489,10 +489,13 @@ void main() {
                 'add',
                 'Make a new work tree',
                 mandatoryPositionals: [
-                  Positional('path', description: 'The path to the work tree'),
+                  NormalPositional(
+                    'path',
+                    description: 'The path to the work tree',
+                  ),
                 ],
                 discretionaryPositionals: [
-                  Positional(
+                  NormalPositional(
                     "commit-ish",
                     description:
                         "Choosse a commit to use to scaffold the worktree",
@@ -997,11 +1000,11 @@ void main() {
               'run',
               'Create and run a new container from an image.',
               mandatoryPositionals: [
-                Positional('image', description: 'The image to run.'),
+                NormalPositional('image', description: 'The image to run.'),
               ],
               discretionaryPositionals: [
-                Positional('command', description: 'The command to run.'),
-                Positional(
+                NormalPositional('command', description: 'The command to run.'),
+                NormalPositional(
                   'arguments',
                   description: 'Arguments for the command.',
                 ),
@@ -1011,11 +1014,17 @@ void main() {
               'exec',
               'Execute a command in a running container.',
               mandatoryPositionals: [
-                Positional('container', description: 'The running container.'),
-                Positional('command', description: 'The command to execute.'),
+                NormalPositional(
+                  'container',
+                  description: 'The running container.',
+                ),
+                NormalPositional(
+                  'command',
+                  description: 'The command to execute.',
+                ),
               ],
               discretionaryPositionals: [
-                Positional(
+                NormalPositional(
                   'arguments',
                   description: 'Arguments for the command.',
                 ),
@@ -1025,8 +1034,11 @@ void main() {
               'cp',
               'Copy files between a container and the local filesystem.',
               mandatoryPositionals: [
-                Positional('source-path', description: 'The source path.'),
-                Positional(
+                NormalPositional(
+                  'source-path',
+                  description: 'The source path.',
+                ),
+                NormalPositional(
                   'destination-path',
                   description: 'The destination path.',
                 ),
@@ -1036,24 +1048,30 @@ void main() {
               'rename',
               'Rename a container.',
               mandatoryPositionals: [
-                Positional(
+                NormalPositional(
                   'container',
                   description: 'The container to rename.',
                 ),
-                Positional('new-name', description: 'The new container name.'),
+                NormalPositional(
+                  'new-name',
+                  description: 'The new container name.',
+                ),
               ],
             ),
             TestCommand(
               'commit',
               "Create a new image from a container's changes.",
               mandatoryPositionals: [
-                Positional(
+                NormalPositional(
                   'container',
                   description: 'The container to commit.',
                 ),
               ],
               discretionaryPositionals: [
-                Positional('repository', description: 'The target repository.'),
+                NormalPositional(
+                  'repository',
+                  description: 'The target repository.',
+                ),
               ],
             ),
           ],
@@ -1192,8 +1210,8 @@ void main() {
                 'add',
                 'Add a tracked repository.',
                 mandatoryPositionals: [
-                  Positional('name', description: 'The remote name.'),
-                  Positional('url', description: 'The remote URL.'),
+                  NormalPositional('name', description: 'The remote name.'),
+                  NormalPositional('url', description: 'The remote URL.'),
                 ],
                 flags: [
                   BooleanFlag(
@@ -1232,10 +1250,10 @@ void main() {
                 'add',
                 'Create a linked working tree.',
                 mandatoryPositionals: [
-                  Positional('path', description: 'The worktree path.'),
+                  NormalPositional('path', description: 'The worktree path.'),
                 ],
                 discretionaryPositionals: [
-                  Positional(
+                  NormalPositional(
                     'commit-ish',
                     description: 'The revision to check out.',
                   ),
@@ -1272,7 +1290,7 @@ void main() {
                 'push',
                 'Stash changes in the working directory.',
                 discretionaryPositionals: [
-                  Positional('pathspec', description: 'A path to stash.'),
+                  NormalPositional('pathspec', description: 'A path to stash.'),
                 ],
                 flags: [
                   BooleanFlag(
@@ -1568,8 +1586,8 @@ void main() {
       final verbose = CountFlag('verbose');
       final name = StringOption('name', regex: RegExp(r'\S+'));
       final tag = RepeatableStringOption('tag');
-      final source = Positional('source');
-      final target = Positional('target');
+      final source = NormalPositional('source');
+      final target = NormalPositional('target');
       final profile = AccessorListOption('user', [
         AccessorStringOption('profile'),
       ]);
@@ -1666,7 +1684,7 @@ void main() {
       });
 
       test('keeps dash variadics separate from ordinary positionals', () {
-        final positional = Positional('extra');
+        final positional = NormalPositional('extra');
         final variadic = NormalVariadic();
 
         final registry = CommandRegistry.create(
@@ -2053,7 +2071,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          mandatoryPositionals: [Positional('bad!')],
+          mandatoryPositionals: [NormalPositional('bad!')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -2064,7 +2082,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          mandatoryPositionals: [Positional('')],
+          mandatoryPositionals: [NormalPositional('')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -2117,8 +2135,8 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          mandatoryPositionals: [Positional('source')],
-          discretionaryPositionals: [Positional('source')],
+          mandatoryPositionals: [NormalPositional('source')],
+          discretionaryPositionals: [NormalPositional('source')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -2126,7 +2144,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          mandatoryPositionals: [Positional('config')],
+          mandatoryPositionals: [NormalPositional('config')],
           commands: [TestCommand('config', 'Configure.')],
         ),
         throwsA(isA<MambaRegistryError>()),

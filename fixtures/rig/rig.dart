@@ -921,10 +921,10 @@ _MockCommand _pingCommand() => _MockCommand(
   'ping',
   'Describe mock connectivity measurements without sending traffic.',
   mandatoryPositionals: [
-    Positional(
+    NormalPositional(
       'host',
       description: 'Hostname or address represented by the mock test.',
-      regex: RegExp(r'.+'),
+      regExp: RegExp(r'.+'),
     ),
   ],
   options: [
@@ -1130,11 +1130,11 @@ Commands:
   ],
 );
 
-Positional _profileNamePositional() => Positional(
+Positional _profileNamePositional() => NormalPositional(
   'name',
   description:
       'Profile name (letters, numbers, dots, underscores, or hyphens).',
-  regex: RegExp(r'[A-Za-z0-9][A-Za-z0-9._-]*'),
+  regExp: RegExp(r'[A-Za-z0-9][A-Za-z0-9._-]*'),
 );
 
 String _renderResult(

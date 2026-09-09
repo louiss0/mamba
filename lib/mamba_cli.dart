@@ -8,7 +8,7 @@ final class CreateProjectCommand extends Command {
   new(this._parentDirectory)
     : super(
         mandatoryPositionals: [
-          Positional('package-name', regex: RegExp(r'[a-z][a-z0-9_]*')),
+          NormalPositional('package-name', regExp: RegExp(r'[a-z][a-z0-9_]*')),
         ],
       );
 
@@ -114,9 +114,11 @@ final class ScaffoldCommand extends Command {
   new(this._parentDirectory)
     : super(
         mandatoryPositionals: [
-          Positional('name', regex: RegExp(r'[a-z][a-z0-9_]*')),
+          NormalPositional('name', regExp: RegExp(r'[a-z][a-z0-9_]*')),
         ],
-        discretionaryPositionals: [Positional('file', regex: RegExp(r'.+'))],
+        discretionaryPositionals: [
+          NormalPositional('file', regExp: RegExp(r'.+')),
+        ],
         flags: [
           BooleanFlag('group', description: 'Create a group command.'),
           BooleanFlag('hook', description: 'Mix in HookRunner.'),

@@ -225,7 +225,9 @@ final class ListTaskCommand extends Command {
 
 final class ReadTaskCommand extends Command {
   new(this.store)
-    : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
+    : super(
+        mandatoryPositionals: [NormalPositional('id', regExp: RegExp(r'\d+'))],
+      );
   final TaskStore store;
   @override
   String get name => 'read';
@@ -243,7 +245,7 @@ final class ReadTaskCommand extends Command {
 final class UpdateTaskCommand extends Command {
   new(this.store)
     : super(
-        mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))],
+        mandatoryPositionals: [NormalPositional('id', regExp: RegExp(r'\d+'))],
         options: [
           _textOption('title', 'Replacement title.'),
           _textOption('description', 'Replacement description.'),
@@ -282,7 +284,9 @@ final class UpdateTaskCommand extends Command {
 
 final class DeleteTaskCommand extends Command {
   new(this.store)
-    : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
+    : super(
+        mandatoryPositionals: [NormalPositional('id', regExp: RegExp(r'\d+'))],
+      );
   final TaskStore store;
   @override
   String get name => 'delete';
@@ -330,7 +334,9 @@ final class CompletionTaskCommand extends CompletionCommand {
 
 final class CompleteTaskCommand extends Command {
   new(this.store)
-    : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
+    : super(
+        mandatoryPositionals: [NormalPositional('id', regExp: RegExp(r'\d+'))],
+      );
 
   final TaskStore store;
   @override
@@ -348,7 +354,9 @@ final class CompleteTaskCommand extends Command {
 
 final class ReopenTaskCommand extends Command {
   new(this.store)
-    : super(mandatoryPositionals: [Positional('id', regex: RegExp(r'\d+'))]);
+    : super(
+        mandatoryPositionals: [NormalPositional('id', regExp: RegExp(r'\d+'))],
+      );
 
   final TaskStore store;
   @override

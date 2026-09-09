@@ -62,8 +62,8 @@ void main() {
             AccessorDoubleOption('timeout'),
           ]),
         ],
-        mandatoryPositionals: [Positional('source')],
-        discretionaryPositionals: [Positional('target')],
+        mandatoryPositionals: [NormalPositional('source')],
+        discretionaryPositionals: [NormalPositional('target')],
       );
 
       final result = subject.parse([
@@ -178,7 +178,7 @@ void main() {
     });
 
     test('does not parse arguments after -- as options or positionals', () {
-      final result = parser(mandatoryPositionals: [Positional('source')])
+      final result = parser(mandatoryPositionals: [NormalPositional('source')])
           .parse(['source', '--', '--unknown', 'extra']);
 
       expect(result.$2.singles, {'source': 'source'});
@@ -333,7 +333,7 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           RepeatedStringPositional('files', times: 2),
-          Positional('destination'),
+          NormalPositional('destination'),
         ],
       ).parse(['a.txt', 'b.txt', 'c.txt', 'out']).$2;
 
@@ -347,7 +347,7 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           RepeatedStringPositional('files', times: 2),
-          Positional('destination'),
+          NormalPositional('destination'),
         ],
       ).parse(['a.txt', 'b.txt', 'out']).$2;
 
@@ -362,7 +362,7 @@ void main() {
       () {
         final inputs = parser(
           mandatoryPositionals: [
-            Positional('source'),
+            NormalPositional('source'),
             RepeatedStringPositional('files'),
           ],
         ).parse(['in', 'a.txt', 'b.txt']).$2;
@@ -377,8 +377,8 @@ void main() {
     test('collects only the remaining values after individual positionals', () {
       final inputs = parser(
         mandatoryPositionals: [
-          Positional('first'),
-          Positional('second'),
+          NormalPositional('first'),
+          NormalPositional('second'),
           RepeatedStringPositional('files'),
         ],
         discretionaryPositionals: [RepeatedStringPositional('more')],
@@ -394,9 +394,9 @@ void main() {
     test('respects maxCount before handing values to later positionals', () {
       final inputs = parser(
         mandatoryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('files', times: 1),
-          Positional('destination'),
+          NormalPositional('destination'),
         ],
       ).parse(['in', 'a.txt', 'mid', 'out']).$2;
 
@@ -414,7 +414,7 @@ void main() {
             choices: Mode.values,
             times: 2,
           ),
-          Positional('label'),
+          NormalPositional('label'),
         ],
       ).parse(['auto', 'always', 'auto', 'final']).$2;
 
@@ -426,7 +426,7 @@ void main() {
 
     test('prioritizes mandatory positionals over discretionary ones', () {
       final inputs = parser(
-        discretionaryPositionals: [Positional('target')],
+        discretionaryPositionals: [NormalPositional('target')],
         mandatoryPositionals: [RepeatedStringPositional('files', times: 1)],
       ).parse(['a.txt', 'out']).$2;
 
@@ -441,7 +441,7 @@ void main() {
       () {
         final inputs = parser(
           mandatoryPositionals: [RepeatedStringPositional('files')],
-          discretionaryPositionals: [Positional('target')],
+          discretionaryPositionals: [NormalPositional('target')],
         ).parse(['a.txt', 'b.txt']).$2;
 
         expect(inputs.singles, isNull);
@@ -454,7 +454,7 @@ void main() {
     test('reports leftover values beyond every registered positional', () {
       final subject = parser(
         mandatoryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('files', times: 1),
         ],
       );
@@ -468,7 +468,7 @@ void main() {
       final inputs = parser(
         mandatoryPositionals: [
           RepeatedStringPositional('files', times: 2),
-          Positional('target'),
+          NormalPositional('target'),
         ],
       ).parse(['f0', 'f1', 'f2', 'out']).$2;
 
@@ -481,9 +481,9 @@ void main() {
     test('collects in the middle until maxCount three is filled', () {
       final inputs = parser(
         mandatoryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('files', times: 3),
-          Positional('target'),
+          NormalPositional('target'),
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3', 'out']).$2;
 
@@ -496,7 +496,7 @@ void main() {
     test('collects at the end until maxCount four is filled', () {
       final inputs = parser(
         mandatoryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('files', times: 4),
         ],
       ).parse(['in', 'f0', 'f1', 'f2', 'f3']).$2;
@@ -513,7 +513,7 @@ void main() {
       final inputs = parser(
         discretionaryPositionals: [
           RepeatedStringPositional('files', times: 12),
-          Positional('target'),
+          NormalPositional('target'),
         ],
       ).parse([...List.generate(13, (index) => 'f$index'), 'out']).$2;
 
@@ -526,9 +526,9 @@ void main() {
     test('collects in the middle until maxCount seven is filled', () {
       final inputs = parser(
         discretionaryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('files', times: 7),
-          Positional('target'),
+          NormalPositional('target'),
         ],
       ).parse(['in', ...List.generate(8, (index) => 'f$index'), 'out']).$2;
 
@@ -541,7 +541,7 @@ void main() {
     test('collects at the end until maxCount five is filled', () {
       final inputs = parser(
         discretionaryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('files', times: 5),
         ],
       ).parse(['in', ...List.generate(5, (index) => 'f$index')]).$2;
@@ -575,11 +575,11 @@ void main() {
     test('fills singles around repeated positionals across both lists', () {
       final inputs = parser(
         mandatoryPositionals: [
-          Positional('source'),
+          NormalPositional('source'),
           RepeatedStringPositional('kept', times: 3),
         ],
         discretionaryPositionals: [
-          Positional('target'),
+          NormalPositional('target'),
           RepeatedStringPositional('more', times: 6),
         ],
       ).parse(['in', 'k0', 'k1', 'k2', 'k3', 'out', 'm0', 'm1', 'm2', 'm3']).$2;
@@ -692,7 +692,7 @@ void main() {
         accessors: [
           AccessorListOption('profile', [AccessorStringOption('value')]),
         ],
-        mandatoryPositionals: [Positional('source')],
+        mandatoryPositionals: [NormalPositional('source')],
       );
 
       final help = MambaHelpFormatter().format(registry);
@@ -921,7 +921,9 @@ void main() {
           commands: [
             _ParserGroupCommand(
               'group',
-              propagatedOptions: [StringOption('target', regex: RegExp(r'\S+'))],
+              propagatedOptions: [
+                StringOption('target', regex: RegExp(r'\S+')),
+              ],
               [_ParserCommand('leaf')],
             ),
           ],
@@ -1294,7 +1296,7 @@ void main() {
       () {
         final subject = parser(
           flags: [BooleanFlag('plain')],
-          mandatoryPositionals: [Positional('source')],
+          mandatoryPositionals: [NormalPositional('source')],
         );
 
         expectParseError(subject, ['source', '--missing']);
@@ -1392,8 +1394,8 @@ void main() {
     test('rejects missing and invalid mandatory positionals', () {
       final subject = parser(
         mandatoryPositionals: [
-          Positional('source', regex: RegExp(r'^valid$')),
-          Positional('target'),
+          NormalPositional('source', regExp: RegExp(r'^valid$')),
+          NormalPositional('target'),
         ],
       );
 
@@ -1405,7 +1407,7 @@ void main() {
     test('rejects invalid discretionary positionals', () {
       final subject = parser(
         discretionaryPositionals: [
-          Positional('target', regex: RegExp(r'^valid$')),
+          NormalPositional('target', regExp: RegExp(r'^valid$')),
         ],
       );
 
@@ -1417,7 +1419,9 @@ void main() {
 
     test('requires positional expressions to match the entire value', () {
       final subject = parser(
-        mandatoryPositionals: [Positional('initial', regex: RegExp(r'[A-Z]'))],
+        mandatoryPositionals: [
+          NormalPositional('initial', regExp: RegExp(r'[A-Z]')),
+        ],
       );
 
       expectParseError(subject, ['Ada']);
@@ -1425,7 +1429,9 @@ void main() {
 
     test('validates explicit empty positional values', () {
       final subject = parser(
-        mandatoryPositionals: [Positional('value', regex: RegExp(r'^$'))],
+        mandatoryPositionals: [
+          NormalPositional('value', regExp: RegExp(r'^$')),
+        ],
       );
 
       expect(subject.parse(['']).$2.singles, {'value': ''});
@@ -1548,7 +1554,7 @@ void main() {
 
     test('validates dash values after mandatory positionals', () {
       final subject = parser(
-        mandatoryPositionals: [Positional('source')],
+        mandatoryPositionals: [NormalPositional('source')],
         variadic: NormalVariadic(),
       );
 
@@ -1560,7 +1566,7 @@ void main() {
 
     test('validates dash values after discretionary positionals', () {
       final subject = parser(
-        discretionaryPositionals: [Positional('target')],
+        discretionaryPositionals: [NormalPositional('target')],
         variadic: NormalVariadic(),
       );
 
@@ -1573,9 +1579,9 @@ void main() {
     test('validates dash values after Mandatory, Repeated, Mandatory', () {
       final subject = parser(
         mandatoryPositionals: [
-          Positional('first'),
+          NormalPositional('first'),
           RepeatedStringPositional('files'),
-          Positional('last'),
+          NormalPositional('last'),
         ],
         variadic: NormalVariadic(),
       );
@@ -1592,10 +1598,10 @@ void main() {
     test('validates dash values after Mandatory, Repeated, Discretionary', () {
       final subject = parser(
         mandatoryPositionals: [
-          Positional('first'),
+          NormalPositional('first'),
           RepeatedStringPositional('files'),
         ],
-        discretionaryPositionals: [Positional('target')],
+        discretionaryPositionals: [NormalPositional('target')],
         variadic: NormalVariadic(),
       );
 
@@ -1610,7 +1616,7 @@ void main() {
 
     test('validates dash values after Mandatory, Discretionary, Repeated', () {
       final subject = parser(
-        mandatoryPositionals: [Positional('first')],
+        mandatoryPositionals: [NormalPositional('first')],
         discretionaryPositionals: [RepeatedStringPositional('more')],
         variadic: NormalVariadic(),
       );
@@ -1625,7 +1631,9 @@ void main() {
     });
 
     test('rejects leftover values when no other postionals are registered', () {
-      final subject = parser(mandatoryPositionals: [Positional('source')]);
+      final subject = parser(
+        mandatoryPositionals: [NormalPositional('source')],
+      );
 
       expectParseError(subject, ['source', 'extra']);
     });

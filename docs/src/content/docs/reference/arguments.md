@@ -10,65 +10,12 @@ variadics are validated after `--`. Register positionals and a variadic in a
 The examples below show help without its ANSI colors. Required expressions are
 shown with `< ... >`; optional expressions are shown with `[ ... ]`.
 
-## `Positional`
-
-`Positional` is the base regex-validated positional class. Register it in
-`Command.mandatoryPositionals` when the command must receive the value, or in
-`Command.discretionaryPositionals` when the value may be omitted. It parses one
-complete token that matches `regex`; the default pattern, `\S+`, accepts any
-non-whitespace token.
-
-:::note[The command receives]
-
-For a command registered with `Positional('source')`, this invocation:
-
-```console
-mamba copy input.txt
-```
-
-makes the value available by its registered name in `positionals.singles`:
-
-```dart
-@override
-FutureOr<String?> run(
-  ParsedPositionals positionals,
-  ParsedNamedInputs inputs,
-  List<String> trailingArguments,
-) {
-  final source = positionals.singles!['source']!;
-  return source;
-}
-```
-
-A discretionary positional can be indexed without asserting that it exists:
-
-```dart
-final source = positionals.singles?['source'];
-```
-
-:::
-
-:::note[The help formatter shows]
-
-The registration collection changes the usage expression:
-
-```text
-mamba copy < source >  'Copy a file'
-mamba copy [ source ]  'Copy a file'
-```
-
-The first form is produced by `mandatoryPositionals`; the second is produced by
-`discretionaryPositionals`. The default formatter does not print positional
-`description` values.
-
-:::
-
 ## `NormalPositional`
 
-`NormalPositional` is a convenience subclass of `Positional`. It is used in the
-same `mandatoryPositionals` and `discretionaryPositionals` collections, but
-names its custom pattern parameter `regExp`. It parses one complete token and
-uses `\S+` when no pattern is supplied.
+`NormalPositional` is a concrete regex-validated positional class. Register it
+in `Command.mandatoryPositionals` when the value is required or in
+`Command.discretionaryPositionals` when it may be omitted. It parses one
+complete token using `regExp`, which defaults to `\S+`.
 
 :::note[The command receives]
 

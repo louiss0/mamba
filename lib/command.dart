@@ -50,7 +50,7 @@ List<T>? _copyList<T>(List<T>? items) =>
 /// Register it in `mandatoryPositionals` or `discretionaryPositionals`; the
 /// parser stores its complete-token match in [ParsedPositionals], and help
 /// renders it as required or optional usage respectively.
-class Positional extends NamedInput with RegExpValidated {
+abstract class Positional extends NamedInput with RegExpValidated {
   new(String name, {String? description, RegExp? regex})
     : _regExp = regex ?? RegExpValidated.anyToken,
       super(name, description);

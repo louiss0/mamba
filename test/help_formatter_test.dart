@@ -389,8 +389,8 @@ void main() {
         final registry = CommandRegistry.create(
           'tool',
           'Tool command.',
-          mandatoryPositionals: [Positional('source')],
-          discretionaryPositionals: [Positional('target')],
+          mandatoryPositionals: [NormalPositional('source')],
+          discretionaryPositionals: [NormalPositional('target')],
           variadic: NormalVariadic(),
         );
 
@@ -519,8 +519,8 @@ void main() {
         accessors: [
           AccessorListOption('tls', [AccessorStringOption('cert')]),
         ],
-        mandatoryPositionals: [Positional('url')],
-        discretionaryPositionals: [Positional('output')],
+        mandatoryPositionals: [NormalPositional('url')],
+        discretionaryPositionals: [NormalPositional('output')],
       );
 
       final help = MambaHelpFormatter().format(registry);

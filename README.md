@@ -122,8 +122,8 @@ bounded repetitions use `{1,N}`, and variadics use dash expressions such as
 final class Switch extends Command {
   Switch()
     : super(
-        mandatoryPositionals: [Positional('branch')],
-        discretionaryPositionals: [Positional('start-point')],
+        mandatoryPositionals: [NormalPositional('branch')],
+        discretionaryPositionals: [NormalPositional('start-point')],
       );
 
   @override
