@@ -1,3 +1,17 @@
+## Unreleased
+
+### Breaking migration
+
+- Commands, hooks, and groups now consume `CommandInvocation` and typed input
+  handles instead of string-keyed parsed records. Values after `--` are passed
+  as the separate validated `args` list.
+- Choice declarations return their registered enum members. Repeatable choices
+  support `unique: true`, which rejects duplicate selections.
+- Replaced `PairedOptions(variant: true)` with `SelectedOptions<R>` and
+  `SelectableOption`; paired groups remain all-or-nothing.
+- Execution results now provide exit codes and phase-tagged errors, including
+  cleanup failures that retain command output.
+
 ## 0.4.0
 
 - Removed defaults from `PairChoiceOption`; paired groups are completed only by

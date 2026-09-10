@@ -1,18 +1,31 @@
 /// An unrecoverable error in a Mamba command-definition invariant.
 class MambaRegistryError extends ArgumentError {
-  new([super.message]);
-
-  new value(super.value, [super.name, super.message]) : super.value();
-
+  MambaRegistryError([super.message]);
+  MambaRegistryError.value(super.value, [super.name, super.message])
+    : super.value();
   @override
   String toString() => 'MambaRegistryError: ${super.toString()}';
 }
 
-/// A recoverable Mamba failure reported by parsing or command selection.
-class const MambaException(final String message) implements Exception {
+/// A recoverable failure that can be rendered to a user.
+class MambaException implements Exception {
+  MambaException(this.message, {this.exitCode = 1}) {
+    if (exitCode < 1 || exitCode > 255) {
+      throw ArgumentError.value(
+        exitCode,
+        'exitCode',
+        'must be between 1 and 255',
+      );
+    }
+  }
+
+  final String message;
+  final int exitCode;
+
   @override
-  String toString() => "$runtimeType $message";
+  String toString() => message;
 }
 
-/// A failure while validating or producing an external integration artifact.
-class const MambaIntegrationException(super.message) extends MambaException;
+class MambaIntegrationException extends MambaException {
+  MambaIntegrationException(super.message, {super.exitCode});
+}

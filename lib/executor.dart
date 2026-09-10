@@ -8,24 +8,58 @@ import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 
-/// The observable result produced by an executor created with [Executor.fake].
-sealed class const MambaExecutionResult();
-
-/// Captures command output produced by a successful fake execution.
-final class const MambaSuccessResult(final String? output)
-    extends MambaExecutionResult;
-
-/// Captures a Mamba exception produced by a failed fake execution.
-final class MambaFailureResult(final MambaException _exception)
-    extends MambaExecutionResult {
-  String get message => _exception.message;
+sealed class MambaExecutionResult {
+  const MambaExecutionResult();
+  int get exitCode;
 }
 
-/// Whether a filesystem failure represents a closed inherited input pipe.
-///
-/// Operating systems expose this condition through different error codes and
-/// message text, so both structural OS codes and known platform messages are
-/// accepted.
+final class MambaSuccessResult extends MambaExecutionResult {
+  const MambaSuccessResult(this.output);
+  final String? output;
+  @override
+  int get exitCode => 0;
+}
+
+final class MambaFailureResult extends MambaExecutionResult {
+  MambaFailureResult({
+    required this.exitCode,
+    required List<MambaExecutionError> errors,
+    this.output,
+  }) : errors = List.unmodifiable(errors) {
+    if (exitCode == 0)
+      throw ArgumentError.value(exitCode, 'exitCode', 'must be non-zero');
+    if (errors.isEmpty)
+      throw ArgumentError.value(errors, 'errors', 'must not be empty');
+  }
+  @override
+  final int exitCode;
+  final String? output;
+  final List<MambaExecutionError> errors;
+  String get message => errors.first.exception.message;
+}
+
+enum MambaExecutionPhase {
+  parse,
+  prePersistentRun,
+  preRun,
+  run,
+  postRun,
+  postPersistentRun,
+}
+
+final class MambaExecutionError {
+  MambaExecutionError({
+    required this.phase,
+    required this.exception,
+    required this.stackTrace,
+    required List<String> commandPath,
+  }) : commandPath = List.unmodifiable(commandPath);
+  final MambaExecutionPhase phase;
+  final MambaException exception;
+  final StackTrace stackTrace;
+  final List<String> commandPath;
+}
+
 bool isClosedPipeFileSystemException(FileSystemException error) {
   final code = error.osError?.errorCode;
   if (code == 32 || code == 109 || code == 232) return true;
@@ -36,30 +70,11 @@ bool isClosedPipeFileSystemException(FileSystemException error) {
       message.contains('broken pipe');
 }
 
-/// Post-execution work captured while running a command.
-typedef _ExecutionResult = ({
-  String? output,
-  FutureOr<void> Function()? postRun,
-  List<FutureOr<void> Function()> postPersistentRuns,
-});
-
-/// Executes an argument list and delivers its result through an environment.
-abstract interface class MambaExecutor<ReturnType> {
-  /// Selects, validates, and runs the command addressed by [args].
-  Future<ReturnType> execute(List<String> args);
+abstract interface class MambaExecutor<T> {
+  Future<T> execute(List<String> args);
 }
 
-/// Defines a root command surface and creates its execution environment.
-///
-/// Create one instance at the application's composition root. It owns the root
-/// metadata, global inputs, command tree, context, and help formatter used to
-/// construct each executor. Its required version must be Semantic Version 2.0.0
-/// and is printed by the built-in global `--version` flag.
 final class Executor {
-  static final RegExp _semanticVersion = RegExp(
-    r'^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+(?:[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$',
-  );
-
   static final List<Flag> _defaultFlags = [
     BooleanFlag(
       'dry-run',
@@ -68,30 +83,7 @@ final class Executor {
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
     BooleanFlag('version', description: 'Show the application version.'),
   ];
-
-  final String name;
-
-  final String shortDescription;
-
-  final String _version;
-
-  final String? longDescription;
-
-  final List<AccessorListOption>? accessors;
-
-  final List<Flag>? flags;
-
-  final List<Option>? options;
-
-  final List<String>? defaultCommandPath;
-
-  final List<Command> commands;
-
-  final MambaContext? context;
-
-  final HelpFormatter? helpFormatter;
-
-  new(
+  Executor(
     this.name,
     this.shortDescription,
     String version,
@@ -100,382 +92,233 @@ final class Executor {
     List<AccessorListOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
-    List<String>? defaultCommandPath,
+    List<SelectedOptions>? selectedOptions,
+    this.defaultCommandPath,
     this.context,
     this.helpFormatter,
   }) : _version = _validateVersion(version),
        commands = List.unmodifiable(commands),
-       accessors = accessors == null ? null : List.unmodifiable(accessors),
-       flags = flags == null ? null : List.unmodifiable(flags),
-       options = options == null ? null : List.unmodifiable(options),
-       defaultCommandPath = _copyDefaultSubCommandPath(
-         name,
-         defaultCommandPath,
-       );
-
+       accessors = List.unmodifiable(accessors ?? const []),
+       flags = List.unmodifiable(flags ?? const []),
+       options = List.unmodifiable(options ?? const []),
+       selectedOptions = List.unmodifiable(selectedOptions ?? const []);
+  final String name;
+  final String shortDescription;
+  final String _version;
+  final String? longDescription;
+  final List<AccessorListOption> accessors;
+  final List<Flag> flags;
+  final List<Option> options;
+  final List<SelectedOptions> selectedOptions;
+  final List<String>? defaultCommandPath;
+  final List<Command> commands;
+  final MambaContext? context;
+  final HelpFormatter? helpFormatter;
   static String _validateVersion(String version) {
-    if (_semanticVersion.hasMatch(version)) return version;
-    throw MambaRegistryError.value(
-      version,
-      'version',
-      'must be a Semantic Version 2.0.0 value (for example, 1.2.3 or 1.2.3-rc.1).',
-    );
+    if (RegExp(r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$').hasMatch(version))
+      return version;
+    throw MambaRegistryError('version must be a Semantic Version 2.0.0 value');
   }
 
-  /// Creates an executor for tests that returns success or failure values.
-  ///
-  /// Invalid command definitions throw [MambaRegistryError] during this setup
-  /// step; only thrown [Exception] values use the returned result. Other
-  /// thrown objects propagate unchanged. Post-hooks are not run. Call this in
-  /// one shared test-support file and import the resulting fake into test
-  /// files. Unlike [create], it does not write to process streams.
   MambaExecutor<MambaExecutionResult> fake() => _FakeExecutor(_Execution(this));
-
-  /// Creates the production executor that writes output and exceptions to stdio.
-  ///
-  /// Invalid command definitions throw [MambaRegistryError] during setup.
-  /// It runs post-hooks after writing output and reports their thrown
-  /// [Exception] values to standard error. Other thrown objects propagate
-  /// unchanged. A command may return `null` to suppress successful output.
-  /// Call this where the executable is built, then pass command-line arguments
-  /// to [MambaExecutor.execute]. Use [fake] rather than this method in tests.
   MambaExecutor<void> create() => _CreateExecutor(_Execution(this));
-
-  static List<String>? _copyDefaultSubCommandPath(
-    String registryName,
-    List<String>? path,
-  ) {
-    if (path == null) return null;
-    if (path.isEmpty) {
-      throw MambaRegistryError.value(
-        path,
-        'defaultSubCommandPath',
-        'must not be empty',
-      );
-    }
-    if (path.any((name) => name.isEmpty)) {
-      throw MambaRegistryError.value(
-        path,
-        'defaultSubCommandPath',
-        'must contain command names',
-      );
-    }
-    if (path.contains(registryName)) {
-      throw MambaRegistryError.value(
-        path,
-        'defaultSubCommandPath',
-        'must be relative to the executor',
-      );
-    }
-    return List.unmodifiable(path);
-  }
 }
 
 final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
-  new(this._execution);
-
-  final _Execution _execution;
-
+  _FakeExecutor(this.execution);
+  final _Execution execution;
   @override
-  Future<MambaExecutionResult> execute(List<String> args) async {
-    try {
-      final result = await _execution.execute(args);
-      return MambaSuccessResult(result.output);
-    } on Exception catch (exception) {
-      return MambaFailureResult(
-        exception is MambaException
-            ? exception
-            : MambaException(exception.toString()),
-      );
-    }
-  }
+  Future<MambaExecutionResult> execute(List<String> args) =>
+      execution.execute(args);
 }
 
 final class _CreateExecutor implements MambaExecutor<void> {
-  new(this._execution);
-
-  final _Execution _execution;
-
+  _CreateExecutor(this.execution);
+  final _Execution execution;
   @override
   Future<void> execute(List<String> args) async {
-    late final _ExecutionResult result;
-    try {
-      result = await _execution.execute(args);
-      if (result.output != null) stdout.writeln(result.output);
-    } on Exception catch (exception) {
-      stderr.writeln(exception);
-      exitCode = 1;
-      return;
-    }
-
-    if (result.postRun case final postRun?) {
-      try {
-        await postRun();
-      } on Exception catch (exception) {
-        stderr.writeln(exception);
-        exitCode = 1;
-      }
-    }
-
-    for (final postPersistentRun in result.postPersistentRuns) {
-      try {
-        await postPersistentRun();
-      } on Exception catch (exception) {
-        stderr.writeln(exception);
-        exitCode = 1;
-      }
+    final result = await execution.execute(args);
+    switch (result) {
+      case MambaSuccessResult(:final output):
+        if (output != null) stdout.writeln(output);
+      case MambaFailureResult(
+        :final output,
+        :final errors,
+        exitCode: final code,
+      ):
+        if (output != null) stdout.writeln(output);
+        for (final error in errors) {
+          stderr.writeln(error.exception.message);
+        }
+        exitCode = code;
     }
   }
 }
 
 final class _Execution {
-  final HelpFormatter _helpFormatter;
-
-  final CommandRegistry _registry;
-
-  final MambaContext _context;
-
-  final List<String>? _defaultSubCommandPath;
-
-  final String _version;
-
-  final List<Command>? commands;
-
-  new(Executor factory)
-    : _helpFormatter = factory.helpFormatter ?? MambaHelpFormatter(),
-      _context = factory.context ?? MambaContext(),
-      _defaultSubCommandPath = factory.defaultCommandPath,
-      _version = factory._version,
+  _Execution(Executor executor)
+    : _help = executor.helpFormatter ?? MambaHelpFormatter(),
+      _context = executor.context ?? MambaContext(),
+      _version = executor._version,
+      commands = executor.commands,
       _registry = CommandRegistry.create(
-        factory.name,
-        factory.shortDescription,
-        longDescription: factory.longDescription,
-        accessors: factory.accessors,
-        flags: [...Executor._defaultFlags, ...?factory.flags],
-        options: factory.options,
-
-        commands: factory.commands,
-      ),
-      commands = List.unmodifiable(factory.commands) {
-    final registryRecord = _registry.toMap();
-    _assignCompletionRegistryRecord(commands, registryRecord);
+        executor.name,
+        executor.shortDescription,
+        longDescription: executor.longDescription,
+        flags: [...Executor._defaultFlags, ...executor.flags],
+        options: executor.options,
+        selectedOptions: executor.selectedOptions,
+        accessors: executor.accessors,
+        commands: executor.commands,
+      ) {
+    _assignCompletion(commands, _registry.toMap());
   }
-
-  Future<_ExecutionResult> execute(List<String> args) async {
-    final executionArguments = _argumentsWithDefaultCommands(args);
-    final parsed = Parser(_registry).parse(executionArguments);
-    final commandPath = parsed.$1;
-    final positionals = parsed.$2;
-    final inputs = parsed.$3;
-    final trailingArguments = parsed.$4;
-    final commandPathCommands = _commandsForPath(commandPath);
-    final command = commandPathCommands.lastOrNull;
-    final selectedRegistry = _registry
-        .registryForArguments(executionArguments)
-        .withInheritedInputs();
-    final versionRequested = inputs.boolFlags?['version'] == true;
-    if (versionRequested) {
-      final versionOutput = '${_registry.name} $_version';
-      return (
-        output: parsed.help
-            ? '$versionOutput\n\n${_helpFormatter.format(selectedRegistry)}'
-            : versionOutput,
-        postRun: null,
-        postPersistentRuns: const <FutureOr<void> Function()>[],
+  final HelpFormatter _help;
+  final MambaContext _context;
+  final String _version;
+  final List<Command> commands;
+  final CommandRegistry _registry;
+  Future<MambaExecutionResult> execute(List<String> args) async {
+    ParsedArguments parsed;
+    try {
+      parsed = Parser(_registry).parse(args);
+    } on Exception catch (error, trace) {
+      return _failure(MambaExecutionPhase.parse, error, trace, const []);
+    }
+    final path = parsed.$1;
+    final registry = _registry.registryForArguments(args);
+    final versionFlag = registry.applicableFlags
+        .whereType<BooleanFlag>()
+        .where((flag) => flag.name == 'version')
+        .firstOrNull;
+    if (versionFlag != null && parsed.$2.valueOf(versionFlag) == true)
+      return MambaSuccessResult(
+        parsed.help
+            ? '${_registry.name} $_version\n\n${_help.format(registry)}'
+            : '${_registry.name} $_version',
       );
-    }
-    if (parsed.help || command == null) {
-      return (
-        output: _helpFormatter.format(selectedRegistry),
-        postRun: null,
-        postPersistentRuns: const <FutureOr<void> Function()>[],
-      );
-    }
-
-    final context = MambaReadContext(_context);
-    final options = (
-      stringOptions: inputs.stringOptions,
-      intOptions: inputs.intOptions,
-      doubleOptions: inputs.doubleOptions,
-    );
-    final persistentHooks = commandPathCommands
-        .whereType<PersistentHookRunner>()
-        .toList();
-    for (final hook in persistentHooks) {
-      await hook.prePersistentRun(_context, positionals, options);
-    }
-    FutureOr<void> Function()? postRun;
-    if (command case final HookRunner hook) {
-      final standardInput = await _readStandardInput();
-      await hook.preRun(standardInput, context, positionals, options);
-      postRun = () => hook.postRun(context, positionals, options);
-    }
-    final output = await command.run(positionals, inputs, trailingArguments);
-    return (
-      output: output,
-      postRun: postRun,
-      postPersistentRuns: [
-        for (final hook in persistentHooks.reversed)
-          () => hook.postPersistentRun(_context, positionals, options),
-      ],
-    );
-  }
-
-  void _assignCompletionRegistryRecord(
-    Iterable<Command>? candidates,
-    RegistryRecord registryRecord,
-  ) {
-    if (candidates == null) return;
-    for (final command in candidates) {
-      if (command is CompletionCommand) command.registryRecord = registryRecord;
-      if (command is GroupCommand) {
-        _assignCompletionRegistryRecord(command.commands, registryRecord);
+    final commandPath = _commandsForPath(path);
+    final command = commandPath.lastOrNull;
+    if (parsed.help || command == null)
+      return MambaSuccessResult(_help.format(registry));
+    final invocation = CommandInvocation(parsed.$2, _context);
+    final errors = <MambaExecutionError>[];
+    final persistent = <PersistentHookRunner>[];
+    HookRunner? ordinary;
+    for (final candidate in commandPath) {
+      if (candidate is PersistentHookRunner) {
+        try {
+          await candidate.prePersistentRun(invocation);
+          persistent.add(candidate);
+        } on Exception catch (error, trace) {
+          errors.add(
+            _error(MambaExecutionPhase.prePersistentRun, error, trace, path),
+          );
+          break;
+        }
       }
     }
+    if (errors.isEmpty && command is HookRunner) {
+      try {
+        await command.preRun(await _readInput(), invocation);
+        ordinary = command;
+      } on Exception catch (error, trace) {
+        errors.add(_error(MambaExecutionPhase.preRun, error, trace, path));
+      }
+    }
+    String? output;
+    if (errors.isEmpty) {
+      try {
+        output = await command.run(invocation, parsed.$3);
+      } on Exception catch (error, trace) {
+        errors.add(_error(MambaExecutionPhase.run, error, trace, path));
+      }
+    }
+    if (ordinary != null) {
+      try {
+        await ordinary.postRun(invocation);
+      } on Exception catch (error, trace) {
+        errors.add(_error(MambaExecutionPhase.postRun, error, trace, path));
+      }
+    }
+    for (final hook in persistent.reversed) {
+      try {
+        await hook.postPersistentRun(invocation);
+      } on Exception catch (error, trace) {
+        errors.add(
+          _error(MambaExecutionPhase.postPersistentRun, error, trace, path),
+        );
+      }
+    }
+    if (errors.isEmpty) return MambaSuccessResult(output);
+    return MambaFailureResult(
+      exitCode: errors.first.exception.exitCode,
+      errors: errors,
+      output: output,
+    );
   }
 
-  Future<ProcessedStandardInput?> _readStandardInput() async {
+  MambaFailureResult _failure(
+    MambaExecutionPhase phase,
+    Exception exception,
+    StackTrace trace,
+    List<String> path,
+  ) {
+    final error = _error(phase, exception, trace, path);
+    return MambaFailureResult(
+      exitCode: error.exception.exitCode,
+      errors: [error],
+    );
+  }
+
+  MambaExecutionError _error(
+    MambaExecutionPhase phase,
+    Exception exception,
+    StackTrace trace,
+    List<String> path,
+  ) => MambaExecutionError(
+    phase: phase,
+    exception: exception is MambaException
+        ? exception
+        : MambaException(exception.toString()),
+    stackTrace: trace,
+    commandPath: path,
+  );
+  List<Command> _commandsForPath(List<String> path) {
+    var children = commands;
+    final selected = <Command>[];
+    for (final name in path) {
+      if (name == _registry.name) continue;
+      final command = children
+          .where(
+            (candidate) =>
+                candidate.name == name ||
+                candidate.aliases?.contains(name) == true,
+          )
+          .firstOrNull;
+      if (command == null) return const [];
+      selected.add(command);
+      children = command is GroupCommand ? command.commands : const [];
+    }
+    return selected;
+  }
+
+  Future<ProcessedStandardInput?> _readInput() async {
     try {
       if (stdioType(stdin) != StdioType.pipe) return null;
       return ProcessedStandardInput(
-        await stdin.expand((bytes) => bytes).toList(),
+        await stdin.expand((item) => item).toList(),
       );
     } on FileSystemException catch (error) {
-      // Process.run can expose a closed inherited pipe as stdin.
       if (!isClosedPipeFileSystemException(error)) rethrow;
       return null;
     }
   }
 
-  List<Command> _commandsForPath(List<String> path) {
-    final selectedCommands = <Command>[];
-    var children = commands;
-    for (final name in path) {
-      if (name == _registry.name) continue;
-      final command = children?.singleWhere(
-        (candidate) => candidate.name == name,
-      );
-      if (command == null) return const [];
-      selectedCommands.add(command);
-      children = command is GroupCommand ? command.commands : null;
+  void _assignCompletion(Iterable<Command> candidates, RegistryRecord record) {
+    for (final command in candidates) {
+      if (command is CompletionCommand) command.registryRecord = record;
+      if (command is GroupCommand) _assignCompletion(command.commands, record);
     }
-    return selectedCommands;
   }
-
-  List<String> _argumentsWithDefaultCommands(List<String> args) {
-    // Help describes the command path the user explicitly named. Defaults are
-    // dispatch behavior, not an implicit rewrite of that help target.
-    if (_containsHelpFlag(args)) return args;
-    var arguments = _argumentsWithRootDefaultCommand(args);
-    final appliedGroupDefaults = <GroupCommand>{};
-    while (true) {
-      final insertion = _groupDefaultInsertion(arguments);
-      if (insertion == null || !appliedGroupDefaults.add(insertion.group)) {
-        break;
-      }
-      arguments = [
-        ...arguments.take(insertion.index),
-        ...insertion.path,
-        ...arguments.skip(insertion.index),
-      ];
-    }
-    return arguments;
-  }
-
-  List<String> _argumentsWithRootDefaultCommand(List<String> args) {
-    final path = _defaultSubCommandPath;
-    if (path == null || !_needsDefaultCommand(args)) return args;
-
-    final rootIndex = args.indexOf(_registry.name);
-    if (rootIndex >= 0) {
-      return [
-        ...args.take(rootIndex + 1),
-        ...path,
-        ...args.skip(rootIndex + 1),
-      ];
-    }
-    return [...path, ...args];
-  }
-
-  ({GroupCommand group, int index, List<String> path})? _groupDefaultInsertion(
-    List<String> args,
-  ) {
-    var registry = _registry;
-    var childCommands = commands;
-    GroupCommand? selectedGroup;
-    var insertionIndex = 0;
-    var offset = 0;
-
-    while (offset < args.length) {
-      final token = args[offset];
-      if (token == '--') break;
-      if (token == _registry.name && identical(registry, _registry)) {
-        offset++;
-        continue;
-      }
-
-      final inputLength = registry.registeredInputTokenLength(token);
-      if (inputLength != null) {
-        offset += inputLength;
-        continue;
-      }
-
-      final commandName = registry.aliases?[token] ?? token;
-      final command = childCommands
-          ?.where((candidate) => candidate.name == commandName)
-          .firstOrNull;
-      final childRegistry = registry.commandRegistries
-          ?.where((candidate) => candidate.name == commandName)
-          .firstOrNull;
-      if (command == null || childRegistry == null) break;
-
-      registry = childRegistry;
-      selectedGroup = command is GroupCommand ? command : null;
-      childCommands = selectedGroup?.commands;
-      insertionIndex = offset + 1;
-      offset++;
-    }
-
-    final path = selectedGroup?.defaultSubCommandPath;
-    return path == null
-        ? null
-        : (group: selectedGroup!, index: insertionIndex, path: path);
-  }
-
-  bool _needsDefaultCommand(List<String> args) {
-    if (_defaultSubCommandPath == null || args.isEmpty) {
-      return _defaultSubCommandPath != null;
-    }
-
-    var offset = 0;
-    while (offset < args.length) {
-      final token = args[offset];
-      if (token == '--') return false;
-      if (token == _registry.name) {
-        offset++;
-        continue;
-      }
-      final inputLength = _registry.registeredInputTokenLength(token);
-      if (inputLength != null) {
-        offset += inputLength;
-        continue;
-      }
-      if (_isRootCommand(token)) return false;
-      return false;
-    }
-    return true;
-  }
-
-  bool _containsHelpFlag(Iterable<String> args) => args.any(
-    (token) =>
-        token == '--help' ||
-        (token.startsWith('-') &&
-            !token.startsWith('--') &&
-            token.substring(1).contains('h')),
-  );
-
-  bool _isRootCommand(String name) =>
-      _registry.commandRegistries?.any((command) => command.name == name) ==
-          true ||
-      _registry.aliases?.containsKey(name) == true;
 }

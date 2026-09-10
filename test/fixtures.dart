@@ -34,15 +34,12 @@ class TestCommand extends Command {
     super.flags,
     super.options,
     super.pairedOptions,
+    super.selectedOptions,
     super.accessors,
   });
 
   @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs input,
-    List<String> trailingArguments,
-  ) => '';
+  String run(CommandInvocation invocation, List<String> args) => '';
 
   @override
   final String name;

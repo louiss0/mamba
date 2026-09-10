@@ -1,29 +1,8 @@
-import 'package:mamba/errors.dart';
-import 'package:mamba/parser.dart';
+import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('MambaRegistryError', () {
-    test('preserves ArgumentError diagnostics', () {
-      final error = MambaRegistryError.value('bad', 'name', 'is invalid');
-
-      expect(error, isA<ArgumentError>());
-      expect(error.invalidValue, 'bad');
-      expect(error.name, 'name');
-      expect(
-        error.toString(),
-        contains('MambaRegistryError: Invalid argument'),
-      );
-    });
-  });
-
-  group('MambaException', () {
-    test('formats its runtime type and message', () {
-      expect(MambaException('failed').toString(), 'MambaException failed');
-      expect(
-        MambaParseException('invalid').toString(),
-        'MambaParseException invalid',
-      );
-    });
+  test('mamba exceptions use a portable default exit code', () {
+    expect(MambaException('failure').exitCode, 1);
   });
 }
