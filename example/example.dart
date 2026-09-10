@@ -17,6 +17,7 @@ Future<void> main(List<String> args) {
     DeleteTaskCommand(store),
     CompleteTaskCommand(store),
     ReopenTaskCommand(store),
+    ExportTasksCommand(store),
     CompletionTaskCommand(),
   ]).create().execute(args);
 }
@@ -322,6 +323,59 @@ final class DeleteTaskCommand extends TaskIdCommand {
   }
 }
 
+sealed class TaskExport {
+  const TaskExport(this.path);
+
+  final String path;
+}
+
+final class JsonTaskExport extends TaskExport {
+  const JsonTaskExport(super.path);
+}
+
+final class TextTaskExport extends TaskExport {
+  const TextTaskExport(super.path);
+}
+
+final class ExportTasksCommand extends Command {
+  ExportTasksCommand(this.store) : super(selectedOptions: [output]);
+
+  static final json = PairStringOption(
+    'json',
+    description: 'Write JSON to this path.',
+  );
+  static final text = PairStringOption(
+    'text',
+    description: 'Write text to this path.',
+  );
+  static final output = SelectedOptions<TaskExport>([
+    SelectableOption(json, JsonTaskExport.new),
+    SelectableOption(text, TextTaskExport.new),
+  ], required: true);
+
+  final TaskStore store;
+
+  @override
+  String get name => 'export';
+
+  @override
+  String get shortDescription => 'Export every task.';
+
+  @override
+  String run(CommandInvocation invocation, List<String> args) {
+    final export = invocation.inputs.require(output);
+    final content = switch (export) {
+      JsonTaskExport() => JsonEncoder.withIndent(
+        '  ',
+      ).convert(store.readAll().map((task) => task.toJson()).toList()),
+      TextTaskExport() =>
+        store.readAll().map((task) => '${task.id}: ${task.title}').join('\n'),
+    };
+    File(export.path).writeAsStringSync(content);
+    return 'Exported tasks to ${export.path}.';
+  }
+}
+
 final class CompleteTaskCommand extends TaskIdCommand {
   CompleteTaskCommand(this.store);
 
@@ -378,7 +432,10 @@ final class CompletionTaskCommand extends CompletionCommand {
   @override
   String run(CommandInvocation invocation, List<String> args) {
     final path = invocation.inputs.require(output);
-    CarapaceSpecWriter(path).write(registryRecord);
+    CarapaceSpecWriter(
+      CarapaceSpecConverter(registryRecord),
+      outputPath: path,
+    ).write();
     return 'Wrote Carapace spec to $path.';
   }
 }

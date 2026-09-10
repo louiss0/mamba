@@ -1,4 +1,10 @@
-name: rig
-flags:
-  --format:
-    completion: [text, json]
+name: "rig"
+description: "Completion fixture."
+persistentflags:
+  -h, --help: "Show this help message."
+  --format?=: ""
+completion:
+  flag:
+    format:
+      - "text"
+      - "json"

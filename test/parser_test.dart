@@ -93,6 +93,18 @@ void main() {
         throwsA(isA<MambaRegistryError>()),
       );
     });
+
+    test('rejects duplicate accessor paths', () {
+      expect(
+        () => parser(
+          accessors: [
+            AccessorListOption('server', [AccessorStringOption('host')]),
+            AccessorListOption('server', [AccessorStringOption('host')]),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
   });
   group('repeatable choices', () {
     test('preserves duplicates unless unique is enabled', () {
@@ -155,6 +167,8 @@ void main() {
       ], required: true);
       final inputs = parser(selected: [selected]).parse(['--json', 'out']).$2;
       expect(inputs.require(selected), 'json:out');
+      expect(inputs.contains(json), isFalse);
+      expect(inputs.contains(text), isFalse);
     });
     test(
       'allows no optional selection and rejects none or many when required',

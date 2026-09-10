@@ -75,11 +75,8 @@ final class HelloCommand extends Command {
   String get shortDescription => 'Say hello.';
 
   @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) => 'Hello from Mamba!';
+  String run(CommandInvocation invocation, List<String> args) =>
+      'Hello from Mamba!';
 }
 
 Future<void> main(List<String> args) => Executor(
@@ -108,19 +105,23 @@ A command declares its syntax in its constructor and receives parsed values in
 final class AddCommand extends Command {
   AddCommand()
       : super(
-          mandatoryPositionals: [NormalPositional('path')],
-          flags: [
-            BooleanFlag('all', short: 'a', description: 'Add every path.'),
-          ],
-          options: [
-            StringOption(
-              'message',
-              short: 'm',
-              description: 'Commit message.',
-              required: true,
-            ),
-          ],
+          mandatoryPositionals: [path],
+          flags: [all],
+          options: [message],
         );
+
+  static final path = NormalPositional('path');
+  static final all = BooleanFlag(
+    'all',
+    short: 'a',
+    description: 'Add every path.',
+  );
+  static final message = StringOption(
+    'message',
+    short: 'm',
+    description: 'Commit message.',
+    required: true,
+  );
 
   @override
   String get name => 'add';
@@ -129,15 +130,11 @@ final class AddCommand extends Command {
   String get shortDescription => 'Add a path.';
 
   @override
-  String run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) {
-    final path = positionals.singles?['path'];
-    final all = inputs.boolFlags?['all'] == true;
-    final message = inputs.stringOptions?['message'];
-    return 'Adding ${all ? 'all paths' : path} with: $message';
+  String run(CommandInvocation invocation, List<String> args) {
+    final pathValue = invocation.inputs.require(path);
+    final allPaths = invocation.inputs.require(all);
+    final messageValue = invocation.inputs.require(message);
+    return 'Adding ${allPaths ? 'all paths' : pathValue} with: $messageValue';
   }
 }
 ```
@@ -165,13 +162,13 @@ return a `String`, return `null` for no output, or return a `Future`.
 | `BooleanFlag` / `CountFlag` | Valueless switches, aliases, bundles, and verbosity counts. |
 | `StringOption`, `IntOption`, `DoubleOption`, `ChoiceOption` | Typed named values with optional aliases, defaults, ranges, or validation. |
 | `Repeatable*Option` | Collect multiple values into typed lists. |
-| `PairedOptions` | Require members together or choose one member from a variant group. |
+| `PairedOptions` / `SelectedOptions<R>` | Require members together or map one selected member to a typed result. |
 | `AccessorListOption` and accessor leaves | Parse nested values such as `--database.port 5432`. |
 
 Long options accept `--name value` and `--name=value`; short options accept
 `-n value`. Boolean short flags can be bundled, for example `-vvv`. `--` ends
-option parsing and passes the remaining tokens to the command as
-`trailingArguments`.
+option parsing and passes the remaining validated tokens to `Command.run` as
+`args`. They are not stored in `CommandInvocation.inputs`.
 
 ### Group commands
 

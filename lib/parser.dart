@@ -11,6 +11,7 @@ typedef ParsedArguments = (
   ParsedInputs inputs,
   List<String> args, {
   bool help,
+  bool version,
 });
 
 /// Parses one command line into identity-keyed typed input values.
@@ -146,6 +147,7 @@ final class Parser {
       ParsedInputs(values),
       List.unmodifiable(trailing),
       help: help,
+      version: version,
     );
   }
 
@@ -393,6 +395,9 @@ final class Parser {
       if (members.length == 1) {
         final member = members.single;
         values[group] = member.map(values[member.option]);
+      }
+      for (final member in group.options) {
+        values.remove(member.option);
       }
     }
   }

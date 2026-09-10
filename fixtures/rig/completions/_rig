@@ -1,3 +1,18 @@
 #compdef rig
-_rig() { _arguments '--format[]' }
+
+_rig() {
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '--format[]:format:(text json)' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
 compdef _rig rig

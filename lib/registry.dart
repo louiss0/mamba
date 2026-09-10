@@ -607,6 +607,16 @@ final class CommandRegistry {
   }) {
     if (!_name.hasMatch(name) || description.isEmpty)
       throw MambaRegistryError('Invalid command definition');
+    if ((paired ?? const <PairedOptions>[]).any(
+          (group) => group.options.isEmpty,
+        ) ||
+        (selected ?? const <SelectedOptions>[]).any(
+          (group) => group.options.isEmpty,
+        )) {
+      throw MambaRegistryError(
+        'Option groups must contain at least one member.',
+      );
+    }
     final names = <String>{};
     for (final input in [
       ...?flags,
@@ -634,7 +644,11 @@ final class CommandRegistry {
       }
     }
 
+    final accessorNames = <String>{};
     for (final accessor in accessors ?? const <AccessorListOption>[]) {
+      if (!accessorNames.add(accessor.name)) {
+        throw MambaRegistryError('Duplicate accessor ${accessor.name}');
+      }
       visit(accessor);
     }
     void validateChoices(InputDefinition input) {
@@ -665,13 +679,18 @@ final class CommandRegistry {
       ...?options,
       ...?mandatory,
       ...?discretionary,
+      ...?accessors,
       for (final group in paired ?? const <PairedOptions>[]) ...group.options,
+      for (final group in selected ?? const <SelectedOptions>[])
+        for (final member in group.options) member.option,
     ]) {
       validateChoices(input);
     }
     for (final input in [
       ...?options,
       for (final group in paired ?? const <PairedOptions>[]) ...group.options,
+      for (final group in selected ?? const <SelectedOptions>[])
+        for (final member in group.options) member.option,
     ]) {
       if (input is NumericRangeValidated) {
         final range = input as NumericRangeValidated;

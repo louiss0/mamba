@@ -33,16 +33,25 @@ final class ResultCommand extends Command with HookRunner {
 }
 
 final class Persistent extends GroupCommand with PersistentHookRunner {
-  Persistent(this.events, super.commands, {this.failPost = false}) : super();
+  Persistent(
+    this.events,
+    super.commands, {
+    this.failPre = false,
+    this.failPost = false,
+  }) : super();
   final List<String> events;
+  final bool failPre;
   final bool failPost;
   @override
   String get name => 'group';
   @override
   String get shortDescription => 'Group.';
   @override
-  void prePersistentRun(CommandInvocation invocation) =>
-      events.add('pre-group');
+  void prePersistentRun(CommandInvocation invocation) {
+    events.add('pre-group');
+    if (failPre) throw MambaException('persistent pre failed', exitCode: 6);
+  }
+
   @override
   void postPersistentRun(CommandInvocation invocation) {
     events.add('post-group');
@@ -87,11 +96,47 @@ void main() {
     ]);
     expect(events, ['pre-group', 'pre', 'run', 'post', 'post-group']);
   });
+  test('only cleans up persistent hooks whose pre-hook completed', () async {
+    final events = <String>[];
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      Persistent(events, [
+        Persistent(events, [ResultCommand(events)], failPre: true),
+      ]),
+    ]).fake().execute(['group', 'group', 'run']) as MambaFailureResult;
+    expect(result.exitCode, 6);
+    expect(result.errors.map((error) => error.phase), [
+      MambaExecutionPhase.prePersistentRun,
+    ]);
+    expect(events, ['pre-group', 'pre-group', 'post-group']);
+  });
+
   test('validates failure result invariants and exception codes', () {
     expect(() => MambaException('bad', exitCode: 0), throwsArgumentError);
     expect(
       () => MambaFailureResult(exitCode: 0, errors: []),
       throwsArgumentError,
+    );
+  });
+
+  test('renders the application version without running a command', () async {
+    final events = <String>[];
+    final result = await Executor('tool', 'Tool.', '1.2.3', [
+      ResultCommand(events),
+    ]).fake().execute(['--version']);
+    expect(result, isA<MambaSuccessResult>());
+    expect((result as MambaSuccessResult).output, 'tool 1.2.3');
+    expect(events, isEmpty);
+  });
+
+  test('reports the resolved command path for parse failures', () async {
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      Persistent(<String>[], [ResultCommand(<String>[])]),
+    ]).fake().execute(['group', 'run', '--unknown']) as MambaFailureResult;
+    expect(result.errors.single.phase, MambaExecutionPhase.parse);
+    expect(result.errors.single.commandPath, ['tool', 'group', 'run']);
+    expect(
+      () => result.errors.single.commandPath.add('other'),
+      throwsUnsupportedError,
     );
   });
 }

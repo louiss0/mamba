@@ -179,19 +179,21 @@ final class _Execution {
   final List<Command> commands;
   final CommandRegistry _registry;
   Future<MambaExecutionResult> execute(List<String> args) async {
+    final registry = _registry.registryForArguments(args);
     ParsedArguments parsed;
     try {
       parsed = Parser(_registry).parse(args);
     } on Exception catch (error, trace) {
-      return _failure(MambaExecutionPhase.parse, error, trace, const []);
+      return _failure(
+        MambaExecutionPhase.parse,
+        error,
+        trace,
+        registry.fullPath,
+      );
     }
     final path = parsed.$1;
-    final registry = _registry.registryForArguments(args);
-    final versionFlag = registry.applicableFlags
-        .whereType<BooleanFlag>()
-        .where((flag) => flag.name == 'version')
-        .firstOrNull;
-    if (versionFlag != null && parsed.$2.valueOf(versionFlag) == true)
+    final errorPath = registry.fullPath;
+    if (parsed.version)
       return MambaSuccessResult(
         parsed.help
             ? '${_registry.name} $_version\n\n${_help.format(registry)}'
@@ -212,7 +214,12 @@ final class _Execution {
           persistent.add(candidate);
         } on Exception catch (error, trace) {
           errors.add(
-            _error(MambaExecutionPhase.prePersistentRun, error, trace, path),
+            _error(
+              MambaExecutionPhase.prePersistentRun,
+              error,
+              trace,
+              errorPath,
+            ),
           );
           break;
         }
@@ -223,7 +230,7 @@ final class _Execution {
         await command.preRun(await _readInput(), invocation);
         ordinary = command;
       } on Exception catch (error, trace) {
-        errors.add(_error(MambaExecutionPhase.preRun, error, trace, path));
+        errors.add(_error(MambaExecutionPhase.preRun, error, trace, errorPath));
       }
     }
     String? output;
@@ -231,14 +238,16 @@ final class _Execution {
       try {
         output = await command.run(invocation, parsed.$3);
       } on Exception catch (error, trace) {
-        errors.add(_error(MambaExecutionPhase.run, error, trace, path));
+        errors.add(_error(MambaExecutionPhase.run, error, trace, errorPath));
       }
     }
     if (ordinary != null) {
       try {
         await ordinary.postRun(invocation);
       } on Exception catch (error, trace) {
-        errors.add(_error(MambaExecutionPhase.postRun, error, trace, path));
+        errors.add(
+          _error(MambaExecutionPhase.postRun, error, trace, errorPath),
+        );
       }
     }
     for (final hook in persistent.reversed) {
@@ -246,7 +255,12 @@ final class _Execution {
         await hook.postPersistentRun(invocation);
       } on Exception catch (error, trace) {
         errors.add(
-          _error(MambaExecutionPhase.postPersistentRun, error, trace, path),
+          _error(
+            MambaExecutionPhase.postPersistentRun,
+            error,
+            trace,
+            errorPath,
+          ),
         );
       }
     }
