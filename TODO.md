@@ -14,9 +14,13 @@ These changes are related and should be implemented in this order:
 5. Make execution results report exit codes and phase-tagged hook failures.
 6. Migrate registry records, help, completions, examples, and scaffolding.
 
-Treat this as a breaking interface change. Do not preserve the current
+Treat this as a breaking value-access change. Do not preserve the current
 string-keyed records as a second long-term interface; that would retain the
 complexity this work is intended to remove.
+
+Preserve the current constructor-based registration method. Commands continue
+to register lists through `super(...)`; do not replace registration with a
+`CommandInputs` getter, builder, annotation, or generated definition.
 
 ---
 
@@ -64,8 +68,8 @@ string-key lookups across every command.
 
 ### Parsed values interface
 
-Replace `ParsedNamedInputs`, `ParsedPositionals`, and the type-bucket maps with
-one small interface keyed by the declaration object:
+Replace `ParsedNamedInputs`, `ParsedPositionals`, and their type-bucket maps
+with one small interface keyed by declaration object:
 
 ```dart
 final class ParsedInputs {
@@ -87,6 +91,11 @@ final class ParsedInputs {
 }
 ```
 
+Positionals, named inputs, selected options, and accessor leaves all use this
+one parsed-value store. `CommandInvocation` owns that store and command context.
+Validated variadic arguments after `--` are deliberately excluded from both
+types.
+
 Use declaration-object identity as the key. Input definitions are immutable and
 must not override equality. Names remain in registry metadata for parsing,
 help, errors, and completion, but command code must not use names to retrieve
@@ -95,33 +104,31 @@ values.
 `require` represents a parser invariant failure, not normal user validation.
 The parser must reject a missing required input before command execution.
 
-### Command declaration ergonomics
+### Preserve constructor registration
 
-A type-safe handle is only useful if a command can retain the exact input
-instance registered with the parser. Avoid forcing authors to create static
-fields or factory constructors merely to pass fields to `super`.
-
-Prefer a lazily initialized command definition:
+A command must retain the exact input instances it passes to the existing
+`super(...)` constructor. Immutable definitions for a normal command can be
+static final fields:
 
 ```dart
 enum OutputFormat { text, json }
 
 final class ExportCommand extends Command {
-  final source = NormalPositional('source');
-  final format = ChoiceOption<OutputFormat>(
+  static final source = NormalPositional('source');
+  static final format = ChoiceOption<OutputFormat>(
     'format',
     choices: OutputFormat.values,
     defaultValue: OutputFormat.text,
   );
 
-  @override
-  late final inputs = CommandInputs(
-    mandatoryPositionals: [source],
-    options: [format],
-  );
+  ExportCommand()
+    : super(
+        mandatoryPositionals: [source],
+        options: [format],
+      );
 
   @override
-  String run(CommandInvocation invocation) {
+  String run(CommandInvocation invocation, List<String> args) {
     final sourceValue = invocation.inputs.require(source);
     final formatValue = invocation.inputs.require(format);
     return switch (formatValue) {
@@ -132,10 +139,34 @@ final class ExportCommand extends Command {
 }
 ```
 
-`CommandInvocation` should eventually contain `ParsedInputs`, trailing
-arguments or a typed variadic value, and command context. Passing one object is
-a deeper interface than expanding `run` whenever another execution concern is
-added.
+Definitions that vary by command instance can still be created outside the
+public constructor and passed into a private constructor, or accepted as
+constructor dependencies. They must still be registered through the same
+`super(...)` list parameters. Do not add a second registration path.
+
+Changing execution to
+`run(CommandInvocation invocation, List<String> args)` does not change
+registration. The constructor declares the command surface; the invocation and
+validated args are the runtime values passed to that surface.
+
+### Validated args after `--`
+
+Treat everything after the first `--` as command arguments validated by the
+registered `Variadic` declaration:
+
+- pass them as the second `Command.run` parameter named `args`;
+- exclude the `--` separator itself;
+- validate every value before command execution;
+- preserve value order and duplicates when the variadic permits them;
+- use an immutable empty list when no values follow `--`;
+- keep the validated values as strings rather than adding them to
+  `ParsedInputs`; and
+- exclude them from `CommandInvocation`.
+
+Preserve the current `NormalVariadic`, `ChoiceVariadic`,
+`RepeatedChoiceVariadic`, and `_validateVariadic` behavior. Variadic metadata
+continues to drive validation, help, registry records, and completion, while
+only the validated argument list crosses the execution interface.
 
 ### Choice parsing
 
@@ -150,15 +181,45 @@ Keep dotted accessor paths in registry metadata, but return each leaf through
 its typed leaf handle. Do not expose `Map<String, dynamic>` to commands.
 
 ```dart
-final host = AccessorStringOption('host');
-final port = AccessorIntOption('port');
-final server = AccessorListOption('server', [host, port]);
+static final host = AccessorStringOption('host');
+static final port = AccessorIntOption('port');
+static final server = AccessorListOption('server', [host, port]);
 
 final hostValue = invocation.inputs.valueOf(host); // String?
 final portValue = invocation.inputs.valueOf(port); // int?
 ```
 
 The registry owns path construction; command code owns typed handles.
+
+`AccessorListOption` is a registration and path-grouping node, not a value
+handle. It implements metadata needed by the registry but does not implement
+`Input<T>`, so `valueOf(server)` is intentionally a compile-time error. Only
+accessor leaves are stored in `ParsedInputs`.
+
+The parser resolves a full spelling such as `--server.host` to the exact `host`
+leaf instance, validates its value, and stores the result under that instance.
+Distinct branches may contain leaves with the same name because identity, not
+the leaf name, is the lookup key. Reusing the same leaf instance in multiple
+paths must be rejected during registry construction because its path would be
+ambiguous.
+
+Do not attempt to turn a map into a record. Dart records have a compile-time
+shape and are not dynamically iterable. A command that wants an aggregate
+creates it explicitly from typed leaves:
+
+```dart
+typedef ServerSettings = ({String? host, int? port});
+
+final ServerSettings settings = (
+  host: invocation.inputs.valueOf(host),
+  port: invocation.inputs.valueOf(port),
+);
+```
+
+This keeps CLI path grouping separate from the application's domain model. If
+many callers later need the same aggregate, consider a separate explicit
+mapper that constructs a class or record; do not make dynamic record conversion
+part of the parser.
 
 ### Hooks
 
@@ -175,10 +236,24 @@ must remain available consistently wherever hooks are allowed to inspect input.
 - [ ] A repeated choice handle retrieves `List<T>`.
 - [ ] A positional handle retrieves its declared type.
 - [ ] An accessor leaf retrieves its declared type without a dynamic map.
+- [ ] An `AccessorListOption` cannot be passed to `valueOf` or `require`.
+- [ ] Same-named leaves in separate accessor branches retain distinct values.
+- [ ] Reusing one leaf instance in multiple accessor paths is rejected during
+  registry construction.
+- [ ] A command can construct a typed class or record explicitly from leaf
+  values.
 - [ ] Looking up an omitted optional input returns `null`.
 - [ ] Looking up a parsed required input with `require` returns non-null.
 - [ ] Input identity prevents two same-typed declarations from crossing values.
 - [ ] Inherited and overridden inputs retain the correct handle identity.
+- [ ] `args` contains every accepted token after `--` in exact order,
+  including permitted duplicates and dash-prefixed values.
+- [ ] The separator itself is not included in `args`.
+- [ ] Invalid values are rejected by the registered `Variadic` before the
+  command runs.
+- [ ] Validated variadic values do not appear in `CommandInvocation` or
+  `ParsedInputs`.
+- [ ] Commands receive an immutable empty `args` list when `--` is absent.
 - [ ] Command and hook tests no longer construct large nullable records.
 
 ---
@@ -198,8 +273,8 @@ RepeatableChoiceOption<OutputFormat>(
 ```
 
 This change applies to `RepeatableChoiceOption` first. Do not silently extend it
-to repeated strings, numbers, positionals, or variadics without a separate use
-case and interface decision.
+to repeated strings, numbers, positionals, or variadic arguments without a
+separate use case and interface decision.
 
 ### Semantics
 
@@ -292,16 +367,18 @@ final class TextOutput extends OutputSelection {
   final String path;
 }
 
-final json = PairStringOption('json');
-final text = PairStringOption('text');
-
-late final output = SelectedOptions<OutputSelection>(
+static final json = PairStringOption('json');
+static final text = PairStringOption('text');
+static final output = SelectedOptions<OutputSelection>(
   [
     SelectableOption(json, JsonOutput.new),
     SelectableOption(text, TextOutput.new),
   ],
   required: true,
 );
+
+ExportCommand()
+  : super(selectedOptions: [output]);
 ```
 
 The exact helper names can change, but preserve these type relationships:
@@ -583,7 +660,16 @@ Keep result collection separate from terminal rendering:
 
 - [ ] Add the non-generic metadata interface and generic `Input<T>` handle.
 - [ ] Replace name-keyed parsed maps with identity-keyed `ParsedInputs`.
-- [ ] Add `CommandInputs` and `CommandInvocation`.
+- [ ] Add `CommandInvocation` as the first command execution parameter and the
+  shared hook input.
+- [ ] Validate values after `--`, then pass them as the second `Command.run`
+  parameter named `args`.
+- [ ] Preserve variadic declarations, registry metadata, help, completion, and
+  parser validation while keeping their values outside `CommandInvocation`.
+- [ ] Preserve list registration through the existing `Command` and
+  `GroupCommand` constructors.
+- [ ] Add only the `selectedOptions:` constructor collection needed to register
+  the new group type.
 - [ ] Return registered enum members from every choice input.
 - [ ] Migrate positionals and accessor leaves to typed handles.
 - [ ] Add `unique` to `RepeatableChoiceOption<T>`.
@@ -599,8 +685,10 @@ Keep result collection separate from terminal rendering:
 
 ### Public consumers
 
-- [ ] Update `HookRunner` and `PersistentHookRunner` to use the typed invocation
-  interface.
+- [ ] Update `Command.run` to receive
+  `(CommandInvocation invocation, List<String> args)`.
+- [ ] Update `HookRunner` and `PersistentHookRunner` to receive the shared
+  invocation without changing command registration.
 - [ ] Update `CompletionCommand` without exposing runtime typed values in the
   serializable registry record.
 - [ ] Update `example/example.dart` to demonstrate typed handles and an
@@ -628,9 +716,12 @@ input classes before restoring the suite.
 
 ## Explicit non-goals for the first pass
 
+- Replacing constructor/list registration with a getter, builder, annotation,
+  or generated command definition.
 - Enforcing Dart's `sealed` modifier through runtime machinery.
 - Adding an external success/failure `Result` dependency.
 - Adding code generation solely for typed input access.
+- Moving validated variadic values into `CommandInvocation` or `ParsedInputs`.
 - Supporting dynamic completion as part of this refactor.
 - Generalizing `unique` to every repeated input before there is a concrete use
   case.
