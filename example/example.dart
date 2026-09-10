@@ -2,21 +2,24 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:mamba/mamba.dart';
-import 'package:zema/zema.dart';
 
-final _taskStore = TaskStore();
-
-Future<void> main(List<String> args) =>
-    Executor('task-cli', 'Manage a persisted task list.', '1.0.0', [
-      CreateTaskCommand(_taskStore),
-      ListTaskCommand(_taskStore),
-      ReadTaskCommand(_taskStore),
-      UpdateTaskCommand(_taskStore),
-      DeleteTaskCommand(_taskStore),
-      CompleteTaskCommand(_taskStore),
-      ReopenTaskCommand(_taskStore),
-      CompletionTaskCommand(),
-    ]).create().execute(args);
+Future<void> main(List<String> args) {
+  final store = TaskStore(
+    File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}mamba_tasks.json',
+    ),
+  );
+  return Executor('task-cli', 'Manage a persisted task list.', '1.0.0', [
+    CreateTaskCommand(store),
+    ListTaskCommand(store),
+    ReadTaskCommand(store),
+    UpdateTaskCommand(store),
+    DeleteTaskCommand(store),
+    CompleteTaskCommand(store),
+    ReopenTaskCommand(store),
+    CompletionTaskCommand(),
+  ]).create().execute(args);
+}
 
 final class Task {
   const Task({
@@ -30,6 +33,13 @@ final class Task {
   final String title;
   final String description;
   final bool completed;
+
+  Task copyWith({String? title, String? description, bool? completed}) => Task(
+    id: id,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    completed: completed ?? this.completed,
+  );
 
   Map<String, Object> toJson() => {
     'id': id,
@@ -47,80 +57,98 @@ final class Task {
 }
 
 final class TaskStore {
-  TaskStore()
-    : file = File(
-        '${Directory.systemTemp.path}${Platform.pathSeparator}mamba_tasks.json',
-      ) {
-    if (!file.existsSync()) {
-      file.writeAsStringSync('{"nextId":1,"tasks":[]}');
-    }
-    final decoded = jsonDecode(file.readAsStringSync());
-    if (decoded case {'nextId': final int nextId}) {
-      _nextId = nextId;
-    }
-  }
+  const TaskStore(this.file);
 
   final File file;
-  int _nextId = 1;
 
-  List<Task> readAll() {
-    final decoded = jsonDecode(file.readAsStringSync());
-    final taskData = decoded is Map<String, dynamic>
-        ? decoded['tasks']
-        : decoded;
-    return taskData is List
-        ? taskData.whereType<Map<String, dynamic>>().map(Task.fromJson).toList()
-        : [];
+  ({int nextId, List<Task> tasks}) _read() {
+    if (!file.existsSync()) return (nextId: 1, tasks: <Task>[]);
+
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded case {
+        'nextId': final int nextId,
+        'tasks': final List<dynamic> taskData,
+      }) {
+        return (
+          nextId: nextId,
+          tasks: taskData
+              .map((item) => Task.fromJson(item as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+      throw const FormatException('Unexpected task-list structure.');
+    } on FileSystemException catch (error) {
+      throw MambaException('Could not read the task list: ${error.message}.');
+    } on FormatException catch (error) {
+      throw MambaException('Could not read the task list: ${error.message}');
+    } on TypeError {
+      throw MambaException('Could not read the task list: invalid task data.');
+    }
   }
 
-  void writeAll(List<Task> tasks) {
-    file.writeAsStringSync(
-      JsonEncoder.withIndent('  ').convert({
-        'nextId': _nextId,
-        'tasks': tasks.map((task) => task.toJson()).toList(),
-      }),
-    );
+  List<Task> readAll() => List.unmodifiable(_read().tasks);
+
+  void _write(int nextId, List<Task> tasks) {
+    try {
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync(
+        JsonEncoder.withIndent('  ').convert({
+          'nextId': nextId,
+          'tasks': tasks.map((task) => task.toJson()).toList(),
+        }),
+        flush: true,
+      );
+    } on FileSystemException catch (error) {
+      throw MambaException('Could not save the task list: ${error.message}.');
+    }
   }
 
   Task? find(int id) => readAll().where((task) => task.id == id).firstOrNull;
 
   Task add(String title, String description) {
+    final document = _read();
     final task = Task(
-      id: _nextId++,
+      id: document.nextId,
       title: title,
       description: description,
       completed: false,
     );
-    writeAll([...readAll(), task]);
+    _write(document.nextId + 1, [...document.tasks, task]);
     return task;
   }
 
-  void setCompleted(int id, bool completed) {
-    final tasks = readAll();
-    final index = tasks.indexWhere((task) => task.id == id);
-    if (index < 0) throw MambaException('Task not found.');
-    final current = tasks[index];
-    tasks[index] = Task(
-      id: current.id,
-      title: current.title,
-      description: current.description,
+  Task update(int id, {String? title, String? description, bool? completed}) {
+    final document = _read();
+    final index = document.tasks.indexWhere((task) => task.id == id);
+    if (index < 0) throw MambaException('Task $id was not found.');
+
+    final updated = document.tasks[index].copyWith(
+      title: title,
+      description: description,
       completed: completed,
     );
-    writeAll(tasks);
+    final tasks = [...document.tasks]..[index] = updated;
+    _write(document.nextId, tasks);
+    return updated;
   }
+
+  void delete(int id) {
+    final document = _read();
+    final tasks = document.tasks.where((task) => task.id != id).toList();
+    if (tasks.length == document.tasks.length) {
+      throw MambaException('Task $id was not found.');
+    }
+    _write(document.nextId, tasks);
+  }
+
+  void setCompleted(int id, bool completed) => update(id, completed: completed);
 }
 
-final _textSchema = z.string().trim().min(1);
-
 String _validatedText(String field, String value) {
-  try {
-    if (_textSchema.safeParse(value).isFailure) {
-      throw MambaException('$field must not be empty.');
-    }
-    return value.trim();
-  } on ZemaException {
-    throw MambaException('$field must not be empty.');
-  }
+  final text = value.trim();
+  if (text.isEmpty) throw MambaException('$field must not be empty.');
+  return text;
 }
 
 StringOption _textOption(
@@ -165,16 +193,16 @@ final class CreateTaskCommand extends Command {
   }
 }
 
-final class ListTaskCommand extends Command {
-  ListTaskCommand(this.store) : super(flags: [completed, pending]);
+enum TaskStatus { all, completed, pending }
 
-  static final completed = BooleanFlag(
-    'completed',
-    description: 'Show completed tasks.',
-  );
-  static final pending = BooleanFlag(
-    'pending',
-    description: 'Show pending tasks.',
+final class ListTaskCommand extends Command {
+  ListTaskCommand(this.store) : super(options: [status]);
+
+  static final status = ChoiceOption<TaskStatus>(
+    'status',
+    choices: TaskStatus.values,
+    defaultValue: TaskStatus.all,
+    description: 'Filter tasks by completion status.',
   );
 
   final TaskStore store;
@@ -188,15 +216,13 @@ final class ListTaskCommand extends Command {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final showCompleted = invocation.inputs.require(completed);
-    final showPending = invocation.inputs.require(pending);
-    if (showCompleted && showPending) {
-      throw MambaException('Use either --completed or --pending, not both.');
-    }
+    final statusValue = invocation.inputs.require(status);
     final tasks = store.readAll().where((task) {
-      if (showCompleted) return task.completed;
-      if (showPending) return !task.completed;
-      return true;
+      return switch (statusValue) {
+        TaskStatus.all => true,
+        TaskStatus.completed => task.completed,
+        TaskStatus.pending => !task.completed,
+      };
     }).toList();
     if (tasks.isEmpty) return 'No matching tasks.';
     return tasks
@@ -212,8 +238,6 @@ abstract class TaskIdCommand extends Command {
   TaskIdCommand() : super(mandatoryPositionals: [id]);
 
   static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
-
-  int taskIdOf(CommandInvocation invocation) => _taskId(invocation, id);
 }
 
 final class ReadTaskCommand extends TaskIdCommand {
@@ -229,7 +253,7 @@ final class ReadTaskCommand extends TaskIdCommand {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final task = store.find(taskIdOf(invocation));
+    final task = store.find(_taskId(invocation, TaskIdCommand.id));
     if (task == null) throw MambaException('Task not found.');
     return '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title}\n${task.description}';
   }
@@ -237,13 +261,23 @@ final class ReadTaskCommand extends TaskIdCommand {
 
 final class UpdateTaskCommand extends Command {
   UpdateTaskCommand(this.store)
-    : super(mandatoryPositionals: [id], options: [title, description]);
+    : super(
+        mandatoryPositionals: [id],
+        pairedOptions: [
+          PairedOptions([title, description], required: true),
+        ],
+      );
 
   static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
-  static final title = _textOption('title', 'Replacement title.');
-  static final description = _textOption(
+  static final title = PairStringOption(
+    'title',
+    regex: RegExp(r'.+'),
+    description: 'Replacement title.',
+  );
+  static final description = PairStringOption(
     'description',
-    'Replacement description.',
+    regex: RegExp(r'.+'),
+    description: 'Replacement description.',
   );
 
   final TaskStore store;
@@ -256,27 +290,15 @@ final class UpdateTaskCommand extends Command {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final tasks = store.readAll();
     final idValue = _taskId(invocation, id);
-    final index = tasks.indexWhere((task) => task.id == idValue);
-    if (index < 0) throw MambaException('Task not found.');
-    final replacementTitle = invocation.inputs.valueOf(title);
-    final replacementDescription = invocation.inputs.valueOf(description);
-    if (replacementTitle == null && replacementDescription == null) {
-      throw MambaException('Provide --title, --description, or both.');
-    }
-    final current = tasks[index];
-    tasks[index] = Task(
-      id: current.id,
-      title: replacementTitle == null
-          ? current.title
-          : _validatedText('title', replacementTitle),
-      description: replacementDescription == null
-          ? current.description
-          : _validatedText('description', replacementDescription),
-      completed: current.completed,
+    store.update(
+      idValue,
+      title: _validatedText('title', invocation.inputs.require(title)),
+      description: _validatedText(
+        'description',
+        invocation.inputs.require(description),
+      ),
     );
-    store.writeAll(tasks);
     return 'Updated task $idValue.';
   }
 }
@@ -294,12 +316,8 @@ final class DeleteTaskCommand extends TaskIdCommand {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final id = taskIdOf(invocation);
-    final tasks = store.readAll();
-    final remaining = tasks.where((task) => task.id != id).toList();
-    if (remaining.length == tasks.length)
-      throw MambaException('Task not found.');
-    store.writeAll(remaining);
+    final id = _taskId(invocation, TaskIdCommand.id);
+    store.delete(id);
     return 'Deleted task $id.';
   }
 }
@@ -317,7 +335,7 @@ final class CompleteTaskCommand extends TaskIdCommand {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final id = taskIdOf(invocation);
+    final id = _taskId(invocation, TaskIdCommand.id);
     store.setCompleted(id, true);
     return 'Completed task $id.';
   }
@@ -336,7 +354,7 @@ final class ReopenTaskCommand extends TaskIdCommand {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final id = taskIdOf(invocation);
+    final id = _taskId(invocation, TaskIdCommand.id);
     store.setCompleted(id, false);
     return 'Reopened task $id.';
   }
