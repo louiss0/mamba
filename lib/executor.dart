@@ -81,7 +81,11 @@ final class Executor {
       description: 'Show what would happen without changing anything.',
     ),
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
-    BooleanFlag('version', description: 'Show the application version.'),
+    BooleanFlag(
+      'version',
+      short: 'V',
+      description: 'Show the application version.',
+    ),
   ];
 
   Executor(
