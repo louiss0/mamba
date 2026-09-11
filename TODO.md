@@ -1,727 +1,657 @@
-# Handoff
+# Critique remediation backlog
+
+This backlog captures the accepted findings from the framework critique and the
+sealed-context decision.
+Tasks are ordered by release priority. Start every behavior change with a failing,
+behavior-focused test and run the quality gate after each vertical slice.
+
+## Accepted scope decisions
+
+- [x] Preserve constructor-based input registration.
+- [x] Preserve identity-keyed typed input handles.
+- [x] Keep context available only to hooks.
+- [x] Keep persistent-hook context mutable and ordinary-hook context read-only.
+- [x] Restrict context to a sealed set of scalar wrapper values.
+- [x] Keep environment-variable extraction outside Mamba.
+- [x] Keep configuration-file loading outside Mamba.
+- [x] Keep custom file, URL, and application-domain input types out of this
+  backlog.
+- [x] Do not add `ValueParser<T>` or another user-defined conversion API.
+- [x] Do not add source precedence, provenance, environment-key mapping, or
+  configuration adapters.
+
+All remaining accepted corrections and capabilities are in scope below.
+
+---
+
+# Milestone 1: release correctness
+
+Complete this milestone before publishing 0.5.0.
+
+## R1. Prevent option values from selecting commands
+
+### Tests
+
+- [ ] Prove `--target deploy` treats `deploy` as a value rather than a child
+  command.
+- [ ] Prove `--target=deploy` treats `deploy` as a value.
+- [ ] Prove `-t deploy` treats `deploy` as a value.
+- [ ] Prove paired-option values cannot select commands.
+- [ ] Prove selected-option values cannot select commands.
+- [ ] Prove accessor values cannot select commands.
+- [ ] Prove inherited option values cannot select nested commands.
+- [ ] Prove a child name after a long flag still selects the child.
+- [ ] Prove a child name after a valid short-flag bundle still selects the child.
+- [ ] Prove no token after `--` can select a command.
+- [ ] Prove command aliases still produce canonical path segments.
+- [ ] Prove parse-error command paths exclude command-like option values.
+
+### Implementation
+
+- [ ] Introduce one command-path traversal shared by parser and executor.
+- [ ] Advance over long options with separate values.
+- [ ] Advance over long options with inline values.
+- [ ] Advance over short options and their values.
+- [ ] Distinguish short value options from short-flag bundles.
+- [ ] Recognize accessor spellings during traversal.
+- [ ] Include inherited inputs when determining token ownership.
+- [ ] Stop command resolution at `--`.
+- [ ] Remove obsolete duplicate command-token scans.
+- [ ] Verify parser dispatch, help selection, and error paths use one resolution.
+
+## R2. Restore `defaultCommandPath`
+
+### Tests
+
+- [ ] Reject an empty configured path.
+- [ ] Reject an unknown root segment.
+- [ ] Reject an unknown nested segment.
+- [ ] Reject a path ending at a non-executable group.
+- [ ] Accept a valid nested path.
+- [ ] Decide and test whether configured aliases are accepted.
+- [ ] Prove caller mutation cannot change the configured path.
+- [ ] Execute a root-level default command for an empty invocation.
+- [ ] Execute a nested default command for an empty invocation.
+- [ ] Let an explicit command override the default.
+- [ ] Keep root `--help` on the root help path.
+- [ ] Keep `--version` on the version path.
+- [ ] Decide and test whether root inputs without a command trigger the default.
+- [ ] Prove fake and production execution share the behavior.
+
+### Implementation
+
+- [ ] Defensively copy the configured path.
+- [ ] Add registry path validation and canonicalization.
+- [ ] Resolve the default while composing the reusable execution environment.
+- [ ] Apply it only when the documented trigger is satisfied.
+- [ ] Keep explicit help, version, and command paths unchanged.
+- [ ] Update README and executor documentation with tested behavior.
+
+## R3. Validate short aliases and command namespaces
+
+### Rules
+
+- [ ] Document the accepted short-alias spelling.
+- [ ] Document short-alias case sensitivity.
+- [ ] Document inherited long-name and short-name shadowing.
+
+### Tests
+
+- [ ] Reject empty short aliases.
+- [ ] Reject multi-character short aliases.
+- [ ] Reject aliases containing a leading dash.
+- [ ] Reject aliases outside the documented character set.
+- [ ] Reject duplicate local flag aliases.
+- [ ] Reject duplicate local option aliases.
+- [ ] Reject collisions between flags and options.
+- [ ] Put ordinary, paired, and selected members in one short namespace.
+- [ ] Reject collisions with built-in `-h` and `-v` at the root.
+- [ ] Reject ambiguous inherited short aliases.
+- [ ] Test the documented inherited override exception.
+- [ ] Allow sibling command surfaces to reuse short aliases.
+- [ ] Reject duplicate sibling command names.
+- [ ] Reject duplicate sibling command aliases.
+- [ ] Reject an alias matching a sibling's canonical name.
+- [ ] Validate command-alias spelling.
+
+### Implementation
+
+- [ ] Centralize short spelling validation.
+- [ ] Collect short aliases from every named-input shape.
+- [ ] Validate every effective inherited command surface.
+- [ ] Include built-in flags in root validation.
+- [ ] Validate sibling command and alias namespaces.
+- [ ] Report the spelling and both conflicting declarations.
+
+## R4. Reject unknown optional declaration handles
+
+### Tests
+
+- [ ] Keep `null` for an omitted registered optional option.
+- [ ] Reject a fresh unregistered optional option handle.
+- [ ] Reject a fresh handle with the same name and type as a registered handle.
+- [ ] Reject unknown nullable positional handles.
+- [ ] Reject unknown nullable accessor leaves.
+- [ ] Reject unknown optional paired or selected aggregate handles.
+- [ ] Preserve non-null results for registered required and defaulted handles.
+- [ ] Preserve the same behavior through `CommandInvocation.valueOf`.
+
+### Implementation
+
+- [ ] Give `ParsedInputs` an immutable set of known declaration identities.
+- [ ] Populate it from the complete selected command surface.
+- [ ] Expose aggregate handles rather than internal pair or selection members.
+- [ ] Check identity before output nullability.
+- [ ] Preserve the distinction between “known” and “was supplied.”
+- [ ] Name the unknown declaration in the invariant error.
+
+## R5. Remove stale public language
+
+- [ ] Replace “typed map inputs” in `pubspec.yaml`.
+- [ ] Search public docs for obsolete string-keyed or type-bucket consumption.
+- [ ] Correct parsed-result language in the architecture reference.
+- [ ] Correct default-command diagrams after R2 is complete.
+- [x] Correct the hook documentation: context is not on `CommandInvocation`.
+- [ ] Verify examples use current declaration handles and result types.
+- [ ] Add public behavior changes to `CHANGELOG.md`.
+- [ ] Run `dart pub publish --dry-run` and address metadata warnings.
+
+---
+
+# Milestone 2: sealed context values
 
 ## Goal
 
-Make command input consumption type-safe, add unique repeated choices, and replace
-`PairedOptions(variant: true)` with a distinct `SelectedOptions` concept.
+Restrict `MambaContext` to a closed set of scalar state values. Context values
+must extend one sealed framework type; applications cannot store arbitrary
+objects or add new context value variants.
 
-These changes are related and should be implemented in this order:
+The supported variants wrap:
 
-1. Introduce typed input handles and typed parsed-value lookup.
-2. Return enum members rather than enum names for choice inputs.
-3. Add uniqueness to repeated choice options.
-4. Introduce `SelectedOptions<R>` on top of typed input handles.
-5. Make execution results report exit codes and phase-tagged hook failures.
-6. Migrate registry records, help, completions, examples, and scaffolding.
+- `String`
+- `bool`
+- `int`
+- `double`
 
-Treat this as a breaking value-access change. Do not preserve the current
-string-keyed records as a second long-term interface; that would retain the
-complexity this work is intended to remove.
+This makes the restriction visible to the Dart analyzer instead of relying only
+on runtime inspection of `Object` values.
 
-Preserve the current constructor-based registration method. Commands continue
-to register lists through `super(...)`; do not replace registration with a
-`CommandInputs` getter, builder, annotation, or generated definition.
+Context remains:
 
----
-
-## 1. Make inputs type-safe
-
-### Design decision
-
-Separate the metadata interface used by the parser and registry from the typed
-handle used by command authors.
-
-```dart
-abstract interface class InputDefinition {
-  String get name;
-  String? get description;
-}
-
-sealed class Input<T> implements InputDefinition {
-  const Input();
-}
-```
-
-Each concrete declaration carries the type returned to the command:
-
-| Declaration | Value type |
-| --- | --- |
-| `BooleanFlag` | `bool` |
-| `CountFlag` | `int` |
-| `StringOption` | `String` |
-| `IntOption` | `int` |
-| `DoubleOption` | `double` |
-| `ChoiceOption<T>` | `T` |
-| `RepeatableStringOption` | `List<String>` |
-| `RepeatableIntOption` | `List<int>` |
-| `RepeatableDoubleOption` | `List<double>` |
-| `RepeatableChoiceOption<T>` | `List<T>` |
-| normal positional | `String` |
-| choice positional `<T>` | `T` |
-| repeated positional `<T>` | `List<T>` |
-| accessor leaf `<T>` | `T` |
-
-Keep a non-generic metadata interface because registries and heterogeneous
-input lists do not need to know each value type. Keep the unavoidable
-`Object?` cast inside one parsed-values module rather than spreading casts and
-string-key lookups across every command.
-
-### Parsed values interface
-
-Replace `ParsedNamedInputs`, `ParsedPositionals`, and their type-bucket maps
-with one small interface keyed by declaration object:
-
-```dart
-final class ParsedInputs {
-  ParsedInputs._(this._values);
-
-  final Map<InputDefinition, Object?> _values;
-
-  T? valueOf<T>(Input<T> input) => _values[input] as T?;
-
-  T require<T>(Input<T> input) {
-    final value = valueOf(input);
-    if (value == null) {
-      throw StateError('Parser omitted required input --${input.name}.');
-    }
-    return value;
-  }
-
-  bool contains(InputDefinition input) => _values.containsKey(input);
-}
-```
-
-Positionals, named inputs, selected options, and accessor leaves all use this
-one parsed-value store. `CommandInvocation` owns that store and command context.
-Validated variadic arguments after `--` are deliberately excluded from both
-types.
-
-Use declaration-object identity as the key. Input definitions are immutable and
-must not override equality. Names remain in registry metadata for parsing,
-help, errors, and completion, but command code must not use names to retrieve
-values.
-
-`require` represents a parser invariant failure, not normal user validation.
-The parser must reject a missing required input before command execution.
-
-### Preserve constructor registration
-
-A command must retain the exact input instances it passes to the existing
-`super(...)` constructor. Immutable definitions for a normal command can be
-static final fields:
-
-```dart
-enum OutputFormat { text, json }
-
-final class ExportCommand extends Command {
-  static final source = NormalPositional('source');
-  static final format = ChoiceOption<OutputFormat>(
-    'format',
-    choices: OutputFormat.values,
-    defaultValue: OutputFormat.text,
-  );
-
-  ExportCommand()
-    : super(
-        mandatoryPositionals: [source],
-        options: [format],
-      );
-
-  @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final sourceValue = invocation.inputs.require(source);
-    final formatValue = invocation.inputs.require(format);
-    return switch (formatValue) {
-      OutputFormat.text => 'Exporting $sourceValue as text',
-      OutputFormat.json => 'Exporting $sourceValue as JSON',
-    };
-  }
-}
-```
-
-Definitions that vary by command instance can still be created outside the
-public constructor and passed into a private constructor, or accepted as
-constructor dependencies. They must still be registered through the same
-`super(...)` list parameters. Do not add a second registration path.
-
-Changing execution to
-`run(CommandInvocation invocation, List<String> args)` does not change
-registration. The constructor declares the command surface; the invocation and
-validated args are the runtime values passed to that surface.
-
-### Validated args after `--`
-
-Treat everything after the first `--` as command arguments validated by the
-registered `Variadic` declaration:
-
-- pass them as the second `Command.run` parameter named `args`;
-- exclude the `--` separator itself;
-- validate every value before command execution;
-- preserve value order and duplicates when the variadic permits them;
-- use an immutable empty list when no values follow `--`;
-- keep the validated values as strings rather than adding them to
-  `ParsedInputs`; and
-- exclude them from `CommandInvocation`.
-
-Preserve the current `NormalVariadic`, `ChoiceVariadic`,
-`RepeatedChoiceVariadic`, and `_validateVariadic` behavior. Variadic metadata
-continues to drive validation, help, registry records, and completion, while
-only the validated argument list crosses the execution interface.
-
-### Choice parsing
-
-Stop converting enum choices to `.name` in parsed command values. The registry
-record can continue serializing choice names for help and completion, but the
-parser must map the accepted name back to the registered enum member and store
-that member under its input handle.
-
-### Accessors
-
-Keep dotted accessor paths in registry metadata, but return each leaf through
-its typed leaf handle. Do not expose `Map<String, dynamic>` to commands.
-
-```dart
-static final host = AccessorStringOption('host');
-static final port = AccessorIntOption('port');
-static final server = AccessorListOption('server', [host, port]);
-
-final hostValue = invocation.inputs.valueOf(host); // String?
-final portValue = invocation.inputs.valueOf(port); // int?
-```
-
-The registry owns path construction; command code owns typed handles.
-
-`AccessorListOption` is a registration and path-grouping node, not a value
-handle. It implements metadata needed by the registry but does not implement
-`Input<T>`, so `valueOf(server)` is intentionally a compile-time error. Only
-accessor leaves are stored in `ParsedInputs`.
-
-The parser resolves a full spelling such as `--server.host` to the exact `host`
-leaf instance, validates its value, and stores the result under that instance.
-Distinct branches may contain leaves with the same name because identity, not
-the leaf name, is the lookup key. Reusing the same leaf instance in multiple
-paths must be rejected during registry construction because its path would be
-ambiguous.
-
-Do not attempt to turn a map into a record. Dart records have a compile-time
-shape and are not dynamically iterable. A command that wants an aggregate
-creates it explicitly from typed leaves:
-
-```dart
-typedef ServerSettings = ({String? host, int? port});
-
-final ServerSettings settings = (
-  host: invocation.inputs.valueOf(host),
-  port: invocation.inputs.valueOf(port),
-);
-```
-
-This keeps CLI path grouping separate from the application's domain model. If
-many callers later need the same aggregate, consider a separate explicit
-mapper that constructs a class or record; do not make dynamic record conversion
-part of the parser.
-
-### Hooks
-
-Pass the same `CommandInvocation` or a deliberate read-only view to hooks.
-Do not create another partial record equivalent to `ParsedSingleOptions`.
-Typed flags, repeatable values, selected options, accessors, and positionals
-must remain available consistently wherever hooks are allowed to inspect input.
-
-### Tests first
-
-- [ ] A `StringOption` handle retrieves only `String?`.
-- [ ] An `IntOption` handle retrieves only `int?`.
-- [ ] A choice handle retrieves its enum type, not `String`.
-- [ ] A repeated choice handle retrieves `List<T>`.
-- [ ] A positional handle retrieves its declared type.
-- [ ] An accessor leaf retrieves its declared type without a dynamic map.
-- [ ] An `AccessorListOption` cannot be passed to `valueOf` or `require`.
-- [ ] Same-named leaves in separate accessor branches retain distinct values.
-- [ ] Reusing one leaf instance in multiple accessor paths is rejected during
-  registry construction.
-- [ ] A command can construct a typed class or record explicitly from leaf
-  values.
-- [ ] Looking up an omitted optional input returns `null`.
-- [ ] Looking up a parsed required input with `require` returns non-null.
-- [ ] Input identity prevents two same-typed declarations from crossing values.
-- [ ] Inherited and overridden inputs retain the correct handle identity.
-- [ ] `args` contains every accepted token after `--` in exact order,
-  including permitted duplicates and dash-prefixed values.
-- [ ] The separator itself is not included in `args`.
-- [ ] Invalid values are rejected by the registered `Variadic` before the
-  command runs.
-- [ ] Validated variadic values do not appear in `CommandInvocation` or
-  `ParsedInputs`.
-- [ ] Commands receive an immutable empty `args` list when `--` is absent.
-- [ ] Command and hook tests no longer construct large nullable records.
+- keyed by typed `MambaContextKey<T>` instances;
+- mutable from persistent hooks;
+- read-only from ordinary command hooks;
+- unavailable to `Command.run`;
+- scoped to an executor and retained when that executor is reused; and
+- unrelated to environment-variable or configuration-file loading.
 
 ---
 
-## 2. Add unique repeated choice values
+## 1. Finalize the public type shape
 
-### Interface
-
-Add `unique`, defaulting to `false`, to `RepeatableChoiceOption<T>`:
-
-```dart
-RepeatableChoiceOption<OutputFormat>(
-  'format',
-  OutputFormat.values,
-  unique: true,
-)
-```
-
-This change applies to `RepeatableChoiceOption` first. Do not silently extend it
-to repeated strings, numbers, positionals, or variadic arguments without a
-separate use case and interface decision.
-
-### Semantics
-
-- `unique: false` preserves the current behavior and order, including
-  duplicates.
-- `unique: true` preserves first-seen order and **rejects** a duplicate; it does
-  not silently deduplicate user input.
-- Compare parsed enum members, not their string spellings.
-- The parse error must identify the option and duplicate value, for example:
-
-  ```text
-  Option --format accepts each choice once; json was provided more than once.
-  ```
-
-- `required: true` still means at least one value must be supplied.
-- Registry construction should reject no additional state: a unique repeatable
-  choice with one available choice is valid.
-
-### Registry and completion metadata
-
-Add uniqueness to the typed registry record so integrations do not need to
-infer it:
+Use this relationship as the design constraint; exact public names may be
+adjusted before implementation:
 
 ```dart
-bool? unique;
+sealed class MambaContextValue<T extends Object> {
+  const MambaContextValue(this.value);
+
+  final T value;
+}
+
+final class MambaContextString extends MambaContextValue<String> {
+  const MambaContextString(super.value);
+}
+
+final class MambaContextBool extends MambaContextValue<bool> {
+  const MambaContextBool(super.value);
+}
+
+final class MambaContextInt extends MambaContextValue<int> {
+  const MambaContextInt(super.value);
+}
+
+final class MambaContextDouble extends MambaContextValue<double> {
+  const MambaContextDouble(super.value);
+}
 ```
 
-Use `true` when enabled and `null` otherwise to match the existing optional
-modifier metadata. Generated completions should stop suggesting values already
-used for that option where the target shell can reliably determine prior
-values. Runtime parsing remains authoritative.
+Keys remain typed by the extracted primitive. `set` accepts the matching sealed
+wrapper, while `get` extracts and returns the primitive directly:
 
-### Tests first
+```dart
+final workspaceKey = MambaContextKey<String>();
 
-- [ ] Duplicates remain accepted when `unique` is omitted or false.
-- [ ] A duplicate is rejected when `unique` is true.
-- [ ] Distinct choices preserve invocation order.
-- [ ] Long, short, and `--name=value` forms share the same uniqueness check.
-- [ ] Inherited repeated choice options enforce uniqueness.
-- [ ] Registry records export `unique: true` only when enabled.
-- [ ] Help/completion snapshots represent uniqueness consistently.
-- [ ] Every completion converter is tested with a previously selected value.
+context.set(workspaceKey, const MambaContextString('/workspace'));
+final String? workspace = context.get(workspaceKey);
+```
+
+### API decisions
+
+- [x] Use primitive types as `MambaContextKey<T>` type arguments.
+- [x] Make `set` accept a `MambaContextValue<T>` matching the key's primitive.
+- [x] Make `get` return `T?` directly rather than returning the wrapper.
+- [ ] Confirm the exported base name `MambaContextValue<T>`.
+- [x] Name variants `MambaContextString`, `MambaContextBool`,
+  `MambaContextInt`, and `MambaContextDouble`.
+- [ ] Make the base class `sealed` so applications cannot add variants.
+- [ ] Make every variant `final` and immutable.
+- [ ] Give every variant a `const` constructor.
+- [ ] Store the wrapped scalar in a final `value` field.
+- [ ] Decide whether variants use value equality; default to identity unless a
+  concrete hook-state use case needs value equality.
+- [ ] Treat every `double`, including non-finite values, as supported scalar state
+  unless a concrete serialization requirement is introduced.
 
 ---
 
-## 3. Replace `variant: true` with `SelectedOptions<R>`
+## 2. Add analyzer tests first
 
-### Why this should be a separate type
+Add analyzer fixtures before changing `lib/context.dart`.
 
-`PairedOptions` and its `variant` flag represent different invariants:
+### Accepted code
 
-- paired options: all members are supplied together;
-- selected options: zero or one member is selected, or exactly one when
-  required.
+- [ ] A `MambaContextKey<String>` accepts `MambaContextString`.
+- [ ] A `MambaContextKey<bool>` accepts `MambaContextBool`.
+- [ ] A `MambaContextKey<int>` accepts `MambaContextInt`.
+- [ ] A `MambaContextKey<double>` accepts `MambaContextDouble`.
+- [ ] `get` returns `String?` for a string key.
+- [ ] `get` returns `bool?` for a boolean key.
+- [ ] `get` returns `int?` for an integer key.
+- [ ] `get` returns `double?` for a double key.
 
-A boolean changes the meaning of the entire object and forces conditionals
-through the parser, help formatter, registry exporter, and completion
-converters. Separate types make invalid combinations unrepresentable and give
-selection a place to return a typed domain result.
+### Rejected code
 
-After migration:
-
-```dart
-PairedOptions([...], required: true);       // all members
-SelectedOptions<OutputSelection>(           // exactly one member
-  [...],
-  required: true,
-);
-```
-
-Remove `variant` from `PairedOptions`; do not deprecate it indefinitely.
-
-### Result mapping
-
-`SelectedOptions<R>` should itself be a typed input handle. Each selectable
-member knows how to convert its parsed value into the caller's result type:
-
-```dart
-sealed class OutputSelection {
-  const OutputSelection();
-}
-
-final class JsonOutput extends OutputSelection {
-  const JsonOutput(this.path);
-  final String path;
-}
-
-final class TextOutput extends OutputSelection {
-  const TextOutput(this.path);
-  final String path;
-}
-
-static final json = PairStringOption('json');
-static final text = PairStringOption('text');
-static final output = SelectedOptions<OutputSelection>(
-  [
-    SelectableOption(json, JsonOutput.new),
-    SelectableOption(text, TextOutput.new),
-  ],
-  required: true,
-);
-
-ExportCommand()
-  : super(selectedOptions: [output]);
-```
-
-The exact helper names can change, but preserve these type relationships:
-
-```dart
-final class SelectableOption<Value, Result> {
-  const SelectableOption(this.option, this.toResult);
-
-  final PairOption<Value> option;
-  final Result Function(Value value) toResult;
-}
-
-final class SelectedOptions<Result> extends Input<Result> {
-  // members and required metadata
-}
-```
-
-For an optional group, `valueOf(output)` returns `R?`. For a required group,
-command code uses `require(output)`. If the caller wants an explicit “nothing
-selected” case rather than `null`, allow an optional `whenAbsent` mapper in a
-later change; do not complicate the first implementation until a real caller
-needs it.
-
-This is a selection result, not a success/failure result. Parse failures should
-continue to use Mamba's parse-error path. Do not add a generic `Result` package
-or conflate selection with error handling.
-
-### Sealed-class constraint in Dart
-
-Dart cannot express “the generic argument must be declared `sealed`” as a
-generic bound. `sealed` controls where subtypes may be declared and enables
-exhaustiveness analysis; it is not a supertype that can appear in
-`R extends ...`.
-
-Therefore:
-
-- type `SelectedOptions` as `SelectedOptions<R extends Object>`;
-- let the user define and own `R`;
-- recommend a sealed base class when exhaustive pattern matching is wanted;
-- do not add mirrors, annotations, code generation, or a marker interface just
-  to pretend the sealed modifier is enforced;
-- do not add a runtime check—the property is relevant to static analysis and
-  is not part of Mamba's runtime parsing invariant.
-
-A marker interface would only prove that a type implements the marker. It would
-not prove that the user's result hierarchy is sealed, and it would not make a
-switch exhaustive.
-
-### Parser semantics
-
-- Optional `SelectedOptions`: accept zero or one member.
-- Required `SelectedOptions`: accept exactly one member.
-- Reject two occurrences of different members.
-- Decide and test repeated occurrences of the same member. Recommended:
-  reject them unless that member is explicitly repeatable, then collect its
-  typed list and invoke its mapper once.
-- Apply the selected member's existing value validation before calling
-  `toResult`.
-- Invoke only the selected member's mapper.
-- Store the mapped `R` under the `SelectedOptions<R>` handle, not under a
-  string result key.
-- Keep individual member presence internal unless a demonstrated use case
-  requires exposing it.
-
-### Registry, help, and completion migration
-
-- Replace `RegistryOption.variant` with group-level selection metadata.
-- Replace stringly `mode: 'oneOf'`/`'all'` with a Dart enum internally, only
-  serializing strings at integration formats that require them.
-- Emit `PairedOptions` as an all-members group.
-- Emit `SelectedOptions` as an exclusive selection group.
-- Render selected members with `|` and paired members with `&`.
-- Preserve the existing required distinction: optional is zero-or-one;
-  required is exactly-one.
-- Keep Carapace exclusivity output and equivalent shell behavior generated from
-  the new group type.
-
-### Tests first
-
-- [ ] `PairedOptions` accepts all members and rejects partial groups.
-- [ ] `PairedOptions` no longer has `variant`.
-- [ ] Optional `SelectedOptions` accepts no member.
-- [ ] Optional `SelectedOptions` maps one selected value to `R`.
-- [ ] Required `SelectedOptions` rejects no member.
-- [ ] `SelectedOptions` rejects multiple different members.
-- [ ] The selected mapper receives the correct typed value.
-- [ ] Unselected mappers are never invoked.
-- [ ] A command can exhaustively switch over its user-defined sealed result.
-- [ ] Registry records distinguish paired and selected groups.
-- [ ] Help uses `&` for pairs and `|` for selections.
-- [ ] Bash, Zsh, Fish, PowerShell, and Carapace tests retain exclusivity.
-- [ ] Existing `variant: true` tests are migrated rather than duplicated.
+- [ ] An application cannot extend `MambaContextValue` outside the Mamba library.
+- [ ] A string key cannot accept `MambaContextBool`.
+- [ ] An integer key cannot accept `MambaContextDouble`.
+- [ ] A primitive value cannot be passed directly to `set`.
+- [ ] An enum cannot be passed directly to `set`.
+- [ ] A record cannot be passed directly to `set`.
+- [ ] A list cannot be passed directly to `set`.
+- [ ] A map cannot be passed directly to `set`.
+- [ ] An application-owned object cannot be passed directly to `set`.
+- [ ] An application cannot construct a context-value wrapper for an unsupported
+  key type.
+- [ ] `null` cannot be passed to `set`.
 
 ---
 
-## 4. Return exit codes and post-hook failures
+## 3. Add behavior tests first
 
-### Result interface
+Add these tests to `test/context_test.dart` before implementation.
 
-Every execution result should expose an exit code. Success always reports zero;
-failure always reports a non-zero value.
+### Supported values
 
-```dart
-sealed class MambaExecutionResult {
-  const MambaExecutionResult();
+- [ ] Store and retrieve an empty string.
+- [ ] Store and retrieve a non-empty string.
+- [ ] Store and retrieve `true`.
+- [ ] Store and retrieve `false`.
+- [ ] Store and retrieve a negative integer.
+- [ ] Store and retrieve zero.
+- [ ] Store and retrieve a positive integer.
+- [ ] Store and retrieve a finite double.
+- [ ] Store and retrieve `double.nan`.
+- [ ] Store and retrieve positive and negative infinity.
+- [ ] Replace a value through the same key.
+- [ ] Keep two keys of the same primitive type separate by identity.
+- [ ] Return the stored primitive directly from `get`.
+- [ ] Return `null` when a supported key has no stored value.
 
-  int get exitCode;
-}
+### Runtime escape hatches
 
-final class MambaSuccessResult extends MambaExecutionResult {
-  const MambaSuccessResult(this.output);
+Static types are authoritative, but dynamic calls must not silently place an
+unsupported object in the private map.
 
-  final String? output;
-
-  @override
-  int get exitCode => 0;
-}
-
-final class MambaFailureResult extends MambaExecutionResult {
-  MambaFailureResult({
-    required this.exitCode,
-    required List<MambaExecutionError> errors,
-    this.output,
-  }) : errors = List.unmodifiable(errors) {
-    if (exitCode == 0) {
-      throw ArgumentError.value(exitCode, 'exitCode', 'must be non-zero');
-    }
-    if (errors.isEmpty) {
-      throw ArgumentError.value(errors, 'errors', 'must not be empty');
-    }
-  }
-
-  @override
-  final int exitCode;
-  final String? output;
-  final List<MambaExecutionError> errors;
-}
-```
-
-Retain `message` as a convenience getter during migration if existing callers
-need it. It should render the first error's user-facing message rather than
-exposing an exception type name.
-
-A failure may retain command output when `run` succeeded but cleanup failed.
-This matches production behavior, where useful stdout must not disappear merely
-because a later hook reported a failure.
-
-### Phase-tagged errors
-
-Do not flatten several cleanup failures into one exception. Preserve each error
-and the phase that produced it:
-
-```dart
-enum MambaExecutionPhase {
-  parse,
-  prePersistentRun,
-  preRun,
-  run,
-  postRun,
-  postPersistentRun,
-}
-
-final class MambaExecutionError {
-  MambaExecutionError({
-    required this.phase,
-    required this.exception,
-    required this.stackTrace,
-    required List<String> commandPath,
-  }) : commandPath = List.unmodifiable(commandPath);
-
-  final MambaExecutionPhase phase;
-  final MambaException exception;
-  final StackTrace stackTrace;
-  final List<String> commandPath;
-}
-```
-
-Capture stack traces with `catch (exception, stackTrace)`. Convert an ordinary
-`Exception` to `MambaException` at one execution seam while retaining the phase
-and stack trace. Continue allowing non-`Exception` `Error` objects to propagate
-unless the framework deliberately changes that policy in a separate decision.
-
-Make `commandPath` immutable. It gives nested hook failures enough context for
-a production renderer without baking rendered text into the result.
-
-### Exit-code source and aggregation
-
-Add an optional exit code to recoverable Mamba exceptions while preserving the
-existing call shape:
-
-```dart
-class MambaException implements Exception {
-  MambaException(this.message, {this.exitCode = 1}) {
-    if (exitCode < 1 || exitCode > 255) {
-      throw ArgumentError.value(
-        exitCode,
-        'exitCode',
-        'must be between 1 and 255',
-      );
-    }
-  }
-
-  final String message;
-  final int exitCode;
-}
-```
-
-Rules:
-
-- Keep `1` as the compatibility default.
-- Reject zero on failure; validate the supported portable range during
-  construction.
-- Preserve a `MambaException`'s requested exit code.
-- Convert an ordinary `Exception` to exit code `1`.
-- When several errors occur, the first error in execution order determines the
-  result's exit code. Later hook errors remain in `errors`.
-- Production execution sets Dart's process `exitCode` from the returned result
-  rather than assigning `1` independently.
-
-Do not sum codes, use the last code, or let cleanup failures replace an earlier
-parse/command failure's code.
+- [ ] Passing an unsupported object through `dynamic` fails.
+- [ ] Passing a raw key through `dynamic` cannot store an unsupported value.
+- [ ] A failed dynamic write leaves an existing valid value unchanged.
+- [ ] The dynamic failure occurs before the backing map is mutated.
 
 ### Hook lifecycle
 
-The fake and production executors must call one shared execution implementation
-and observe the same hook behavior.
-
-- Track which pre-hooks completed successfully.
-- Run the matching post-hooks for completed pre-hooks even when command
-  execution fails.
-- Run persistent post-hooks in reverse order.
-- A failing post-hook must not prevent the remaining eligible post-hooks from
-  running.
-- Collect every post-hook failure in execution order.
-- Return `MambaFailureResult` when command execution succeeded but any post-hook
-  failed.
-- Preserve successful command output on that failure result.
-- Do not run a post-hook when its corresponding pre-hook did not complete.
-
-This replaces the current fake-executor exception where post-hooks are skipped.
-Tests avoid side effects through injected command dependencies, not through a
-different lifecycle.
-
-### Production rendering
-
-Keep result collection separate from terminal rendering:
-
-- successful output goes to stdout;
-- retained output from a cleanup failure also goes to stdout;
-- each collected execution error is rendered once to stderr;
-- process exit code comes from `result.exitCode`;
-- framework exception class names are not part of default user-facing output;
-- verbose/debug rendering may include phase, command path, and stack trace.
-
-### Tests first
-
-- [ ] Success results expose exit code zero.
-- [ ] Parse and command failures expose the originating non-zero exit code.
-- [ ] Ordinary exceptions use exit code one.
-- [ ] Failure results reject exit code zero and an empty error list.
-- [ ] A single post-run failure produces a phase-tagged failure result.
-- [ ] Several failing post-hooks are all collected in execution order.
-- [ ] Persistent post-hooks continue after an earlier post-hook failure.
-- [ ] Persistent post-hooks run in reverse order.
-- [ ] A command failure retains its exit code when cleanup also fails.
-- [ ] A cleanup-only failure uses the first cleanup error's exit code.
-- [ ] Successful command output is retained when cleanup fails.
-- [ ] Post-hooks run in both fake and production execution.
-- [ ] Post-hooks run after command failure only for completed pre-hooks.
-- [ ] A failed pre-hook does not trigger its unmatched post-hook.
-- [ ] Production writes every collected error and applies the result exit code.
-- [ ] Default error rendering omits Dart/Mamba exception class names.
+- [ ] A persistent pre-hook stores a supported wrapper.
+- [ ] An ordinary pre-hook reads the primitive directly.
+- [ ] An ordinary post-hook reads the primitive directly.
+- [ ] A persistent post-hook replaces a supported wrapper.
+- [ ] A dynamically attempted unsupported write becomes a phase-tagged hook
+  failure.
+- [ ] Reusing an executor retains a supported wrapped value between executions.
 
 ---
 
-## 5. Migration checklist
+## 4. Implement the sealed hierarchy
 
-### Core modules
+- [ ] Add the sealed generic context-value base in `lib/context.dart`.
+- [ ] Add the string variant.
+- [ ] Add the boolean variant.
+- [ ] Add the integer variant.
+- [ ] Add the double variant.
+- [ ] Keep `MambaContextKey<T>` typed by the extracted primitive.
+- [ ] Restrict the private backing map to context-value wrappers.
+- [ ] Restrict `MambaContext.set` to a key and `MambaContextValue<T>` with
+  matching primitive types.
+- [ ] Extract the wrapper's primitive only inside `get`.
+- [ ] Keep state mutation adjacent to the private map declaration.
+- [ ] Return `T?` directly from `MambaContext.get`.
+- [ ] Return `T?` directly from `MambaReadContext.get`.
+- [ ] Ensure dynamic misuse cannot bypass the public parameter checks.
+- [ ] Keep the backing map private.
+- [ ] Keep key lookup identity-based.
+- [ ] Do not add string-keyed lookup.
+- [ ] Do not add implicit conversion from arbitrary objects.
+- [ ] Do not add environment or configuration loading.
+- [ ] Do not expose context through `CommandInvocation` or `Command.run`.
 
-- [ ] Add the non-generic metadata interface and generic `Input<T>` handle.
-- [ ] Replace name-keyed parsed maps with identity-keyed `ParsedInputs`.
-- [ ] Add `CommandInvocation` as the first command execution parameter and the
-  shared hook input.
-- [ ] Validate values after `--`, then pass them as the second `Command.run`
-  parameter named `args`.
-- [ ] Preserve variadic declarations, registry metadata, help, completion, and
-  parser validation while keeping their values outside `CommandInvocation`.
-- [ ] Preserve list registration through the existing `Command` and
-  `GroupCommand` constructors.
-- [ ] Add only the `selectedOptions:` constructor collection needed to register
-  the new group type.
-- [ ] Return registered enum members from every choice input.
-- [ ] Migrate positionals and accessor leaves to typed handles.
-- [ ] Add `unique` to `RepeatableChoiceOption<T>`.
-- [ ] Make `PairOption` generic over its parsed value.
-- [ ] Add `SelectableOption<Value, Result>` and `SelectedOptions<Result>`.
-- [ ] Remove `PairedOptions.variant`.
-- [ ] Split pair validation from selection validation in the parser.
-- [ ] Add `exitCode` to the execution-result interface and recoverable errors.
-- [ ] Add phase-tagged `MambaExecutionError` values with immutable command paths.
-- [ ] Refactor execution into one lifecycle that accumulates eligible post-hook
-  failures without stopping later cleanup.
-- [ ] Remove the fake executor's special case that skips post-hooks.
+---
 
-### Public consumers
+## 5. Migrate repository consumers
 
-- [ ] Update `Command.run` to receive
-  `(CommandInvocation invocation, List<String> args)`.
-- [ ] Update `HookRunner` and `PersistentHookRunner` to receive the shared
-  invocation without changing command registration.
-- [ ] Update `CompletionCommand` without exposing runtime typed values in the
-  serializable registry record.
-- [ ] Update `example/example.dart` to demonstrate typed handles and an
-  exhaustive sealed selection result.
-- [ ] Update `fixtures/rig/rig.dart`, especially manual exclusivity checks that
-  can become `SelectedOptions`.
-- [ ] Update generated command scaffolding.
-- [ ] Update production result rendering to preserve stdout, render every
-  collected error to stderr, and apply the reported exit code.
-- [ ] Update fake-executor callers to inspect `errors`, `output`, and
-  `exitCode`.
-- [ ] Add a migration section to the changelog when implementation begins.
+- [ ] Wrap the string passed to `set` in `test/context_test.dart` with
+  `MambaContextString`.
+- [ ] Keep that test's key typed as `MambaContextKey<String>`.
+- [ ] Replace executor hook writes with the appropriate context wrappers.
+- [ ] Search `lib`, `test`, `example`, and `fixtures` for every context write.
+- [ ] Keep context keys typed by their primitive output.
+- [ ] Remove `.value` access from context reads because `get` unwraps values.
+- [ ] Use wrappers only at context write boundaries.
+- [ ] Verify no command starts receiving context during migration.
 
-### Quality gates
+---
 
-Follow red-green-refactor for each vertical slice rather than changing all
-input classes before restoring the suite.
+## 6. Update public documentation
 
-- [ ] `dart format .`
-- [ ] `dart analyze --fatal-infos`
-- [ ] `dart test`
-- [ ] Regenerate and verify all checked-in completion fixtures.
-- [ ] Add compile-time examples that fail if a command expects the wrong input
-  type; use analyzer tests if ordinary unit tests cannot express this.
+- [ ] Document the sealed hierarchy in `lib/context.dart`.
+- [ ] Document each variant and its wrapped Dart type.
+- [ ] Document that applications cannot define additional variants.
+- [ ] Document that an unset key returns `null` but `null` cannot be stored.
+- [ ] Document that context is a scalar hook-state bag, not a dependency
+  container.
+- [ ] Document that environment and configuration loading remain application
+  responsibilities.
+- [ ] Update the hooks reference string example to use `MambaContextString` when
+  writing and a direct `String?` when reading.
+- [ ] Add one boolean and one numeric hook-state example.
+- [ ] Add a caution showing that collections and domain objects are unsupported.
+- [ ] Update `README.md` context wording.
+- [ ] Add the breaking API change and migration snippet to `CHANGELOG.md`.
+- [ ] Keep the backlog and public context documentation aligned with the closed
+  scalar hierarchy.
 
-## Explicit non-goals for the first pass
+---
 
-- Replacing constructor/list registration with a getter, builder, annotation,
-  or generated command definition.
-- Enforcing Dart's `sealed` modifier through runtime machinery.
-- Adding an external success/failure `Result` dependency.
-- Adding code generation solely for typed input access.
-- Moving validated variadic values into `CommandInvocation` or `ParsedInputs`.
-- Supporting dynamic completion as part of this refactor.
-- Generalizing `unique` to every repeated input before there is a concrete use
-  case.
+## 7. Quality gate
+
+- [ ] Run `dart format .`.
+- [ ] Run `dart analyze --fatal-infos`.
+- [ ] Run the context analyzer fixtures.
+- [ ] Run `dart test test/context_test.dart`.
+- [ ] Run `dart test test/executor_test.dart`.
+- [ ] Run the complete `dart test` suite.
+- [ ] Run `git diff --check`.
+- [ ] Confirm no parser, registry, help, or completion behavior changed.
+
+---
+
+## Completion criteria
+
+- [ ] Every stored context value belongs to the sealed framework hierarchy.
+- [ ] Only string, boolean, integer, and double variants exist.
+- [ ] Application code cannot add another variant.
+- [ ] Unsupported writes fail static analysis.
+- [ ] `get` returns the primitive directly with the key's static type.
+- [ ] Dynamic misuse cannot mutate context state.
+- [ ] Typed identity-key lookup remains intact.
+- [ ] Mutable and read-only hook access remains intact.
+- [ ] Executor-scoped persistence remains intact.
+- [ ] Public documentation explains the restriction and migration.
+- [ ] All quality-gate commands pass.
+
+---
+
+# 0.5.0 release gate
+
+- [ ] Complete every task in Milestone 1.
+- [ ] Complete the sealed-context migration in Milestone 2.
+- [ ] Run `dart format .`.
+- [ ] Run `dart analyze --fatal-infos`.
+- [ ] Run the complete `dart test` suite.
+- [ ] Regenerate and review completion fixtures if metadata changed.
+- [ ] Verify README, website docs, and tested behavior agree.
+- [ ] Verify every public breaking change has a changelog entry.
+- [ ] Run `dart pub publish --dry-run`.
+- [ ] Follow the repository's `mamba-release` process only after this gate passes.
+
+---
+
+# Milestone 3: built-in input improvements
+
+Custom file, URL, and application-domain input types are out of scope. Keep the
+existing built-in value families and improve only their availability and
+validation behavior.
+
+## T1. Add scalar defaults
+
+### Singular options
+
+- [ ] Test `StringOption.withDefault` returns non-null `String`.
+- [ ] Implement `StringOption.withDefault`.
+- [ ] Validate its regex during registry construction.
+- [ ] Test `IntOption.withDefault` returns non-null `int`.
+- [ ] Implement `IntOption.withDefault`.
+- [ ] Validate its range during registry construction.
+- [ ] Test `DoubleOption.withDefault` returns non-null `double`.
+- [ ] Implement `DoubleOption.withDefault`.
+- [ ] Validate its range and step during registry construction.
+
+### Repeatable options
+
+- [ ] Decide whether an empty list is a valid explicit default.
+- [ ] Decide whether explicit tokens replace or extend a repeatable default.
+- [ ] Test and implement `RepeatableStringOption.withDefault`.
+- [ ] Test and implement `RepeatableIntOption.withDefault`.
+- [ ] Validate every default integer.
+- [ ] Test and implement `RepeatableDoubleOption.withDefault`.
+- [ ] Validate every default double.
+- [ ] Test and implement `RepeatableChoiceOption.withDefault`.
+- [ ] Validate choice membership and uniqueness for defaults.
+- [ ] Return immutable non-null lists.
+- [ ] Export all defaults in registry metadata.
+- [ ] Update help, completion, docs, and examples.
+- [ ] Run the quality gate.
+
+## T2. Add required and defaulted accessor leaves
+
+- [ ] Define whether a required nested leaf is required globally or only when its
+  parent path is used.
+- [ ] Test and implement required string leaves.
+- [ ] Test and implement defaulted string leaves.
+- [ ] Validate string defaults against regex constraints.
+- [ ] Test and implement required integer leaves.
+- [ ] Test and implement defaulted integer leaves.
+- [ ] Validate integer defaults against ranges.
+- [ ] Test and implement required double leaves.
+- [ ] Test and implement defaulted double leaves.
+- [ ] Validate double defaults against ranges and steps.
+- [ ] Test and implement required choice leaves.
+- [ ] Preserve defaulted choice-leaf behavior.
+- [ ] Test required and defaulted leaves at multiple nesting depths.
+- [ ] Export required and default metadata.
+- [ ] Add analyzer tests for each availability type.
+- [ ] Update help and completion rendering.
+- [ ] Run the quality gate.
+
+## T3. Add reusable custom validators
+
+- [ ] Define a validator contract returning structured failures.
+- [ ] Decide whether validators receive only the parsed value or additional safe
+  context.
+- [ ] Test one validator on a built-in scalar.
+- [ ] Test several validators in declaration order.
+- [ ] Define and test first-failure versus aggregated behavior.
+- [ ] Test validators on strings, integers, doubles, and enum choices.
+- [ ] Test validators on repeatable values per item.
+- [ ] Align regex, range, step, and choice failures with the same model.
+- [ ] Add one validation example using an existing built-in input type.
+- [ ] Run the quality gate.
+
+## Milestone 3 proof
+
+- [ ] Prove scalar defaults produce non-null static output types.
+- [ ] Prove required and defaulted accessor leaves preserve their static types.
+- [ ] Prove custom validation failures prevent `Command.run` from executing.
+- [ ] Add analyzer fixtures for incorrect availability assignments.
+- [ ] Run the complete quality gate.
+
+---
+
+# Milestone 4: relationships and parse diagnostics
+
+## D1. Define structured parse diagnostics
+
+- [ ] Inventory every `MambaParseException` construction site.
+- [ ] Define stable parse error kinds independent of rendered prose.
+- [ ] Add the offending token.
+- [ ] Add the token index.
+- [ ] Add the canonical command path.
+- [ ] Add the declaration identity or name when relevant.
+- [ ] Keep rendering separate from diagnostic data.
+- [ ] Preserve `message` compatibility during migration if needed.
+- [ ] Update tests to assert fields before text.
+- [ ] Run the quality gate.
+
+## D2. Normalize diagnostics across spellings
+
+- [ ] Test one invalid value through `--name value`.
+- [ ] Test it through `--name=value`.
+- [ ] Test it through `-n value`.
+- [ ] Test unknown long options.
+- [ ] Test unknown short options.
+- [ ] Test malformed short bundles.
+- [ ] Test missing values for long and short options.
+- [ ] Give equivalent failures the same kind and payload shape.
+- [ ] Run the quality gate.
+
+## D3. Add suggestions and scoped usage
+
+- [ ] Define a conservative suggestion-distance threshold.
+- [ ] Suggest sibling commands for misspelled command tokens.
+- [ ] Suggest applicable long options for misspelled options.
+- [ ] Exclude hidden declarations.
+- [ ] Exclude declarations unavailable on the selected surface.
+- [ ] Attach selected-command usage data to parse failures.
+- [ ] Render concise suggestions and command-scoped usage.
+- [ ] Test the no-suitable-suggestion case.
+- [ ] Run the quality gate.
+
+## D4. Design general input relationships
+
+- [ ] Represent relationship members by declaration identity.
+- [ ] Define references to paired and selected aggregate handles.
+- [ ] Reject unknown relationship members during registration.
+- [ ] Reject relationships spanning incompatible command surfaces.
+- [ ] Define structured relationship failures.
+- [ ] Decide whether conditional rules receive read-only parsed inputs.
+- [ ] Define evaluation order relative to defaults and validators.
+- [ ] Record the accepted model before implementation.
+
+## D5. Implement relationships one rule at a time
+
+- [ ] Test and implement “A requires B.”
+- [ ] Test and implement “A conflicts with B.”
+- [ ] Test and implement “at least one member.”
+- [ ] Test and implement “exactly N members.”
+- [ ] Test and implement a requirement conditional on another parsed value.
+- [ ] Test every rule with omitted optionals.
+- [ ] Test every rule with defaults.
+- [ ] Test every rule on inherited command surfaces.
+- [ ] Export serializable metadata where integrations need it.
+- [ ] Render relationships in help from registry metadata.
+- [ ] Run the quality gate after each rule.
+
+---
+
+# Milestone 5: developer experience
+
+## X1. Investigate optional typed binding
+
+Keep `invocation.valueOf(handle)` as the transparent baseline.
+
+- [ ] Collect two real handlers with repetitive extraction.
+- [ ] Prototype an explicit mapper to a typed record or application class.
+- [ ] Preserve declaration identity.
+- [ ] Avoid reflection and code generation.
+- [ ] Compare handler size, error behavior, and discoverability.
+- [ ] Decide whether the improvement justifies a public API.
+- [ ] If accepted, test and add the smallest opt-in binding abstraction.
+- [ ] If rejected, document direct lookup as intentional.
+
+## X2. Design shell-independent dynamic completion
+
+- [ ] Define a request with command path, current token, token index, and safely
+  parsed prior inputs.
+- [ ] Define an async provider result independent of shell syntax.
+- [ ] Define provider failure and timeout behavior.
+- [ ] Model file, directory, and plain-value suggestions.
+- [ ] Keep sensitive values unavailable by default.
+- [ ] Test providers without launching a shell.
+- [ ] Add one path provider example.
+- [ ] Add one provider dependent on another option.
+- [ ] Document side-effect and performance expectations.
+
+## X3. Complete unique repeated-choice filtering
+
+Runtime parsing remains authoritative when a shell cannot filter reliably.
+
+- [ ] Record current Bash behavior.
+- [ ] Record current Zsh behavior.
+- [ ] Retain and verify Fish behavior.
+- [ ] Record current PowerShell behavior.
+- [ ] Record current Carapace behavior.
+- [ ] Add a unique repeated-choice fixture to every converter.
+- [ ] Test prior long-form values in every converter.
+- [ ] Test prior short-form values in every converter.
+- [ ] Implement reliable filtering per shell or document the limitation.
+- [ ] Regenerate and review checked-in fixtures.
+- [ ] Run the quality gate.
+
+## X4. Make help and error rendering composable
+
+- [ ] Separate help data selection from terminal text formatting.
+- [ ] Define seams for usage, commands, positionals, inputs, relationships, and
+  diagnostics.
+- [ ] Preserve `HelpFormatter` compatibility or document migration.
+- [ ] Test overriding one section without replacing the whole formatter.
+- [ ] Keep hidden declarations filtered before rendering.
+- [ ] Add a custom formatter example.
+- [ ] Run the quality gate.
+
+## X5. Add an injectable process boundary
+
+- [ ] Inventory direct stdin, stdout, stderr, and process `exitCode` usage.
+- [ ] Define the smallest production I/O boundary.
+- [ ] Preserve opt-in standard input and broken-pipe handling.
+- [ ] Inject the boundary without changing parser APIs.
+- [ ] Test stdout with a fake boundary.
+- [ ] Test stderr with a fake boundary.
+- [ ] Test exit-code assignment with a fake boundary.
+- [ ] Test piped input with a fake boundary.
+- [ ] Keep `Executor.fake()` structured results unchanged.
+- [ ] Document embedding and integration testing.
+- [ ] Run the quality gate.
+
+---
+
+# Critique completion criteria
+
+- [ ] All release-blocking correctness issues are fixed.
+- [ ] Unknown declaration identities always fail clearly.
+- [ ] Context accepts only the closed scalar wrapper hierarchy.
+- [x] Custom file, URL, and application-domain input conversion is out of scope.
+- [ ] Scalar defaults and accessor availability are represented in output types.
+- [ ] Accepted relationships and diagnostics are declarative and structured.
+- [ ] Dynamic completion and completion-filtering decisions are documented.
+- [ ] Help and process-boundary decisions are implemented or explicitly rejected.
+- [x] Environment and configuration sources are explicitly out of scope.
+- [ ] Every other deferred capability is implemented or rejected with rationale.
+- [ ] The backlog, public docs, examples, and tested behavior agree.
