@@ -151,10 +151,10 @@ final class CommandRegistry {
     this.parent,
     List<Flag>? flags,
     List<Option>? options,
-    List<PairedOptions>? pairedOptions,
-    List<SelectedOptions>? selectedOptions,
-    List<Positional>? mandatoryPositionals,
-    List<Positional>? discretionaryPositionals,
+    List<PairedOptionsDefinition>? pairedOptions,
+    List<SelectedOptionsDefinition>? selectedOptions,
+    List<MandatoryPositional>? mandatoryPositionals,
+    List<DiscretionaryPositional>? discretionaryPositionals,
     this.variadic,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
@@ -181,10 +181,10 @@ final class CommandRegistry {
   final CommandRegistry? parent;
   final List<Flag> flags;
   final List<Option> options;
-  final List<PairedOptions> pairedOptionGroups;
-  final List<SelectedOptions> selectedOptionGroups;
-  final List<Positional> mandatoryPositionals;
-  final List<Positional> discretionaryPositionals;
+  final List<PairedOptionsDefinition> pairedOptionGroups;
+  final List<SelectedOptionsDefinition> selectedOptionGroups;
+  final List<MandatoryPositional> mandatoryPositionals;
+  final List<DiscretionaryPositional> discretionaryPositionals;
   final Variadic? variadic;
   final List<AccessorListOption> accessors;
   final List<Flag> publishedFlags;
@@ -222,13 +222,13 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    List<Positional>? mandatoryPositionals,
-    List<Positional>? discretionaryPositionals,
+    List<MandatoryPositional>? mandatoryPositionals,
+    List<DiscretionaryPositional>? discretionaryPositionals,
     Variadic? variadic,
     List<Flag>? flags,
     List<Option>? options,
-    List<PairedOptions>? pairedOptions,
-    List<SelectedOptions>? selectedOptions,
+    List<PairedOptionsDefinition>? pairedOptions,
+    List<SelectedOptionsDefinition>? selectedOptions,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
   }) {
@@ -411,14 +411,14 @@ final class CommandRegistry {
         ...registry.pairedOptionGroups.map(
           (group) => (
             mode: RegistryOptionGroupMode.all,
-            required: group.required,
+            required: group.isRequired,
             members: List.unmodifiable(group.options.map((item) => item.name)),
           ),
         ),
         ...registry.selectedOptionGroups.map(
           (group) => (
             mode: RegistryOptionGroupMode.oneOf,
-            required: group.required,
+            required: group.isRequired,
             members: List.unmodifiable(
               group.options.map((item) => item.option.name),
             ),
@@ -471,35 +471,26 @@ final class CommandRegistry {
     return (
       name: input.name,
       short: _shortOf(input),
-      required: input is Option ? input.required : false,
+      required: input is Option ? input.isRequired : false,
       hidden: input is Option ? input.hidden : false,
       description: input.description,
-      valueType:
-          input is StringOption ||
-              input is RepeatableStringOption ||
-              input is PairStringOption ||
-              input is RepeatablePairStringOption
-          ? 'string'
-          : input is IntOption ||
-                input is RepeatableIntOption ||
-                input is PairIntOption ||
-                input is RepeatablePairIntOption
+      valueType: input is NumericRangeValidated<int>
           ? 'int'
-          : input is DoubleOption ||
-                input is RepeatableDoubleOption ||
-                input is PairDoubleOption ||
-                input is RepeatablePairDoubleOption
+          : input is NumericRangeValidated<double>
           ? 'double'
+          : input is RegExpValidated
+          ? 'string'
           : 'choice',
-      repeatable: input is RepeatableOption || input is RepeatablePairOption
+      repeatable:
+          input is RepeatableOptionDefinition || input is RepeatablePairOption
           ? true
           : null,
-      unique: input is RepeatableChoiceOption && input.unique ? true : null,
+      unique: input is RepeatableOptionDefinition && input.unique ? true : null,
       choices: choice == null
           ? null
           : List.unmodifiable(choice.map((item) => item.name)),
       defaultValue: switch (input) {
-        ChoiceOption(:final defaultValue?) => defaultValue.name,
+        DefaultValue(:final defaultValue) => (defaultValue as Enum).name,
         _ => null,
       },
       pattern: input is RegExpValidated
@@ -535,12 +526,15 @@ final class CommandRegistry {
           ? null
           : List.unmodifiable(choices.map((choice) => choice.name)),
       defaultValue: switch (input) {
-        ChoicePositional(:final defaultValue?) => defaultValue.name,
-        RepeatedChoicePositional(:final defaultValue?) => defaultValue.name,
+        DefaultValue(:final defaultValue) when defaultValue is List<Enum> =>
+          defaultValue.map((choice) => choice.name).join(','),
+        DefaultValue(:final defaultValue) => (defaultValue as Enum).name,
         _ => null,
       },
-      repeatable: input is RepeatedPositional ? true : null,
-      times: input is RepeatedPositional ? input.times : null,
+      repeatable: input is RepeatedPositionalDefinition ? true : null,
+      times: input is RepeatedPositionalDefinition
+          ? (input as RepeatedPositionalDefinition).times
+          : null,
       pattern: input.regex.pattern,
     );
   }
@@ -584,8 +578,8 @@ final class CommandRegistry {
                   ),
                 )
               : null,
-          defaultValue: input is AccessorChoiceOption
-              ? input.defaultValue?.name
+          defaultValue: input is DefaultValue
+              ? ((input as DefaultValue).defaultValue as Enum).name
               : null,
           pattern: input is RegExpValidated
               ? (input as RegExpValidated).regex.pattern
@@ -598,8 +592,8 @@ final class CommandRegistry {
     String description, {
     List<Flag>? flags,
     List<Option>? options,
-    List<PairedOptions>? paired,
-    List<SelectedOptions>? selected,
+    List<PairedOptionsDefinition>? paired,
+    List<SelectedOptionsDefinition>? selected,
     List<AccessorListOption>? accessors,
     List<Positional>? mandatory,
     List<Positional>? discretionary,
@@ -607,10 +601,10 @@ final class CommandRegistry {
   }) {
     if (!_name.hasMatch(name) || description.isEmpty)
       throw MambaRegistryError('Invalid command definition');
-    if ((paired ?? const <PairedOptions>[]).any(
+    if ((paired ?? const <PairedOptionsDefinition>[]).any(
           (group) => group.options.isEmpty,
         ) ||
-        (selected ?? const <SelectedOptions>[]).any(
+        (selected ?? const <SelectedOptionsDefinition>[]).any(
           (group) => group.options.isEmpty,
         )) {
       throw MambaRegistryError(
@@ -621,8 +615,9 @@ final class CommandRegistry {
     for (final input in [
       ...?flags,
       ...?options,
-      for (final group in paired ?? const <PairedOptions>[]) ...group.options,
-      for (final group in selected ?? const <SelectedOptions>[])
+      for (final group in paired ?? const <PairedOptionsDefinition>[])
+        ...group.options,
+      for (final group in selected ?? const <SelectedOptionsDefinition>[])
         for (final member in group.options) member.option,
     ]) {
       if (!_name.hasMatch(input.name) || !names.add(input.name))
@@ -659,15 +654,18 @@ final class CommandRegistry {
             'Choices for ${input.name} must not be empty.',
           );
         final defaultValue = switch (input) {
-          ChoiceOption(:final defaultValue) => defaultValue,
-          ChoicePositional(:final defaultValue) => defaultValue,
-          RepeatedChoicePositional(:final defaultValue) => defaultValue,
-          AccessorChoiceOption(:final defaultValue) => defaultValue,
+          DefaultValue(:final defaultValue) => defaultValue,
           _ => null,
         };
-        if (defaultValue != null && !choices.contains(defaultValue)) {
+        final defaultsAreRegistered = switch (defaultValue) {
+          null => true,
+          List<Enum> values => values.every(choices.contains),
+          Enum value => choices.contains(value),
+          _ => false,
+        };
+        if (!defaultsAreRegistered) {
           throw MambaRegistryError(
-            'Default ${defaultValue.name} is not a registered choice for ${input.name}.',
+            'Every default must be a registered choice for ${input.name}.',
           );
         }
       }
@@ -680,16 +678,18 @@ final class CommandRegistry {
       ...?mandatory,
       ...?discretionary,
       ...?accessors,
-      for (final group in paired ?? const <PairedOptions>[]) ...group.options,
-      for (final group in selected ?? const <SelectedOptions>[])
+      for (final group in paired ?? const <PairedOptionsDefinition>[])
+        ...group.options,
+      for (final group in selected ?? const <SelectedOptionsDefinition>[])
         for (final member in group.options) member.option,
     ]) {
       validateChoices(input);
     }
     for (final input in [
       ...?options,
-      for (final group in paired ?? const <PairedOptions>[]) ...group.options,
-      for (final group in selected ?? const <SelectedOptions>[])
+      for (final group in paired ?? const <PairedOptionsDefinition>[])
+        ...group.options,
+      for (final group in selected ?? const <SelectedOptionsDefinition>[])
         for (final member in group.options) member.option,
     ]) {
       if (input is NumericRangeValidated) {

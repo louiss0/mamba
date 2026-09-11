@@ -1,20 +1,19 @@
-# Migrating to typed command inputs
+# Migrating to availability-typed command inputs
 
-This Mamba release replaces name-keyed parsed records with declaration handles. This is a
-breaking change: commands register the same input instances that they later use
-to read values.
+This release makes input availability part of each declaration's output type.
+It is a breaking change: runtime `required` and `defaultValue` modes have been
+replaced by factories whose types express whether a value may be absent.
 
-## Command execution
+## Reading values
 
-Declare handles as `static final` fields (or otherwise retain the instances
-passed to `super`), then read them from the invocation:
+Read retained declaration handles directly from `CommandInvocation`:
 
 ```dart
 final class ExportCommand extends Command {
   ExportCommand() : super(mandatoryPositionals: [source], options: [format]);
 
   static final source = NormalPositional('source');
-  static final format = ChoiceOption<OutputFormat>(
+  static final format = ChoiceOption.withDefault(
     'format',
     choices: OutputFormat.values,
     defaultValue: OutputFormat.text,
@@ -28,37 +27,94 @@ final class ExportCommand extends Command {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final sourceValue = invocation.inputs.require(source);
-    final formatValue = invocation.inputs.require(format);
+    final sourceValue = invocation.valueOf(source); // String
+    final formatValue = invocation.valueOf(format); // OutputFormat
     return 'Exporting $sourceValue as ${formatValue.name}';
   }
 }
 ```
 
-`valueOf` returns `null` for an omitted optional input. `require` is for inputs
-which the parser has already guaranteed are present. Values after `--` are
-validated by the registered `Variadic` and passed as the immutable `args` list;
-they are not part of `CommandInvocation.inputs`.
+`ParsedInputs.require()` and `CommandInvocation.inputs` have been removed.
+`valueOf()` returns exactly the declaration's output type. An absent non-null
+output is a parser invariant failure.
 
-Choice inputs now return their registered enum members rather than enum names.
-Accessor leaves are read through their leaf handles, so commands no longer
-receive dynamic path maps.
+## Required, optional, and defaulted options
+
+Options remain optional by default. Use `.required` when the user must provide
+a value and `.withDefault` when omission should produce a configured fallback:
+
+```dart
+final label = StringOption('label'); // String?
+final output = StringOption.required('output'); // String
+final format = ChoiceOption.withDefault(
+  'format',
+  choices: OutputFormat.values,
+  defaultValue: OutputFormat.text,
+); // OutputFormat
+```
+
+The same required factory is available for numeric and repeatable options.
+Choice defaults must use `.withDefault`; `defaultValue` is no longer accepted
+by the ordinary choice constructor.
+
+## Positionals
+
+Positionals remain mandatory by default. Their declaration type now agrees
+with the registration list:
+
+```dart
+final source = NormalPositional('source');
+final destination = NormalPositional.optional('destination');
+
+Command(
+  mandatoryPositionals: [source],
+  discretionaryPositionals: [destination],
+);
+```
+
+`mandatoryPositionals` accepts only `MandatoryPositional` declarations and
+`discretionaryPositionals` accepts only `DiscretionaryPositional`
+declarations. Choice and repeated positionals provide corresponding
+`.optional` and `.withDefault` factories.
+
+Accessor leaves remain omittable. Ordinary leaves produce nullable outputs;
+`AccessorChoiceOption.withDefault` produces a non-null enum output.
 
 ## Option groups
 
-`PairedOptions` now always means every member must be supplied together. Replace
-`PairedOptions(..., variant: true)` with a typed `SelectedOptions<R>`:
+Paired groups now map all members into one cohesive output. Members are
+available only to the mapper:
 
 ```dart
-final output = SelectedOptions<OutputSelection>([
-  SelectableOption(json, JsonOutput.new),
-  SelectableOption(text, TextOutput.new),
-], required: true);
+final host = PairStringOption('host');
+final port = PairIntOption('port');
+final server = PairedOptions.required(
+  [host, port],
+  (values) => Server(
+    values.valueOf(host),
+    values.valueOf(port),
+  ),
+);
 ```
 
-The selected group's mapped result is available through `valueOf(output)` or
-`require(output)`. The individual selected member is intentionally not exposed
-in parsed inputs.
+Optional `PairedOptions` produce `R?`; `PairedOptions.required` produces `R`.
+
+Selected groups follow the same availability convention:
+
+```dart
+final output = SelectedOptions.required([
+  SelectableOption(json, JsonOutput.new),
+  SelectableOption(text, TextOutput.new),
+]);
+```
+
+Optional `SelectedOptions` produce `R?`; `SelectedOptions.required` produces
+`R`. Individual selected members are not exposed in parsed inputs.
+
+## Validated trailing arguments
+
+Values after `--` remain separate from typed inputs. Mamba validates them using
+the registered `Variadic` and passes them as the immutable `args` list.
 
 ## Execution results
 

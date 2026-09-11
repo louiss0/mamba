@@ -116,11 +116,10 @@ final class AddCommand extends Command {
     short: 'a',
     description: 'Add every path.',
   );
-  static final message = StringOption(
+  static final message = StringOption.required(
     'message',
     short: 'm',
     description: 'Commit message.',
-    required: true,
   );
 
   @override
@@ -131,9 +130,9 @@ final class AddCommand extends Command {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final pathValue = invocation.inputs.require(path);
-    final allPaths = invocation.inputs.require(all);
-    final messageValue = invocation.inputs.require(message);
+    final pathValue = invocation.valueOf(path);
+    final allPaths = invocation.valueOf(all);
+    final messageValue = invocation.valueOf(message);
     return 'Adding ${allPaths ? 'all paths' : pathValue} with: $messageValue';
   }
 }

@@ -67,9 +67,8 @@ class Run extends Command {
 
   @override
   Future<String> run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
+    CommandInvocation invocation,
+  List<String> args,
   ) async {
 
     return "This ran"

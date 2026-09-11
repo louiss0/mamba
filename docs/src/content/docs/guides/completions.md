@@ -168,9 +168,8 @@ String _processSubcommands(List<Command>) {
 
 @override
 FutureOr<String?> run(
-  ParsedPositionals positionals,
-  ParsedNamedInputs inputs
-  List<String> trailingArguments,
+  CommandInvocation invocation,
+  List<String> args,
 ) {
 
 }

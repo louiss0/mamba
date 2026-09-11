@@ -1,86 +1,58 @@
 ---
 title: Hooks
-description: 'Learn about how hooks work in Mamba'
+description: Run lifecycle behavior around Mamba commands
 ---
 
+Hooks receive the same `CommandInvocation` as the selected command. They can
+read retained input handles through `invocation.valueOf` and access shared
+state through `invocation.context`.
 
-The Mamba [executor](references/executor) runs the selected command based on it's path.
-It uses the path that's given to it to iterate through the commmands and it's descendants until it finds the right one.
-Throughout this process the commands are being used even though their run functions aren't being called!
+## Command hooks
 
-Throughout this process commands can call special functions called hooks!
-These are the functions that could be called when the `Executor` inspects the [command](references/commands)
-When they are called **they are passed the context, positionals, and single options**.
+Mix `HookRunner` into a command to run behavior immediately before and after
+its `run` method:
 
-The _context_ is an object that contains dependencies that command might need.
-The _positionals_ are the parsed positional arguments! 
-The _single options_ are the parsed set of options that aren't repeatable! 
+```dart
+final class DeployCommand extends Command with HookRunner {
+  @override
+  FutureOr<void> preRun(
+    ProcessedStandardInput? input,
+    CommandInvocation invocation,
+  ) {}
 
-```mermaid
-flowchart TD
-    start(["Command selected"]) --> persistent{"Command path contains<br/>PersistentHookRunner groups?"}
-    persistent -->|Yes| prePersistent["PersistentHookRunner<br/>prePersistentRun<br/>outer group → inner group"]
-    persistent -->|No| hook{"Selected command mixes in<br/>HookRunner?"}
-    prePersistent --> hook
-    hook -->|Yes| pre["HookRunner<br/>preRun"]
-    hook -->|No| run["Command.run"]
-    pre --> run
-    run --> postHook{"Selected command mixes in<br/>HookRunner?"}
-    postHook -->|Yes| post["HookRunner<br/>postRun"]
-    postHook -->|No| persistentPost{"Command path contains<br/>PersistentHookRunner groups?"}
-    post --> persistentPost
-    persistentPost -->|Yes| postPersistent["PersistentHookRunner<br/>postPersistentRun<br/>inner group → outer group"]
-    persistentPost -->|No| finish(["Command complete"])
-    postPersistent --> finish
+  @override
+  FutureOr<void> postRun(CommandInvocation invocation) {}
+}
 ```
 
-Persistent hooks run in opposite directions so nested groups behave like an
-outer wrapper around the command.
+`preRun` receives piped standard input when available. `postRun` runs only when
+the matching pre-hook completed. Eligible cleanup hooks still run after command
+failure.
 
+## Persistent group hooks
 
-## Normal Hooks
+Mix `PersistentHookRunner` into a `GroupCommand` to wrap descendant command
+execution:
 
-Normal hooks are hooks that any command can run! 
-The way for a command to use them is by using the `HookRunner` mixin. 
-The hook runner mixin forces the command to override the `preRun` method and supplies the `postRun` one.
+```dart
+final class WorkspaceCommand extends GroupCommand
+    with PersistentHookRunner {
+  WorkspaceCommand(super.commands) : super();
 
-### `preRun`
+  @override
+  FutureOr<void> prePersistentRun(CommandInvocation invocation) {}
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `input` | `ProcessedStandardInput?` | Piped standard input, or `null` when standard input is not piped. |
-| `context` | `MambaReadContext` | Read-only command context. |
-| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
-| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
+  @override
+  FutureOr<void> postPersistentRun(CommandInvocation invocation) {}
+}
+```
 
-### `postRun`
+Persistent pre-hooks run from the outermost group inward. Their matching
+post-hooks run in reverse order, so nested groups behave like wrappers.
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `context` | `MambaReadContext` | Read-only command context. |
-| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
-| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
+## Failures
 
-## Persistent Hooks 
-
-Persistent hooks are hooks that run regardless of whether the command in the path is selected or not! 
-If a command is found in the path these functions will run before the selected commmands hooks run!
-These hooks are the ones that allow for the context to be changed!
-The way for a comamnd to use them is by using the `PersistentHookRunner` mixin. 
-It forces the user to override the `postPersistentRun` method and supplies the `prePersistentRun` one.
-
-### `prePersistentRun`
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `context` | `MambaContext` | Mutable command context shared with descendant commands and hooks. |
-| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
-| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
-
-### `postPersistentRun`
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `context` | `MambaContext` | Mutable command context shared with descendant commands and hooks. |
-| `positionals` | `ParsedPositionals` | Parsed single and repeated positional arguments. |
-| `options` | `ParsedSingleOptions` | Parsed non-repeatable string, integer, and double options. |
+Mamba records hook failures as `MambaExecutionError` values tagged with their
+execution phase and command path. One failing cleanup hook does not prevent
+remaining eligible cleanup hooks from running. The first failure determines
+the execution result's exit code.

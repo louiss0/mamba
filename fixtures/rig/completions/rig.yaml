@@ -2,7 +2,7 @@ name: "rig"
 description: "Completion fixture."
 persistentflags:
   -h, --help: "Show this help message."
-  --format?=: ""
+  --format!=: ""
 completion:
   flag:
     format:

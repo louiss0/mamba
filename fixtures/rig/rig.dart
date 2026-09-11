@@ -5,12 +5,12 @@ enum Output { text, json }
 
 final class RigCommand extends Command {
   RigCommand() : super(options: [format]);
-  static final format = ChoiceOption<Output>('format', choices: Output.values);
+  static final format = ChoiceOption.required('format', choices: Output.values);
   @override
   String get name => 'rig';
   @override
   String get shortDescription => 'Completion fixture.';
   @override
   String run(CommandInvocation invocation, List<String> args) =>
-      invocation.inputs.require(format).name;
+      invocation.valueOf(format).name;
 }

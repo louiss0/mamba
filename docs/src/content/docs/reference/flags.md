@@ -25,7 +25,7 @@ its spellings parseable while omitting it from the default help formatter.
 
 :::note[The command receives]
 
-For `BooleanFlag('force', short: 'f', negatable: true)`, both of these
+For a retained `force` declaration, both of these
 invocations produce a boolean value:
 
 ```console
@@ -38,12 +38,11 @@ The command indexes that value by the flag's long name:
 ```dart
 @override
 FutureOr<String?> run(
-  ParsedPositionals positionals,
-  ParsedNamedInputs inputs,
-  List<String> trailingArguments,
+  CommandInvocation invocation,
+  List<String> args,
 ) {
-  final force = inputs.boolFlags!['force']!;
-  return 'force: $force';
+  final forceValue = invocation.valueOf(force);
+  return 'force: $forceValue';
 }
 ```
 
@@ -83,7 +82,7 @@ configuration have the same help behavior as a boolean flag.
 
 :::note[The command receives]
 
-For `CountFlag('verbose', short: 'v')`, these invocations each produce a count
+For a retained `verbose` declaration, these invocations each produce a count
 of `2`:
 
 ```console
@@ -96,11 +95,10 @@ The command indexes the integer by the flag's long name:
 ```dart
 @override
 FutureOr<String?> run(
-  ParsedPositionals positionals,
-  ParsedNamedInputs inputs,
-  List<String> trailingArguments,
+  CommandInvocation invocation,
+  List<String> args,
 ) {
-  final verbosity = inputs.countFlags!['verbose']!;
+  final verbosity = invocation.valueOf(verbose);
   return 'verbosity: $verbosity';
 }
 ```

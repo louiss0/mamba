@@ -38,9 +38,8 @@ The execution contract is deliberately narrower than the declaration:
 
 ```dart
 FutureOr<String?> run(
-  ParsedPositionals positionals,
-  ParsedNamedInputs inputs,
-  List<String> trailingArguments,
+  CommandInvocation invocation,
+  List<String> args,
 )
 ```
 

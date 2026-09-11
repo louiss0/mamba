@@ -15,7 +15,7 @@ final class ResultCommand extends Command with HookRunner {
   @override
   void preRun(ProcessedStandardInput? input, CommandInvocation invocation) {
     events.add('pre');
-    expect(invocation.inputs.valueOf(enabled), isA<bool>());
+    expect(invocation.valueOf(enabled), isA<bool>());
   }
 
   @override

@@ -21,13 +21,9 @@ class Commit extends Command {
 
   @override
   FutureOr<String?> run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs inputs,
-    List<String> trailingArguments,
-  ) {
-
-    return "commited the files";
-  }
+    CommandInvocation invocation,
+    List<String> args,
+  ) => 'Committed the files';
 }
 ```
 

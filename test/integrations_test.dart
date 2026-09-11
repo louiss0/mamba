@@ -41,11 +41,13 @@ void main() {
   });
 
   test('checked-in rig completions match generated artifacts', () {
+    expect(RigCommand.format.isRequired, isTrue);
     final record = CommandRegistry.create(
       'rig',
       'Completion fixture.',
       options: [RigCommand.format],
     ).toMap();
+    expect(record.options?.first.required, isTrue);
     final completions = <String, String>{
       'rig.bash': ToBashCompletionConverter(record).convert(),
       '_rig': ToZshCompletionConverter(record).convert(),

@@ -92,7 +92,7 @@ final class Executor {
     List<AccessorListOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
-    List<SelectedOptions>? selectedOptions,
+    List<SelectedOptionsDefinition>? selectedOptions,
     this.defaultCommandPath,
     this.context,
     this.helpFormatter,
@@ -109,7 +109,7 @@ final class Executor {
   final List<AccessorListOption> accessors;
   final List<Flag> flags;
   final List<Option> options;
-  final List<SelectedOptions> selectedOptions;
+  final List<SelectedOptionsDefinition> selectedOptions;
   final List<String>? defaultCommandPath;
   final List<Command> commands;
   final MambaContext? context;

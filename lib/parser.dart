@@ -211,34 +211,18 @@ final class Parser {
     Object value,
   ) {
     switch (input) {
-      case RepeatableStringOption():
-        values[input] = List.unmodifiable([
-          ...(values[input] as List<String>? ?? const []),
-          value as String,
-        ]);
-      case RepeatableIntOption() || RepeatablePairIntOption():
-        values[input] = List.unmodifiable([
-          ...(values[input] as List<int>? ?? const []),
-          value as int,
-        ]);
-      case RepeatableDoubleOption() || RepeatablePairDoubleOption():
-        values[input] = List.unmodifiable([
-          ...(values[input] as List<double>? ?? const []),
-          value as double,
-        ]);
-      case RepeatablePairStringOption():
-        values[input] = List.unmodifiable([
-          ...(values[input] as List<String>? ?? const []),
-          value as String,
-        ]);
-      case RepeatableChoiceOption():
+      case RepeatableOptionDefinition():
         final existing = values[input] as List?;
         if (input.unique && existing?.contains(value) == true) {
           throw MambaParseException(
             'Option --${input.name} accepts each choice once; ${(value as Enum).name} was provided more than once.',
           );
         }
-        values[input] = input.append(value as dynamic, existing as dynamic);
+        values[input] = input.appendValue(value, existing);
+      case RepeatablePairStringOption() ||
+          RepeatablePairIntOption() ||
+          RepeatablePairDoubleOption():
+        values[input] = List.unmodifiable([...?values[input] as List?, value]);
       default:
         if (input is PairOption && values.containsKey(input)) {
           throw MambaParseException(
@@ -253,15 +237,9 @@ final class Parser {
     RegExpValidated()
         when input is! AccessorIntOption && input is! AccessorDoubleOption =>
       _regex(input as RegExpValidated, value),
-    IntOption() ||
-    PairIntOption() ||
-    RepeatableIntOption() ||
-    RepeatablePairIntOption() ||
+    NumericRangeValidated<int>() ||
     AccessorIntOption() => _integer(input, value),
-    DoubleOption() ||
-    PairDoubleOption() ||
-    RepeatableDoubleOption() ||
-    RepeatablePairDoubleOption() ||
+    NumericRangeValidated<double>() ||
     AccessorDoubleOption() => _double(input, value),
     ChoiceValidated() => _choice(input as ChoiceValidated, value),
     _ => throw StateError('Unsupported input ${input.name}'),
@@ -339,11 +317,11 @@ final class Parser {
     Map<InputDefinition, Object?> values,
   ) {
     for (final option in registry.applicableOptions) {
-      if (option case ChoiceOption(defaultValue: final value?))
+      if (option case DefaultValue(defaultValue: final value))
         values.putIfAbsent(option, () => value);
     }
     void access(AccessorOption input) {
-      if (input case AccessorChoiceOption(defaultValue: final value?))
+      if (input case DefaultValue(defaultValue: final value))
         values.putIfAbsent(input, () => value);
       if (input is AccessorListOption)
         for (final child in input.options) access(child);
@@ -357,7 +335,7 @@ final class Parser {
     Map<InputDefinition, Object?> values,
   ) {
     for (final option in registry.applicableOptions) {
-      if (option.required && !values.containsKey(option))
+      if (option.isRequired && !values.containsKey(option))
         throw MambaParseException('Option --${option.name} is required.');
     }
   }
@@ -368,7 +346,7 @@ final class Parser {
   ) {
     for (final group in registry.pairedOptionGroups) {
       final present = group.options.where(values.containsKey).toList();
-      if (group.required && present.length != group.options.length) {
+      if (group.isRequired && present.length != group.options.length) {
         final missing = group.options
             .where((item) => !values.containsKey(item))
             .map((item) => '--${item.name}')
@@ -381,12 +359,22 @@ final class Parser {
         throw MambaParseException(
           'Paired options ${group.options.map((item) => '--${item.name}').join(', ')} must be passed together',
         );
+      if (present.length == group.options.length) {
+        values[group] = group.map(
+          PairValues({
+            for (final option in group.options) option: values[option],
+          }),
+        );
+        for (final option in group.options) {
+          values.remove(option);
+        }
+      }
     }
     for (final group in registry.selectedOptionGroups) {
       final members = group.options
           .where((item) => values.containsKey(item.option))
           .toList();
-      if (group.required && members.isEmpty)
+      if (group.isRequired && members.isEmpty)
         throw MambaParseException(
           'One selected option is required: ${group.options.map((item) => '--${item.option.name}').join(', ')}',
         );
@@ -394,7 +382,7 @@ final class Parser {
         throw MambaParseException('Selected options accept only one option');
       if (members.length == 1) {
         final member = members.single;
-        values[group] = member.map(values[member.option]);
+        values[group] = group.map(values[member.option], member);
       }
       for (final member in group.options) {
         values.remove(member.option);
@@ -413,9 +401,11 @@ final class Parser {
       ...registry.discretionaryPositionals,
     ]) {
       final required = registry.mandatoryPositionals.contains(positional);
-      if (positional is RepeatedPositional) {
+      if (positional is RepeatedPositionalDefinition) {
         final collected = <Object>[];
-        while (index < source.length && collected.length <= positional.times) {
+        while (index < source.length &&
+            collected.length <=
+                (positional as RepeatedPositionalDefinition).times) {
           try {
             collected.add(_positionalValue(positional, source[index]));
             index++;
@@ -423,21 +413,22 @@ final class Parser {
             break;
           }
         }
-        if (collected.isEmpty &&
-            positional is RepeatedChoicePositional &&
-            positional.defaultValue != null)
-          collected.add(positional.defaultValue!);
+        if (collected.isEmpty && positional is DefaultValue)
+          collected.addAll(
+            (positional as DefaultValue<List>).defaultValue.cast<Object>(),
+          );
         if (collected.isEmpty && required)
           throw MambaParseException(
             'The ${positional.name} is required at $index after this command',
           );
-        if (collected.isNotEmpty)
-          values[positional] = List.unmodifiable(collected);
+        if (collected.isNotEmpty) {
+          values[positional] = (positional as RepeatedPositionalDefinition)
+              .freezeValues(collected);
+        }
       } else if (index < source.length) {
         values[positional] = _positionalValue(positional, source[index++]);
-      } else if (positional is ChoicePositional &&
-          positional.defaultValue != null) {
-        values[positional] = positional.defaultValue;
+      } else if (positional is DefaultValue) {
+        values[positional] = (positional as DefaultValue).defaultValue;
       } else if (required) {
         throw MambaParseException(
           'The ${positional.name} is required at $index after this command',

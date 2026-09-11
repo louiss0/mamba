@@ -19,7 +19,7 @@ final class CreateProjectCommand extends Command {
       'Create a Dart console application using Mamba.';
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final name = invocation.inputs.require(packageName);
+    final name = invocation.valueOf(packageName);
     final directory = Directory('${_parentDirectory.path}/$name');
     if (directory.existsSync())
       throw MambaException(
@@ -56,7 +56,7 @@ final class ScaffoldCommand extends Command {
   String get shortDescription => 'Create a Mamba command.';
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final name = invocation.inputs.require(commandName);
+    final name = invocation.valueOf(commandName);
     final file = File('${_parentDirectory.path}/lib/$name.dart');
     if (file.existsSync())
       throw MambaException('Cannot create $name: the file already exists.');

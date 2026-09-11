@@ -35,7 +35,7 @@ void main() {
       () => CommandRegistry.create(
         'tool',
         'Tool.',
-        pairedOptions: [PairedOptions([])],
+        pairedOptions: [PairedOptions<Object>([], (_) => Object())],
       ),
       throwsA(isA<MambaRegistryError>()),
     );

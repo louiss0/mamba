@@ -2,6 +2,12 @@
 
 ### Breaking migration
 
+- Input handles now encode required, optional, and defaulted output
+  availability. `valueOf` returns the declared type directly; runtime
+  `required` modes, `ParsedInputs.require`, and `CommandInvocation.inputs` were
+  removed. Mandatory and discretionary positional lists accept only matching
+  declaration categories.
+- Paired option groups now map their members into one typed aggregate output.
 - Commands, hooks, and groups now consume `CommandInvocation` and typed input
   handles instead of string-keyed parsed records. Values after `--` are passed
   as the separate validated `args` list.

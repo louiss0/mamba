@@ -152,28 +152,21 @@ String _validatedText(String field, String value) {
   return text;
 }
 
-StringOption _textOption(
-  String name,
-  String description, {
-  bool required = false,
-}) => StringOption(
-  name,
-  description: description,
-  required: required,
-  regex: RegExp(r'.+'),
-);
-
 int _taskId(CommandInvocation invocation, NormalPositional input) =>
-    int.parse(invocation.inputs.require(input));
+    int.parse(invocation.valueOf(input));
 
 final class CreateTaskCommand extends Command {
   CreateTaskCommand(this.store) : super(options: [title, description]);
 
-  static final title = _textOption('title', 'Task title.', required: true);
-  static final description = _textOption(
+  static final title = StringOption.required(
+    'title',
+    description: 'Task title.',
+    regex: RegExp(r'.+'),
+  );
+  static final description = StringOption.required(
     'description',
-    'Task description.',
-    required: true,
+    description: 'Task description.',
+    regex: RegExp(r'.+'),
   );
 
   final TaskStore store;
@@ -187,8 +180,8 @@ final class CreateTaskCommand extends Command {
   @override
   String run(CommandInvocation invocation, List<String> args) {
     final task = store.add(
-      _validatedText('title', invocation.inputs.require(title)),
-      _validatedText('description', invocation.inputs.require(description)),
+      _validatedText('title', invocation.valueOf(title)),
+      _validatedText('description', invocation.valueOf(description)),
     );
     return 'Created task ${task.id}: ${task.title}';
   }
@@ -199,7 +192,7 @@ enum TaskStatus { all, completed, pending }
 final class ListTaskCommand extends Command {
   ListTaskCommand(this.store) : super(options: [status]);
 
-  static final status = ChoiceOption<TaskStatus>(
+  static final status = ChoiceOption.withDefault(
     'status',
     choices: TaskStatus.values,
     defaultValue: TaskStatus.all,
@@ -217,7 +210,7 @@ final class ListTaskCommand extends Command {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final statusValue = invocation.inputs.require(status);
+    final statusValue = invocation.valueOf(status);
     final tasks = store.readAll().where((task) {
       return switch (statusValue) {
         TaskStatus.all => true,
@@ -260,14 +253,11 @@ final class ReadTaskCommand extends TaskIdCommand {
   }
 }
 
+typedef TaskChanges = ({String title, String description});
+
 final class UpdateTaskCommand extends Command {
   UpdateTaskCommand(this.store)
-    : super(
-        mandatoryPositionals: [id],
-        pairedOptions: [
-          PairedOptions([title, description], required: true),
-        ],
-      );
+    : super(mandatoryPositionals: [id], pairedOptions: [changes]);
 
   static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
   static final title = PairStringOption(
@@ -279,6 +269,13 @@ final class UpdateTaskCommand extends Command {
     'description',
     regex: RegExp(r'.+'),
     description: 'Replacement description.',
+  );
+  static final changes = PairedOptions.required(
+    [title, description],
+    (values) => (
+      title: values.valueOf(title),
+      description: values.valueOf(description),
+    ),
   );
 
   final TaskStore store;
@@ -292,13 +289,11 @@ final class UpdateTaskCommand extends Command {
   @override
   String run(CommandInvocation invocation, List<String> args) {
     final idValue = _taskId(invocation, id);
+    final changesValue = invocation.valueOf(changes);
     store.update(
       idValue,
-      title: _validatedText('title', invocation.inputs.require(title)),
-      description: _validatedText(
-        'description',
-        invocation.inputs.require(description),
-      ),
+      title: _validatedText('title', changesValue.title),
+      description: _validatedText('description', changesValue.description),
     );
     return 'Updated task $idValue.';
   }
@@ -348,10 +343,10 @@ final class ExportTasksCommand extends Command {
     'text',
     description: 'Write text to this path.',
   );
-  static final output = SelectedOptions<TaskExport>([
+  static final output = SelectedOptions.required([
     SelectableOption(json, JsonTaskExport.new),
     SelectableOption(text, TextTaskExport.new),
-  ], required: true);
+  ]);
 
   final TaskStore store;
 
@@ -363,7 +358,7 @@ final class ExportTasksCommand extends Command {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final export = invocation.inputs.require(output);
+    final export = invocation.valueOf(output);
     final content = switch (export) {
       JsonTaskExport() => JsonEncoder.withIndent(
         '  ',
@@ -417,9 +412,8 @@ final class ReopenTaskCommand extends TaskIdCommand {
 final class CompletionTaskCommand extends CompletionCommand {
   CompletionTaskCommand() : super(options: [output]);
 
-  static final output = StringOption(
+  static final output = StringOption.required(
     'output',
-    required: true,
     description: 'Write the Carapace spec to this path.',
   );
 
@@ -431,7 +425,7 @@ final class CompletionTaskCommand extends CompletionCommand {
 
   @override
   String run(CommandInvocation invocation, List<String> args) {
-    final path = invocation.inputs.require(output);
+    final path = invocation.valueOf(output);
     CarapaceSpecWriter(
       CarapaceSpecConverter(registryRecord),
       outputPath: path,

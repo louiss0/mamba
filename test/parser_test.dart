@@ -5,10 +5,11 @@ enum Format { text, json }
 
 Parser parser({
   List<Option>? options,
-  List<Positional>? mandatory,
+  List<MandatoryPositional>? mandatory,
+  List<DiscretionaryPositional>? discretionary,
   List<AccessorListOption>? accessors,
-  List<PairedOptions>? paired,
-  List<SelectedOptions>? selected,
+  List<PairedOptionsDefinition>? paired,
+  List<SelectedOptionsDefinition>? selected,
   Variadic? variadic,
 }) => Parser(
   CommandRegistry.create(
@@ -16,6 +17,7 @@ Parser parser({
     'Test tool.',
     options: options,
     mandatoryPositionals: mandatory,
+    discretionaryPositionals: discretionary,
     accessors: accessors,
     pairedOptions: paired,
     selectedOptions: selected,
@@ -51,7 +53,7 @@ void main() {
       expect(inputs.valueOf(count), 2);
       expect(inputs.valueOf(mode), Format.text);
       expect(inputs.valueOf(formats), [Format.json, Format.text]);
-      expect(inputs.require(source), Format.json);
+      expect(inputs.valueOf(source), Format.json);
     });
     test('keeps same-typed inputs separate and omitted values null', () {
       final first = StringOption('first');
@@ -113,7 +115,7 @@ void main() {
         parser(options: [mode])
             .parse(['--format', 'json', '--format=json'])
             .$2
-            .require(mode),
+            .valueOf(mode),
         [Format.json, Format.json],
       );
     });
@@ -157,16 +159,35 @@ void main() {
       expect(record.options!.last.unique, isNull);
     });
   });
+  group('paired options', () {
+    test('maps a complete group into one typed output', () {
+      final host = PairStringOption('host');
+      final port = PairIntOption('port');
+      final server = PairedOptions.required([
+        host,
+        port,
+      ], (values) => (host: values.valueOf(host), port: values.valueOf(port)));
+
+      final inputs = parser(paired: [server])
+          .parse(['--host', 'localhost', '--port', '8080'])
+          .$2;
+
+      expect(inputs.valueOf(server), (host: 'localhost', port: 8080));
+      expect(inputs.contains(host), isFalse);
+      expect(inputs.contains(port), isFalse);
+    });
+  });
+
   group('selected options', () {
     test('maps exactly one selected typed value', () {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
-      final selected = SelectedOptions<String>([
+      final selected = SelectedOptions.required([
         SelectableOption(json, (value) => 'json:$value'),
         SelectableOption(text, (value) => 'text:$value'),
-      ], required: true);
+      ]);
       final inputs = parser(selected: [selected]).parse(['--json', 'out']).$2;
-      expect(inputs.require(selected), 'json:out');
+      expect(inputs.valueOf(selected), 'json:out');
       expect(inputs.contains(json), isFalse);
       expect(inputs.contains(text), isFalse);
     });
@@ -183,10 +204,10 @@ void main() {
           parser(selected: [optional]).parse([]).$2.valueOf(optional),
           isNull,
         );
-        final required = SelectedOptions<String>([
+        final required = SelectedOptions.required([
           SelectableOption(first, (value) => value),
           SelectableOption(second, (value) => value),
-        ], required: true);
+        ]);
         expect(
           () => parser(selected: [required]).parse([]),
           throwsA(isA<MambaParseException>()),
@@ -206,6 +227,67 @@ void main() {
       },
     );
   });
+  test('discretionary positionals preserve nullable and defaulted outputs', () {
+    final destination = NormalPositional.optional('destination');
+    final formats = RepeatedChoicePositional.withDefault(
+      'formats',
+      choices: Format.values,
+      defaultValue: [Format.text],
+    );
+    final inputs = parser(discretionary: [destination, formats]).parse([]).$2;
+
+    expect(inputs.valueOf(destination), isNull);
+    expect(inputs.valueOf(formats), [Format.text]);
+  });
+
+  test('defaulted accessor leaves always produce values', () {
+    final format = AccessorChoiceOption.withDefault(
+      'format',
+      choices: Format.values,
+      defaultValue: Format.text,
+    );
+    final inputs = parser(
+      accessors: [
+        AccessorListOption('output', [format]),
+      ],
+    ).parse([]).$2;
+
+    expect(inputs.valueOf(format), Format.text);
+  });
+
+  test('required and defaulted options always produce values', () {
+    final name = StringOption.required('name');
+    final format = ChoiceOption.withDefault(
+      'format',
+      choices: Format.values,
+      defaultValue: Format.text,
+    );
+
+    expect(
+      () => parser(options: [name, format]).parse([]),
+      throwsA(isA<MambaParseException>()),
+    );
+    final inputs = parser(options: [name, format])
+        .parse(['--name', 'mamba'])
+        .$2;
+    expect(inputs.valueOf(name), 'mamba');
+    expect(inputs.valueOf(format), Format.text);
+  });
+
+  test(
+    'required repeatable options reject omission and return typed lists',
+    () {
+      final formats = RepeatableChoiceOption.required('format', Format.values);
+      expect(
+        () => parser(options: [formats]).parse([]),
+        throwsA(isA<MambaParseException>()),
+      );
+
+      final inputs = parser(options: [formats]).parse(['--format', 'json']).$2;
+      expect(inputs.valueOf(formats), <Format>[Format.json]);
+    },
+  );
+
   test('keeps validated -- arguments out of inputs in order', () {
     final option = StringOption('value');
     final result = parser(

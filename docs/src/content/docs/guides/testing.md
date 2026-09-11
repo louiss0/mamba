@@ -1,134 +1,91 @@
 ---
-title: Testing 
-description: Test your Commands by using the Fake Executor.
+title: Testing
+description: Test your Commands by using the fake Executor.
 sidebar:
   order: 3
 ---
 
-When it comes to testing your commands you need to use a different version of the `Executor`. 
-When you use `create` The executor that get's returned is what is called the real version. 
-When you use the `fake` method you get a test version of the executor.
+When testing commands, use the fake executor instead of the production
+executor. The production executor writes to stdout and stderr and manages
+process exit codes; the fake executor returns a `MambaExecutionResult` that
+you can assert against in tests.
 
-The `Executor` that's returned by `fake` is one that returns a `MambaExecutionResult`.
-The result could either be a `MambaSuccessResult` when a command returns the string.
-It could also be a `MambaFailureResult` when a command raises an exception.
+A `MambaSuccessResult` is returned when a command produces output or `null`.
+A `MambaFailureResult` is returned when a command or hook throws an
+`MambaException`.
 
+## Write a test
 
-All you need to do is make a file in the test folder. 
-
-Then write something like this! 
+Create a file in the `test/` folder:
 
 ```dart
 import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
 
-class Add extends Command {
+final class AddCommand extends Command {
+  AddCommand() : super(mandatoryPositionals: [word]);
+
+  static final word = NormalPositional('word');
+
   @override
-  String get name => "add";
+  String get name => 'add';
 
   @override
-  String get description => "Add something";
+  String get shortDescription => 'Add a word.';
 
-
-  Add({
-    mandatoryPositionals: [
-     NormalPositional('word')
-  ]
-  });
-
-
-  FutureOr<String> run() => "Added something"
-  
+  @override
+  String run(CommandInvocation invocation, List<String> args) {
+    final wordValue = invocation.valueOf(word);
+    return 'Added $wordValue';
+  }
 }
 
 void main() {
+  test('add command succeeds', () async {
+    final result = await Executor(
+      'my-app',
+      'This is my app.',
+      '1.0.0',
+      [AddCommand()],
+    ).fake().execute(['add', 'something']);
 
-
-  group("my-app", () {
-
-
-    group("add", (){
-      
-    final executor = Executor("my-app", "This is my app", [Add()] ).fake();
-
-
-    test("it adds", (){
-      
-        final result = executor.run('add');
-
-
-        expect(result, isA<MambaSuccessResult>().having((result)=> result.value), "value", "Added something");
-        
-    });
-
-    
-    });
-
-    
+    expect(result, isA<MambaSuccessResult>());
+    expect((result as MambaSuccessResult).output, 'Added something');
   });
-  
 }
 ```
 
-So far the test that you have written above has passed! So how do you trigger a failure? 
+## Triggering a failure
 
-To get an failure you have to! 
+To trigger a failure, either:
 
-1. Throw one manually two 
-2. Attempt to parse a command structure with an invalid argument
+1. Throw an `MambaException` from within `run`.
+2. Pass an invalid value that the parser rejects, such as omitting a required
+   input or supplying a value that fails validation.
 
-To trigger a manual failure you must use an `MambaException`. 
+### Option 1: Throw an `MambaException`
 
-Replace run with an error and a return
-
-```dart  del={1-2} ins={3-8} 
-  FutureOr<String> run() => "Added something";
-  
-  FutureOr<String> run() {
-
-  if(true) throw MambaException();
-  
-  return "Added something";
-
-  }
-```
- 
-
-To trigger a failure based on an invalid value you must! 
-
-1. Register a cli argument, flag or, option 
-2. Pass an invalid value!
-
-:::tip[Step 1: You need to now replace the error with a registered positional!]
-
-```dart  del={3}  
-  FutureOr<String> run() {
-
-  if(true) throw MambaException();
-  
-  return "Added something";
-
-  }
-```
-:::
-
-
-:::tip[Step 2: Register a mandatory positional!]
-
-```dart ins={3-10}
-@override
-String get description => "Add something";
-
-Add({
-  mandatoryPositionals: [
-   NormalPositional('word')
-]
-});
-```
-:::
-
-:::tip[Step 3: Then run the tests]
 ```dart
-dart test
+@override
+String run(CommandInvocation invocation, List<String> args) {
+  throw MambaException('Something went wrong.');
+}
 ```
-This time you should get a failure result and the test should fail!
-:::
+
+### Option 2: Trigger a parse error
+
+Register a mandatory positional and invoke the command without it:
+
+```dart
+@override
+String get name => 'add';
+
+@override
+String get shortDescription => 'Add a word.';
+
+AddCommand() : super(mandatoryPositionals: [word]);
+```
+
+Running `execute(['add'])` without a word fails before `run` is called. The
+fake executor returns a `MambaFailureResult` whose `exitCode` and `errors`
+describe the parse failure.
