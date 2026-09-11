@@ -1,4 +1,4 @@
-## Unreleased
+## 0.6.0
 
 - Command resolution now skips option values, including inherited, paired,
   selected, and accessor inputs; aliases resolve to canonical command paths.
