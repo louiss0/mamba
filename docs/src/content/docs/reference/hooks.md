@@ -3,9 +3,10 @@ title: Hooks
 description: Run lifecycle behavior around Mamba commands
 ---
 
-Hooks receive the same `CommandInvocation` as the selected command. They can
-read retained input handles through `invocation.valueOf` and access shared
-state through `invocation.context`.
+Hooks receive the same `CommandInvocation` as the selected command, so they can
+read retained input handles through `invocation.valueOf`. Context is passed to
+hook methods as a separate argument; it is not part of `CommandInvocation` and
+is not available to `Command.run`.
 
 ## Command hooks
 
@@ -16,17 +17,22 @@ its `run` method:
 final class DeployCommand extends Command with HookRunner {
   @override
   FutureOr<void> preRun(
-    ProcessedStandardInput? input,
     CommandInvocation invocation,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
   ) {}
 
   @override
-  FutureOr<void> postRun(CommandInvocation invocation) {}
+  FutureOr<void> postRun(
+    CommandInvocation invocation,
+    MambaReadContext context,
+  ) {}
 }
 ```
 
-`preRun` receives piped standard input when available. `postRun` runs only when
-the matching pre-hook completed. Eligible cleanup hooks still run after command
+Ordinary command hooks receive a read-only `MambaReadContext`. `preRun` also
+receives piped standard input when available. `postRun` runs only when the
+matching pre-hook completed. Eligible cleanup hooks still run after command
 failure.
 
 ## Persistent group hooks
@@ -40,15 +46,40 @@ final class WorkspaceCommand extends GroupCommand
   WorkspaceCommand(super.commands) : super();
 
   @override
-  FutureOr<void> prePersistentRun(CommandInvocation invocation) {}
+  FutureOr<void> prePersistentRun(
+    CommandInvocation invocation,
+    MambaContext context,
+  ) {}
 
   @override
-  FutureOr<void> postPersistentRun(CommandInvocation invocation) {}
+  FutureOr<void> postPersistentRun(
+    CommandInvocation invocation,
+    MambaContext context,
+  ) {}
 }
 ```
 
-Persistent pre-hooks run from the outermost group inward. Their matching
-post-hooks run in reverse order, so nested groups behave like wrappers.
+Persistent hooks receive the mutable `MambaContext`. Persistent pre-hooks run
+from the outermost group inward. Their matching post-hooks run in reverse
+order, so nested groups behave like wrappers.
+
+## Context
+
+`MambaContext` is an executor-scoped, identity-keyed map for state shared
+between hooks. Use one `MambaContextKey<T>` instance wherever a value is written
+or read:
+
+```dart
+final workspaceKey = MambaContextKey<String>();
+
+context.set(workspaceKey, '/workspace');
+final workspace = context.get(workspaceKey);
+```
+
+A reused executor retains its context between executions. Create a separate
+executor when state must be isolated. Applications are responsible for reading
+environment variables or configuration files and may place the resulting
+domain state in context when hooks need it.
 
 ## Failures
 
