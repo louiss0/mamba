@@ -1,4 +1,3 @@
-import 'package:mamba/command.dart';
 import 'package:mamba/registry.dart';
 
 abstract interface class HelpFormatter {
@@ -25,16 +24,22 @@ final class MambaHelpFormatter implements HelpFormatter {
     final flags = registry.applicableFlags.where((flag) => !flag.hidden);
     if (flags.isNotEmpty) {
       lines.addAll(['', 'Flags:']);
-      for (final flag in flags)
-        lines.add('  ${_spell(flag)}\t${flag.description ?? ''}');
+      for (final flag in flags) {
+        lines.add(
+          '  ${_spell(flag.name, flag.short)}\t${flag.description ?? ''}',
+        );
+      }
     }
     final options = registry.applicableOptions.where(
       (option) => !option.hidden,
     );
     if (options.isNotEmpty) {
       lines.addAll(['', 'Options:']);
-      for (final option in options)
-        lines.add('  ${_spell(option)} <value>\t${option.description ?? ''}');
+      for (final option in options) {
+        lines.add(
+          '  ${_spell(option.name, option.short)} <value>\t${option.description ?? ''}',
+        );
+      }
     }
     for (final group in registry.pairedOptionGroups) {
       lines.add(
@@ -57,9 +62,6 @@ final class MambaHelpFormatter implements HelpFormatter {
     return ' [options]$positionals';
   }
 
-  String _spell(InputDefinition input) => switch (input) {
-    Flag(:final short) || Option(:final short) || PairOption(:final short) =>
-      short == null ? '--${input.name}' : '-$short, --${input.name}',
-    _ => '--${input.name}',
-  };
+  String _spell(String name, String? short) =>
+      short == null ? '--$name' : '-$short, --$name';
 }

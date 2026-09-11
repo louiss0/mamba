@@ -250,6 +250,37 @@ Matcher matchRegistry(
 
 void main() {
   group('MambaHelpFormatter', () {
+    test('renders commands, usage, flags, and options', () {
+      final help = MambaHelpFormatter().format(
+        CommandRegistry.create(
+          'tool',
+          'Tool.',
+          commands: [TestCommand('run', 'Run the tool.')],
+          mandatoryPositionals: [NormalPositional('source')],
+          discretionaryPositionals: [NormalPositional.optional('destination')],
+          flags: [
+            BooleanFlag('verbose', short: 'v', description: 'Show details.'),
+            BooleanFlag('internal', hidden: true),
+          ],
+          options: [
+            StringOption('output', short: 'o', description: 'Output path.'),
+            StringOption('format'),
+            StringOption('secret', hidden: true),
+          ],
+        ),
+      );
+
+      expect(help, contains('  tool [options] <source> [destination]'));
+      expect(help, contains('Commands:\n  run\tRun the tool.'));
+      expect(help, contains('Flags:'));
+      expect(help, contains('  -h, --help\tShow this help message.'));
+      expect(help, contains('  -v, --verbose\tShow details.'));
+      expect(help, contains('Options:\n  -o, --output <value>\tOutput path.'));
+      expect(help, contains('  --format <value>\t'));
+      expect(help, isNot(contains('internal')));
+      expect(help, isNot(contains('secret')));
+    });
+
     test('distinguishes paired and selected option groups', () {
       final host = PairStringOption('host');
       final port = PairStringOption('port');
