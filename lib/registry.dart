@@ -127,6 +127,18 @@ final class RegistryAccessor {
   final List<RegistryAccessor>? options;
 }
 
+final class CommandResolution {
+  const CommandResolution({
+    required this.registry,
+    required this.path,
+    required this.tokenIndices,
+  });
+
+  final CommandRegistry registry;
+  final List<String> path;
+  final Set<int> tokenIndices;
+}
+
 final class MambaCommandNotFoundException extends MambaException {
   MambaCommandNotFoundException(
     String name,
@@ -296,11 +308,24 @@ final class CommandRegistry {
   }
 
   CommandRegistry withInheritedInputs() => this;
-  CommandRegistry registryForArguments(List<String> args) {
+
+  /// Resolves command tokens while skipping values owned by applicable inputs.
+  CommandResolution resolveCommandPath(List<String> args) {
     var registry = this;
+    final path = <CommandRegistry>[];
+    final indices = <int>{};
     for (var index = 0; index < args.length; index++) {
       final token = args[index];
       if (token == '--') break;
+      final ownedLength = registry.registeredInputTokenLength(token);
+      if (ownedLength != null) {
+        index += ownedLength - 1;
+        continue;
+      }
+      if (path.isEmpty && token == name) {
+        indices.add(index);
+        continue;
+      }
       final child = registry.commandRegistries
           .where(
             (candidate) =>
@@ -308,9 +333,50 @@ final class CommandRegistry {
                 candidate.commandAliases?.contains(token) == true,
           )
           .firstOrNull;
-      if (child != null) registry = child;
+      if (child != null) {
+        registry = child;
+        path.add(child);
+        indices.add(index);
+      }
     }
-    return registry;
+    return CommandResolution(
+      registry: registry,
+      path: List.unmodifiable([name, ...path.map((item) => item.name)]),
+      tokenIndices: Set.unmodifiable(indices),
+    );
+  }
+
+  CommandRegistry registryForArguments(List<String> args) =>
+      resolveCommandPath(args).registry;
+
+  List<String> canonicalCommandPath(List<String> path) {
+    if (path.isEmpty) {
+      throw MambaRegistryError('defaultCommandPath must not be empty.');
+    }
+    var registry = this;
+    final canonical = <String>[];
+    for (final segment in path) {
+      final child = registry.commandRegistries
+          .where(
+            (candidate) =>
+                candidate.name == segment ||
+                candidate.commandAliases?.contains(segment) == true,
+          )
+          .firstOrNull;
+      if (child == null) {
+        throw MambaRegistryError(
+          'Unknown default command segment $segment under ${registry.fullPath.join(' ')}.',
+        );
+      }
+      canonical.add(child.name);
+      registry = child;
+    }
+    if (registry.commandRegistries.isNotEmpty) {
+      throw MambaRegistryError(
+        'defaultCommandPath must end at an executable command.',
+      );
+    }
+    return List.unmodifiable(canonical);
   }
 
   int? registeredInputTokenLength(String token) {
@@ -490,7 +556,7 @@ final class CommandRegistry {
           ? null
           : List.unmodifiable(choice.map((item) => item.name)),
       defaultValue: switch (input) {
-        DefaultValue(:final defaultValue) => (defaultValue as Enum).name,
+        DefaultValue(:final defaultValue) => _defaultText(defaultValue),
         _ => null,
       },
       pattern: input is RegExpValidated
@@ -513,6 +579,13 @@ final class CommandRegistry {
           : null,
     );
   }
+
+  static String _defaultText(Object value) => switch (value) {
+    Enum value => value.name,
+    List values =>
+      values.map((value) => _defaultText(value as Object)).join(','),
+    _ => value.toString(),
+  };
 
   static RegistryPositional _positionalRecord(Positional input, bool required) {
     final choices = input is ChoiceValidated
@@ -579,7 +652,7 @@ final class CommandRegistry {
                 )
               : null,
           defaultValue: input is DefaultValue
-              ? ((input as DefaultValue).defaultValue as Enum).name
+              ? _defaultText((input as DefaultValue).defaultValue)
               : null,
           pattern: input is RegExpValidated
               ? (input as RegExpValidated).regex.pattern
@@ -611,17 +684,49 @@ final class CommandRegistry {
         'Option groups must contain at least one member.',
       );
     }
-    final names = <String>{};
-    for (final input in [
+    final inputs = [
       ...?flags,
       ...?options,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
         ...group.options,
       for (final group in selected ?? const <SelectedOptionsDefinition>[])
         for (final member in group.options) member.option,
-    ]) {
-      if (!_name.hasMatch(input.name) || !names.add(input.name))
+    ];
+    final names = <String>{};
+    final shorts = <String, InputDefinition>{};
+    for (final input in inputs) {
+      if (!_name.hasMatch(input.name) || !names.add(input.name)) {
         throw MambaRegistryError('Duplicate or invalid input ${input.name}');
+      }
+      final short = _shortOf(input);
+      if (short == null) continue;
+      if (!RegExp(r'^[A-Za-z0-9]$').hasMatch(short)) {
+        throw MambaRegistryError(
+          'Short alias $short for ${input.name} must be one ASCII letter or digit without a dash.',
+        );
+      }
+      final previous = shorts[short];
+      if (previous != null) {
+        throw MambaRegistryError(
+          'Short alias -$short is used by both ${previous.name} and ${input.name}.',
+        );
+      }
+      shorts[short] = input;
+    }
+    final commandNames = <String>{};
+    for (final command in commands ?? const <Command>[]) {
+      if (!_name.hasMatch(command.name) || !commandNames.add(command.name)) {
+        throw MambaRegistryError(
+          'Duplicate or invalid command ${command.name}.',
+        );
+      }
+      for (final alias in command.aliases ?? const <String>[]) {
+        if (!_name.hasMatch(alias) || !commandNames.add(alias)) {
+          throw MambaRegistryError(
+            'Duplicate or invalid command alias $alias for ${command.name}.',
+          );
+        }
+      }
     }
     final leaves = <AccessorPrimitiveOption>{};
     void visit(AccessorOption input) {
@@ -685,13 +790,7 @@ final class CommandRegistry {
     ]) {
       validateChoices(input);
     }
-    for (final input in [
-      ...?options,
-      for (final group in paired ?? const <PairedOptionsDefinition>[])
-        ...group.options,
-      for (final group in selected ?? const <SelectedOptionsDefinition>[])
-        for (final member in group.options) member.option,
-    ]) {
+    void validateNumeric(InputDefinition input) {
       if (input is NumericRangeValidated) {
         final range = input as NumericRangeValidated;
         if (range.min != null && range.max != null && range.min! > range.max!) {
@@ -700,6 +799,51 @@ final class CommandRegistry {
           );
         }
       }
+      if (input is NumericStepValidated) {
+        final stepped = input as NumericStepValidated;
+        if (stepped.step != null && stepped.step! <= 0) {
+          throw MambaRegistryError('Step must be positive for ${input.name}.');
+        }
+      }
+      if (input is DefaultValue) {
+        final defaulted = input as DefaultValue;
+        final defaults = defaulted.defaultValue is List
+            ? defaulted.defaultValue as List
+            : [defaulted.defaultValue];
+        for (final value in defaults) {
+          if (input is RegExpValidated &&
+              (value is! String ||
+                  !(input as RegExpValidated).regex.hasMatch(value))) {
+            throw MambaRegistryError(
+              'Default value is invalid for ${input.name}.',
+            );
+          }
+          if (input is NumericRangeValidated && value is num) {
+            final range = input as NumericRangeValidated;
+            final min = range.min;
+            final max = range.max;
+            if ((min != null && value < min) || (max != null && value > max)) {
+              throw MambaRegistryError(
+                'Default value is outside the range for ${input.name}.',
+              );
+            }
+          }
+        }
+      }
+      if (input is AccessorListOption) {
+        for (final child in input.options) validateNumeric(child);
+      }
+    }
+
+    for (final input in [
+      ...?options,
+      ...?accessors,
+      for (final group in paired ?? const <PairedOptionsDefinition>[])
+        ...group.options,
+      for (final group in selected ?? const <SelectedOptionsDefinition>[])
+        for (final member in group.options) member.option,
+    ]) {
+      validateNumeric(input);
     }
   }
 }

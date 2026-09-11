@@ -98,12 +98,44 @@ final class ContextWriter extends GroupCommand with PersistentHookRunner {
 
   @override
   void prePersistentRun(CommandInvocation invocation, MambaContext context) {
-    context.set(_contextValue, 'available');
+    context.set(_contextValue, const MambaContextString('available'));
   }
 
   @override
   void postPersistentRun(CommandInvocation invocation, MambaContext context) {
     expect(context.get(_contextValue), 'available');
+    context.set(_contextValue, const MambaContextString('replaced'));
+  }
+}
+
+final class RetainingContextWriter extends GroupCommand
+    with PersistentHookRunner {
+  RetainingContextWriter(super.commands) : super();
+  @override
+  String get name => 'retaining';
+  @override
+  String get shortDescription => 'Retains hook context.';
+
+  @override
+  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+    if (context.get(_contextValue) == null) {
+      context.set(_contextValue, const MambaContextString('available'));
+    }
+  }
+}
+
+final class InvalidContextWriter extends GroupCommand
+    with PersistentHookRunner {
+  InvalidContextWriter() : super([ResultCommand(<String>[])]);
+  @override
+  String get name => 'invalid';
+  @override
+  String get shortDescription => 'Writes invalid hook context.';
+
+  @override
+  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+    final dynamic rawKey = _contextValue;
+    context.set(rawKey, const MambaContextBool(true));
   }
 }
 
@@ -114,6 +146,42 @@ void main() {
     ]).fake().execute(['context', 'read']);
 
     expect(result, isA<MambaSuccessResult>());
+  });
+
+  test('persistent post-hooks can replace supported context values', () async {
+    final context = MambaContext();
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      ContextWriter([ContextReader()]),
+    ], context: context).fake().execute(['context', 'read']);
+
+    expect(result, isA<MambaSuccessResult>());
+    expect(context.get(_contextValue), 'replaced');
+  });
+
+  test('reusing an executor retains supported context values', () async {
+    final executor = Executor('tool', 'Tool.', '1.0.0', [
+      RetainingContextWriter([ContextReader()]),
+    ]).fake();
+
+    expect(
+      await executor.execute(['retaining', 'read']),
+      isA<MambaSuccessResult>(),
+    );
+    expect(
+      await executor.execute(['retaining', 'read']),
+      isA<MambaSuccessResult>(),
+    );
+  });
+
+  test('dynamic context failures are tagged with their hook phase', () async {
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      InvalidContextWriter(),
+    ]).fake().execute(['invalid', 'run']);
+
+    expect(result, isA<MambaFailureResult>());
+    final failure = result as MambaFailureResult;
+    expect(failure.errors.single.phase, MambaExecutionPhase.prePersistentRun);
+    expect(failure.errors.single.exception.message, contains('context key'));
   });
 
   test('success has zero exit code and runs eligible hooks', () async {

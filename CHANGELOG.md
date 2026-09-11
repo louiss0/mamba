@@ -1,5 +1,14 @@
 ## Unreleased
 
+- Command resolution now skips option values, including inherited, paired,
+  selected, and accessor inputs; aliases resolve to canonical command paths.
+- Added scalar and repeatable built-in option defaults, plus required/defaulted
+  accessor leaves. Explicit repeatable values replace a configured default.
+- Context writes use sealed scalar wrappers (`MambaContextString`,
+  `MambaContextBool`, `MambaContextInt`, and `MambaContextDouble`); reads now
+  return the primitive directly. Migrate `context.set(key, value)` to
+  `context.set(key, MambaContextString(value))` (or the matching wrapper).
+
 ## 0.5.0
 
 ### Breaking migration

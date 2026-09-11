@@ -20,8 +20,9 @@ final class Parser {
   final CommandRegistry _registry;
 
   ParsedArguments parse(List<String> tokens) {
-    final commandPath = _commandPath(tokens);
-    final registry = _registry.registryForArguments(tokens);
+    final resolution = _registry.resolveCommandPath(tokens);
+    final commandPath = resolution.path;
+    final registry = resolution.registry;
     final values = <InputDefinition, Object?>{};
     final positionals = <String>[];
     final trailing = <String>[];
@@ -35,7 +36,7 @@ final class Parser {
         for (final selectable in group.options) selectable.option,
     ];
     for (var index = 0; index < tokens.length; index++) {
-      if (consumed.contains(index) || _isCommandToken(tokens[index], registry))
+      if (consumed.contains(index) || resolution.tokenIndices.contains(index))
         continue;
       final token = tokens[index];
       if (token == '--') {
@@ -144,39 +145,13 @@ final class Parser {
     }
     return (
       commandPath,
-      ParsedInputs(values),
+      ParsedInputs(values, _knownInputs(registry)),
       List.unmodifiable(trailing),
       help: help,
       version: version,
     );
   }
 
-  List<String> _commandPath(List<String> tokens) {
-    final path = <String>[];
-    var current = _registry;
-    for (final token in tokens) {
-      if (token == '--') break;
-      if (token == current.name && path.isEmpty) {
-        path.add(token);
-        continue;
-      }
-      final child = current.commandRegistries
-          .where(
-            (candidate) =>
-                candidate.name == token ||
-                candidate.commandAliases?.contains(token) == true,
-          )
-          .firstOrNull;
-      if (child != null) {
-        path.add(child.name);
-        current = child;
-      }
-    }
-    return path;
-  }
-
-  bool _isCommandToken(String token, CommandRegistry registry) =>
-      token == _registry.name || registry.fullPath.skip(1).contains(token);
   (String, String?) _split(String token) {
     final index = token.indexOf('=');
     return index < 0
@@ -335,8 +310,25 @@ final class Parser {
     Map<InputDefinition, Object?> values,
   ) {
     for (final option in registry.applicableOptions) {
-      if (option.isRequired && !values.containsKey(option))
+      if (option.isRequired && !values.containsKey(option)) {
         throw MambaParseException('Option --${option.name} is required.');
+      }
+    }
+    void validateAccessor(AccessorOption option, String path) {
+      if (option is AccessorPrimitiveOption &&
+          option is RequiredInput &&
+          !values.containsKey(option)) {
+        throw MambaParseException('Option --$path is required.');
+      }
+      if (option is AccessorListOption) {
+        for (final child in option.options) {
+          validateAccessor(child, '$path.${child.name}');
+        }
+      }
+    }
+
+    for (final accessor in registry.accessors) {
+      validateAccessor(accessor, accessor.name);
     }
   }
 
@@ -478,6 +470,28 @@ final class Parser {
       current = current.options.where((item) => item.name == part).firstOrNull;
     }
     return current is AccessorPrimitiveOption ? current : null;
+  }
+
+  Iterable<InputDefinition> _knownInputs(CommandRegistry registry) sync* {
+    final known = <InputDefinition>[];
+    yield* registry.applicableFlags;
+    yield* registry.applicableOptions;
+    yield* registry.mandatoryPositionals;
+    yield* registry.discretionaryPositionals;
+    yield* registry.pairedOptionGroups;
+    yield* registry.selectedOptionGroups;
+    void visit(AccessorOption option) {
+      if (option is AccessorPrimitiveOption) {
+        // Accessor leaves are declaration handles even though their spelling is
+        // a dotted path.
+        known.add(option);
+      } else if (option is AccessorListOption) {
+        for (final child in option.options) visit(child);
+      }
+    }
+
+    for (final root in registry.accessors) visit(root);
+    yield* known;
   }
 
   String? _shortOf(InputDefinition input) => switch (input) {

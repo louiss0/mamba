@@ -65,21 +65,32 @@ order, so nested groups behave like wrappers.
 
 ## Context
 
-`MambaContext` is an executor-scoped, identity-keyed map for state shared
-between hooks. Use one `MambaContextKey<T>` instance wherever a value is written
-or read:
+`MambaContext` is an executor-scoped, identity-keyed scalar hook-state bag.
+Use one `MambaContextKey<T>` instance wherever a value is written or read. The
+key's primitive type determines which sealed wrapper can be stored, while
+`get` returns that primitive directly:
 
 ```dart
 final workspaceKey = MambaContextKey<String>();
+final verboseKey = MambaContextKey<bool>();
+final retryKey = MambaContextKey<int>();
 
-context.set(workspaceKey, '/workspace');
-final workspace = context.get(workspaceKey);
+context.set(workspaceKey, const MambaContextString('/workspace'));
+context.set(verboseKey, const MambaContextBool(true));
+context.set(retryKey, const MambaContextInt(3));
+final String? workspace = context.get(workspaceKey);
+final bool? verbose = context.get(verboseKey);
+final int? retries = context.get(retryKey);
 ```
 
-A reused executor retains its context between executions. Create a separate
-executor when state must be isolated. Applications are responsible for reading
-environment variables or configuration files and may place the resulting
-domain state in context when hooks need it.
+`MambaContextDouble` stores a `double` in the same way. Only the four built-in
+variants (`String`, `bool`, `int`, and `double`) are supported; applications
+cannot define additional variants. An unset key returns `null`, but `null`
+cannot be stored. Collections and domain objects are not supported, because
+context is not a dependency container. A reused executor retains its context
+between executions. Create a separate executor when state must be isolated.
+Applications remain responsible for reading environment variables or
+configuration files.
 
 ## Failures
 

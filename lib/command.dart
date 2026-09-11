@@ -426,9 +426,42 @@ final class StringOption extends SingleOption<String?>
     hidden: hidden,
   );
 
+  static DefaultedOption<String> withDefault(
+    String name, {
+    required String defaultValue,
+    RegExp? regex,
+    String? short,
+    String? description,
+    bool hidden = false,
+  }) => _DefaultedStringOption(
+    name,
+    defaultValue: defaultValue,
+    regex: regex,
+    short: short,
+    description: description,
+    hidden: hidden,
+  );
+
   final RegExp _regex;
   @override
   RegExp get regex => _regex;
+}
+
+final class _DefaultedStringOption extends DefaultedOption<String>
+    with RegExpValidated
+    implements DefaultValue<String> {
+  _DefaultedStringOption(
+    super.name, {
+    required this.defaultValue,
+    RegExp? regex,
+    super.short,
+    super.description,
+    super.hidden,
+  }) : regex = regex ?? RegExpValidated.anyToken;
+  @override
+  final String defaultValue;
+  @override
+  final RegExp regex;
 }
 
 sealed class RequiredOption<T> extends SingleOption<T>
@@ -486,6 +519,44 @@ final class IntOption extends SingleOption<int?>
 
   @override
   final int? min;
+  static DefaultedOption<int> withDefault(
+    String name, {
+    required int defaultValue,
+    int? min,
+    int? max,
+    String? short,
+    String? description,
+    bool hidden = false,
+  }) => _DefaultedIntOption(
+    name,
+    defaultValue: defaultValue,
+    min: min,
+    max: max,
+    short: short,
+    description: description,
+    hidden: hidden,
+  );
+
+  @override
+  final int? max;
+}
+
+final class _DefaultedIntOption extends DefaultedOption<int>
+    with NumericRangeValidated<int>
+    implements DefaultValue<int> {
+  const _DefaultedIntOption(
+    super.name, {
+    required this.defaultValue,
+    this.min,
+    this.max,
+    super.short,
+    super.description,
+    super.hidden,
+  });
+  @override
+  final int defaultValue;
+  @override
+  final int? min;
   @override
   final int? max;
 }
@@ -538,6 +609,49 @@ final class DoubleOption extends SingleOption<double?>
     hidden: hidden,
   );
 
+  @override
+  final double? min;
+  @override
+  final double? max;
+  static DefaultedOption<double> withDefault(
+    String name, {
+    required double defaultValue,
+    double? min,
+    double? max,
+    double? step,
+    String? short,
+    String? description,
+    bool hidden = false,
+  }) => _DefaultedDoubleOption(
+    name,
+    defaultValue: defaultValue,
+    min: min,
+    max: max,
+    step: step,
+    short: short,
+    description: description,
+    hidden: hidden,
+  );
+
+  @override
+  final double? step;
+}
+
+final class _DefaultedDoubleOption extends DefaultedOption<double>
+    with NumericRangeValidated<double>, NumericStepValidated
+    implements DefaultValue<double> {
+  const _DefaultedDoubleOption(
+    super.name, {
+    required this.defaultValue,
+    this.min,
+    this.max,
+    this.step,
+    super.short,
+    super.description,
+    super.hidden,
+  });
+  @override
+  final double defaultValue;
   @override
   final double? min;
   @override
@@ -690,6 +804,28 @@ sealed class RequiredRepeatableOption<T> extends Option<List<T>>
       List.unmodifiable([...?existing as List<T>?, value as T]);
 }
 
+sealed class DefaultedRepeatableOption<T> extends Option<List<T>>
+    implements
+        DefaultedInput<List<T>>,
+        RepeatableOptionDefinition,
+        DefaultValue<List<T>> {
+  DefaultedRepeatableOption(
+    super.name, {
+    required List<T> defaultValue,
+    super.short,
+    super.description,
+    super.hidden,
+  }) : defaultValue = List.unmodifiable(defaultValue);
+
+  @override
+  final List<T> defaultValue;
+  @override
+  bool get unique => false;
+  @override
+  List<T> appendValue(Object value, Object? existing) =>
+      List.unmodifiable([...?existing as List<T>?, value as T]);
+}
+
 final class RepeatableStringOption extends RepeatableOption<String>
     with RegExpValidated {
   RepeatableStringOption(
@@ -714,6 +850,37 @@ final class RepeatableStringOption extends RepeatableOption<String>
     hidden: hidden,
   );
 
+  static DefaultedRepeatableOption<String> withDefault(
+    String name, {
+    required List<String> defaultValue,
+    RegExp? regex,
+    String? short,
+    String? description,
+    bool hidden = false,
+  }) => _DefaultedRepeatableStringOption(
+    name,
+    defaultValue: defaultValue,
+    regex: regex,
+    short: short,
+    description: description,
+    hidden: hidden,
+  );
+
+  @override
+  final RegExp regex;
+}
+
+final class _DefaultedRepeatableStringOption
+    extends DefaultedRepeatableOption<String>
+    with RegExpValidated {
+  _DefaultedRepeatableStringOption(
+    super.name, {
+    required super.defaultValue,
+    RegExp? regex,
+    super.short,
+    super.description,
+    super.hidden,
+  }) : regex = regex ?? RegExpValidated.anyToken;
   @override
   final RegExp regex;
 }
@@ -760,6 +927,41 @@ final class RepeatableIntOption extends RepeatableOption<int>
     hidden: hidden,
   );
 
+  @override
+  final int? min;
+  static DefaultedRepeatableOption<int> withDefault(
+    String name, {
+    required List<int> defaultValue,
+    int? min,
+    int? max,
+    String? short,
+    String? description,
+    bool hidden = false,
+  }) => _DefaultedRepeatableIntOption(
+    name,
+    defaultValue: defaultValue,
+    min: min,
+    max: max,
+    short: short,
+    description: description,
+    hidden: hidden,
+  );
+
+  @override
+  final int? max;
+}
+
+final class _DefaultedRepeatableIntOption extends DefaultedRepeatableOption<int>
+    with NumericRangeValidated<int> {
+  _DefaultedRepeatableIntOption(
+    super.name, {
+    required super.defaultValue,
+    this.min,
+    this.max,
+    super.short,
+    super.description,
+    super.hidden,
+  });
   @override
   final int? min;
   @override
@@ -816,6 +1018,47 @@ final class RepeatableDoubleOption extends RepeatableOption<double>
   final double? min;
   @override
   final double? max;
+  static DefaultedRepeatableOption<double> withDefault(
+    String name, {
+    required List<double> defaultValue,
+    double? min,
+    double? max,
+    double? step,
+    String? short,
+    String? description,
+    bool hidden = false,
+  }) => _DefaultedRepeatableDoubleOption(
+    name,
+    defaultValue: defaultValue,
+    min: min,
+    max: max,
+    step: step,
+    short: short,
+    description: description,
+    hidden: hidden,
+  );
+
+  @override
+  final double? step;
+}
+
+final class _DefaultedRepeatableDoubleOption
+    extends DefaultedRepeatableOption<double>
+    with NumericRangeValidated<double>, NumericStepValidated {
+  _DefaultedRepeatableDoubleOption(
+    super.name, {
+    required super.defaultValue,
+    this.min,
+    this.max,
+    this.step,
+    super.short,
+    super.description,
+    super.hidden,
+  });
+  @override
+  final double? min;
+  @override
+  final double? max;
   @override
   final double? step;
 }
@@ -867,6 +1110,42 @@ final class RepeatableChoiceOption<T extends Enum> extends RepeatableOption<T>
     unique: unique,
   );
 
+  static DefaultedRepeatableOption<T> withDefault<T extends Enum>(
+    String name,
+    List<T> choices, {
+    required List<T> defaultValue,
+    String? short,
+    String? description,
+    bool hidden = false,
+    bool unique = false,
+  }) => _DefaultedRepeatableChoiceOption(
+    name,
+    choices,
+    defaultValue: defaultValue,
+    short: short,
+    description: description,
+    hidden: hidden,
+    unique: unique,
+  );
+
+  @override
+  final List<T> choices;
+  @override
+  final bool unique;
+}
+
+final class _DefaultedRepeatableChoiceOption<T extends Enum>
+    extends DefaultedRepeatableOption<T>
+    with ChoiceValidated<T> {
+  _DefaultedRepeatableChoiceOption(
+    super.name,
+    List<T> choices, {
+    required super.defaultValue,
+    super.short,
+    super.description,
+    super.hidden,
+    this.unique = false,
+  }) : choices = List.unmodifiable(choices);
   @override
   final List<T> choices;
   @override
@@ -1170,21 +1449,153 @@ final class AccessorStringOption extends AccessorPrimitiveOption<String?>
     implements OptionalInput<String> {
   AccessorStringOption(super.name, {super.description, RegExp? regex})
     : _regex = regex ?? RegExpValidated.anyToken;
+  static RequiredAccessorOption<String> required(
+    String name, {
+    RegExp? regex,
+    String? description,
+  }) => _RequiredAccessorStringOption(
+    name,
+    regex: regex,
+    description: description,
+  );
+
+  static DefaultedAccessorOption<String> withDefault(
+    String name, {
+    required String defaultValue,
+    RegExp? regex,
+    String? description,
+  }) => _DefaultedAccessorStringOption(
+    name,
+    defaultValue: defaultValue,
+    regex: regex,
+    description: description,
+  );
+
   final RegExp _regex;
   @override
   RegExp get regex => _regex;
 }
 
+sealed class RequiredAccessorOption<T> extends AccessorPrimitiveOption<T>
+    implements RequiredInput<T> {
+  const RequiredAccessorOption(super.name, {super.description});
+}
+
+final class _RequiredAccessorStringOption extends RequiredAccessorOption<String>
+    with RegExpValidated {
+  _RequiredAccessorStringOption(super.name, {RegExp? regex, super.description})
+    : regex = regex ?? RegExpValidated.anyToken;
+  @override
+  final RegExp regex;
+}
+
+final class _DefaultedAccessorStringOption
+    extends DefaultedAccessorOption<String>
+    with RegExpValidated
+    implements DefaultValue<String> {
+  _DefaultedAccessorStringOption(
+    super.name, {
+    required this.defaultValue,
+    RegExp? regex,
+    super.description,
+  }) : regex = regex ?? RegExpValidated.anyToken;
+  @override
+  final String defaultValue;
+  @override
+  final RegExp regex;
+}
+
 final class AccessorIntOption extends AccessorPrimitiveOption<int?>
     implements OptionalInput<int> {
   const AccessorIntOption(super.name, {super.description});
+  static RequiredAccessorOption<int> required(
+    String name, {
+    String? description,
+  }) => _RequiredAccessorIntOption(name, description: description);
+  static DefaultedAccessorOption<int> withDefault(
+    String name, {
+    required int defaultValue,
+    String? description,
+  }) => _DefaultedAccessorIntOption(
+    name,
+    defaultValue: defaultValue,
+    description: description,
+  );
   RegExp get regex => RegExp(r'[+-]?\d+');
+}
+
+final class _RequiredAccessorIntOption extends RequiredAccessorOption<int>
+    with NumericRangeValidated<int> {
+  const _RequiredAccessorIntOption(super.name, {super.description});
+  @override
+  int? get min => null;
+  @override
+  int? get max => null;
+}
+
+final class _DefaultedAccessorIntOption extends DefaultedAccessorOption<int>
+    with NumericRangeValidated<int>
+    implements DefaultValue<int> {
+  const _DefaultedAccessorIntOption(
+    super.name, {
+    required this.defaultValue,
+    super.description,
+  });
+  @override
+  final int defaultValue;
+  @override
+  int? get min => null;
+  @override
+  int? get max => null;
 }
 
 final class AccessorDoubleOption extends AccessorPrimitiveOption<double?>
     implements OptionalInput<double> {
   const AccessorDoubleOption(super.name, {super.description});
+  static RequiredAccessorOption<double> required(
+    String name, {
+    String? description,
+  }) => _RequiredAccessorDoubleOption(name, description: description);
+  static DefaultedAccessorOption<double> withDefault(
+    String name, {
+    required double defaultValue,
+    String? description,
+  }) => _DefaultedAccessorDoubleOption(
+    name,
+    defaultValue: defaultValue,
+    description: description,
+  );
   RegExp get regex => RegExp(r'[+-]?(?:\d+\.\d+|\d+)');
+}
+
+final class _RequiredAccessorDoubleOption extends RequiredAccessorOption<double>
+    with NumericRangeValidated<double>, NumericStepValidated {
+  const _RequiredAccessorDoubleOption(super.name, {super.description});
+  @override
+  double? get min => null;
+  @override
+  double? get max => null;
+  @override
+  double? get step => null;
+}
+
+final class _DefaultedAccessorDoubleOption
+    extends DefaultedAccessorOption<double>
+    with NumericRangeValidated<double>, NumericStepValidated
+    implements DefaultValue<double> {
+  const _DefaultedAccessorDoubleOption(
+    super.name, {
+    required this.defaultValue,
+    super.description,
+  });
+  @override
+  final double defaultValue;
+  @override
+  double? get min => null;
+  @override
+  double? get max => null;
+  @override
+  double? get step => null;
 }
 
 sealed class DefaultedAccessorOption<T> extends AccessorPrimitiveOption<T>
@@ -1202,6 +1613,16 @@ final class AccessorChoiceOption<T extends Enum>
     super.description,
   }) : choices = List.unmodifiable(choices);
 
+  static RequiredAccessorOption<T> required<T extends Enum>(
+    String name, {
+    required List<T> choices,
+    String? description,
+  }) => _RequiredAccessorChoiceOption(
+    name,
+    choices: choices,
+    description: description,
+  );
+
   static DefaultedAccessorOption<T> withDefault<T extends Enum>(
     String name, {
     required List<T> choices,
@@ -1214,6 +1635,18 @@ final class AccessorChoiceOption<T extends Enum>
     description: description,
   );
 
+  @override
+  final List<T> choices;
+}
+
+final class _RequiredAccessorChoiceOption<T extends Enum>
+    extends RequiredAccessorOption<T>
+    with ChoiceValidated<T> {
+  _RequiredAccessorChoiceOption(
+    super.name, {
+    required List<T> choices,
+    super.description,
+  }) : choices = List.unmodifiable(choices);
   @override
   final List<T> choices;
 }
@@ -1236,10 +1669,19 @@ final class _DefaultedAccessorChoiceOption<T extends Enum>
 }
 
 final class ParsedInputs {
-  ParsedInputs(Map<InputDefinition, Object?> values)
-    : _values = Map.unmodifiable(values);
+  ParsedInputs(
+    Map<InputDefinition, Object?> values,
+    Iterable<InputDefinition> known,
+  ) : _values = Map.unmodifiable(values),
+      _known = Set.unmodifiable(known);
+
   final Map<InputDefinition, Object?> _values;
+  final Set<InputDefinition> _known;
+
   T valueOf<T>(Input<T> input) {
+    if (!_known.contains(input)) {
+      throw StateError('Unknown input declaration --${input.name}.');
+    }
     if (!_values.containsKey(input) && null is! T) {
       throw StateError('Parser omitted non-null input --${input.name}.');
     }

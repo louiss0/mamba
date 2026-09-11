@@ -98,6 +98,13 @@ dart run bin/hello.dart --help
 
 ### Define commands and inputs
 
+Scalar options can supply typed defaults with `StringOption.withDefault`,
+`IntOption.withDefault`, and `DoubleOption.withDefault`. Repeatable defaults
+are immutable lists and are replaced, rather than extended, by explicit input.
+Accessor leaves also offer `required` and `withDefault` constructors. Command
+resolution always skips an option's value, so a value equal to a command name
+cannot select that command.
+
 A command declares its syntax in its constructor and receives parsed values in
 `run`:
 
@@ -197,8 +204,12 @@ final class RemoteCommand extends GroupCommand {
 
 Mix `HookRunner` into a command for pre- and post-execution work. Mix
 `PersistentHookRunner` into a group to run hooks around descendant commands.
-`MambaContext` provides typed, executor-scoped state that persistent hooks can
-share and mutate.
+`MambaContext` is a typed, executor-scoped scalar state bag that persistent
+hooks can share and mutate. Keys use `String`, `bool`, `int`, or `double`; write
+with the matching sealed wrapper (such as `MambaContextString`) and read the
+primitive directly. Context is hook state, not a dependency container, so
+collections and domain objects are unsupported. Environment variables and
+configuration files remain application responsibilities.
 
 ### Shell completions
 

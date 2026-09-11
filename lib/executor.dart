@@ -94,7 +94,7 @@ final class Executor {
     List<Flag>? flags,
     List<Option>? options,
     List<SelectedOptionsDefinition>? selectedOptions,
-    this.defaultCommandPath,
+    List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
   }) : _version = _validateVersion(version),
@@ -102,7 +102,10 @@ final class Executor {
        accessors = List.unmodifiable(accessors ?? const []),
        flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
-       selectedOptions = List.unmodifiable(selectedOptions ?? const []);
+       selectedOptions = List.unmodifiable(selectedOptions ?? const []),
+       defaultCommandPath = defaultCommandPath == null
+           ? null
+           : List.unmodifiable(defaultCommandPath);
   final String name;
   final String shortDescription;
   final String _version;
@@ -171,7 +174,14 @@ final class _Execution {
         selectedOptions: executor.selectedOptions,
         accessors: executor.accessors,
         commands: executor.commands,
-      ) {
+      ),
+      _defaultCommandPath = executor.defaultCommandPath == null
+          ? null
+          : CommandRegistry.create(
+              executor.name,
+              executor.shortDescription,
+              commands: executor.commands,
+            ).canonicalCommandPath(executor.defaultCommandPath!) {
     _assignCompletion(commands, _registry.toMap());
   }
   final HelpFormatter _help;
@@ -179,12 +189,13 @@ final class _Execution {
   final String _version;
   final List<Command> commands;
   final CommandRegistry _registry;
+  final List<String>? _defaultCommandPath;
   Future<MambaExecutionResult> execute(List<String> args) async {
     final registry = _registry.registryForArguments(args);
     ParsedArguments parsed;
     try {
       parsed = Parser(_registry).parse(args);
-    } on Exception catch (error, trace) {
+    } on Object catch (error, trace) {
       return _failure(
         MambaExecutionPhase.parse,
         error,
@@ -192,8 +203,12 @@ final class _Execution {
         registry.fullPath,
       );
     }
-    final path = parsed.$1;
-    final errorPath = registry.fullPath;
+    final path = args.isEmpty && _defaultCommandPath != null
+        ? [_registry.name, ..._defaultCommandPath]
+        : parsed.$1;
+    final errorPath = args.isEmpty && _defaultCommandPath != null
+        ? path
+        : registry.fullPath;
     if (parsed.version)
       return MambaSuccessResult(
         parsed.help
@@ -214,7 +229,7 @@ final class _Execution {
         try {
           await candidate.prePersistentRun(invocation, _context);
           persistent.add(candidate);
-        } on Exception catch (error, trace) {
+        } on Object catch (error, trace) {
           errors.add(
             _error(
               MambaExecutionPhase.prePersistentRun,
@@ -231,7 +246,7 @@ final class _Execution {
       try {
         await command.preRun(invocation, readContext, await _readInput());
         ordinary = command;
-      } on Exception catch (error, trace) {
+      } on Object catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.preRun, error, trace, errorPath));
       }
     }
@@ -239,14 +254,14 @@ final class _Execution {
     if (errors.isEmpty) {
       try {
         output = await command.run(invocation, parsed.$3);
-      } on Exception catch (error, trace) {
+      } on Object catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.run, error, trace, errorPath));
       }
     }
     if (ordinary != null) {
       try {
         await ordinary.postRun(invocation, readContext);
-      } on Exception catch (error, trace) {
+      } on Object catch (error, trace) {
         errors.add(
           _error(MambaExecutionPhase.postRun, error, trace, errorPath),
         );
@@ -255,7 +270,7 @@ final class _Execution {
     for (final hook in persistent.reversed) {
       try {
         await hook.postPersistentRun(invocation, _context);
-      } on Exception catch (error, trace) {
+      } on Object catch (error, trace) {
         errors.add(
           _error(
             MambaExecutionPhase.postPersistentRun,
@@ -276,7 +291,7 @@ final class _Execution {
 
   MambaFailureResult _failure(
     MambaExecutionPhase phase,
-    Exception exception,
+    Object exception,
     StackTrace trace,
     List<String> path,
   ) {
@@ -289,7 +304,7 @@ final class _Execution {
 
   MambaExecutionError _error(
     MambaExecutionPhase phase,
-    Exception exception,
+    Object exception,
     StackTrace trace,
     List<String> path,
   ) => MambaExecutionError(

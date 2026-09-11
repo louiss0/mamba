@@ -231,16 +231,16 @@ final String? workspace = context.get(workspaceKey);
 - [x] Use primitive types as `MambaContextKey<T>` type arguments.
 - [x] Make `set` accept a `MambaContextValue<T>` matching the key's primitive.
 - [x] Make `get` return `T?` directly rather than returning the wrapper.
-- [ ] Confirm the exported base name `MambaContextValue<T>`.
+- [x] Confirm the exported base name `MambaContextValue<T>`.
 - [x] Name variants `MambaContextString`, `MambaContextBool`,
   `MambaContextInt`, and `MambaContextDouble`.
-- [ ] Make the base class `sealed` so applications cannot add variants.
-- [ ] Make every variant `final` and immutable.
-- [ ] Give every variant a `const` constructor.
-- [ ] Store the wrapped scalar in a final `value` field.
-- [ ] Decide whether variants use value equality; default to identity unless a
+- [x] Make the base class `sealed` so applications cannot add variants.
+- [x] Make every variant `final` and immutable.
+- [x] Give every variant a `const` constructor.
+- [x] Store the wrapped scalar in a final `value` field.
+- [x] Decide whether variants use value equality; default to identity unless a
   concrete hook-state use case needs value equality.
-- [ ] Treat every `double`, including non-finite values, as supported scalar state
+- [x] Treat every `double`, including non-finite values, as supported scalar state
   unless a concrete serialization requirement is introduced.
 
 ---
@@ -251,29 +251,29 @@ Add analyzer fixtures before changing `lib/context.dart`.
 
 ### Accepted code
 
-- [ ] A `MambaContextKey<String>` accepts `MambaContextString`.
-- [ ] A `MambaContextKey<bool>` accepts `MambaContextBool`.
-- [ ] A `MambaContextKey<int>` accepts `MambaContextInt`.
-- [ ] A `MambaContextKey<double>` accepts `MambaContextDouble`.
-- [ ] `get` returns `String?` for a string key.
-- [ ] `get` returns `bool?` for a boolean key.
-- [ ] `get` returns `int?` for an integer key.
-- [ ] `get` returns `double?` for a double key.
+- [x] A `MambaContextKey<String>` accepts `MambaContextString`.
+- [x] A `MambaContextKey<bool>` accepts `MambaContextBool`.
+- [x] A `MambaContextKey<int>` accepts `MambaContextInt`.
+- [x] A `MambaContextKey<double>` accepts `MambaContextDouble`.
+- [x] `get` returns `String?` for a string key.
+- [x] `get` returns `bool?` for a boolean key.
+- [x] `get` returns `int?` for an integer key.
+- [x] `get` returns `double?` for a double key.
 
 ### Rejected code
 
-- [ ] An application cannot extend `MambaContextValue` outside the Mamba library.
-- [ ] A string key cannot accept `MambaContextBool`.
-- [ ] An integer key cannot accept `MambaContextDouble`.
-- [ ] A primitive value cannot be passed directly to `set`.
-- [ ] An enum cannot be passed directly to `set`.
-- [ ] A record cannot be passed directly to `set`.
-- [ ] A list cannot be passed directly to `set`.
-- [ ] A map cannot be passed directly to `set`.
-- [ ] An application-owned object cannot be passed directly to `set`.
-- [ ] An application cannot construct a context-value wrapper for an unsupported
+- [x] An application cannot extend `MambaContextValue` outside the Mamba library.
+- [x] A string key cannot accept `MambaContextBool`.
+- [x] An integer key cannot accept `MambaContextDouble`.
+- [x] A primitive value cannot be passed directly to `set`.
+- [x] An enum cannot be passed directly to `set`.
+- [x] A record cannot be passed directly to `set`.
+- [x] A list cannot be passed directly to `set`.
+- [x] A map cannot be passed directly to `set`.
+- [x] An application-owned object cannot be passed directly to `set`.
+- [x] An application cannot construct a context-value wrapper for an unsupported
   key type.
-- [ ] `null` cannot be passed to `set`.
+- [x] `null` cannot be passed to `set`.
 
 ---
 
@@ -283,129 +283,129 @@ Add these tests to `test/context_test.dart` before implementation.
 
 ### Supported values
 
-- [ ] Store and retrieve an empty string.
-- [ ] Store and retrieve a non-empty string.
-- [ ] Store and retrieve `true`.
-- [ ] Store and retrieve `false`.
-- [ ] Store and retrieve a negative integer.
-- [ ] Store and retrieve zero.
-- [ ] Store and retrieve a positive integer.
-- [ ] Store and retrieve a finite double.
-- [ ] Store and retrieve `double.nan`.
-- [ ] Store and retrieve positive and negative infinity.
-- [ ] Replace a value through the same key.
-- [ ] Keep two keys of the same primitive type separate by identity.
-- [ ] Return the stored primitive directly from `get`.
-- [ ] Return `null` when a supported key has no stored value.
+- [x] Store and retrieve an empty string.
+- [x] Store and retrieve a non-empty string.
+- [x] Store and retrieve `true`.
+- [x] Store and retrieve `false`.
+- [x] Store and retrieve a negative integer.
+- [x] Store and retrieve zero.
+- [x] Store and retrieve a positive integer.
+- [x] Store and retrieve a finite double.
+- [x] Store and retrieve `double.nan`.
+- [x] Store and retrieve positive and negative infinity.
+- [x] Replace a value through the same key.
+- [x] Keep two keys of the same primitive type separate by identity.
+- [x] Return the stored primitive directly from `get`.
+- [x] Return `null` when a supported key has no stored value.
 
 ### Runtime escape hatches
 
 Static types are authoritative, but dynamic calls must not silently place an
 unsupported object in the private map.
 
-- [ ] Passing an unsupported object through `dynamic` fails.
-- [ ] Passing a raw key through `dynamic` cannot store an unsupported value.
-- [ ] A failed dynamic write leaves an existing valid value unchanged.
-- [ ] The dynamic failure occurs before the backing map is mutated.
+- [x] Passing an unsupported object through `dynamic` fails.
+- [x] Passing a raw key through `dynamic` cannot store an unsupported value.
+- [x] A failed dynamic write leaves an existing valid value unchanged.
+- [x] The dynamic failure occurs before the backing map is mutated.
 
 ### Hook lifecycle
 
-- [ ] A persistent pre-hook stores a supported wrapper.
-- [ ] An ordinary pre-hook reads the primitive directly.
-- [ ] An ordinary post-hook reads the primitive directly.
-- [ ] A persistent post-hook replaces a supported wrapper.
-- [ ] A dynamically attempted unsupported write becomes a phase-tagged hook
+- [x] A persistent pre-hook stores a supported wrapper.
+- [x] An ordinary pre-hook reads the primitive directly.
+- [x] An ordinary post-hook reads the primitive directly.
+- [x] A persistent post-hook replaces a supported wrapper.
+- [x] A dynamically attempted unsupported write becomes a phase-tagged hook
   failure.
-- [ ] Reusing an executor retains a supported wrapped value between executions.
+- [x] Reusing an executor retains a supported wrapped value between executions.
 
 ---
 
 ## 4. Implement the sealed hierarchy
 
-- [ ] Add the sealed generic context-value base in `lib/context.dart`.
-- [ ] Add the string variant.
-- [ ] Add the boolean variant.
-- [ ] Add the integer variant.
-- [ ] Add the double variant.
-- [ ] Keep `MambaContextKey<T>` typed by the extracted primitive.
-- [ ] Restrict the private backing map to context-value wrappers.
-- [ ] Restrict `MambaContext.set` to a key and `MambaContextValue<T>` with
+- [x] Add the sealed generic context-value base in `lib/context.dart`.
+- [x] Add the string variant.
+- [x] Add the boolean variant.
+- [x] Add the integer variant.
+- [x] Add the double variant.
+- [x] Keep `MambaContextKey<T>` typed by the extracted primitive.
+- [x] Restrict the private backing map to context-value wrappers.
+- [x] Restrict `MambaContext.set` to a key and `MambaContextValue<T>` with
   matching primitive types.
-- [ ] Extract the wrapper's primitive only inside `get`.
-- [ ] Keep state mutation adjacent to the private map declaration.
-- [ ] Return `T?` directly from `MambaContext.get`.
-- [ ] Return `T?` directly from `MambaReadContext.get`.
-- [ ] Ensure dynamic misuse cannot bypass the public parameter checks.
-- [ ] Keep the backing map private.
-- [ ] Keep key lookup identity-based.
-- [ ] Do not add string-keyed lookup.
-- [ ] Do not add implicit conversion from arbitrary objects.
-- [ ] Do not add environment or configuration loading.
-- [ ] Do not expose context through `CommandInvocation` or `Command.run`.
+- [x] Extract the wrapper's primitive only inside `get`.
+- [x] Keep state mutation adjacent to the private map declaration.
+- [x] Return `T?` directly from `MambaContext.get`.
+- [x] Return `T?` directly from `MambaReadContext.get`.
+- [x] Ensure dynamic misuse cannot bypass the public parameter checks.
+- [x] Keep the backing map private.
+- [x] Keep key lookup identity-based.
+- [x] Do not add string-keyed lookup.
+- [x] Do not add implicit conversion from arbitrary objects.
+- [x] Do not add environment or configuration loading.
+- [x] Do not expose context through `CommandInvocation` or `Command.run`.
 
 ---
 
 ## 5. Migrate repository consumers
 
-- [ ] Wrap the string passed to `set` in `test/context_test.dart` with
+- [x] Wrap the string passed to `set` in `test/context_test.dart` with
   `MambaContextString`.
-- [ ] Keep that test's key typed as `MambaContextKey<String>`.
-- [ ] Replace executor hook writes with the appropriate context wrappers.
-- [ ] Search `lib`, `test`, `example`, and `fixtures` for every context write.
-- [ ] Keep context keys typed by their primitive output.
-- [ ] Remove `.value` access from context reads because `get` unwraps values.
-- [ ] Use wrappers only at context write boundaries.
-- [ ] Verify no command starts receiving context during migration.
+- [x] Keep that test's key typed as `MambaContextKey<String>`.
+- [x] Replace executor hook writes with the appropriate context wrappers.
+- [x] Search `lib`, `test`, `example`, and `fixtures` for every context write.
+- [x] Keep context keys typed by their primitive output.
+- [x] Remove `.value` access from context reads because `get` unwraps values.
+- [x] Use wrappers only at context write boundaries.
+- [x] Verify no command starts receiving context during migration.
 
 ---
 
 ## 6. Update public documentation
 
-- [ ] Document the sealed hierarchy in `lib/context.dart`.
-- [ ] Document each variant and its wrapped Dart type.
-- [ ] Document that applications cannot define additional variants.
-- [ ] Document that an unset key returns `null` but `null` cannot be stored.
-- [ ] Document that context is a scalar hook-state bag, not a dependency
+- [x] Document the sealed hierarchy in `lib/context.dart`.
+- [x] Document each variant and its wrapped Dart type.
+- [x] Document that applications cannot define additional variants.
+- [x] Document that an unset key returns `null` but `null` cannot be stored.
+- [x] Document that context is a scalar hook-state bag, not a dependency
   container.
-- [ ] Document that environment and configuration loading remain application
+- [x] Document that environment and configuration loading remain application
   responsibilities.
-- [ ] Update the hooks reference string example to use `MambaContextString` when
+- [x] Update the hooks reference string example to use `MambaContextString` when
   writing and a direct `String?` when reading.
-- [ ] Add one boolean and one numeric hook-state example.
-- [ ] Add a caution showing that collections and domain objects are unsupported.
-- [ ] Update `README.md` context wording.
-- [ ] Add the breaking API change and migration snippet to `CHANGELOG.md`.
-- [ ] Keep the backlog and public context documentation aligned with the closed
+- [x] Add one boolean and one numeric hook-state example.
+- [x] Add a caution showing that collections and domain objects are unsupported.
+- [x] Update `README.md` context wording.
+- [x] Add the breaking API change and migration snippet to `CHANGELOG.md`.
+- [x] Keep the backlog and public context documentation aligned with the closed
   scalar hierarchy.
 
 ---
 
 ## 7. Quality gate
 
-- [ ] Run `dart format .`.
-- [ ] Run `dart analyze --fatal-infos`.
-- [ ] Run the context analyzer fixtures.
-- [ ] Run `dart test test/context_test.dart`.
-- [ ] Run `dart test test/executor_test.dart`.
-- [ ] Run the complete `dart test` suite.
-- [ ] Run `git diff --check`.
-- [ ] Confirm no parser, registry, help, or completion behavior changed.
+- [x] Run `dart format .`.
+- [x] Run `dart analyze --fatal-infos`.
+- [x] Run the context analyzer fixtures.
+- [x] Run `dart test test/context_test.dart`.
+- [x] Run `dart test test/executor_test.dart`.
+- [x] Run the complete `dart test` suite.
+- [x] Run `git diff --check`.
+- [x] Confirm no parser, registry, help, or completion behavior changed.
 
 ---
 
 ## Completion criteria
 
-- [ ] Every stored context value belongs to the sealed framework hierarchy.
-- [ ] Only string, boolean, integer, and double variants exist.
-- [ ] Application code cannot add another variant.
-- [ ] Unsupported writes fail static analysis.
-- [ ] `get` returns the primitive directly with the key's static type.
-- [ ] Dynamic misuse cannot mutate context state.
-- [ ] Typed identity-key lookup remains intact.
-- [ ] Mutable and read-only hook access remains intact.
-- [ ] Executor-scoped persistence remains intact.
-- [ ] Public documentation explains the restriction and migration.
-- [ ] All quality-gate commands pass.
+- [x] Every stored context value belongs to the sealed framework hierarchy.
+- [x] Only string, boolean, integer, and double variants exist.
+- [x] Application code cannot add another variant.
+- [x] Unsupported writes fail static analysis.
+- [x] `get` returns the primitive directly with the key's static type.
+- [x] Dynamic misuse cannot mutate context state.
+- [x] Typed identity-key lookup remains intact.
+- [x] Mutable and read-only hook access remains intact.
+- [x] Executor-scoped persistence remains intact.
+- [x] Public documentation explains the restriction and migration.
+- [x] All quality-gate commands pass.
 
 ---
 
