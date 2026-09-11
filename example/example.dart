@@ -178,11 +178,7 @@ final class CreateTaskCommand extends Command {
   String get shortDescription => 'Create a task.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final task = store.add(
       _validatedText('title', invocation.valueOf(title)),
       _validatedText('description', invocation.valueOf(description)),
@@ -213,11 +209,7 @@ final class ListTaskCommand extends Command {
       'List tasks, optionally filtered by completion.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final statusValue = invocation.valueOf(status);
     final tasks = store.readAll().where((task) {
       return switch (statusValue) {
@@ -254,11 +246,7 @@ final class ReadTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Read one task.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final task = store.find(_taskId(invocation, TaskIdCommand.id));
     if (task == null) throw MambaException('Task not found.');
     return '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title}\n${task.description}';
@@ -299,11 +287,7 @@ final class UpdateTaskCommand extends Command {
   String get shortDescription => 'Update a task.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final idValue = _taskId(invocation, id);
     final changesValue = invocation.valueOf(changes);
     store.update(
@@ -327,11 +311,7 @@ final class DeleteTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Delete a task.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final id = _taskId(invocation, TaskIdCommand.id);
     store.delete(id);
     return 'Deleted task $id.';
@@ -377,11 +357,7 @@ final class ExportTasksCommand extends Command {
   String get shortDescription => 'Export every task.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final export = invocation.valueOf(output);
     final content = switch (export) {
       JsonTaskExport() => JsonEncoder.withIndent(
@@ -407,11 +383,7 @@ final class CompleteTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Mark a task as completed.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final id = _taskId(invocation, TaskIdCommand.id);
     store.setCompleted(id, true);
     return 'Completed task $id.';
@@ -430,11 +402,7 @@ final class ReopenTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Mark a task as pending.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final id = _taskId(invocation, TaskIdCommand.id);
     store.setCompleted(id, false);
     return 'Reopened task $id.';
@@ -456,11 +424,7 @@ final class CompletionTaskCommand extends CompletionCommand {
   String get shortDescription => 'Generate the Carapace completion spec.';
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     final path = invocation.valueOf(output);
     CarapaceSpecWriter(
       CarapaceSpecConverter(registryRecord),

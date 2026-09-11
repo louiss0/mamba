@@ -229,7 +229,7 @@ final class _Execution {
     }
     if (errors.isEmpty && command is HookRunner) {
       try {
-        await command.preRun(invocation, readContext);
+        await command.preRun(invocation, readContext, await _readInput());
         ordinary = command;
       } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.preRun, error, trace, errorPath));
@@ -238,7 +238,7 @@ final class _Execution {
     String? output;
     if (errors.isEmpty) {
       try {
-        output = await command.run(invocation, parsed.$3, await _readInput());
+        output = await command.run(invocation, parsed.$3);
       } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.run, error, trace, errorPath));
       }

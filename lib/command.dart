@@ -1288,11 +1288,7 @@ abstract class Command {
        accessors = _copyList(accessors);
   String get name;
   String get shortDescription;
-  FutureOr<String?> run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  );
+  FutureOr<String?> run(CommandInvocation invocation, List<String> args);
 }
 
 abstract class GroupCommand extends Command {
@@ -1332,7 +1328,6 @@ abstract class GroupCommand extends Command {
     List<String> path,
     CommandInvocation invocation,
     List<String> args,
-    ProcessedStandardInput? input,
   ) async {
     if (path.isEmpty || path.contains(name))
       throw ArgumentError.value(path, 'path');
@@ -1350,17 +1345,13 @@ abstract class GroupCommand extends Command {
         throw MambaException('command not found in $name ${path.join(' ')}');
       children = current is GroupCommand ? current.commands : null;
     }
-    return current!.run(invocation, args, input);
+    return current!.run(invocation, args);
   }
 
   @override
-  FutureOr<String?> run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  FutureOr<String?> run(CommandInvocation invocation, List<String> args) {
     final path = defaultSubCommandPath;
-    return path == null ? '' : runChildCommand(path, invocation, args, input);
+    return path == null ? '' : runChildCommand(path, invocation, args);
   }
 }
 
@@ -1394,11 +1385,7 @@ class CompletionCommand extends Command {
          discretionaryPositionals: [pathInput],
        );
   @override
-  String? run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String? run(CommandInvocation invocation, List<String> args) {
     final shell = invocation.valueOf(shellInput);
     final path = invocation.valueOf(pathInput) ?? '';
     final extension = _extensionFor(shell);
@@ -1445,7 +1432,11 @@ final class ProcessedStandardInput {
 }
 
 mixin HookRunner on Command {
-  FutureOr<void> preRun(CommandInvocation invocation, MambaReadContext context);
+  FutureOr<void> preRun(
+    CommandInvocation invocation,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
+  );
   FutureOr<void> postRun(
     CommandInvocation invocation,
     MambaReadContext context,

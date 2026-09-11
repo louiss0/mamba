@@ -13,17 +13,17 @@ final class ResultCommand extends Command with HookRunner {
   @override
   String get shortDescription => 'Runs.';
   @override
-  void preRun(CommandInvocation invocation, MambaReadContext context) {
+  void preRun(
+    CommandInvocation invocation,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
+  ) {
     events.add('pre');
     expect(invocation.valueOf(enabled), isA<bool>());
   }
 
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) {
+  String run(CommandInvocation invocation, List<String> args) {
     events.add('run');
     if (failRun) throw MambaException('run failed', exitCode: 7);
     return 'output';
@@ -72,7 +72,11 @@ final class ContextReader extends Command with HookRunner {
   String get shortDescription => 'Reads hook context.';
 
   @override
-  void preRun(CommandInvocation invocation, MambaReadContext context) {
+  void preRun(
+    CommandInvocation invocation,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
+  ) {
     expect(context.get(_contextValue), 'available');
   }
 
@@ -82,11 +86,7 @@ final class ContextReader extends Command with HookRunner {
   }
 
   @override
-  String? run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) => null;
+  String? run(CommandInvocation invocation, List<String> args) => null;
 }
 
 final class ContextWriter extends GroupCommand with PersistentHookRunner {

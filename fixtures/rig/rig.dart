@@ -11,9 +11,6 @@ final class RigCommand extends Command {
   @override
   String get shortDescription => 'Completion fixture.';
   @override
-  String run(
-    CommandInvocation invocation,
-    List<String> args,
-    ProcessedStandardInput? input,
-  ) => invocation.valueOf(format).name;
+  String run(CommandInvocation invocation, List<String> args) =>
+      invocation.valueOf(format).name;
 }
