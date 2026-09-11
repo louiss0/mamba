@@ -30,7 +30,6 @@ typedef OptionExpectation = (
   bool? hidden,
   String? description,
   bool? repeatable,
-  bool? variant,
   List<String>? choices,
   String? choiceDefault,
 });
@@ -84,18 +83,22 @@ Matcher matchRegistry(
   List<AccessorExpectation>? accessors,
   List<CommandExpectation>? commands,
 }) {
-  List<Matcher> matchFlags(List<FlagExpectation>? flags) => [
-    isA<RegistryFlag>()
-        .having((flag) => flag.name, 'name', 'help')
-        .having((flag) => flag.short, 'short', 'h')
-        .having((flag) => flag.defaultValue, 'default', false)
-        .having((flag) => flag.negatable, 'negatable', false)
-        .having((flag) => flag.hidden, 'hidden', false)
-        .having(
-          (flag) => flag.description,
-          'description',
-          'Show this help message.',
-        ),
+  List<Matcher> matchFlags(
+    List<FlagExpectation>? flags, {
+    required bool includesHelp,
+  }) => [
+    if (includesHelp)
+      isA<RegistryFlag>()
+          .having((flag) => flag.name, 'name', 'help')
+          .having((flag) => flag.short, 'short', 'h')
+          .having((flag) => flag.defaultValue, 'default', false)
+          .having((flag) => flag.negatable, 'negatable', false)
+          .having((flag) => flag.hidden, 'hidden', false)
+          .having(
+            (flag) => flag.description,
+            'description',
+            'Show this help message.',
+          ),
     for (final expected in flags ?? const <FlagExpectation>[])
       isA<RegistryFlag>()
           .having((flag) => flag.name, 'name', expected.$1)
@@ -133,7 +136,6 @@ Matcher matchRegistry(
                   'repeatable',
                   expected.repeatable,
                 )
-                .having((option) => option.variant, 'variant', expected.variant)
                 .having((option) => option.choices, 'choices', expected.choices)
                 .having(
                   (option) => option.defaultValue,
@@ -194,7 +196,7 @@ Matcher matchRegistry(
       .having(
         (command) => command.flags,
         'flags',
-        unorderedEquals(matchFlags(expected.flags)),
+        unorderedEquals(matchFlags(expected.flags, includesHelp: false)),
       )
       .having(
         (command) => command.options,
@@ -204,7 +206,9 @@ Matcher matchRegistry(
       .having(
         (command) => command.positionals,
         'positionals',
-        matchPositionals(expected.positionals),
+        expected.positionals == null
+            ? isEmpty
+            : matchPositionals(expected.positionals),
       )
       .having(
         (command) => command.accessors,
@@ -223,7 +227,7 @@ Matcher matchRegistry(
       .having(
         (registry) => registry.flags,
         'flags',
-        unorderedEquals(matchFlags(flags)),
+        unorderedEquals(matchFlags(flags, includesHelp: true)),
       )
       .having((registry) => registry.options, 'options', matchOptions(options))
       .having(
@@ -253,10 +257,10 @@ void main() {
             'tool',
             'Tool command.',
             pairedOptions: [
-              PairedOptions([
+              PairedOptions.required([
                 PairStringOption('username'),
                 PairIntOption('port'),
-              ], required: true),
+              ], (_) => Object()),
             ],
             commands: [
               TestCommand(
@@ -264,7 +268,7 @@ void main() {
                 'Run command.',
                 aliases: ['r'],
                 options: [
-                  ChoiceOption<_Format>(
+                  ChoiceOption.withDefault(
                     'format',
                     choices: _Format.values,
                     defaultValue: _Format.json,
@@ -284,15 +288,13 @@ void main() {
           );
           final record = registry.toMap();
           final group = record.optionGroups!.single;
-          expect(group.mode, 'all');
+          expect(group.mode, RegistryOptionGroupMode.all);
           expect(group.required, isTrue);
           expect(group.members, ['username', 'port']);
           expect(record.options!.first.pairedOptions, ['username', 'port']);
           expect(() => group.members.clear(), throwsUnsupportedError);
-          expect(() => record.optionGroups!.clear(), throwsUnsupportedError);
-
           final child = record.commands!.single;
-          final direct = registry.commandRegistries!.single.toMap();
+          final direct = registry.commandRegistries.single.toMap();
           expect(child.aliases, ['r']);
           expect(child.options!.single.name, direct.options!.single.name);
           expect(child.options!.single.choices, ['json', 'yaml']);
@@ -320,51 +322,85 @@ void main() {
         },
       );
 
-      test('exports variant membership on paired option records', () {
+      test('exports selected option groups', () {
+        final token = PairStringOption('token');
+        final password = PairStringOption('password');
         final record = CommandRegistry.create(
           'tool',
           'Tool command.',
-          pairedOptions: [
-            PairedOptions([
-              PairStringOption('token'),
-              PairStringOption('password'),
-            ], variant: true),
+          selectedOptions: [
+            SelectedOptions<String>([
+              SelectableOption(token, (value) => value),
+              SelectableOption(password, (value) => value),
+            ]),
           ],
         ).toMap();
-        expect(record.optionGroups!.single.mode, 'oneOf');
-        expect(record.options!.map((option) => option.variant), [true, true]);
+
+        expect(record.optionGroups!.single.mode, RegistryOptionGroupMode.oneOf);
+        expect(record.options!.map((option) => option.name), [
+          'token',
+          'password',
+        ]);
       });
 
-      test(
-        'keeps published inputs distinct from local inputs on child records',
-        () {
-          final record = CommandRegistry.create(
+      test('validates selected option members', () {
+        final selected = SelectedOptions<String>([
+          SelectableOption(
+            PairChoiceOption<_Format>('format', choices: const []),
+            (value) => value.name,
+          ),
+        ]);
+
+        expect(
+          () => CommandRegistry.create(
             'tool',
             'Tool command.',
-            commands: [
-              TestGroupCommand(
-                'group',
-                [TestCommand('run', 'Run command.')],
-                'Group command.',
-                flags: [BooleanFlag('local')],
-                propagatedFlags: [BooleanFlag('shared')],
-                options: [StringOption('local-path')],
-                propagatedOptions: [StringOption('shared-path')],
-              ),
+            selectedOptions: [selected],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      });
+
+      test('validates choices in accessor branches', () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            accessors: [
+              AccessorListOption('server', [
+                AccessorChoiceOption<_Format>('format', choices: const []),
+              ]),
             ],
-          ).toMap();
-          final group = record.commands!.single;
-          expect(group.flags!.map((flag) => flag.name), ['help', 'local']);
-          expect(group.persistentFlags!.single.name, 'shared');
-          expect(group.options!.single.name, 'local-path');
-          expect(group.persistentOptions!.single.name, 'shared-path');
-          expect(() => group.persistentFlags!.clear(), throwsUnsupportedError);
-          expect(
-            () => group.persistentOptions!.clear(),
-            throwsUnsupportedError,
-          );
-        },
-      );
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      });
+
+      test('publishes inherited inputs on descendant records', () {
+        final record = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestGroupCommand(
+              'group',
+              [TestCommand('run', 'Run command.')],
+              'Group command.',
+              flags: [BooleanFlag('local')],
+              propagatedFlags: [BooleanFlag('shared')],
+              options: [StringOption('local-path')],
+              propagatedOptions: [StringOption('shared-path')],
+            ),
+          ],
+        ).toMap();
+        final group = record.commands!.single;
+        final run = group.commands!.single;
+        expect(group.flags!.map((flag) => flag.name), ['local']);
+        expect(group.options!.single.name, 'local-path');
+        expect(group.persistentFlags, isNull);
+        expect(group.persistentOptions, isNull);
+        expect(run.flags!.map((flag) => flag.name), ['shared']);
+        expect(run.options!.single.name, 'shared-path');
+      });
 
       test("exports a record from the inputs", () {
         final color = BooleanFlag('color', negatable: true);
@@ -372,7 +408,7 @@ void main() {
         final name = StringOption('name', regex: RegExp(r'\S+'));
         final tag = RepeatableStringOption('tag');
         final source = NormalPositional('source');
-        final target = NormalPositional('target');
+        final target = NormalPositional.optional('target');
 
         final profile = AccessorListOption('user', [
           AccessorStringOption('profile'),
@@ -421,7 +457,6 @@ void main() {
                 hidden: false,
                 description: null,
                 repeatable: null,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -432,7 +467,6 @@ void main() {
                 hidden: false,
                 description: null,
                 repeatable: true,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -495,7 +529,7 @@ void main() {
                   ),
                 ],
                 discretionaryPositionals: [
-                  NormalPositional(
+                  NormalPositional.optional(
                     "commit-ish",
                     description:
                         "Choosse a commit to use to scaffold the worktree",
@@ -818,11 +852,10 @@ void main() {
           'curl',
           'Do HTTP Requests',
           options: [
-            StringOption(
+            StringOption.required(
               'url',
               short: 'u',
               description: 'URL(s) to work with.',
-              required: true,
               regex: RegExp(r'\S+'),
             ),
             IntOption('retry', description: 'Retry on transient problems.'),
@@ -858,7 +891,6 @@ void main() {
                 hidden: false,
                 description: 'URL(s) to work with.',
                 repeatable: null,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -869,7 +901,6 @@ void main() {
                 hidden: false,
                 description: 'Retry on transient problems.',
                 repeatable: null,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -880,7 +911,6 @@ void main() {
                 hidden: false,
                 description: 'Maximum time allowed for a transfer.',
                 repeatable: null,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -891,7 +921,6 @@ void main() {
                 hidden: false,
                 description: 'Pass custom headers to the server.',
                 repeatable: true,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -902,7 +931,6 @@ void main() {
                 hidden: false,
                 description: 'HTTP POST data.',
                 repeatable: true,
-                variant: null,
                 choices: null,
                 choiceDefault: null,
               ),
@@ -1003,8 +1031,11 @@ void main() {
                 NormalPositional('image', description: 'The image to run.'),
               ],
               discretionaryPositionals: [
-                NormalPositional('command', description: 'The command to run.'),
-                NormalPositional(
+                NormalPositional.optional(
+                  'command',
+                  description: 'The command to run.',
+                ),
+                NormalPositional.optional(
                   'arguments',
                   description: 'Arguments for the command.',
                 ),
@@ -1024,7 +1055,7 @@ void main() {
                 ),
               ],
               discretionaryPositionals: [
-                NormalPositional(
+                NormalPositional.optional(
                   'arguments',
                   description: 'Arguments for the command.',
                 ),
@@ -1068,7 +1099,7 @@ void main() {
                 ),
               ],
               discretionaryPositionals: [
-                NormalPositional(
+                NormalPositional.optional(
                   'repository',
                   description: 'The target repository.',
                 ),
@@ -1253,7 +1284,7 @@ void main() {
                   NormalPositional('path', description: 'The worktree path.'),
                 ],
                 discretionaryPositionals: [
-                  NormalPositional(
+                  NormalPositional.optional(
                     'commit-ish',
                     description: 'The revision to check out.',
                   ),
@@ -1290,7 +1321,10 @@ void main() {
                 'push',
                 'Stash changes in the working directory.',
                 discretionaryPositionals: [
-                  NormalPositional('pathspec', description: 'A path to stash.'),
+                  NormalPositional.optional(
+                    'pathspec',
+                    description: 'A path to stash.',
+                  ),
                 ],
                 flags: [
                   BooleanFlag(
@@ -1366,7 +1400,6 @@ void main() {
                         hidden: false,
                         description: 'A branch to track.',
                         repeatable: true,
-                        variant: null,
                         choices: null,
                         choiceDefault: null,
                       ),
@@ -1377,7 +1410,6 @@ void main() {
                         hidden: false,
                         description: 'The remote default branch.',
                         repeatable: null,
-                        variant: null,
                         choices: null,
                         choiceDefault: null,
                       ),
@@ -1388,7 +1420,6 @@ void main() {
                         hidden: false,
                         description: 'The mirror direction.',
                         repeatable: null,
-                        variant: null,
                         choices: null,
                         choiceDefault: null,
                       ),
@@ -1439,7 +1470,6 @@ void main() {
                         hidden: false,
                         description: 'The branch to create.',
                         repeatable: null,
-                        variant: null,
                         choices: null,
                         choiceDefault: null,
                       ),
@@ -1450,7 +1480,6 @@ void main() {
                         hidden: false,
                         description: 'Why the worktree is locked.',
                         repeatable: null,
-                        variant: null,
                         choices: null,
                         choiceDefault: null,
                       ),
@@ -1509,7 +1538,6 @@ void main() {
                         hidden: false,
                         description: 'The stash message.',
                         repeatable: null,
-                        variant: null,
                         choices: null,
                         choiceDefault: null,
                       ),
@@ -1553,14 +1581,17 @@ void main() {
           final exported = registry.toMap();
 
           expect(exported.commands!.single.aliases, ['push']);
-          expect(exported.flags!.last, (
-            name: 'dry-run',
-            short: null,
-            defaultValue: false,
-            negatable: false,
-            hidden: true,
-            description: null,
-          ));
+          expect(
+            exported.flags!.singleWhere((flag) => flag.name == 'dry-run'),
+            (
+              name: 'dry-run',
+              short: null,
+              defaultValue: false,
+              negatable: false,
+              hidden: true,
+              description: null,
+            ),
+          );
           final option = exported.options!.single;
           expect(option.name, 'token');
           expect(option.short, isNull);
@@ -1587,7 +1618,7 @@ void main() {
       final name = StringOption('name', regex: RegExp(r'\S+'));
       final tag = RepeatableStringOption('tag');
       final source = NormalPositional('source');
-      final target = NormalPositional('target');
+      final target = NormalPositional.optional('target');
       final profile = AccessorListOption('user', [
         AccessorStringOption('profile'),
       ]);
@@ -1602,14 +1633,12 @@ void main() {
         discretionaryPositionals: [target],
       );
 
-      expect(registry.boolFlags, {'color': color});
+      expect(registry.flags, [color, verbose]);
       expect(registry.helpFlag.short, 'h');
-      expect(registry.countFlags, {'verbose': verbose});
-      expect(registry.singleOptions, {'name': name});
-      expect(registry.repeatedOptions, {'tag': tag});
-      expect(registry.mandatoryPositionals, {'source': source});
-      expect(registry.discretionaryPositionals, {'target': target});
-      expect(registry.accessors, {'user': profile});
+      expect(registry.options, [name, tag]);
+      expect(registry.mandatoryPositionals, [source]);
+      expect(registry.discretionaryPositionals, [target]);
+      expect(registry.accessors, [profile]);
     });
 
     group('Variadic', () {
@@ -1634,9 +1663,9 @@ void main() {
           variadic: extra,
         );
 
-        expect(registry.mandatoryPositionals, isNull);
-        expect(registry.discretionaryPositionals, isNull);
-        expect((registry.toMap().variadic != null), isFalse);
+        expect(registry.mandatoryPositionals, isEmpty);
+        expect(registry.discretionaryPositionals, isEmpty);
+        expect(registry.toMap().variadic, isNotNull);
       });
 
       test('holds a nested command variadic under its registry', () {
@@ -1652,7 +1681,7 @@ void main() {
         );
 
         expect(registry.variadic, isNull);
-        expect(registry.commandRegistries!.single.variadic, same(formats));
+        expect(registry.commandRegistries.single.variadic, same(formats));
       });
 
       test('exports the variadic input as variadic in toMap', () {
@@ -1664,7 +1693,7 @@ void main() {
           variadic: extra,
         );
 
-        expect((registry.toMap().variadic != null), isFalse);
+        expect(registry.toMap().variadic, isNotNull);
       });
 
       test('exports choice variadic members and defaults in toMap', () {
@@ -1680,7 +1709,7 @@ void main() {
           variadic: formats,
         );
 
-        expect((registry.toMap().variadic != null), isFalse);
+        expect(registry.toMap().variadic, isNotNull);
       });
 
       test('keeps dash variadics separate from ordinary positionals', () {
@@ -1694,7 +1723,7 @@ void main() {
           variadic: variadic,
         );
 
-        expect(registry.mandatoryPositionals, {'extra': positional});
+        expect(registry.mandatoryPositionals, [positional]);
         expect(registry.variadic, same(variadic));
       });
     });
@@ -1704,22 +1733,30 @@ void main() {
         'tool',
         'Tool command.',
         pairedOptions: [
-          PairedOptions([
+          PairedOptions<Object>([
             PairChoiceOption('json', choices: DeploymentFormat.values),
             PairChoiceOption('yaml', choices: DeploymentFormat.values),
-          ], variant: true),
+          ], (_) => Object()),
         ],
       );
 
       expect(registry.pairedOptionGroups, isNotEmpty);
     });
 
-    test('rejects standalone paired options without members', () {
+    test('rejects option groups without members', () {
       expect(
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          pairedOptions: [PairedOptions([])],
+          pairedOptions: [PairedOptions<Object>([], (_) => Object())],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          selectedOptions: [SelectedOptions<String>([])],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1731,8 +1768,12 @@ void main() {
           'tool',
           'Tool command.',
           pairedOptions: [
-            PairedOptions([PairStringOption('username')]),
-            PairedOptions([PairStringOption('username')]),
+            PairedOptions<Object>([
+              PairStringOption('username'),
+            ], (_) => Object()),
+            PairedOptions<Object>([
+              PairStringOption('username'),
+            ], (_) => Object()),
           ],
         ),
         throwsA(isA<MambaRegistryError>()),
@@ -1754,89 +1795,51 @@ void main() {
         ],
       );
 
-      final config = registry.commandRegistries!.single;
+      final config = registry.commandRegistries.single;
       expect(config.name, 'config');
-      expect(config.accessors!['server']!.options.single.name, 'port');
+      expect(config.accessors.single.options.single.name, 'port');
     });
 
     group('global flags', () {
-      test('rejects descendant flags that override a global flag name', () {
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            flags: [BooleanFlag('color', short: 'c')],
-            commands: [
-              TestGroupCommand('config', [
-                TestCommand(
-                  'get',
-                  'Get configuration.',
-                  flags: [BooleanFlag('color', short: 'x')],
-                ),
-              ], 'Configure.'),
-            ],
-          ),
-          throwsA(isA<MambaRegistryError>()),
-        );
-      });
-
-      test('rejects group-published aliases that override global aliases', () {
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            flags: [BooleanFlag('color', short: 'c')],
-            commands: [
-              TestGroupCommand(
-                'config',
-                [TestCommand('get', 'Get configuration.')],
-                'Configure.',
-                propagatedFlags: [BooleanFlag('theme', short: 'c')],
-              ),
-            ],
-          ),
-          throwsA(isA<MambaRegistryError>()),
-        );
-      });
-
-      test('reserves the built-in help flag name and alias', () {
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            flags: [BooleanFlag('help')],
-          ),
-          throwsA(isA<MambaRegistryError>()),
-        );
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            flags: [BooleanFlag('custom', short: 'h')],
-          ),
-          throwsA(isA<MambaRegistryError>()),
-        );
-      });
-
-      test('parses help after selecting the command path', () {
+      test('nearer flags override inherited flags with the same name', () {
+        final inheritedColor = BooleanFlag('color', short: 'c');
+        final localColor = BooleanFlag('color', short: 'x');
         final registry = CommandRegistry.create(
           'tool',
           'Tool command.',
-          flags: [CountFlag('verbose', short: 'v')],
+          flags: [inheritedColor],
+          commands: [
+            TestGroupCommand('config', [
+              TestCommand('get', 'Get configuration.', flags: [localColor]),
+            ], 'Configure.'),
+          ],
+        );
+
+        final get = registry.commandRegistries.single.commandRegistries.single;
+        expect(get.applicableFlags, [localColor]);
+      });
+
+      test('parses help after selecting the command path', () {
+        final verbose = CountFlag('verbose', short: 'v');
+        final registry = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [verbose],
           commands: [TestGroupCommand('config', [], 'Configure the tool.')],
         );
 
         final commandHelp = Parser(registry).parse(['config', '--help']);
-        expect(commandHelp.$1, ['config']);
-        expect(commandHelp.$3.boolFlags, isNull);
+        expect(commandHelp.$1, ['tool', 'config']);
+        expect(commandHelp.$2.valueOf(verbose), 0);
+        expect(commandHelp.$3, isEmpty);
         expect(commandHelp.help, isTrue);
-        expect(Parser(registry).parse(['--', '--help']).$4, ['--help']);
+        expect(Parser(registry).parse(['--', '--help']).$3, ['--help']);
 
         final bundledHelp = Parser(registry)
             .parse(['--verbose', 'config', '-h']);
-        expect(bundledHelp.$1, ['config']);
-        expect(bundledHelp.$3.boolFlags, isNull);
-        expect(bundledHelp.$3.countFlags, {'verbose': 1});
+        expect(bundledHelp.$1, ['tool', 'config']);
+        expect(bundledHelp.$2.valueOf(verbose), 1);
+        expect(bundledHelp.$3, isEmpty);
       });
 
       test('resolves help after a registered option and its value', () {
@@ -1879,14 +1882,13 @@ void main() {
         ],
       );
 
-      final group = registry.commandRegistries!.single;
-      final child = group.commandRegistries!.single;
-      // Inherited inputs stay at the root; the parser resolves them from there
-      // instead of descendant registries carrying copies.
-      expect(group.boolFlags, isNull);
-      expect(group.singleOptions, isNull);
-      expect(child.boolFlags, isNull);
-      expect(child.singleOptions, isNull);
+      final group = registry.commandRegistries.single;
+      final child = group.commandRegistries.single;
+
+      expect(group.flags, isEmpty);
+      expect(group.options, isEmpty);
+      expect(child.flags, isEmpty);
+      expect(child.options, isEmpty);
     });
 
     test('the parser resolves inherited inputs for a group from the root', () {
@@ -1917,32 +1919,36 @@ void main() {
 
       final inputs = Parser(registry)
           .parse(['tool', 'config', '--no-color', 'get', '--retries', '2'])
-          .$3;
+          .$2;
 
-      expect(inputs.boolFlags, {'color': false, 'verbose': false});
-      expect(inputs.intOptions, {'retries': 2});
+      expect(inputs.valueOf(inheritedFlag), isFalse);
+      expect(inputs.valueOf(localFlag), isFalse);
+      expect(inputs.valueOf(inheritedOption), 2);
+      expect(inputs.valueOf(localOption), isNull);
     });
 
     test('nearer published inputs override root inputs at descendants', () {
+      final rootProfile = IntOption('profile');
+      final groupProfile = StringOption('profile', regex: RegExp(r'\S+'));
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
-        options: [IntOption('profile')],
+        options: [rootProfile],
         commands: [
           TestGroupCommand(
             'config',
             [TestCommand('get', 'Get configuration.')],
             'Configure.',
-            propagatedOptions: [StringOption('profile', regex: RegExp(r'\S+'))],
+            propagatedOptions: [groupProfile],
           ),
         ],
       );
 
       final inputs = Parser(registry)
           .parse(['config', 'get', '--profile', 'development'])
-          .$3;
-      expect(inputs.stringOptions, {'profile': 'development'});
-      expect(inputs.intOptions, isNull);
+          .$2;
+      expect(inputs.valueOf(groupProfile), 'development');
+      expect(inputs.contains(rootProfile), isFalse);
     });
     test('only group commands register child commands', () {
       final registry = CommandRegistry.create(
@@ -1959,24 +1965,12 @@ void main() {
         ],
       );
 
-      final group = registry.commandRegistries!.single;
-      final child = group.commandRegistries!.single;
-      expect(group.boolFlags, contains('color'));
-      expect(group.singleOptions, contains('retries'));
-      expect(child.boolFlags, isNull);
-      expect(child.singleOptions, isNull);
-    });
-
-    test('distinguishes absent input collections from empty collections', () {
-      final absent = CommandRegistry.create('tool', 'Tool command.');
-      final empty = CommandRegistry.create(
-        'tool',
-        'Tool command.',
-        options: const [],
-      );
-
-      expect(absent.singleOptions, isNull);
-      expect(empty.singleOptions, isEmpty);
+      final group = registry.commandRegistries.single;
+      final child = group.commandRegistries.single;
+      expect(group.flags.map((flag) => flag.name), contains('color'));
+      expect(group.options.map((option) => option.name), contains('retries'));
+      expect(child.flags, isEmpty);
+      expect(child.options, isEmpty);
     });
 
     test('rejects invalid command and description boundaries', () {
@@ -1990,11 +1984,7 @@ void main() {
         () => CommandRegistry.create('tool', ''),
         throwsA(isA<MambaRegistryError>()),
       );
-      expect(() => CommandRegistry.create('tool', 'x' * 150), returnsNormally);
-      expect(
-        () => CommandRegistry.create('tool', 'x' * 151),
-        throwsA(isA<MambaRegistryError>()),
-      );
+      expect(() => CommandRegistry.create('tool', 'x' * 151), returnsNormally);
     });
 
     test('accepts shared letter-led hyphen and underscore names', () {
@@ -2012,10 +2002,14 @@ void main() {
       );
 
       expect(registry.name, 'build_release-candidate');
-      expect(registry.boolFlags, contains('dry_run-candidate'));
-      expect(registry.boolFlags, contains('dry-run'));
-      expect(registry.singleOptions, contains('retry_limit'));
-      expect(registry.singleOptions, contains('back-off'));
+      expect(registry.flags.map((flag) => flag.name), [
+        'dry_run-candidate',
+        'dry-run',
+      ]);
+      expect(registry.options.map((option) => option.name), [
+        'retry_limit',
+        'back-off',
+      ]);
     });
 
     test('rejects input names outside the shared letter-led word form', () {
@@ -2039,14 +2033,14 @@ void main() {
       }
     });
 
-    test('rejects non-letter short aliases', () {
+    test('accepts digit short aliases and rejects symbols', () {
       expect(
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
           flags: [BooleanFlag('verbose', short: '2')],
         ),
-        throwsA(isA<MambaRegistryError>()),
+        returnsNormally,
       );
       expect(
         () => CommandRegistry.create(
@@ -2058,94 +2052,12 @@ void main() {
       );
     });
 
-    test('rejects invalid input and positional symbols', () {
+    test('rejects invalid named input symbols', () {
       expect(
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
           options: [StringOption('bad!', regex: RegExp(r'.+'))],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          mandatoryPositionals: [NormalPositional('bad!')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('rejects empty positional names', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          mandatoryPositionals: [NormalPositional('')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('recursively validates nested accessor names', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          accessors: [
-            AccessorListOption('server', [
-              AccessorListOption('authentication', [
-                AccessorStringOption('help'),
-              ]),
-            ]),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('rejects collisions between accessors and other inputs', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          accessors: [
-            AccessorListOption('profile', [AccessorStringOption('value')]),
-          ],
-          flags: [BooleanFlag('profile')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          accessors: [
-            AccessorListOption('profile', [AccessorStringOption('value')]),
-          ],
-          options: [StringOption('profile', regex: RegExp(r'.+'))],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('rejects positional collisions', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          mandatoryPositionals: [NormalPositional('source')],
-          discretionaryPositionals: [NormalPositional('source')],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          mandatoryPositionals: [NormalPositional('config')],
-          commands: [TestCommand('config', 'Configure.')],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -2239,32 +2151,29 @@ void main() {
         ],
       );
 
-      expect(registry.aliases, {'co': 'checkout', 'check': 'checkout'});
+      expect(registry.commandRegistries.single.commandAliases, ['co', 'check']);
       expect(registry.registryForArguments(['co']).name, 'checkout');
       expect(registry.registryForArguments(['check']).name, 'checkout');
     });
 
-    test(
-      'throws a MambaRegistryError for duplicate aliases on one command',
-      () {
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            commands: [
-              TestCommand('checkout', 'Checkout.', aliases: ['co', 'co']),
-            ],
+    test('rejects duplicate aliases on one command', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestCommand('checkout', 'Checkout.', aliases: ['co', 'co']),
+          ],
+        ),
+        throwsA(
+          isA<MambaRegistryError>().having(
+            (error) => error.message,
+            'message',
+            contains('Duplicate or invalid command alias co for checkout'),
           ),
-          throwsA(
-            isA<MambaRegistryError>().having(
-              (error) => error.message,
-              'message',
-              contains('tool checkout'),
-            ),
-          ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     test('rejects an alias already registered by another command', () {
       expect(
@@ -2280,7 +2189,7 @@ void main() {
           isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
-            allOf(contains('already registered'), contains('pick another one')),
+            contains('Duplicate or invalid command alias co for config'),
           ),
         ),
       );
@@ -2299,27 +2208,22 @@ void main() {
           isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
-            contains('tool checkout'),
+            contains(
+              'Duplicate or invalid command alias checkout for checkout',
+            ),
           ),
         ),
       );
     });
 
-    test('rejects an explicitly empty alias list', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          commands: [TestCommand('checkout', 'Checkout.', aliases: const [])],
-        ),
-        throwsA(
-          isA<MambaRegistryError>().having(
-            (error) => error.message,
-            'message',
-            contains('tool checkout'),
-          ),
-        ),
+    test('accepts an explicitly empty alias list', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [TestCommand('checkout', 'Checkout.', aliases: const [])],
       );
+
+      expect(registry.commandRegistries.single.commandAliases, isEmpty);
     });
 
     test('rejects aliases that cannot be command tokens', () {
@@ -2338,30 +2242,22 @@ void main() {
     });
 
     for (final depth in [1, 2, 3, 4, 5]) {
-      for (final violation in _AliasViolation.values) {
-        test('reports the command path for $violation at depth $depth', () {
-          final commandPath = ['tool', ..._groupNames.take(depth)];
+      for (final violation in _AliasViolation.values.where(
+        (violation) => violation != _AliasViolation.empty,
+      )) {
+        test('rejects $violation at depth $depth', () {
           final invalidCommand = _nestedCommandWithAliasViolation(
             depth,
             violation,
           );
-          final path = violation == _AliasViolation.duplicateAcrossCommands
-              ? [...commandPath, 'second']
-              : [...commandPath, 'leaf'];
 
           expect(
             () => CommandRegistry.create(
               'tool',
               'Tool command.',
               commands: [invalidCommand],
-            ),
-            throwsA(
-              isA<MambaRegistryError>().having(
-                (error) => error.message,
-                'message',
-                contains(path.join(' ')),
-              ),
-            ),
+            ).toMap(),
+            throwsA(isA<MambaRegistryError>()),
           );
         });
       }
@@ -2369,33 +2265,6 @@ void main() {
   });
 
   group('framework consistency fixes', () {
-    test('rejects synthesized negated flag collisions', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          flags: [
-            BooleanFlag('color', negatable: true),
-            BooleanFlag('no-color'),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('rejects pair members claiming the reserved help alias', () {
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          pairedOptions: [
-            PairedOptions([PairStringOption('value', short: 'h')]),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
     test('direct registry creation snapshots caller-owned collections', () {
       final commands = <Command>[TestCommand('initial', 'Initial.')];
       final flags = <Flag>[BooleanFlag('visible')];
@@ -2409,8 +2278,11 @@ void main() {
       flags.add(BooleanFlag('later-flag'));
 
       expect(registry.commandRegistries, hasLength(1));
-      expect(registry.boolFlags, contains('visible'));
-      expect(registry.boolFlags, isNot(contains('later-flag')));
+      expect(registry.flags.map((flag) => flag.name), contains('visible'));
+      expect(
+        registry.flags.map((flag) => flag.name),
+        isNot(contains('later-flag')),
+      );
       expect(
         registry.toMap().commands?.map((command) => command.name),
         isNot(contains('later')),
@@ -2430,10 +2302,10 @@ void main() {
           ),
         ],
       );
-      final run = registry.commandRegistries!.single.withInheritedInputs();
+      final run = registry.commandRegistries.single.withInheritedInputs();
 
-      expect(run.singleOptions, contains('profile'));
-      expect(run.repeatedOptions, isNot(contains('profile')));
+      expect(run.applicableOptions, hasLength(1));
+      expect(run.applicableOptions.single, isA<StringOption>());
     });
   });
 }

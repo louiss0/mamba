@@ -435,7 +435,7 @@ final class CommandRegistry {
   RegistryRecord toMap() => _record(this);
   static RegistryRecord _record(CommandRegistry registry) {
     final options = [
-      ...registry.options,
+      ...registry.applicableOptions,
       for (final group in registry.pairedOptionGroups) ...group.options,
       for (final group in registry.selectedOptionGroups)
         for (final selected in group.options) selected.option,

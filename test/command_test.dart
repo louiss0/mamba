@@ -25,25 +25,8 @@ class TestGroupCommand extends GroupCommand {
         accessors: null,
       );
 
-  FutureOr<String?> runWithNothingBasedOnCommandPathWithNothing(
-    List<String> commandPath,
-  ) {
-    return runChildCommand(
-      commandPath,
-      (singles: null, repeated: null),
-      (
-        accessors: null,
-        boolFlags: null,
-        countFlags: null,
-        doubleOptions: null,
-        intOptions: null,
-        repeatedDoubleOptions: null,
-        repeatedIntOptions: null,
-        repeatedStringOptions: null,
-        stringOptions: null,
-      ),
-      [],
-    );
+  FutureOr<String?> runChildAtPath(List<String> commandPath) {
+    return runChildCommand(commandPath, invocationWithoutInputs, const []);
   }
 }
 
@@ -66,11 +49,7 @@ final class _VariadicCommand extends Command {
   String get shortDescription => 'A test command.';
 
   @override
-  FutureOr<String> run(
-    ParsedPositionals positionals,
-    ParsedNamedInputs input,
-    List<String> trailingArguments,
-  ) => '';
+  String run(CommandInvocation invocation, List<String> args) => '';
 }
 
 class TestChildGroupCommand extends Mock implements GroupCommand {
@@ -81,6 +60,25 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
   final List<Command> commands;
 
   new(this.name, this.commands);
+}
+
+final invocationWithoutInputs = CommandInvocation(ParsedInputs({}, []));
+
+CommandInvocation createCompletionInvocation(
+  ShellCompletion shell, {
+  String? path,
+}) {
+  final values = <InputDefinition, Object?>{
+    CompletionCommand.shellInput: shell,
+  };
+  if (path != null) values[CompletionCommand.pathInput] = path;
+
+  return CommandInvocation(
+    ParsedInputs(values, [
+      CompletionCommand.shellInput,
+      CompletionCommand.pathInput,
+    ]),
+  );
 }
 
 class TestCompletionCommand extends CompletionCommand {
@@ -101,19 +99,7 @@ class TestCompletionCommand extends CompletionCommand {
 }
 
 void main() {
-  final ParsedNamedInputs emptyInputs = (
-    accessors: null,
-    boolFlags: null,
-    countFlags: null,
-    doubleOptions: null,
-    intOptions: null,
-    repeatedDoubleOptions: null,
-    repeatedIntOptions: null,
-    repeatedStringOptions: null,
-    stringOptions: null,
-  );
-  registerFallbackValue(emptyInputs);
-  registerFallbackValue((singles: null, repeated: null));
+  registerFallbackValue(invocationWithoutInputs);
 
   group("CompletionCommand", () {
     group('preset', () {
@@ -131,12 +117,8 @@ void main() {
         final path = '${directory.path}${Platform.pathSeparator}rig.bash';
 
         completionCommand.run(
-          (
-            singles: {'shell': ShellCompletion.bash.name, 'path': path},
-            repeated: null,
-          ),
-          emptyInputs,
-          [],
+          createCompletionInvocation(ShellCompletion.bash, path: path),
+          const [],
         );
 
         expect(File(path).existsSync(), isTrue);
@@ -144,69 +126,46 @@ void main() {
 
       final completionCommand = TestCompletionCommand([]);
 
-      group("If path is empty then the compeltions are sent to the global path based on shell", () {
-        final cases = [
-          (shell: ShellCompletion.bash.name, path: null, expected: ""),
-          (shell: ShellCompletion.zsh.name, path: null, expected: ""),
-          (shell: ShellCompletion.fish.name, path: null, expected: ""),
-          (shell: ShellCompletion.powershell.name, path: null, expected: ""),
-          (shell: ShellCompletion.carapace.name, path: null, expected: ""),
-        ];
-        for (final $case in cases) {
-          test("The path ${$case.expected} is written for ${$case.shell}", () {
+      group('with no path', () {
+        for (final shell in ShellCompletion.values) {
+          test('writes ${shell.name} completions to the global path', () {
             completionCommand.createdPaths.clear();
-            completionCommand.run(
-              (singles: {'shell': $case.shell}, repeated: null),
-              emptyInputs,
-              [],
-            );
+            completionCommand.run(createCompletionInvocation(shell), const []);
 
-            expect(completionCommand.createdPaths, [$case.expected]);
+            expect(completionCommand.createdPaths, ['']);
           });
         }
       });
 
-      group("If path is defined but the extension is incorrect", () {
+      group('with an invalid path', () {
         final cases = [
+          (shell: ShellCompletion.bash, path: 'ffff.fish', extension: '.bash'),
+          (shell: ShellCompletion.zsh, path: 'ffff.h', extension: '.zsh'),
+          (shell: ShellCompletion.fish, path: 'ffff.fish', extension: '.fish'),
           (
-            shell: ShellCompletion.bash.name,
-            path: "ffff.fish",
-            extension: ".bash",
-          ),
-          (shell: ShellCompletion.zsh.name, path: "ffff.h", extension: ".zsh"),
-          (
-            shell: ShellCompletion.fish.name,
-            path: "ffff.fish",
-            extension: ".fish",
+            shell: ShellCompletion.powershell,
+            path: 'ffff.4sh',
+            extension: '.ps1',
           ),
           (
-            shell: ShellCompletion.powershell.name,
-            path: "ffff.4sh",
-            extension: ".ps1",
-          ),
-          (
-            shell: ShellCompletion.carapace.name,
-            path: "ffff.3g",
-            extension: ".yaml",
+            shell: ShellCompletion.carapace,
+            path: 'ffff.3g',
+            extension: '.yaml',
           ),
         ];
 
         for (final $case in cases) {
-          test("The path ${$case.path} is rejected for ${$case.shell}", () {
+          test('rejects ${$case.path} for ${$case.shell.name}', () {
             expect(
               () => completionCommand.run(
-                (
-                  singles: {'shell': $case.shell, "path": $case.path},
-                  repeated: null,
-                ),
-                emptyInputs,
-                [],
+                createCompletionInvocation($case.shell, path: $case.path),
+                const [],
               ),
               throwsA(
                 isA<MambaException>().having(
                   (exception) => exception.message,
-                  "message",
-                  "When shell is ${$case.shell} the path must end in ${$case.extension} and must have ${completionCommand.registryRecord.name} in the file name",
+                  'message',
+                  'When shell is ${$case.shell.name} the path must end in ${$case.extension} and must have ${completionCommand.registryRecord.name} in the file name',
                 ),
               ),
             );
@@ -220,15 +179,11 @@ void main() {
           () {
             expect(
               () => completionCommand.run(
-                (
-                  singles: {
-                    'shell': ShellCompletion.bash.name,
-                    'path': 'ffff.${TestCompletionCommand.commandName}',
-                  },
-                  repeated: null,
+                createCompletionInvocation(
+                  ShellCompletion.bash,
+                  path: 'ffff.${TestCompletionCommand.commandName}',
                 ),
-                emptyInputs,
-                [],
+                const [],
               ),
               throwsA(isA<MambaException>()),
             );
@@ -238,62 +193,53 @@ void main() {
         test('rejects a correctly extended path without the command name', () {
           expect(
             () => completionCommand.run(
-              (
-                singles: {
-                  'shell': ShellCompletion.bash.name,
-                  'path': 'ffff.bash',
-                },
-                repeated: null,
+              createCompletionInvocation(
+                ShellCompletion.bash,
+                path: 'ffff.bash',
               ),
-              emptyInputs,
-              [],
+              const [],
             ),
             throwsA(isA<MambaException>()),
           );
         });
       });
 
-      group("When the correct path is written it's", () {
+      group('with a valid path', () {
         final cases = [
           (
-            shell: ShellCompletion.bash.name,
-            path: "./ffff${TestCompletionCommand.commandName}.bash",
+            shell: ShellCompletion.bash,
+            path: './ffff${TestCompletionCommand.commandName}.bash',
           ),
           (
-            shell: ShellCompletion.zsh.name,
-            path: "./ffff${TestCompletionCommand.commandName}.zsh",
+            shell: ShellCompletion.zsh,
+            path: './ffff${TestCompletionCommand.commandName}.zsh',
           ),
           (
-            shell: ShellCompletion.fish.name,
-            path: "./ffff${TestCompletionCommand.commandName}.fish",
+            shell: ShellCompletion.fish,
+            path: './ffff${TestCompletionCommand.commandName}.fish',
           ),
           (
-            shell: ShellCompletion.powershell.name,
-            path: "./ffff${TestCompletionCommand.commandName}.ps1",
+            shell: ShellCompletion.powershell,
+            path: './ffff${TestCompletionCommand.commandName}.ps1',
           ),
           (
-            shell: ShellCompletion.carapace.name,
-            path: "./ffff${TestCompletionCommand.commandName}.yaml",
+            shell: ShellCompletion.carapace,
+            path: './ffff${TestCompletionCommand.commandName}.yaml',
           ),
         ];
 
         for (final $case in cases) {
-          test("The path ${$case.path} is used for ${$case.shell}", () async {
+          test('uses ${$case.path} for ${$case.shell.name}', () {
             completionCommand.createdPaths.clear();
-            final output = await completionCommand.run(
-              (
-                singles: {'shell': $case.shell, 'path': $case.path},
-                repeated: null,
-              ),
-              emptyInputs,
-              [],
+            final output = completionCommand.run(
+              createCompletionInvocation($case.shell, path: $case.path),
+              const [],
             );
 
             expect(completionCommand.createdPaths, [$case.path]);
-
             expect(
               output,
-              equals("Created completion ${$case.shell} in ${$case.path}"),
+              'Created completion ${$case.shell.name} in ${$case.path}',
             );
           });
         }
@@ -306,40 +252,37 @@ void main() {
     final stashPop = TestCommand("pop");
     final stashCommand = TestChildGroupCommand('stash', [stashPush, stashPop]);
 
-    when(() => stashPush.run(any(), any(), any())).thenAnswer((_) => '');
+    when(() => stashPush.run(any(), any())).thenAnswer((_) => '');
 
-    when(() => stashPop.run(any(), any(), any())).thenAnswer((_) => '');
+    when(() => stashPop.run(any(), any())).thenAnswer((_) => '');
 
-    when(() => stashCommand.run(any(), any(), any()))
+    when(() => stashCommand.run(any(), any()))
         .thenAnswer((_) => Future.value(''));
 
     final groupCommand = TestGroupCommand('git', [stashCommand]);
 
     test("calls the run child command", () {
-      groupCommand.runWithNothingBasedOnCommandPathWithNothing(['stash']);
+      groupCommand.runChildAtPath(['stash']);
 
-      verifyNever(() => stashPush.run(any(), any(), any()));
-      verifyNever(() => stashPop.run(any(), any(), any()));
-      verify(() => stashCommand.run(any(), any(), any())).called(1);
+      verifyNever(() => stashPush.run(any(), any()));
+      verifyNever(() => stashPop.run(any(), any()));
+      verify(() => stashCommand.run(any(), any())).called(1);
     });
 
     test("calls the child's child command when path points to it", () {
-      groupCommand.runWithNothingBasedOnCommandPathWithNothing([
-        'stash',
-        'pop',
-      ]);
+      groupCommand.runChildAtPath(['stash', 'pop']);
 
-      verifyNever(() => stashPush.run(any(), any(), any()));
-      verify(() => stashPop.run(any(), any(), any())).called(1);
-      verifyNever(() => stashCommand.run(any(), any(), any()));
+      verifyNever(() => stashPush.run(any(), any()));
+      verify(() => stashPop.run(any(), any())).called(1);
+      verifyNever(() => stashCommand.run(any(), any()));
     });
 
     test('resolves aliases in direct child command paths', () async {
       when(() => stashCommand.aliases).thenReturn(['st']);
 
-      await groupCommand.runWithNothingBasedOnCommandPathWithNothing(['st']);
+      await groupCommand.runChildAtPath(['st']);
 
-      verify(() => stashCommand.run(any(), any(), any())).called(1);
+      verify(() => stashCommand.run(any(), any())).called(1);
     });
 
     test('runs a relative default subcommand path', () async {
@@ -349,54 +292,53 @@ void main() {
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
-      await git.run((singles: null, repeated: null), emptyInputs, []);
+      await git.run(invocationWithoutInputs, const []);
 
-      verify(() => stashPop.run(any(), any(), any())).called(1);
+      verify(() => stashPop.run(any(), any())).called(1);
     });
 
-    test('rejects empty and parent-qualified default paths', () {
+    test('rejects empty default paths', () {
       expect(
         () =>
             TestGroupCommand('git', [stashCommand], defaultSubCommandPath: []),
         throwsA(isA<MambaRegistryError>()),
       );
-      expect(
-        () => TestGroupCommand(
-          'git',
-          [stashCommand],
-          defaultSubCommandPath: ['git'],
-        ),
-        throwsA(isA<MambaRegistryError>()),
+    });
+
+    test('rejects parent-qualified default paths when run', () async {
+      final git = TestGroupCommand(
+        'git',
+        [stashCommand],
+        defaultSubCommandPath: ['git'],
+      );
+
+      await expectLater(
+        git.run(invocationWithoutInputs, const []),
+        throwsA(isA<ArgumentError>()),
       );
     });
 
     test('requires child paths to be relative to the group', () {
       expect(
-        () => groupCommand.runWithNothingBasedOnCommandPathWithNothing(['git']),
+        () => groupCommand.runChildAtPath(['git']),
         throwsA(isA<ArgumentError>()),
       );
     });
 
     test('rejects empty runtime paths and unknown child commands', () {
       expect(
-        () => groupCommand.runWithNothingBasedOnCommandPathWithNothing([]),
+        () => groupCommand.runChildAtPath([]),
         throwsA(isA<ArgumentError>()),
       );
       expect(
-        () => groupCommand.runWithNothingBasedOnCommandPathWithNothing([
-          'missing',
-        ]),
+        () => groupCommand.runChildAtPath(['missing']),
         throwsA(isA<MambaException>()),
       );
     });
 
     test('returns empty output when no default child is configured', () async {
       expect(
-        await groupCommand.run(
-          (singles: null, repeated: null),
-          emptyInputs,
-          [],
-        ),
+        await groupCommand.run(invocationWithoutInputs, const []),
         isEmpty,
       );
     });
@@ -414,6 +356,35 @@ void main() {
   });
 
   group('Input definitions', () {
+    test('retain identity', () {
+      final one = StringOption('one');
+      final two = StringOption('two');
+
+      expect(identical(one, two), isFalse);
+    });
+
+    test('expose output availability in their types', () {
+      final optional = StringOption('optional');
+      final required = StringOption.required('required');
+      final defaulted = ChoiceOption.withDefault(
+        'format',
+        choices: OutputFormat.values,
+        defaultValue: OutputFormat.yaml,
+      );
+
+      expect(optional, isA<OptionalInput<String>>());
+      expect(required, isA<RequiredInput<String>>());
+      expect(defaulted, isA<DefaultedInput<OutputFormat>>());
+    });
+
+    test('positionals expose presence constraints in their types', () {
+      final mandatory = NormalPositional('source');
+      final discretionary = NormalPositional.optional('destination');
+
+      expect(mandatory, isA<MandatoryPositional<String>>());
+      expect(discretionary, isA<DiscretionaryPositional<String?>>());
+    });
+
     test('accessor numeric regexes describe parser numeric syntax', () {
       final integer = AccessorIntOption('port').regex;
       final decimal = AccessorDoubleOption('ratio').regex;
