@@ -1,5 +1,6 @@
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
@@ -248,6 +249,32 @@ Matcher matchRegistry(
 }
 
 void main() {
+  group('MambaHelpFormatter', () {
+    test('distinguishes paired and selected option groups', () {
+      final host = PairStringOption('host');
+      final port = PairStringOption('port');
+      final pair = PairedOptions([
+        host,
+        port,
+      ], (values) => (values.valueOf(host), values.valueOf(port)));
+      final selected = SelectedOptions<String>([
+        SelectableOption(PairStringOption('json'), (value) => value),
+        SelectableOption(PairStringOption('text'), (value) => value),
+      ]);
+      final help = MambaHelpFormatter().format(
+        CommandRegistry.create(
+          'tool',
+          'Tool.',
+          pairedOptions: [pair],
+          selectedOptions: [selected],
+        ),
+      );
+
+      expect(help, contains('--host & --port'));
+      expect(help, contains('--json | --text'));
+    });
+  });
+
   group('CommandRegistry', () {
     group("toMap", () {
       test(
@@ -2138,6 +2165,188 @@ void main() {
         ),
         throwsA(isA<MambaRegistryError>()),
       );
+    });
+  });
+
+  group('command resolution metadata', () {
+    test('canonicalizes aliases and requires an executable destination', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestGroupCommand(
+            'config',
+            [
+              TestCommand('get', 'Get configuration.', aliases: ['read']),
+            ],
+            'Configure the tool.',
+            aliases: ['cfg'],
+          ),
+        ],
+      );
+
+      expect(registry.canonicalCommandPath(['cfg', 'read']), ['config', 'get']);
+      expect(
+        registry.commandRegistries.single.commandRegistries.single.fullPath,
+        ['tool', 'config', 'get'],
+      );
+      expect(
+        () => registry.canonicalCommandPath([]),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => registry.canonicalCommandPath(['missing']),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => registry.canonicalCommandPath(['config']),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('reports token lengths for every registered input shape', () {
+      final color = BooleanFlag('color', short: 'c', negatable: true);
+      final verbose = CountFlag('verbose', short: 'v');
+      final file = StringOption('file', short: 'f');
+      final port = PairIntOption('port', short: 'p');
+      final mode = PairChoiceOption<DeploymentFormat>(
+        'mode',
+        choices: DeploymentFormat.values,
+        short: 'm',
+      );
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        flags: [color, verbose],
+        options: [file],
+        pairedOptions: [
+          PairedOptions<Object>([port], (_) => Object()),
+        ],
+        selectedOptions: [
+          SelectedOptions<DeploymentFormat>([
+            SelectableOption(mode, (value) => value),
+          ]),
+        ],
+        accessors: [
+          AccessorListOption('server', [AccessorStringOption('host')]),
+        ],
+      );
+
+      expect(registry.registeredInputTokenLength('--file'), 2);
+      expect(registry.registeredInputTokenLength('--file=value'), 1);
+      expect(registry.registeredInputTokenLength('-f'), 2);
+      expect(registry.registeredInputTokenLength('--port'), 2);
+      expect(registry.registeredInputTokenLength('-p'), 2);
+      expect(registry.registeredInputTokenLength('--mode'), 2);
+      expect(registry.registeredInputTokenLength('-m'), 2);
+      expect(registry.registeredInputTokenLength('--server.host'), 2);
+      expect(registry.registeredInputTokenLength('--color'), 1);
+      expect(registry.registeredInputTokenLength('--no-color'), 1);
+      expect(registry.registeredInputTokenLength('-cv'), 1);
+      expect(registry.registeredInputTokenLength('--missing'), isNull);
+      expect(registry.registeredInputTokenLength('-x'), isNull);
+    });
+
+    test('exports typed defaults and positional cardinality', () {
+      final record = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        options: [
+          StringOption.withDefault('label', defaultValue: 'stable'),
+          IntOption.withDefault('port', defaultValue: 80),
+          RepeatableChoiceOption.withDefault<DeploymentFormat>(
+            'format',
+            DeploymentFormat.values,
+            defaultValue: [DeploymentFormat.yaml, DeploymentFormat.json],
+          ),
+        ],
+        commands: [
+          TestCommand(
+            'run',
+            'Run the tool.',
+            discretionaryPositionals: [
+              ChoicePositional.withDefault(
+                'output',
+                choices: DeploymentFormat.values,
+                defaultValue: DeploymentFormat.yaml,
+              ),
+              RepeatedChoicePositional.withDefault<DeploymentFormat>(
+                'targets',
+                choices: DeploymentFormat.values,
+                defaultValue: [DeploymentFormat.json],
+                times: 2,
+              ),
+              RepeatedStringPositional.optional('files', times: 3),
+            ],
+            accessors: [
+              AccessorListOption('settings', [
+                AccessorStringOption.withDefault(
+                  'scheme',
+                  defaultValue: 'https',
+                ),
+                AccessorIntOption.withDefault('attempts', defaultValue: 3),
+                AccessorDoubleOption.withDefault('scale', defaultValue: 1.5),
+                AccessorChoiceOption.withDefault<DeploymentFormat>(
+                  'format',
+                  choices: DeploymentFormat.values,
+                  defaultValue: DeploymentFormat.json,
+                ),
+              ]),
+            ],
+          ),
+        ],
+      ).toMap();
+
+      expect(record.options!.map((option) => option.defaultValue), [
+        'stable',
+        '80',
+        'yaml,json',
+      ]);
+      final run = record.commands!.single;
+      expect(run.positionals!.map((input) => input.defaultValue), [
+        'yaml',
+        'json',
+        null,
+      ]);
+      expect(run.positionals!.map((input) => input.times), [null, 2, 3]);
+      expect(
+        run.accessors!.single.options!.map((input) => input.defaultValue),
+        ['https', '3', '1.5', 'json'],
+      );
+    });
+
+    test('rejects invalid defaults, numeric ranges, and steps', () {
+      final invalidDefinitions = <Option>[
+        IntOption('count', min: 2, max: 1),
+        DoubleOption('ratio', step: 0),
+        StringOption.withDefault(
+          'label',
+          defaultValue: 'letters',
+          regex: RegExp(r'^\d+$'),
+        ),
+        IntOption.withDefault('port', defaultValue: 0, min: 1, max: 10),
+        ChoiceOption.withDefault(
+          'format',
+          choices: [DeploymentFormat.yaml],
+          defaultValue: DeploymentFormat.json,
+        ),
+        RepeatableChoiceOption.withDefault<DeploymentFormat>(
+          'formats',
+          [DeploymentFormat.yaml],
+          defaultValue: [DeploymentFormat.json],
+        ),
+      ];
+
+      for (final definition in invalidDefinitions) {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            options: [definition],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      }
     });
   });
 

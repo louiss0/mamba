@@ -140,6 +140,12 @@ final class InvalidContextWriter extends GroupCommand
 }
 
 void main() {
+  group('MambaException', () {
+    test('uses a portable default exit code', () {
+      expect(MambaException('failure').exitCode, 1);
+    });
+  });
+
   test('persistent hooks provide read-only context to command hooks', () async {
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       ContextWriter([ContextReader()]),

@@ -385,6 +385,245 @@ void main() {
       expect(discretionary, isA<DiscretionaryPositional<String?>>());
     });
 
+    test('positional factories preserve typed metadata and values', () {
+      final optionalChoice = ChoicePositional.optional<OutputFormat>(
+        'format',
+        choices: OutputFormat.values,
+      );
+      final defaultedChoice = ChoicePositional.withDefault(
+        'format',
+        choices: OutputFormat.values,
+        defaultValue: OutputFormat.yaml,
+      );
+      final optionalFiles = RepeatedStringPositional.optional(
+        'files',
+        times: 2,
+      );
+      final optionalFormats = RepeatedChoicePositional.optional<OutputFormat>(
+        'formats',
+        choices: OutputFormat.values,
+        times: 2,
+      );
+      final defaultedFormats =
+          RepeatedChoicePositional.withDefault<OutputFormat>(
+            'formats',
+            choices: OutputFormat.values,
+            defaultValue: [OutputFormat.yaml],
+            times: 2,
+          );
+
+      expect(
+        (optionalChoice as ChoiceValidated<OutputFormat>).choices,
+        OutputFormat.values,
+      );
+      expect(
+        (defaultedChoice as DefaultValue<OutputFormat>).defaultValue,
+        OutputFormat.yaml,
+      );
+      expect((optionalFiles as RepeatedPositionalDefinition).times, 2);
+      expect((optionalFormats as RepeatedPositionalDefinition).times, 2);
+      expect((defaultedFormats as RepeatedPositionalDefinition).times, 2);
+
+      final values = (optionalFormats as RepeatedPositionalDefinition)
+          .freezeValues([OutputFormat.yaml, OutputFormat.json]);
+      expect(values, OutputFormat.values);
+      expect(
+        () => (values as List<OutputFormat>).add(OutputFormat.yaml),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => (defaultedFormats as DefaultValue<List<OutputFormat>>)
+            .defaultValue
+            .add(OutputFormat.json),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('option factories preserve availability and constraints', () {
+      final requiredString = StringOption.required('name');
+      final defaultedString = StringOption.withDefault(
+        'label',
+        defaultValue: 'stable',
+      );
+      final requiredInt = IntOption.required('count', min: 1, max: 3);
+      final defaultedInt = IntOption.withDefault(
+        'port',
+        defaultValue: 80,
+        min: 1,
+        max: 65535,
+      );
+      final requiredDouble = DoubleOption.required(
+        'ratio',
+        min: 0,
+        max: 1,
+        step: 0.1,
+      );
+      final defaultedDouble = DoubleOption.withDefault(
+        'scale',
+        defaultValue: 1.5,
+        min: 1,
+        max: 2,
+        step: 0.5,
+      );
+      final requiredChoice = ChoiceOption.required<OutputFormat>(
+        'format',
+        choices: OutputFormat.values,
+      );
+      final defaultedChoice = ChoiceOption.withDefault(
+        'output',
+        choices: OutputFormat.values,
+        defaultValue: OutputFormat.json,
+      );
+
+      expect(requiredString, isA<RequiredInput<String>>());
+      expect((defaultedString as DefaultValue<String>).defaultValue, 'stable');
+      expect((requiredInt as NumericRangeValidated<int>).min, 1);
+      expect((requiredInt as NumericRangeValidated<int>).max, 3);
+      expect((defaultedInt as DefaultValue<int>).defaultValue, 80);
+      expect((requiredDouble as NumericStepValidated).step, 0.1);
+      expect((defaultedDouble as DefaultValue<double>).defaultValue, 1.5);
+      expect(
+        (requiredChoice as ChoiceValidated<OutputFormat>).choices,
+        OutputFormat.values,
+      );
+      expect(
+        (defaultedChoice as DefaultValue<OutputFormat>).defaultValue,
+        OutputFormat.json,
+      );
+    });
+
+    test('repeatable option factories append immutable typed values', () {
+      final optional = RepeatableStringOption('tag');
+      final required = RepeatableIntOption.required('port', min: 1, max: 10);
+      final defaulted = RepeatableDoubleOption.withDefault(
+        'ratio',
+        defaultValue: [1.0],
+        min: 0,
+        max: 2,
+        step: 0.5,
+      );
+      final requiredChoice = RepeatableChoiceOption.required<OutputFormat>(
+        'format',
+        OutputFormat.values,
+        unique: true,
+      );
+      final defaultedChoice = RepeatableChoiceOption.withDefault<OutputFormat>(
+        'output',
+        OutputFormat.values,
+        defaultValue: [OutputFormat.yaml],
+      );
+      final requiredString = RepeatableStringOption.required('file');
+      final defaultedString = RepeatableStringOption.withDefault(
+        'path',
+        defaultValue: ['lib'],
+      );
+      final defaultedInt = RepeatableIntOption.withDefault(
+        'attempt',
+        defaultValue: [1],
+      );
+      final requiredDouble = RepeatableDoubleOption.required('weight');
+
+      expect(optional.appendValue('one', null), ['one']);
+      expect(required.appendValue(2, [1]), [1, 2]);
+      expect(defaulted.appendValue(2.0, [1.0]), [1.0, 2.0]);
+      expect(requiredChoice.unique, isTrue);
+      expect(defaultedChoice, isA<DefaultedInput<List<OutputFormat>>>());
+      expect(requiredString, isA<RequiredInput<List<String>>>());
+      expect(defaultedString, isA<DefaultedInput<List<String>>>());
+      expect(defaultedInt, isA<DefaultedInput<List<int>>>());
+      expect(requiredDouble, isA<RequiredInput<List<double>>>());
+      expect(
+        () => (defaulted as DefaultValue<List<double>>).defaultValue.add(2),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('accessor factories preserve typed defaults and constraints', () {
+      final requiredString = AccessorStringOption.required('host');
+      final defaultedString = AccessorStringOption.withDefault(
+        'scheme',
+        defaultValue: 'https',
+      );
+      final requiredInt = AccessorIntOption.required('port');
+      final defaultedInt = AccessorIntOption.withDefault(
+        'attempts',
+        defaultValue: 3,
+      );
+      final requiredDouble = AccessorDoubleOption.required('ratio');
+      final defaultedDouble = AccessorDoubleOption.withDefault(
+        'scale',
+        defaultValue: 1.5,
+      );
+      final requiredChoice = AccessorChoiceOption.required<OutputFormat>(
+        'format',
+        choices: OutputFormat.values,
+      );
+      final defaultedChoice = AccessorChoiceOption.withDefault<OutputFormat>(
+        'output',
+        choices: OutputFormat.values,
+        defaultValue: OutputFormat.yaml,
+      );
+
+      expect(requiredString, isA<RequiredInput<String>>());
+      expect((defaultedString as DefaultValue<String>).defaultValue, 'https');
+      expect((requiredInt as NumericRangeValidated<int>).min, isNull);
+      expect((defaultedInt as DefaultValue<int>).defaultValue, 3);
+      expect((requiredDouble as NumericStepValidated).step, isNull);
+      expect((defaultedDouble as DefaultValue<double>).defaultValue, 1.5);
+      expect(
+        (requiredChoice as ChoiceValidated<OutputFormat>).choices,
+        OutputFormat.values,
+      );
+      expect(
+        (defaultedChoice as DefaultValue<OutputFormat>).defaultValue,
+        OutputFormat.yaml,
+      );
+    });
+
+    test('parsed inputs reject unknown and missing required handles', () {
+      final optional = StringOption('optional');
+      final required = StringOption.required('required');
+      final unknown = StringOption('unknown');
+      final inputs = ParsedInputs({optional: 'value'}, [optional, required]);
+      final invocation = CommandInvocation(inputs);
+
+      expect(invocation.valueOf(optional), 'value');
+      expect(inputs.contains(optional), isTrue);
+      expect(inputs.contains(required), isFalse);
+      expect(() => invocation.valueOf(unknown), throwsStateError);
+      expect(() => invocation.valueOf(required), throwsStateError);
+    });
+
+    test('paired and selected groups map typed values', () {
+      final host = PairStringOption('host');
+      final port = PairIntOption('port');
+      final pairValues = PairValues({host: 'localhost', port: 8080});
+      final optionalPair = PairedOptions([
+        host,
+        port,
+      ], (values) => '${values.valueOf(host)}:${values.valueOf(port)}');
+      final requiredPair = PairedOptions.required([
+        host,
+        port,
+      ], (values) => '${values.valueOf(host)}:${values.valueOf(port)}');
+      final json = PairChoiceOption<OutputFormat>(
+        'json',
+        choices: OutputFormat.values,
+      );
+      final member = SelectableOption(json, (value) => value.name);
+      final optionalSelection = SelectedOptions<String>([member]);
+      final requiredSelection = SelectedOptions.required<String>([member]);
+
+      expect(optionalPair.name, 'host&port');
+      expect(optionalPair.map(pairValues), 'localhost:8080');
+      expect(requiredPair.isRequired, isTrue);
+      expect(requiredPair.map(pairValues), 'localhost:8080');
+      expect(optionalSelection.name, 'json');
+      expect(optionalSelection.map(OutputFormat.json, member), 'json');
+      expect(requiredSelection.isRequired, isTrue);
+      expect(requiredSelection.map(OutputFormat.yaml, member), 'yaml');
+    });
+
     test('accessor numeric regexes describe parser numeric syntax', () {
       final integer = AccessorIntOption('port').regex;
       final decimal = AccessorDoubleOption('ratio').regex;
@@ -409,6 +648,43 @@ void main() {
         throwsA(isA<MambaRegistryError>()),
       );
     });
+  });
+
+  group('Input definition analyzer', () {
+    test(
+      'rejects nullable output and positional presence mismatches',
+      () async {
+        final source = File('test/invalid_input_types_temp.dart');
+        source.writeAsStringSync(r'''
+import 'package:mamba/mamba.dart';
+
+void invalid(ParsedInputs inputs) {
+  final optional = StringOption('name');
+  final String value = inputs.valueOf(optional);
+  CommandRegistry.create(
+    'tool',
+    'Tool.',
+    mandatoryPositionals: [NormalPositional.optional('path')],
+  );
+  print(value);
+}
+''');
+
+        try {
+          final result = await Process.run(Platform.resolvedExecutable, [
+            'analyze',
+            source.path,
+          ]);
+          final diagnostics = '${result.stdout}\n${result.stderr}';
+
+          expect(result.exitCode, isNot(0));
+          expect(diagnostics, contains('argument_type_not_assignable'));
+          expect(diagnostics, contains('list_element_type_not_assignable'));
+        } finally {
+          if (source.existsSync()) source.deleteSync();
+        }
+      },
+    );
   });
 
   group('Variadic', () {
