@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.5.0
+
 ### Breaking migration
 
 - Input handles now encode required, optional, and defaulted output

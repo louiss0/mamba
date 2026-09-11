@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:mamba/executor.dart';
 import 'package:mamba/mamba_cli.dart';
 
-const _mambaVersion = '0.4.0';
+const _mambaVersion = '0.5.0';
 
 Future<void> main(List<String> arguments) => Executor(
   'mamba',
