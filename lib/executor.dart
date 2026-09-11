@@ -83,6 +83,7 @@ final class Executor {
     CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
     BooleanFlag('version', description: 'Show the application version.'),
   ];
+
   Executor(
     this.name,
     this.shortDescription,
