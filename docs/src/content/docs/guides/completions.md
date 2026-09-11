@@ -115,7 +115,6 @@ The `variadic` map uses these fields.
 | `description` | Yes | The variadic argument description, or `null`. |
 | `choices` | No | The available choice names. |
 | `default` | No | The selected default choice name. |
-| `repeatable` | No | Present and `true` when repeated values are accepted. |
 | `pattern` | No | The regular-expression pattern for a non-choice value. |
 
 ### Accessor maps

@@ -68,7 +68,7 @@ final class AddCommand extends Command {
 Run it with:
 
 ```sh
-dart run bin/git_like.dart add README.md --message "Document Mamba"
+dart run <file> add README.md --message "Document Mamba"
 ```
 
 ## Output availability
