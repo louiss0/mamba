@@ -173,15 +173,12 @@ void main() {
     );
   });
 
-  test('dynamic context failures are tagged with their hook phase', () async {
-    final result = await Executor('tool', 'Tool.', '1.0.0', [
+  test('developer errors escape execution', () async {
+    final execution = Executor('tool', 'Tool.', '1.0.0', [
       InvalidContextWriter(),
     ]).fake().execute(['invalid', 'run']);
 
-    expect(result, isA<MambaFailureResult>());
-    final failure = result as MambaFailureResult;
-    expect(failure.errors.single.phase, MambaExecutionPhase.prePersistentRun);
-    expect(failure.errors.single.exception.message, contains('context key'));
+    await expectLater(execution, throwsArgumentError);
   });
 
   test('success has zero exit code and runs eligible hooks', () async {

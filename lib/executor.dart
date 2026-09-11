@@ -195,7 +195,7 @@ final class _Execution {
     ParsedArguments parsed;
     try {
       parsed = Parser(_registry).parse(args);
-    } on Object catch (error, trace) {
+    } on Exception catch (error, trace) {
       return _failure(
         MambaExecutionPhase.parse,
         error,
@@ -229,7 +229,7 @@ final class _Execution {
         try {
           await candidate.prePersistentRun(invocation, _context);
           persistent.add(candidate);
-        } on Object catch (error, trace) {
+        } on Exception catch (error, trace) {
           errors.add(
             _error(
               MambaExecutionPhase.prePersistentRun,
@@ -246,7 +246,7 @@ final class _Execution {
       try {
         await command.preRun(invocation, readContext, await _readInput());
         ordinary = command;
-      } on Object catch (error, trace) {
+      } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.preRun, error, trace, errorPath));
       }
     }
@@ -254,14 +254,14 @@ final class _Execution {
     if (errors.isEmpty) {
       try {
         output = await command.run(invocation, parsed.$3);
-      } on Object catch (error, trace) {
+      } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.run, error, trace, errorPath));
       }
     }
     if (ordinary != null) {
       try {
         await ordinary.postRun(invocation, readContext);
-      } on Object catch (error, trace) {
+      } on Exception catch (error, trace) {
         errors.add(
           _error(MambaExecutionPhase.postRun, error, trace, errorPath),
         );
@@ -270,7 +270,7 @@ final class _Execution {
     for (final hook in persistent.reversed) {
       try {
         await hook.postPersistentRun(invocation, _context);
-      } on Object catch (error, trace) {
+      } on Exception catch (error, trace) {
         errors.add(
           _error(
             MambaExecutionPhase.postPersistentRun,
