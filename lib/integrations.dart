@@ -1544,9 +1544,6 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
     final positionalChoices = <List<String>>[];
     final flagChoices = <String, List<String>>{};
 
-    List<String> choicePairs(List<String> choices) => [
-      for (final choice in choices) ...[choice, choice],
-    ];
     final positionals = command.positionals;
     if (positionals != null) {
       for (final positionalValue in positionals) {
@@ -1582,16 +1579,10 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
       }
     }
 
-    final dashChoices = <List<String>>[];
     final dashAnyChoices = <String>[];
     final variadic = command.variadic;
     if (variadic != null) {
-      final values = _stringList(variadic.choices);
-      if (values.isNotEmpty) {
-        dashAnyChoices.addAll(values);
-      } else if (values.isNotEmpty) {
-        dashChoices.add(choicePairs(values));
-      }
+      dashAnyChoices.addAll(_stringList(variadic.choices));
     }
 
     for (final accessor in _accessorLeaves(command.accessors)) {
@@ -1605,7 +1596,6 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
     return {
       if (positionalChoices.isNotEmpty) 'positional': positionalChoices,
       if (flagChoices.isNotEmpty) 'flag': flagChoices,
-      if (dashChoices.isNotEmpty) 'dash': dashChoices,
       if (dashAnyChoices.isNotEmpty) 'dashany': dashAnyChoices,
     };
   }
@@ -1653,13 +1643,7 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
         );
         continue;
       }
-      if (value.kind == 'value') {
-        yield (path: path, value: _accessorOption(value, path), hidden: hidden);
-        continue;
-      }
-      // Registry record construction guarantees every accessor is canonical.
-      // or value node, so no legacy fallback conversion is required.
-      throw StateError('Unsupported canonical accessor kind');
+      yield (path: path, value: _accessorOption(value, path), hidden: hidden);
     }
   }
 
