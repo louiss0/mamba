@@ -185,6 +185,11 @@ final class Parser {
     InputDefinition input,
     Object value,
   ) {
+    void appendPairValue<T>(RepeatablePairOption<T> option) {
+      final existing = values[option] as List<T>?;
+      values[option] = List<T>.unmodifiable([...?existing, value as T]);
+    }
+
     switch (input) {
       case RepeatableOptionDefinition():
         final existing = values[input] as List?;
@@ -194,10 +199,12 @@ final class Parser {
           );
         }
         values[input] = input.appendValue(value, existing);
-      case RepeatablePairStringOption() ||
-          RepeatablePairIntOption() ||
-          RepeatablePairDoubleOption():
-        values[input] = List.unmodifiable([...?values[input] as List?, value]);
+      case RepeatablePairStringOption():
+        appendPairValue<String>(input);
+      case RepeatablePairIntOption():
+        appendPairValue<int>(input);
+      case RepeatablePairDoubleOption():
+        appendPairValue<double>(input);
       default:
         if (input is PairOption && values.containsKey(input)) {
           throw MambaParseException(
@@ -208,17 +215,22 @@ final class Parser {
     }
   }
 
-  Object _parseValue(InputDefinition input, String value) => switch (input) {
-    RegExpValidated()
-        when input is! AccessorIntOption && input is! AccessorDoubleOption =>
-      _regex(input as RegExpValidated, value),
-    NumericRangeValidated<int>() ||
-    AccessorIntOption() => _integer(input, value),
-    NumericRangeValidated<double>() ||
-    AccessorDoubleOption() => _double(input, value),
-    ChoiceValidated() => _choice(input as ChoiceValidated, value),
-    _ => throw StateError('Unsupported input ${input.name}'),
-  };
+  Object _parseValue(InputDefinition input, String value) {
+    if (input is RegExpValidated &&
+        input is! AccessorIntOption &&
+        input is! AccessorDoubleOption) {
+      return _regex(input as RegExpValidated, value);
+    }
+    if (input is NumericRangeValidated<int> || input is AccessorIntOption) {
+      return _integer(input, value);
+    }
+    if (input is NumericRangeValidated<double> ||
+        input is AccessorDoubleOption) {
+      return _double(input, value);
+    }
+    return _choice(input as ChoiceValidated, value);
+  }
+
   String _regex(RegExpValidated input, String value) {
     if (!_matches(input.regex, value))
       throw MambaParseException(
@@ -239,7 +251,7 @@ final class Parser {
 
   double _double(InputDefinition input, String value) {
     final parsed = double.tryParse(value);
-    if (parsed == null || !RegExp(r'[+-]?(?:\d+\.\d+|\d+)').hasMatch(value))
+    if (parsed == null || !_matches(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value))
       throw MambaParseException(
         'Invalid double value: $value must be a signed decimal number',
       );
@@ -492,10 +504,6 @@ final class Parser {
     yield* known;
   }
 
-  String? _shortOf(InputDefinition input) => switch (input) {
-    Flag(:final short) ||
-    Option(:final short) ||
-    PairOption(:final short) => short,
-    _ => null,
-  };
+  String? _shortOf(InputDefinition input) =>
+      input is Option ? input.short : (input as PairOption).short;
 }
