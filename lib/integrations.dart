@@ -527,17 +527,11 @@ _mamba_filter_option() {
     final function = '_complete_${_pathIdentifier(path)}_variadic';
     lines.addAll(['$function() {', r'  local current="$1"']);
     if (choices.isNotEmpty) {
-      if (variadic!.repeatable == true) {
-        lines.add(
-          '  _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
-        );
-      } else {
-        lines.addAll([
-          r'  if [[ "$_mamba_variadic_index" == 0 ]]; then',
-          '    _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
-          '  fi',
-        ]);
-      }
+      lines.addAll([
+        r'  if [[ "$_mamba_variadic_index" == 0 ]]; then',
+        '    _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
+        '  fi',
+      ]);
     }
     lines.addAll(['}', '']);
   }
@@ -1227,7 +1221,6 @@ end''';
     final variadicCondition = _joinConditions([
       condition,
       '__mamba_after_double_dash',
-      '__mamba_variadic_available ${variadic.repeatable == true}',
     ]);
     lines.add(
       "complete -c ${_quoteBare(executable)} -n ${_quote(variadicCondition)} -f -a ${_quote(choices.join(' '))}${_description(variadic.description)}",
@@ -1594,7 +1587,7 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
     final variadic = command.variadic;
     if (variadic != null) {
       final values = _stringList(variadic.choices);
-      if (values.isNotEmpty && variadic.repeatable == true) {
+      if (values.isNotEmpty) {
         dashAnyChoices.addAll(values);
       } else if (values.isNotEmpty) {
         dashChoices.add(choicePairs(values));
@@ -1998,7 +1991,6 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
     return [
       "${_state('VariadicHandlers')}[${_psQuote(path.join('.'))}] = [PSCustomObject]@{"
           ' Choices = @(${choices.map(_psQuote).join(', ')});'
-          ' Repeatable = ${_psBool(variadic.repeatable == true)}'
           ' }',
     ];
   }

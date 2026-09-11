@@ -287,14 +287,4 @@ void main() {
       expect(inputs.valueOf(formats), <Format>[Format.json]);
     },
   );
-
-  test('keeps validated -- arguments out of inputs in order', () {
-    final option = StringOption('value');
-    final result = parser(
-      options: [option],
-      variadic: RepeatedChoiceVariadic<Format>(choices: Format.values),
-    ).parse(['--value', 'one', '--', 'json', 'text', 'json']);
-    expect(result.$3, ['json', 'text', 'json']);
-    expect(result.$2.contains(option), isTrue);
-  });
 }

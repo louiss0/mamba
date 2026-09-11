@@ -439,9 +439,7 @@ final class Parser {
       : _regex(input, value);
   void _validateVariadic(Variadic? variadic, List<String> values) {
     if (values.isEmpty || variadic == null) return;
-    if (variadic is ChoiceVariadic &&
-        variadic is! RepeatedChoiceVariadic &&
-        values.length > 1)
+    if (variadic is ChoiceVariadic && values.length > 1)
       throw MambaParseException(
         'The registered variadic accepts only one value.',
       );

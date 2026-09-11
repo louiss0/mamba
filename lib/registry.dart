@@ -53,7 +53,6 @@ typedef RegistryVariadic = ({
   String? description,
   List<String>? choices,
   String? defaultValue,
-  bool? repeatable,
   String? pattern,
 });
 
@@ -620,7 +619,7 @@ final class CommandRegistry {
           ? null
           : List.unmodifiable(choices.map((choice) => choice.name)),
       defaultValue: input is ChoiceVariadic ? input.defaultValue?.name : null,
-      repeatable: input is RepeatedChoiceVariadic ? true : null,
+
       pattern: input is NormalVariadic ? input.regex.pattern : null,
     );
   }

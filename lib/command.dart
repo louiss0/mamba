@@ -334,14 +334,6 @@ class ChoiceVariadic<T extends Enum> extends Variadic with ChoiceValidated<T> {
   final T? defaultValue;
 }
 
-final class RepeatedChoiceVariadic<T extends Enum> extends ChoiceVariadic<T> {
-  RepeatedChoiceVariadic({
-    super.description,
-    required super.choices,
-    super.defaultValue,
-  });
-}
-
 sealed class Flag<T> extends Input<T> {
   const Flag(
     this.name, {
