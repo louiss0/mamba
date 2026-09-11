@@ -39,7 +39,11 @@ class TestCommand extends Command {
   });
 
   @override
-  String run(CommandInvocation invocation, List<String> args) => '';
+  String run(
+    CommandInvocation invocation,
+    List<String> args,
+    ProcessedStandardInput? input,
+  ) => '';
 
   @override
   final String name;

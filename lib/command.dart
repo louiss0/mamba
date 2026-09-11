@@ -1250,9 +1250,8 @@ final class ParsedInputs {
 }
 
 final class CommandInvocation {
-  const CommandInvocation(this._inputs, this.context);
+  const CommandInvocation(this._inputs);
   final ParsedInputs _inputs;
-  final MambaContext context;
 
   T valueOf<T>(Input<T> input) => _inputs.valueOf(input);
 }
@@ -1289,7 +1288,11 @@ abstract class Command {
        accessors = _copyList(accessors);
   String get name;
   String get shortDescription;
-  FutureOr<String?> run(CommandInvocation invocation, List<String> args);
+  FutureOr<String?> run(
+    CommandInvocation invocation,
+    List<String> args,
+    ProcessedStandardInput? input,
+  );
 }
 
 abstract class GroupCommand extends Command {
@@ -1329,6 +1332,7 @@ abstract class GroupCommand extends Command {
     List<String> path,
     CommandInvocation invocation,
     List<String> args,
+    ProcessedStandardInput? input,
   ) async {
     if (path.isEmpty || path.contains(name))
       throw ArgumentError.value(path, 'path');
@@ -1346,13 +1350,17 @@ abstract class GroupCommand extends Command {
         throw MambaException('command not found in $name ${path.join(' ')}');
       children = current is GroupCommand ? current.commands : null;
     }
-    return current!.run(invocation, args);
+    return current!.run(invocation, args, input);
   }
 
   @override
-  FutureOr<String?> run(CommandInvocation invocation, List<String> args) {
+  FutureOr<String?> run(
+    CommandInvocation invocation,
+    List<String> args,
+    ProcessedStandardInput? input,
+  ) {
     final path = defaultSubCommandPath;
-    return path == null ? '' : runChildCommand(path, invocation, args);
+    return path == null ? '' : runChildCommand(path, invocation, args, input);
   }
 }
 
@@ -1386,7 +1394,11 @@ class CompletionCommand extends Command {
          discretionaryPositionals: [pathInput],
        );
   @override
-  String? run(CommandInvocation invocation, List<String> args) {
+  String? run(
+    CommandInvocation invocation,
+    List<String> args,
+    ProcessedStandardInput? input,
+  ) {
     final shell = invocation.valueOf(shellInput);
     final path = invocation.valueOf(pathInput) ?? '';
     final extension = _extensionFor(shell);
@@ -1433,14 +1445,20 @@ final class ProcessedStandardInput {
 }
 
 mixin HookRunner on Command {
-  FutureOr<void> preRun(
-    ProcessedStandardInput? input,
+  FutureOr<void> preRun(CommandInvocation invocation, MambaReadContext context);
+  FutureOr<void> postRun(
     CommandInvocation invocation,
-  );
-  FutureOr<void> postRun(CommandInvocation invocation) {}
+    MambaReadContext context,
+  ) {}
 }
 
 mixin PersistentHookRunner on GroupCommand {
-  FutureOr<void> prePersistentRun(CommandInvocation invocation);
-  FutureOr<void> postPersistentRun(CommandInvocation invocation) {}
+  FutureOr<void> prePersistentRun(
+    CommandInvocation invocation,
+    MambaContext context,
+  );
+  FutureOr<void> postPersistentRun(
+    CommandInvocation invocation,
+    MambaContext context,
+  ) {}
 }

@@ -13,20 +13,24 @@ final class ResultCommand extends Command with HookRunner {
   @override
   String get shortDescription => 'Runs.';
   @override
-  void preRun(ProcessedStandardInput? input, CommandInvocation invocation) {
+  void preRun(CommandInvocation invocation, MambaReadContext context) {
     events.add('pre');
     expect(invocation.valueOf(enabled), isA<bool>());
   }
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
+  String run(
+    CommandInvocation invocation,
+    List<String> args,
+    ProcessedStandardInput? input,
+  ) {
     events.add('run');
     if (failRun) throw MambaException('run failed', exitCode: 7);
     return 'output';
   }
 
   @override
-  void postRun(CommandInvocation invocation) {
+  void postRun(CommandInvocation invocation, MambaReadContext context) {
     events.add('post');
     if (failPost) throw MambaException('post failed', exitCode: 9);
   }
@@ -47,19 +51,71 @@ final class Persistent extends GroupCommand with PersistentHookRunner {
   @override
   String get shortDescription => 'Group.';
   @override
-  void prePersistentRun(CommandInvocation invocation) {
+  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
     events.add('pre-group');
     if (failPre) throw MambaException('persistent pre failed', exitCode: 6);
   }
 
   @override
-  void postPersistentRun(CommandInvocation invocation) {
+  void postPersistentRun(CommandInvocation invocation, MambaContext context) {
     events.add('post-group');
     if (failPost) throw MambaException('persistent failed', exitCode: 8);
   }
 }
 
+final _contextValue = MambaContextKey<String>();
+
+final class ContextReader extends Command with HookRunner {
+  @override
+  String get name => 'read';
+  @override
+  String get shortDescription => 'Reads hook context.';
+
+  @override
+  void preRun(CommandInvocation invocation, MambaReadContext context) {
+    expect(context.get(_contextValue), 'available');
+  }
+
+  @override
+  void postRun(CommandInvocation invocation, MambaReadContext context) {
+    expect(context.get(_contextValue), 'available');
+  }
+
+  @override
+  String? run(
+    CommandInvocation invocation,
+    List<String> args,
+    ProcessedStandardInput? input,
+  ) => null;
+}
+
+final class ContextWriter extends GroupCommand with PersistentHookRunner {
+  ContextWriter(super.commands) : super();
+  @override
+  String get name => 'context';
+  @override
+  String get shortDescription => 'Writes hook context.';
+
+  @override
+  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+    context.set(_contextValue, 'available');
+  }
+
+  @override
+  void postPersistentRun(CommandInvocation invocation, MambaContext context) {
+    expect(context.get(_contextValue), 'available');
+  }
+}
+
 void main() {
+  test('persistent hooks provide read-only context to command hooks', () async {
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      ContextWriter([ContextReader()]),
+    ]).fake().execute(['context', 'read']);
+
+    expect(result, isA<MambaSuccessResult>());
+  });
+
   test('success has zero exit code and runs eligible hooks', () async {
     final events = <String>[];
     final result = await Executor('tool', 'Tool.', '1.0.0', [
