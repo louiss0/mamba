@@ -2169,6 +2169,30 @@ void main() {
   });
 
   group('command resolution metadata', () {
+    group('resolution errors', () {
+      test('describes groups without subcommands', () {
+        final error = MambaCommandNotFoundException('run', ['tool'], []);
+
+        expect(
+          error.message,
+          'Command run was not found under tool. This command has no subcommands.',
+        );
+      });
+
+      test('lists available subcommands', () {
+        final error = MambaCommandNotFoundException(
+          'missing',
+          ['tool', 'config'],
+          ['get', 'set'],
+        );
+
+        expect(
+          error.message,
+          'Command missing was not found under tool config. Available commands: get, set',
+        );
+      });
+    });
+
     test('canonicalizes aliases and requires an executable destination', () {
       final registry = CommandRegistry.create(
         'tool',

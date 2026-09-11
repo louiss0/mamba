@@ -124,6 +124,24 @@ final class RetainingContextWriter extends GroupCommand
   }
 }
 
+final class DefaultPostHookCommand extends Command with HookRunner {
+  @override
+  String get name => 'default-post';
+
+  @override
+  String get shortDescription => 'Uses the default post-run hook.';
+
+  @override
+  void preRun(
+    CommandInvocation invocation,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
+  ) {}
+
+  @override
+  String run(CommandInvocation invocation, List<String> args) => 'complete';
+}
+
 final class InvalidContextWriter extends GroupCommand
     with PersistentHookRunner {
   InvalidContextWriter() : super([ResultCommand(<String>[])]);
@@ -143,6 +161,17 @@ void main() {
   group('MambaException', () {
     test('uses a portable default exit code', () {
       expect(MambaException('failure').exitCode, 1);
+    });
+  });
+
+  group('Command hooks', () {
+    test('allows the default post-run hook', () async {
+      final result = await Executor('tool', 'Tool.', '1.0.0', [
+        DefaultPostHookCommand(),
+      ]).fake().execute(['default-post']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect((result as MambaSuccessResult).output, 'complete');
     });
   });
 

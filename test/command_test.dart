@@ -101,7 +101,19 @@ class TestCompletionCommand extends CompletionCommand {
 void main() {
   registerFallbackValue(invocationWithoutInputs);
 
-  group("CompletionCommand", () {
+  group('CompletionCommand', () {
+    group('metadata', () {
+      test('describes the completion command', () {
+        final command = CompletionCommand();
+
+        expect(command.name, 'completion');
+        expect(
+          command.shortDescription,
+          'Generate completion for various shells',
+        );
+      });
+    });
+
     group('preset', () {
       test('creates a file synchronously by default', () {
         final directory = Directory.systemTemp.createTempSync(
@@ -622,6 +634,114 @@ void main() {
       expect(optionalSelection.map(OutputFormat.json, member), 'json');
       expect(requiredSelection.isRequired, isTrue);
       expect(requiredSelection.map(OutputFormat.yaml, member), 'yaml');
+    });
+
+    group('Repeated positionals', () {
+      test('freeze mandatory and optional string values', () {
+        final mandatory = RepeatedStringPositional('sources', times: 2);
+        final optional = RepeatedStringPositional.optional(
+          'targets',
+          times: 2,
+        ) as RepeatedPositionalDefinition;
+
+        final mandatoryValues = mandatory.freezeValues(['one', 'two']);
+        final optionalValues = optional.freezeValues(['three', 'four']);
+
+        expect(mandatoryValues, ['one', 'two']);
+        expect(optionalValues, ['three', 'four']);
+        expect(() => mandatoryValues.add('three'), throwsUnsupportedError);
+        expect(
+          () => (optionalValues as List<String>).add('five'),
+          throwsUnsupportedError,
+        );
+      });
+    });
+
+    group('Repeatable options', () {
+      test('exposes cardinality and numeric constraints', () {
+        final required = RepeatableIntOption.required(
+          'required-port',
+          min: 1,
+          max: 10,
+        );
+        final defaulted = RepeatableDoubleOption.withDefault(
+          'default-weight',
+          defaultValue: [1],
+        );
+        final optionalInt = RepeatableIntOption('port', min: 1, max: 10);
+        final optionalDouble = RepeatableDoubleOption(
+          'weight',
+          min: 0,
+          max: 2,
+          step: 0.5,
+        );
+
+        expect(required.unique, isFalse);
+        expect(defaulted.unique, isFalse);
+        expect(optionalInt.min, 1);
+        expect(optionalInt.max, 10);
+        expect(optionalDouble.min, 0);
+        expect(optionalDouble.max, 2);
+        expect(optionalDouble.step, 0.5);
+      });
+    });
+
+    group('Paired options', () {
+      test('describes scalar and repeatable pair inputs', () {
+        final host = PairStringOption('host');
+        final port = PairIntOption('port');
+        final optional = PairedOptions([host, port], (_) => 'server');
+        final required = PairedOptions.required([host, port], (_) => 'server');
+        final ratio = PairDoubleOption('ratio', min: 0, max: 1, step: 0.1);
+        final tags = RepeatablePairStringOption('tag');
+        final ports = RepeatablePairIntOption('ports', min: 1, max: 10);
+        final ratios = RepeatablePairDoubleOption(
+          'ratios',
+          min: 0,
+          max: 2,
+          step: 0.5,
+        );
+
+        expect(optional.isRequired, isFalse);
+        expect(required.name, 'host&port');
+        expect(ratio.min, 0);
+        expect(ratio.max, 1);
+        expect(ratio.step, 0.1);
+        expect(tags.regex.hasMatch('stable'), isTrue);
+        expect(ports.min, 1);
+        expect(ports.max, 10);
+        expect(ratios.min, 0);
+        expect(ratios.max, 2);
+        expect(ratios.step, 0.5);
+      });
+    });
+
+    group('Selected options', () {
+      test('describes required selections by their member names', () {
+        final member = SelectableOption(
+          PairStringOption('json'),
+          (value) => value,
+        );
+        final selected = SelectedOptions.required<String>([member]);
+
+        expect(selected.name, 'json');
+      });
+    });
+
+    group('Accessors', () {
+      test('exposes unconstrained required numeric metadata', () {
+        final integer =
+            AccessorIntOption.required('port') as NumericRangeValidated<int>;
+        final decimal = AccessorDoubleOption.required('ratio');
+        final range = decimal as NumericRangeValidated<double>;
+        final step = decimal as NumericStepValidated;
+
+        expect(integer.min, isNull);
+        expect(integer.max, isNull);
+        expect(range.min, isNull);
+        expect(range.max, isNull);
+        expect(step.step, isNull);
+      });
     });
 
     test('accessor numeric regexes describe parser numeric syntax', () {
