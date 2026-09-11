@@ -1,162 +1,179 @@
 ---
 title: Getting Started
-description: Use Mamba in a project scaffolded by Dart
+description: Scaffold a Dart CLI project with Mamba and add your first command
 sidebar:
   order: 1
 ---
 
-If you are using Mamba for a Console project!
-You need to need to start by using 
+Mamba can scaffold a Dart console package and generate command skeletons for
+it. You can use the generated project as a starting point, then register your
+commands with an `Executor`.
 
-```sh
-dart pub add mamba
-```
-After installing Mamba you should start by replacing the code in the root lib folder with this.
+## Install the Mamba CLI
 
-```dart
-import "package:mamba/mamba.dart";
-
-Future<void> main(List<String> args) {
-  
-  await Executor('my-app', "This is my app", [] ).create().execute(args);
-
-}
-```
-
-:::note
-After this you should do `dart run lib/my-app.dart`. 
-When you run that command you should see the help menu.
-
-It should look something like this but colored 
-
-```sh
-my-app 'This is my app'
-
-Flags
-
-[ -h|--help ] Show this help message.
-_____________________________________
-[ --dry-run ] Show what would happen without changing anything.
-_______________________________________________________________
-[ -v|--verbose ] Increase output verbosity.
-___________________________________________
-```
-:::
-
-This help menu will show the name of the CLI, the description, and global flags.
-
-By default Mamba comes with `--help` `--dry-run` and `--verbose` flags.
-These flags are useful. 
-
-- `--dry-run` is used to stop code from running but displays what would have happened.
-- `--verbose` is a flag that's used to controll how logging is done!
-
-The executor is a factory that allows only the registration of commands, flags and options.
-It's not the root command! If you want to register a command for it to execute by default.
-
-:::tip[You must first make a command!]
- 
-
-```dart
-class Run extends Command {
-  Run();
-
-  String get name => "run";
-  
-  String get shortDescription => "Run the application.";
-
-  @override
-  Future<String> run(
-    CommandInvocation invocation,
-  List<String> args,
-  ) async {
-
-    return "This ran"
-  }
-}
-```
-:::
-
-:::tip[Register the command] 
-
-```dart
-Future<void> main(List<String> args){
-  
-  await Executor(
-    'my-app', 
-    "This is my app",
-    [Run()],
-  ).create().execute(args);
-}
-```
-:::
-
-:::tip[Then provide the `defaultCommandPath` option.]
-
-```dart
-Future<void> main(List<String> args){
-  
-  await Executor(
-    'my-app', 
-    "This is my app",
-    [Run()],
-    defaultCommandPath: ['run'],
-  ).create().execute(args);
-}
-```
-:::
-
-:::tip[Then you can run `dart run lib/my-app.dart` again!]
-
-You'll see the default command run!
-
-```sh
-This ran
-```
-:::
-
-
-:::tip[Wanna see the the run in help?]
-
-Run `dart run lib/my-app.dart --help`
-
-```sh
-my-app 'This is my app'
-
-Flags
-
-[ -h|--help ] Show this help message.
-_____________________________________
-[ --dry-run ] Show what would happen without changing anything.
-_______________________________________________________________
-[ -v|--verbose ] Increase output verbosity.
-___________________________________________
-
-Commands 
-
-run Run the application.
-------------------------
-```
-
-:::
-
-## Using the Mamba CLI
-
-If you don't have a project that's created yet you should create one by using the Mamba CLI! 
-
-You can activate it globally
+Mamba requires Dart SDK `^3.13.2`. Install the `mamba` executable globally
+with Dart:
 
 ```sh
 dart pub global activate mamba
 ```
 
-When you do you then use the mamba create command. 
+This installs the `mamba` command. If Dart's pub-cache `bin` directory is not
+on your `PATH`, run the same commands through Dart instead:
 
 ```sh
-mamba create curl 
+dart pub global run mamba --help
 ```
 
-:::note
-The folder structure that's created should be similar to the CLI console project!
-But it should have Mamba's executor set up.  
-:::
+Check that the CLI is available:
+
+```sh
+mamba --help
+```
+
+## Create a project
+
+Run `mamba create` from the directory that should contain your new project.
+The command takes a package name and creates a directory with that name:
+
+```sh
+cd ~/code
+mamba create my_app
+cd my_app
+dart pub get
+```
+
+The package name must start with a lowercase letter and may contain lowercase
+letters, numbers, and underscores. For example, `my_app` is valid, while
+`MyApp` is not.
+
+If the `mamba` executable is not on your `PATH`, replace
+`mamba create my_app` with `dart pub global run mamba create my_app`.
+
+The generated project contains:
+
+```text
+my_app/
+├── bin/
+│   └── my_app.dart
+└── pubspec.yaml
+```
+
+The generated executable uses Mamba's `Executor` and starts with no
+application commands. Run it to see the generated help output:
+
+```sh
+dart run bin/my_app.dart
+```
+
+Run the create command from the parent directory, not after entering
+`my_app`.
+
+## Scaffold a command
+
+From the root of the generated project, create a command skeleton with
+`mamba command`:
+
+```sh
+mamba command greet
+```
+
+This creates `lib/greet.dart` with a typed `Command` class. The generated
+command is intentionally small: edit its description and `run` method to
+implement your behavior.
+
+For example, update the generated file to:
+
+```dart
+import 'package:mamba/mamba.dart';
+
+final class GreetCommand extends Command {
+  @override
+  String get name => 'greet';
+
+  @override
+  String get shortDescription => 'Greet the user.';
+
+  @override
+  String run(CommandInvocation invocation, List<String> args) =>
+      'Hello from Mamba!';
+}
+```
+
+Use `mamba command --help` to see the command-scaffolding options. You can
+also use the equivalent Dart invocation when the global executable is not on
+your `PATH`:
+
+```sh
+dart pub global run mamba command greet
+```
+
+## Register the command
+
+Scaffolding creates the command file, but it does not modify your executable's
+command list. Import the command in `bin/my_app.dart` and register an instance
+with the executor:
+
+```dart
+import 'package:mamba/mamba.dart';
+import 'package:my_app/greet.dart';
+
+Future<void> main(List<String> args) => Executor(
+  'my_app',
+  'A command-line application.',
+  '1.0.0',
+  [GreetCommand()],
+).create().execute(args);
+```
+
+Now run the command:
+
+```sh
+dart run bin/my_app.dart greet
+```
+
+The output is:
+
+```text
+Hello from Mamba!
+```
+
+Mamba generates help from the same command definitions used for parsing and
+execution. View it with:
+
+```sh
+dart run bin/my_app.dart --help
+```
+
+You should see `greet` listed under `Commands`. Use the command-specific help
+while developing it:
+
+```sh
+dart run bin/my_app.dart greet --help
+```
+
+## Choose a default command
+
+If one command should run when no command name is supplied, pass its path as
+`defaultCommandPath`:
+
+```dart
+Future<void> main(List<String> args) => Executor(
+  'my_app',
+  'A command-line application.',
+  '1.0.0',
+  [GreetCommand()],
+  defaultCommandPath: ['greet'],
+).create().execute(args);
+```
+
+With this setting, running `dart run bin/my_app.dart` executes `greet`. An
+explicit command name, such as `dart run bin/my_app.dart greet`, still selects
+the command directly.
+
+## Next steps
+
+- Add typed positionals, flags, and options to your command.
+- Use `GroupCommand` for nested commands such as `remote add`.
+- Use `Executor.fake()` to test commands without writing to process streams.
+- Add `CompletionCommand` to generate shell completions.
