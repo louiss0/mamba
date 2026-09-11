@@ -43,7 +43,6 @@ final class Parser {
         trailing.addAll(tokens.skip(index + 1));
         break;
       }
-      if (help || version) continue;
       if (token == '--help' || token == '-h') {
         help = true;
         continue;
@@ -52,6 +51,7 @@ final class Parser {
         version = true;
         continue;
       }
+      if (help || version) continue;
       if (token.startsWith('--') && token.length > 2) {
         final (name, inline) = _split(token.substring(2));
         final accessor = _accessorFor(name, registry.accessors);

@@ -7,6 +7,10 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
+import 'package:mamba/src/process.dart';
+import 'package:mamba/src/system_process.dart' as system_process;
+
+export 'src/process.dart';
 
 sealed class MambaExecutionResult {
   const MambaExecutionResult();
@@ -60,15 +64,8 @@ final class MambaExecutionError {
   final List<String> commandPath;
 }
 
-bool isClosedPipeFileSystemException(FileSystemException error) {
-  final code = error.osError?.errorCode;
-  if (code == 32 || code == 109 || code == 232) return true;
-  final message = '${error.message} ${error.osError?.message ?? ''}'
-      .toLowerCase();
-  return message.contains('socket is closed') ||
-      message.contains('pipe is being closed') ||
-      message.contains('broken pipe');
-}
+bool isClosedPipeFileSystemException(FileSystemException error) =>
+    system_process.isClosedPipeFileSystemException(error);
 
 abstract interface class MambaExecutor<T> {
   Future<T> execute(List<String> args);
@@ -129,7 +126,18 @@ final class Executor {
   }
 
   MambaExecutor<MambaExecutionResult> fake() => _FakeExecutor(_Execution(this));
-  MambaExecutor<void> create() => _CreateExecutor(_Execution(this));
+
+  /// Creates a process-facing executor.
+  ///
+  /// When [process] is omitted, it reads and writes the current Dart process.
+  /// Supply a [MambaProcess] to redirect input, output, errors, and exit code.
+  MambaExecutor<void> create({MambaProcess? process}) {
+    final selectedProcess = process ?? system_process.SystemMambaProcess();
+    return _CreateExecutor(
+      _Execution(this, readStandardInput: selectedProcess.readStandardInput),
+      selectedProcess,
+    );
+  }
 }
 
 final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
@@ -141,30 +149,31 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
 }
 
 final class _CreateExecutor implements MambaExecutor<void> {
-  _CreateExecutor(this.execution);
+  _CreateExecutor(this.execution, this.process);
   final _Execution execution;
+  final MambaProcess process;
   @override
   Future<void> execute(List<String> args) async {
     final result = await execution.execute(args);
     switch (result) {
       case MambaSuccessResult(:final output):
-        if (output != null) stdout.writeln(output);
+        if (output != null) process.writeOutput(output);
       case MambaFailureResult(
         :final output,
         :final errors,
         exitCode: final code,
       ):
-        if (output != null) stdout.writeln(output);
+        if (output != null) process.writeOutput(output);
         for (final error in errors) {
-          stderr.writeln(error.exception.message);
+          process.writeError(error.exception.message);
         }
-        exitCode = code;
+        process.processExitCode = code;
     }
   }
 }
 
 final class _Execution {
-  _Execution(Executor executor)
+  _Execution(Executor executor, {this.readStandardInput})
     : _help = executor.helpFormatter ?? MambaHelpFormatter(),
       _context = executor.context ?? MambaContext(),
       _version = executor._version,
@@ -189,6 +198,7 @@ final class _Execution {
     _assignCompletion(commands, _registry.toMap());
   }
   final HelpFormatter _help;
+  final Future<ProcessedStandardInput?> Function()? readStandardInput;
   final MambaContext _context;
   final String _version;
   final List<Command> commands;
@@ -338,17 +348,8 @@ final class _Execution {
     return selected;
   }
 
-  Future<ProcessedStandardInput?> _readInput() async {
-    try {
-      if (stdioType(stdin) != StdioType.pipe) return null;
-      return ProcessedStandardInput(
-        await stdin.expand((item) => item).toList(),
-      );
-    } on FileSystemException catch (error) {
-      if (!isClosedPipeFileSystemException(error)) rethrow;
-      return null;
-    }
-  }
+  Future<ProcessedStandardInput?> _readInput() async =>
+      readStandardInput?.call();
 
   void _assignCompletion(Iterable<Command> candidates, RegistryRecord record) {
     for (final command in candidates) {
