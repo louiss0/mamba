@@ -115,12 +115,3 @@ Accepts at most one trailing enum member name:
 ```dart
 ChoiceVariadic<Format>(choices: Format.values)
 ```
-
-### `RepeatedChoiceVariadic<T>`
-
-Accepts any number of trailing enum member names while preserving order and
-duplicates:
-
-```dart
-RepeatedChoiceVariadic<Format>(choices: Format.values)
-```
