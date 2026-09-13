@@ -90,7 +90,6 @@ Each `optionGroups` entry has the following fields.
 
 | Field | Required | Contents |
 | --- | --- | --- |
-| `mode` | Yes | `all` when every member is required together, or `oneOf` when one member may be selected. |
 | `required` | Yes | Whether this group must be supplied. |
 | `members` | Yes | A non-empty list of option names from `options`. |
 

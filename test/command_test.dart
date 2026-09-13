@@ -595,7 +595,7 @@ void main() {
       expect(() => parsed.valueOf(required), throwsStateError);
     });
 
-    test('paired and selected groups map typed values', () {
+    test('paired groups map typed values', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
       final pairValues = PairValues({host: 'localhost', port: 8080});
@@ -607,22 +607,10 @@ void main() {
         host,
         port,
       ], (values) => '${values.valueOf(host)}:${values.valueOf(port)}');
-      final json = PairChoiceOption<OutputFormat>(
-        'json',
-        choices: OutputFormat.values,
-      );
-      final member = SelectableOption(json, (value) => value.name);
-      final optionalSelection = SelectedOptions<String>([member]);
-      final requiredSelection = SelectedOptions.required<String>([member]);
-
       expect(optionalPair.name, 'host&port');
       expect(optionalPair.map(pairValues), 'localhost:8080');
       expect(requiredPair.isRequired, isTrue);
       expect(requiredPair.map(pairValues), 'localhost:8080');
-      expect(optionalSelection.name, 'json');
-      expect(optionalSelection.map(OutputFormat.json, member), 'json');
-      expect(requiredSelection.isRequired, isTrue);
-      expect(requiredSelection.map(OutputFormat.yaml, member), 'yaml');
     });
 
     group('Repeated positionals', () {
@@ -702,18 +690,6 @@ void main() {
         expect(ratios.min, 0);
         expect(ratios.max, 2);
         expect(ratios.step, 0.5);
-      });
-    });
-
-    group('Selected options', () {
-      test('describes required selections by their member names', () {
-        final member = SelectableOption(
-          PairStringOption('json'),
-          (value) => value,
-        );
-        final selected = SelectedOptions.required<String>([member]);
-
-        expect(selected.name, 'json');
       });
     });
 

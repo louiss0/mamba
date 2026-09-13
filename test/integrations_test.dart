@@ -258,16 +258,7 @@ RegistryRecord _complexRecord() {
     ],
     persistentOptions: persistentOptions,
     optionGroups: [
-      (
-        mode: RegistryOptionGroupMode.oneOf,
-        required: true,
-        members: ['json', 'text'],
-      ),
-      (
-        mode: RegistryOptionGroupMode.all,
-        required: true,
-        members: ['input', 'output'],
-      ),
+      (required: true, members: ['input', 'output']),
     ],
     accessors: [
       RegistryAccessor.group(
@@ -367,23 +358,6 @@ void main() {
   });
 
   group('Carapace conversion', () {
-    test('preserves selected option exclusivity', () {
-      final record = CommandRegistry.create(
-        'tool',
-        'Tool.',
-        selectedOptions: [
-          SelectedOptions<String>([
-            SelectableOption(PairStringOption('json'), (value) => value),
-            SelectableOption(PairStringOption('text'), (value) => value),
-          ]),
-        ],
-      ).toMap();
-      final completion = CarapaceSpecConverter(record).convert();
-      expect(completion, contains('exclusiveflags:'));
-      expect(completion, contains('- - "json"'));
-      expect(completion, contains('- "text"'));
-    });
-
     test('maps paired, grouped, persistent, and accessor inputs', () {
       final completion = CarapaceSpecConverter(_complexRecord()).convert();
 
@@ -392,10 +366,6 @@ void main() {
       expect(completion, contains('--credentials!='));
       expect(completion, contains('--secret!='));
       expect(completion, contains('--input!='));
-      expect(
-        completion,
-        contains('Runtime requires exactly one of: --json, --text.'),
-      );
       expect(completion, contains('network.protocol'));
       expect(
         completion,

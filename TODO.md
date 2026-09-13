@@ -37,7 +37,6 @@ Complete this milestone before publishing 0.5.0.
 - [ ] Prove `--target=deploy` treats `deploy` as a value.
 - [ ] Prove `-t deploy` treats `deploy` as a value.
 - [ ] Prove paired-option values cannot select commands.
-- [ ] Prove selected-option values cannot select commands.
 - [ ] Prove accessor values cannot select commands.
 - [ ] Prove inherited option values cannot select nested commands.
 - [ ] Prove a child name after a long flag still selects the child.

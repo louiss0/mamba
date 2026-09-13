@@ -34,7 +34,6 @@ class TestCommand extends Command {
     super.flags,
     super.options,
     super.pairedOptions,
-    super.selectedOptions,
     super.accessors,
   });
 

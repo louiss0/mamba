@@ -281,28 +281,18 @@ void main() {
       expect(help, isNot(contains('secret')));
     });
 
-    test('distinguishes paired and selected option groups', () {
+    test('renders paired option groups', () {
       final host = PairStringOption('host');
       final port = PairStringOption('port');
       final pair = PairedOptions([
         host,
         port,
       ], (values) => (values.valueOf(host), values.valueOf(port)));
-      final selected = SelectedOptions<String>([
-        SelectableOption(PairStringOption('json'), (value) => value),
-        SelectableOption(PairStringOption('text'), (value) => value),
-      ]);
       final help = MambaHelpFormatter().format(
-        CommandRegistry.create(
-          'tool',
-          'Tool.',
-          pairedOptions: [pair],
-          selectedOptions: [selected],
-        ),
+        CommandRegistry.create('tool', 'Tool.', pairedOptions: [pair]),
       );
 
       expect(help, contains('--host & --port'));
-      expect(help, contains('--json | --text'));
     });
   });
 
@@ -346,7 +336,6 @@ void main() {
           );
           final record = registry.toMap();
           final group = record.optionGroups!.single;
-          expect(group.mode, RegistryOptionGroupMode.all);
           expect(group.required, isTrue);
           expect(group.members, ['username', 'port']);
           expect(record.options!.first.pairedOptions, ['username', 'port']);
@@ -379,45 +368,6 @@ void main() {
           );
         },
       );
-
-      test('exports selected option groups', () {
-        final token = PairStringOption('token');
-        final password = PairStringOption('password');
-        final record = CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          selectedOptions: [
-            SelectedOptions<String>([
-              SelectableOption(token, (value) => value),
-              SelectableOption(password, (value) => value),
-            ]),
-          ],
-        ).toMap();
-
-        expect(record.optionGroups!.single.mode, RegistryOptionGroupMode.oneOf);
-        expect(record.options!.map((option) => option.name), [
-          'token',
-          'password',
-        ]);
-      });
-
-      test('validates selected option members', () {
-        final selected = SelectedOptions<String>([
-          SelectableOption(
-            PairChoiceOption<_Format>('format', choices: const []),
-            (value) => value.name,
-          ),
-        ]);
-
-        expect(
-          () => CommandRegistry.create(
-            'tool',
-            'Tool command.',
-            selectedOptions: [selected],
-          ),
-          throwsA(isA<MambaRegistryError>()),
-        );
-      });
 
       test('validates choices in accessor branches', () {
         expect(
@@ -1810,14 +1760,6 @@ void main() {
         ),
         throwsA(isA<MambaRegistryError>()),
       );
-      expect(
-        () => CommandRegistry.create(
-          'tool',
-          'Tool command.',
-          selectedOptions: [SelectedOptions<String>([])],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
     });
 
     test('rejects duplicate names across standalone groups', () {
@@ -2264,11 +2206,6 @@ void main() {
       final verbose = CountFlag('verbose', short: 'v');
       final file = StringOption('file', short: 'f');
       final port = PairIntOption('port', short: 'p');
-      final mode = PairChoiceOption<DeploymentFormat>(
-        'mode',
-        choices: DeploymentFormat.values,
-        short: 'm',
-      );
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
@@ -2276,11 +2213,6 @@ void main() {
         options: [file],
         pairedOptions: [
           PairedOptions<Object>([port], (_) => Object()),
-        ],
-        selectedOptions: [
-          SelectedOptions<DeploymentFormat>([
-            SelectableOption(mode, (value) => value),
-          ]),
         ],
         accessors: [
           AccessorListOption('server', [AccessorStringOption('host')]),
@@ -2292,8 +2224,6 @@ void main() {
       expect(registry.registeredInputTokenLength('-f'), 2);
       expect(registry.registeredInputTokenLength('--port'), 2);
       expect(registry.registeredInputTokenLength('-p'), 2);
-      expect(registry.registeredInputTokenLength('--mode'), 2);
-      expect(registry.registeredInputTokenLength('-m'), 2);
       expect(registry.registeredInputTokenLength('--server.host'), 2);
       expect(registry.registeredInputTokenLength('--color'), 1);
       expect(registry.registeredInputTokenLength('--no-color'), 1);

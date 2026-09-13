@@ -32,8 +32,6 @@ final class Parser {
     final optionInputs = [
       ...registry.applicableOptions,
       for (final group in registry.pairedOptionGroups) ...group.options,
-      for (final group in registry.selectedOptionGroups)
-        for (final selectable in group.options) selectable.option,
     ];
     for (var index = 0; index < tokens.length; index++) {
       if (consumed.contains(index) || resolution.tokenIndices.contains(index))
@@ -375,24 +373,6 @@ final class Parser {
         }
       }
     }
-    for (final group in registry.selectedOptionGroups) {
-      final members = group.options
-          .where((item) => values.containsKey(item.option))
-          .toList();
-      if (group.isRequired && members.isEmpty)
-        throw MambaParseException(
-          'One selected option is required: ${group.options.map((item) => '--${item.option.name}').join(', ')}',
-        );
-      if (members.length > 1)
-        throw MambaParseException('Selected options accept only one option');
-      if (members.length == 1) {
-        final member = members.single;
-        values[group] = group.map(values[member.option], member);
-      }
-      for (final member in group.options) {
-        values.remove(member.option);
-      }
-    }
   }
 
   void _addAccessorMaps(
@@ -512,7 +492,6 @@ final class Parser {
     yield* registry.mandatoryPositionals;
     yield* registry.discretionaryPositionals;
     yield* registry.pairedOptionGroups;
-    yield* registry.selectedOptionGroups;
     known.addAll(registry.accessors);
     yield* known;
   }

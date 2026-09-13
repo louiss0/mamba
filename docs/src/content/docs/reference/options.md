@@ -140,21 +140,6 @@ The ordinary group is omittable and produces `Server?`.
 `PairedOptions.required` requires the complete group and produces `Server`.
 Pair members are available only inside the mapper.
 
-## Selected options
-
-`SelectedOptions<R>` accepts at most one member and maps it to one output:
-
-```dart
-final output = SelectedOptions<OutputSelection>([
-  SelectableOption(json, JsonOutput.new),
-  SelectableOption(text, TextOutput.new),
-]);
-```
-
-The ordinary group produces `OutputSelection?`.
-`SelectedOptions.required` requires exactly one member and produces
-`OutputSelection`. Selected members are not exposed separately.
-
 ## Accessor options
 
 Accessor lists group dotted paths such as `--server.host`:

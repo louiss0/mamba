@@ -10,7 +10,6 @@ Parser parser({
   List<DiscretionaryPositional>? discretionary,
   List<AccessorListOption>? accessors,
   List<PairedOptionsDefinition>? paired,
-  List<SelectedOptionsDefinition>? selected,
   Variadic? variadic,
 }) => Parser(
   CommandRegistry.create(
@@ -22,7 +21,6 @@ Parser parser({
     discretionaryPositionals: discretionary,
     accessors: accessors,
     pairedOptions: paired,
-    selectedOptions: selected,
     variadic: variadic,
   ),
 );
@@ -65,68 +63,6 @@ void main() {
           .$2;
       expect(inputs.valueOf(first), 'one');
       expect(inputs.valueOf(second), isNull);
-    });
-    test('returns accessor values through their top-level map', () {
-      final host = AccessorStringOption('host');
-      final port = AccessorIntOption('port');
-      final server = AccessorListOption('server', [host, port]);
-      final inputs =
-          parser(
-            accessors: [
-              server,
-              AccessorListOption('proxy', [AccessorStringOption('host')]),
-            ],
-          ).parse([
-            '--server.host',
-            'localhost',
-            '--server.port=80',
-            '--proxy.host',
-            'remote',
-          ]).$2;
-      expect(inputs.valueOf(server), {'host': 'localhost', 'port': 80});
-    });
-    test('returns nested accessor values in immutable maps', () {
-      final token = AccessorStringOption('token');
-      final auth = AccessorListOption('auth', [token]);
-      final server = AccessorListOption('server', [auth]);
-
-      final values = parser(accessors: [server])
-          .parse(['--server.auth.token', 'secret'])
-          .$2
-          .valueOf(server);
-
-      expect(values, {
-        'auth': {'token': 'secret'},
-      });
-      expect(() => values['auth'] = {}, throwsUnsupportedError);
-      expect(
-        () => (values['auth']! as Map<String, Object?>)['token'] = 'changed',
-        throwsUnsupportedError,
-      );
-    });
-    test('rejects reusing an accessor leaf in multiple paths', () {
-      final leaf = AccessorStringOption('host');
-      expect(
-        () => parser(
-          accessors: [
-            AccessorListOption('one', [leaf]),
-            AccessorListOption('two', [leaf]),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
-
-    test('rejects duplicate accessor paths', () {
-      expect(
-        () => parser(
-          accessors: [
-            AccessorListOption('server', [AccessorStringOption('host')]),
-            AccessorListOption('server', [AccessorStringOption('host')]),
-          ],
-        ),
-        throwsA(isA<MambaRegistryError>()),
-      );
     });
   });
   group('repeatable choices', () {
@@ -199,55 +135,6 @@ void main() {
     });
   });
 
-  group('selected options', () {
-    test('maps exactly one selected typed value', () {
-      final json = PairStringOption('json');
-      final text = PairStringOption('text');
-      final selected = SelectedOptions.required([
-        SelectableOption(json, (value) => 'json:$value'),
-        SelectableOption(text, (value) => 'text:$value'),
-      ]);
-      final inputs = parser(selected: [selected]).parse(['--json', 'out']).$2;
-      expect(inputs.valueOf(selected), 'json:out');
-      expect(inputs.contains(json), isFalse);
-      expect(inputs.contains(text), isFalse);
-    });
-    test(
-      'allows no optional selection and rejects none or many when required',
-      () {
-        final first = PairStringOption('first');
-        final second = PairStringOption('second');
-        final optional = SelectedOptions<String>([
-          SelectableOption(first, (value) => value),
-          SelectableOption(second, (value) => value),
-        ]);
-        expect(
-          parser(selected: [optional]).parse([]).$2.valueOf(optional),
-          isNull,
-        );
-        final required = SelectedOptions.required([
-          SelectableOption(first, (value) => value),
-          SelectableOption(second, (value) => value),
-        ]);
-        expect(
-          () => parser(selected: [required]).parse([]),
-          throwsA(isA<MambaParseException>()),
-        );
-        expect(
-          () =>
-              parser(selected: [required])
-                  .parse(['--first', 'a', '--second', 'b']),
-          throwsA(isA<MambaParseException>()),
-        );
-        expect(
-          () =>
-              parser(selected: [required])
-                  .parse(['--first', 'a', '--first', 'b']),
-          throwsA(isA<MambaParseException>()),
-        );
-      },
-    );
-  });
   test('discretionary positionals preserve nullable and defaulted outputs', () {
     final destination = NormalPositional.optional('destination');
     final formats = RepeatedChoicePositional.withDefault(
@@ -259,18 +146,6 @@ void main() {
 
     expect(inputs.valueOf(destination), isNull);
     expect(inputs.valueOf(formats), [Format.text]);
-  });
-
-  test('defaulted accessor leaves always produce values', () {
-    final format = AccessorChoiceOption.withDefault(
-      'format',
-      choices: Format.values,
-      defaultValue: Format.text,
-    );
-    final output = AccessorListOption('output', [format]);
-    final inputs = parser(accessors: [output]).parse([]).$2;
-
-    expect(inputs.valueOf(output), {'format': Format.text});
   });
 
   test('required and defaulted options always produce values', () {
@@ -474,7 +349,51 @@ void main() {
     });
   });
 
-  group('required inputs and groups', () {
+  group('acessor options', () {
+    test('returns accessor values through their top-level map', () {
+      final host = AccessorStringOption('host');
+      final port = AccessorIntOption('port');
+      final server = AccessorListOption('server', [host, port]);
+      final inputs = parser(accessors: [server])
+          .parse(['--server.host', 'localhost', '--server.port=80'])
+          .$2;
+
+      expect(inputs.valueOf(server), {'host': 'localhost', 'port': 80});
+    });
+
+    test('returns nested accessor values in immutable maps', () {
+      final token = AccessorStringOption('token');
+      final auth = AccessorListOption('auth', [token]);
+      final server = AccessorListOption('server', [auth]);
+
+      final values = parser(accessors: [server])
+          .parse(['--server.auth.token', 'secret'])
+          .$2
+          .valueOf(server);
+
+      expect(values, {
+        'auth': {'token': 'secret'},
+      });
+      expect(() => values['auth'] = {}, throwsUnsupportedError);
+      expect(
+        () => (values['auth']! as Map<String, Object?>)['token'] = 'changed',
+        throwsUnsupportedError,
+      );
+    });
+
+    test('returns defaulted accessor leaves', () {
+      final format = AccessorChoiceOption.withDefault(
+        'format',
+        choices: Format.values,
+        defaultValue: Format.text,
+      );
+      final output = AccessorListOption('output', [format]);
+
+      final inputs = parser(accessors: [output]).parse([]).$2;
+
+      expect(inputs.valueOf(output), {'format': Format.text});
+    });
+
     test('requires nested accessor leaves', () {
       final token = AccessorStringOption.required('token');
       final subject = parser(
@@ -497,6 +416,176 @@ void main() {
       );
     });
 
+    test('rejects reusing an accessor leaf in multiple paths', () {
+      final leaf = AccessorStringOption('host');
+
+      expect(
+        () => parser(
+          accessors: [
+            AccessorListOption('one', [leaf]),
+            AccessorListOption('two', [leaf]),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects duplicate accessor paths', () {
+      expect(
+        () => parser(
+          accessors: [
+            AccessorListOption('server', [AccessorStringOption('host')]),
+            AccessorListOption('server', [AccessorStringOption('host')]),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    group('extracts nested values', () {
+      final database = AccessorListOption('database', [
+        AccessorStringOption('host'),
+        AccessorIntOption('port'),
+      ]);
+      final cache = AccessorListOption('cache', [
+        AccessorListOption('redis', [
+          AccessorStringOption('host'),
+          AccessorIntOption('port'),
+        ]),
+      ]);
+      final deployment = AccessorListOption('deployment', [
+        AccessorListOption('region', [
+          AccessorListOption('primary', [
+            AccessorStringOption('name'),
+            AccessorStringOption('zone'),
+          ]),
+        ]),
+      ]);
+      final gateway = AccessorListOption('gateway', [
+        AccessorListOption('tls', [
+          AccessorListOption('certificate', [
+            AccessorListOption('renewal', [
+              AccessorStringOption('path'),
+              AccessorIntOption('days'),
+            ]),
+          ]),
+        ]),
+      ]);
+      final telemetry = AccessorListOption('telemetry', [
+        AccessorListOption('exporter', [
+          AccessorListOption('otlp', [
+            AccessorListOption('authentication', [
+              AccessorListOption('credentials', [
+                AccessorStringOption('client-id'),
+                AccessorStringOption('client-secret'),
+              ]),
+            ]),
+          ]),
+        ]),
+      ]);
+      final subject = parser(
+        accessors: [database, cache, deployment, gateway, telemetry],
+      );
+      final cases =
+          <
+            ({
+              String description,
+              List<String> arguments,
+              AccessorListOption accessor,
+              Map<String, Object?> expected,
+            })
+          >[
+            (
+              description: 'two-level database settings',
+              arguments: [
+                '--database.host',
+                'db.internal',
+                '--database.port',
+                '5432',
+              ],
+              accessor: database,
+              expected: {'host': 'db.internal', 'port': 5432},
+            ),
+            (
+              description: 'three-level cache settings',
+              arguments: [
+                '--cache.redis.host',
+                'cache.internal',
+                '--cache.redis.port',
+                '6379',
+              ],
+              accessor: cache,
+              expected: {
+                'redis': {'host': 'cache.internal', 'port': 6379},
+              },
+            ),
+            (
+              description: 'four-level deployment settings',
+              arguments: [
+                '--deployment.region.primary.name',
+                'us-east',
+                '--deployment.region.primary.zone',
+                'us-east-1a',
+              ],
+              accessor: deployment,
+              expected: {
+                'region': {
+                  'primary': {'name': 'us-east', 'zone': 'us-east-1a'},
+                },
+              },
+            ),
+            (
+              description: 'five-level certificate settings',
+              arguments: [
+                '--gateway.tls.certificate.renewal.path',
+                '/etc/certs/gateway.pem',
+                '--gateway.tls.certificate.renewal.days',
+                '30',
+              ],
+              accessor: gateway,
+              expected: {
+                'tls': {
+                  'certificate': {
+                    'renewal': {'path': '/etc/certs/gateway.pem', 'days': 30},
+                  },
+                },
+              },
+            ),
+            (
+              description: 'six-level telemetry credentials',
+              arguments: [
+                '--telemetry.exporter.otlp.authentication.credentials.client-id',
+                'mamba-cli',
+                '--telemetry.exporter.otlp.authentication.credentials.client-secret',
+                'secret',
+              ],
+              accessor: telemetry,
+              expected: {
+                'exporter': {
+                  'otlp': {
+                    'authentication': {
+                      'credentials': {
+                        'client-id': 'mamba-cli',
+                        'client-secret': 'secret',
+                      },
+                    },
+                  },
+                },
+              },
+            ),
+          ];
+
+      for (final testCase in cases) {
+        test(testCase.description, () {
+          final inputs = subject.parse(testCase.arguments).$2;
+
+          expect(inputs.valueOf(testCase.accessor), testCase.expected);
+        });
+      }
+    });
+  });
+
+  group('required inputs and groups', () {
     test('reports missing required paired options', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');

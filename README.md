@@ -168,7 +168,7 @@ return a `String`, return `null` for no output, or return a `Future`.
 | `BooleanFlag` / `CountFlag` | Valueless switches, aliases, bundles, and verbosity counts. |
 | `StringOption`, `IntOption`, `DoubleOption`, `ChoiceOption` | Typed named values with optional aliases, defaults, ranges, or validation. |
 | `Repeatable*Option` | Collect multiple values into typed lists. |
-| `PairedOptions` / `SelectedOptions<R>` | Require members together or map one selected member to a typed result. |
+| `PairedOptions` | Require members together and map them to a typed result. |
 | `AccessorListOption` and accessor leaves | Parse nested values such as `--database.port 5432` into an immutable map. |
 
 Long options accept `--name value` and `--name=value`; short options accept

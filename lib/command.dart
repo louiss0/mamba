@@ -1337,77 +1337,6 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption<double>
   final double? step;
 }
 
-abstract interface class SelectionMember<Result extends Object> {
-  PairOption get option;
-  Result map(Object? value);
-}
-
-final class SelectableOption<Value, Result extends Object>
-    implements SelectionMember<Result> {
-  const SelectableOption(this.option, this.toResult);
-  @override
-  final PairOption<Value> option;
-  final Result Function(Value value) toResult;
-  @override
-  Result map(Object? value) => toResult(value as Value);
-}
-
-abstract interface class SelectedOptionsDefinition implements InputDefinition {
-  List<SelectionMember<Object>> get options;
-  String? get description;
-  bool get isRequired;
-  Object map(Object? value, SelectionMember<Object> member);
-}
-
-final class SelectedOptions<Result extends Object> extends Input<Result?>
-    implements OptionalInput<Result>, SelectedOptionsDefinition {
-  SelectedOptions(List<SelectionMember<Result>> options, {this.description})
-    : _options = List.unmodifiable(options);
-
-  static RequiredSelectedOptions<Result> required<Result extends Object>(
-    List<SelectionMember<Result>> options, {
-    String? description,
-  }) => _RequiredSelectedOptions(options, description: description);
-
-  final List<SelectionMember<Result>> _options;
-  @override
-  List<SelectionMember<Object>> get options => _options;
-  @override
-  final String? description;
-  @override
-  bool get isRequired => false;
-  @override
-  String get name => options.map((option) => option.option.name).join('|');
-  @override
-  Result map(Object? value, SelectionMember<Object> member) =>
-      member.map(value) as Result;
-}
-
-sealed class RequiredSelectedOptions<Result extends Object>
-    extends Input<Result>
-    implements RequiredInput<Result>, SelectedOptionsDefinition;
-
-final class _RequiredSelectedOptions<Result extends Object>
-    extends RequiredSelectedOptions<Result> {
-  _RequiredSelectedOptions(
-    List<SelectionMember<Result>> options, {
-    this.description,
-  }) : _options = List.unmodifiable(options);
-
-  final List<SelectionMember<Result>> _options;
-  @override
-  List<SelectionMember<Object>> get options => _options;
-  @override
-  final String? description;
-  @override
-  bool get isRequired => true;
-  @override
-  String get name => options.map((option) => option.option.name).join('|');
-  @override
-  Result map(Object? value, SelectionMember<Object> member) =>
-      member.map(value) as Result;
-}
-
 sealed class AccessorOption implements InputDefinition {
   const AccessorOption(this.name, {this.description});
   @override
@@ -1698,7 +1627,6 @@ abstract class Command {
   final List<Flag>? flags;
   final List<Option>? options;
   final List<PairedOptionsDefinition>? pairedOptions;
-  final List<SelectedOptionsDefinition>? selectedOptions;
   final List<AccessorListOption>? accessors;
   Command({
     this.longDescription,
@@ -1709,7 +1637,6 @@ abstract class Command {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
-    List<SelectedOptionsDefinition>? selectedOptions,
     List<AccessorListOption>? accessors,
   }) : aliases = _copyList(aliases),
        mandatoryPositionals = _copyList(mandatoryPositionals),
@@ -1717,7 +1644,6 @@ abstract class Command {
        flags = _copyList(flags),
        options = _copyList(options),
        pairedOptions = _copyList(pairedOptions),
-       selectedOptions = _copyList(selectedOptions),
        accessors = _copyList(accessors);
   String get name;
   String get shortDescription;
@@ -1742,7 +1668,6 @@ abstract class GroupCommand extends Command {
     super.flags,
     super.options,
     super.pairedOptions,
-    super.selectedOptions,
     super.accessors,
   }) : commands = List.unmodifiable(commands),
        inheritedFlags = _copyList(propagatedFlags),

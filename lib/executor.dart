@@ -94,7 +94,6 @@ final class Executor {
     List<AccessorListOption>? accessors,
     List<Flag>? flags,
     List<Option>? options,
-    List<SelectedOptionsDefinition>? selectedOptions,
     List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
@@ -103,7 +102,6 @@ final class Executor {
        accessors = List.unmodifiable(accessors ?? const []),
        flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
-       selectedOptions = List.unmodifiable(selectedOptions ?? const []),
        defaultCommandPath = defaultCommandPath == null
            ? null
            : List.unmodifiable(defaultCommandPath);
@@ -114,7 +112,6 @@ final class Executor {
   final List<AccessorListOption> accessors;
   final List<Flag> flags;
   final List<Option> options;
-  final List<SelectedOptionsDefinition> selectedOptions;
   final List<String>? defaultCommandPath;
   final List<Command> commands;
   final MambaContext? context;
@@ -184,7 +181,6 @@ final class _Execution {
         longDescription: executor.longDescription,
         flags: [...Executor._defaultFlags, ...executor.flags],
         options: executor.options,
-        selectedOptions: executor.selectedOptions,
         accessors: executor.accessors,
         commands: executor.commands,
       ),

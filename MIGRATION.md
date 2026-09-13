@@ -99,18 +99,6 @@ final server = PairedOptions.required(
 
 Optional `PairedOptions` produce `R?`; `PairedOptions.required` produces `R`.
 
-Selected groups follow the same availability convention:
-
-```dart
-final output = SelectedOptions.required([
-  SelectableOption(json, JsonOutput.new),
-  SelectableOption(text, TextOutput.new),
-]);
-```
-
-Optional `SelectedOptions` produce `R?`; `SelectedOptions.required` produces
-`R`. Individual selected members are not exposed in parsed inputs.
-
 ## Validated trailing arguments
 
 Values after `--` remain separate from typed inputs. Mamba validates them using

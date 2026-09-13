@@ -1328,7 +1328,6 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
   }) {
     final flagEntries = <String, Object>{};
     final persistentEntries = <String, Object>{};
-    final exclusiveGroups = <List<String>>[];
 
     void placeEntry(
       String name,
@@ -1442,33 +1441,15 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
 
       for (final group in optionGroups) {
         final members = _stringList(group.members);
-        final mode = group.mode;
         final required = group.required;
-        final requirement = mode == RegistryOptionGroupMode.oneOf && required
-            ? 'Runtime requires exactly one of: ${members.map((member) => '--$member').join(', ')}.'
-            : null;
         for (final member in members) {
           final value = options
               .where((option) => option.name == member)
               .firstOrNull;
           if (value != null) {
             final option = value;
-            placeOption(
-              member,
-              option,
-              persistent,
-              required: mode == RegistryOptionGroupMode.all && required,
-              description: requirement == null
-                  ? null
-                  : '${option.description ?? ''} $requirement',
-            );
+            placeOption(member, option, persistent, required: required);
           }
-        }
-        // Carapace expresses exclusivity but not the at-least-one part of a
-        // required selected group, so retain the runtime constraint in each
-        // generated member description.
-        if (mode == RegistryOptionGroupMode.oneOf) {
-          exclusiveGroups.add(members);
         }
       }
     }
@@ -1524,7 +1505,6 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
     if (persistentEntries.isNotEmpty) {
       body['persistentflags'] = persistentEntries;
     }
-    if (exclusiveGroups.isNotEmpty) body['exclusiveflags'] = exclusiveGroups;
 
     final completion = _completionFor(command);
     if (completion.isNotEmpty) body['completion'] = completion;

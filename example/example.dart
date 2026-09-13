@@ -318,35 +318,20 @@ final class DeleteTaskCommand extends TaskIdCommand {
   }
 }
 
-sealed class TaskExport {
-  const TaskExport(this.path);
-
-  final String path;
-}
-
-final class JsonTaskExport extends TaskExport {
-  const JsonTaskExport(super.path);
-}
-
-final class TextTaskExport extends TaskExport {
-  const TextTaskExport(super.path);
-}
+enum TaskExportFormat { json, text }
 
 final class ExportTasksCommand extends Command {
-  ExportTasksCommand(this.store) : super(selectedOptions: [output]);
+  ExportTasksCommand(this.store) : super(options: [format, output]);
 
-  static final json = PairStringOption(
-    'json',
-    description: 'Write JSON to this path.',
+  static final format = ChoiceOption.required(
+    'format',
+    choices: TaskExportFormat.values,
+    description: 'Choose JSON or text output.',
   );
-  static final text = PairStringOption(
-    'text',
-    description: 'Write text to this path.',
+  static final output = StringOption.required(
+    'output',
+    description: 'Write output to this path.',
   );
-  static final output = SelectedOptions.required([
-    SelectableOption(json, JsonTaskExport.new),
-    SelectableOption(text, TextTaskExport.new),
-  ]);
 
   final TaskStore store;
 
@@ -358,16 +343,16 @@ final class ExportTasksCommand extends Command {
 
   @override
   String run(ParsedInputs inputs, List<String> args) {
-    final export = inputs.valueOf(output);
-    final content = switch (export) {
-      JsonTaskExport() => JsonEncoder.withIndent(
+    final path = inputs.valueOf(output);
+    final content = switch (inputs.valueOf(format)) {
+      TaskExportFormat.json => JsonEncoder.withIndent(
         '  ',
       ).convert(store.readAll().map((task) => task.toJson()).toList()),
-      TextTaskExport() =>
+      TaskExportFormat.text =>
         store.readAll().map((task) => '${task.id}: ${task.title}').join('\n'),
     };
-    File(export.path).writeAsStringSync(content);
-    return 'Exported tasks to ${export.path}.';
+    File(path).writeAsStringSync(content);
+    return 'Exported tasks to $path.';
   }
 }
 
