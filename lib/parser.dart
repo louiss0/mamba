@@ -23,7 +23,7 @@ final class Parser {
     final resolution = _registry.resolveCommandPath(tokens);
     final commandPath = resolution.path;
     final registry = resolution.registry;
-    final values = <InputDefinition, Object?>{};
+    final values = <Object, Object?>{};
     final positionals = <String>[];
     final trailing = <String>[];
     var help = false;
@@ -32,6 +32,7 @@ final class Parser {
     final optionInputs = [
       ...registry.applicableOptions,
       for (final group in registry.pairedOptionGroups) ...group.options,
+      for (final group in registry.selectedOptionses) ...group.options,
     ];
     for (var index = 0; index < tokens.length; index++) {
       if (consumed.contains(index) || resolution.tokenIndices.contains(index))
@@ -179,11 +180,7 @@ final class Parser {
   bool _allowsDash(InputDefinition input, String value) =>
       input is RegExpValidated &&
       _matches((input as RegExpValidated).regex, value);
-  void _put(
-    Map<InputDefinition, Object?> values,
-    InputDefinition input,
-    Object value,
-  ) {
+  void _put(Map<Object, Object?> values, InputDefinition input, Object value) {
     void appendPairValue<T>(RepeatablePairOption<T> option) {
       final existing = values[option] as List<T>?;
       values[option] = List<T>.unmodifiable([...?existing, value as T]);
@@ -298,10 +295,7 @@ final class Parser {
     return match != null && match.start == 0 && match.end == value.length;
   }
 
-  void _addDefaults(
-    CommandRegistry registry,
-    Map<InputDefinition, Object?> values,
-  ) {
+  void _addDefaults(CommandRegistry registry, Map<Object, Object?> values) {
     for (final option in registry.applicableOptions) {
       if (option case DefaultValue(defaultValue: final value))
         values.putIfAbsent(option, () => value);
@@ -318,7 +312,7 @@ final class Parser {
 
   void _validateRequired(
     CommandRegistry registry,
-    Map<InputDefinition, Object?> values,
+    Map<Object, Object?> values,
   ) {
     for (final option in registry.applicableOptions) {
       if (option.isRequired && !values.containsKey(option)) {
@@ -343,10 +337,7 @@ final class Parser {
     }
   }
 
-  void _validateGroups(
-    CommandRegistry registry,
-    Map<InputDefinition, Object?> values,
-  ) {
+  void _validateGroups(CommandRegistry registry, Map<Object, Object?> values) {
     for (final group in registry.pairedOptionGroups) {
       final present = group.options.where(values.containsKey).toList();
       if (group.isRequired && present.length != group.options.length) {
@@ -373,12 +364,24 @@ final class Parser {
         }
       }
     }
+    for (final group in registry.selectedOptionses) {
+      final selected = group.options.where(values.containsKey).toList();
+      if (group.required && selected.isEmpty) {
+        throw MambaParseException(
+          'At least one selected option is required: ${group.options.map((option) => '--${option.name}').join(', ')}',
+        );
+      }
+      if (group.single && selected.length > 1) {
+        throw MambaParseException('Selected options accept only one option.');
+      }
+      _addSelectedValuesFor(group, values);
+      for (final option in group.options) {
+        values.remove(option);
+      }
+    }
   }
 
-  void _addAccessorMaps(
-    CommandRegistry registry,
-    Map<InputDefinition, Object?> values,
-  ) {
+  void _addAccessorMaps(CommandRegistry registry, Map<Object, Object?> values) {
     Map<String, Object?> mapAccessor(AccessorListOption accessor) {
       final map = <String, Object?>{};
       for (final option in accessor.options) {
@@ -397,10 +400,36 @@ final class Parser {
     }
   }
 
+  void _addSelectedValues<T extends Object>(
+    SelectedOptions<T> group,
+    Map<Object, Object?> values,
+  ) {
+    values[group] = Map<String, T>.unmodifiable({
+      for (final option in group.options)
+        if (values.containsKey(option)) option.name: values[option] as T,
+    });
+  }
+
+  void _addSelectedValuesFor(
+    SelectedOptions group,
+    Map<Object, Object?> values,
+  ) {
+    switch (group) {
+      case SelectedOptions<String> stringOptions:
+        _addSelectedValues(stringOptions, values);
+      case SelectedOptions<int> intOptions:
+        _addSelectedValues(intOptions, values);
+      case SelectedOptions<double> doubleOptions:
+        _addSelectedValues(doubleOptions, values);
+      default:
+        _addSelectedValues(group, values);
+    }
+  }
+
   void _parsePositionals(
     CommandRegistry registry,
     List<String> source,
-    Map<InputDefinition, Object?> values,
+    Map<Object, Object?> values,
   ) {
     var index = 0;
     for (final positional in [
@@ -485,13 +514,14 @@ final class Parser {
     return current is AccessorPrimitiveOption ? current : null;
   }
 
-  Iterable<InputDefinition> _knownInputs(CommandRegistry registry) sync* {
+  Iterable<Object> _knownInputs(CommandRegistry registry) sync* {
     final known = <InputDefinition>[];
     yield* registry.applicableFlags;
     yield* registry.applicableOptions;
     yield* registry.mandatoryPositionals;
     yield* registry.discretionaryPositionals;
     yield* registry.pairedOptionGroups;
+    yield* registry.selectedOptionses;
     known.addAll(registry.accessors);
     yield* known;
   }

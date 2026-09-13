@@ -12,8 +12,10 @@ abstract interface class InputDefinition {
   String? get description;
 }
 
+abstract interface class ParsedValue<T>;
+
 /// An identity-based, typed handle for a parsed command value.
-sealed class Input<T> implements InputDefinition {
+sealed class Input<T> implements InputDefinition, ParsedValue<T> {
   const Input();
 }
 
@@ -1337,6 +1339,30 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption<double>
   final double? step;
 }
 
+/// A named collection of pair options that resolves to a map of supplied values.
+final class SelectedOptions<T extends Object>
+    implements ParsedValue<Map<String, T>> {
+  SelectedOptions(List<PairOption<T>> options, {this.description})
+    : options = List.unmodifiable(options),
+      required = false,
+      single = false;
+
+  SelectedOptions.required(List<PairOption<T>> options, {this.description})
+    : options = List.unmodifiable(options),
+      required = true,
+      single = false;
+
+  SelectedOptions.single(List<PairOption<T>> options, {this.description})
+    : options = List.unmodifiable(options),
+      required = false,
+      single = true;
+
+  final String? description;
+  final bool single;
+  final bool required;
+  final List<PairOption<T>> options;
+}
+
 sealed class AccessorOption implements InputDefinition {
   const AccessorOption(this.name, {this.description});
   @override
@@ -1596,26 +1622,24 @@ final class _DefaultedAccessorChoiceOption<T extends Enum>
 }
 
 final class ParsedInputs {
-  ParsedInputs(
-    Map<InputDefinition, Object?> values,
-    Iterable<InputDefinition> known,
-  ) : _values = Map.unmodifiable(values),
+  ParsedInputs(Map<Object, Object?> values, Iterable<Object> known)
+    : _values = Map.unmodifiable(values),
       _known = Set.unmodifiable(known);
 
-  final Map<InputDefinition, Object?> _values;
-  final Set<InputDefinition> _known;
+  final Map<Object, Object?> _values;
+  final Set<Object> _known;
 
-  T valueOf<T>(Input<T> input) {
+  T valueOf<T>(ParsedValue<T> input) {
     if (!_known.contains(input)) {
-      throw StateError('Unknown input declaration --${input.name}.');
+      throw StateError('Unknown parsed input declaration.');
     }
     if (!_values.containsKey(input) && null is! T) {
-      throw StateError('Parser omitted non-null input --${input.name}.');
+      throw StateError('Parser omitted a non-null input value.');
     }
     return _values[input] as T;
   }
 
-  bool contains(InputDefinition input) => _values.containsKey(input);
+  bool contains(Object input) => _values.containsKey(input);
 }
 
 abstract class Command {
@@ -1627,6 +1651,7 @@ abstract class Command {
   final List<Flag>? flags;
   final List<Option>? options;
   final List<PairedOptionsDefinition>? pairedOptions;
+  final List<SelectedOptions>? selectedOptionses;
   final List<AccessorListOption>? accessors;
   Command({
     this.longDescription,
@@ -1637,6 +1662,7 @@ abstract class Command {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
+    List<SelectedOptions>? selectedOptionses,
     List<AccessorListOption>? accessors,
   }) : aliases = _copyList(aliases),
        mandatoryPositionals = _copyList(mandatoryPositionals),
@@ -1644,6 +1670,7 @@ abstract class Command {
        flags = _copyList(flags),
        options = _copyList(options),
        pairedOptions = _copyList(pairedOptions),
+       selectedOptionses = _copyList(selectedOptionses),
        accessors = _copyList(accessors);
   String get name;
   String get shortDescription;
@@ -1668,6 +1695,7 @@ abstract class GroupCommand extends Command {
     super.flags,
     super.options,
     super.pairedOptions,
+    super.selectedOptionses,
     super.accessors,
   }) : commands = List.unmodifiable(commands),
        inheritedFlags = _copyList(propagatedFlags),

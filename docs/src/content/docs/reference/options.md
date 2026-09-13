@@ -140,6 +140,25 @@ The ordinary group is omittable and produces `Server?`.
 `PairedOptions.required` requires the complete group and produces `Server`.
 Pair members are available only inside the mapper.
 
+## Selected options
+
+`SelectedOptions<T>` maps every supplied pair option into an immutable
+`Map<String, T>`. The pair option name is the map key:
+
+```dart
+final json = PairStringOption('json');
+final text = PairStringOption('text');
+final output = SelectedOptions<String>([json, text]);
+
+final values = inputs.valueOf(output);
+// --json tasks.json produces {'json': 'tasks.json'}
+```
+
+Use `SelectedOptions<T>.required(...)` when at least one member must be
+supplied. Use `SelectedOptions<T>.single(...)` when exactly zero or one member
+may be supplied. Without an explicit type argument, Dart infers the common
+pair-value type; mixed pair types infer `Object`.
+
 ## Accessor options
 
 Accessor lists group dotted paths such as `--server.host`:

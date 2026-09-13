@@ -46,6 +46,11 @@ final class MambaHelpFormatter implements HelpFormatter {
         '  ${group.options.map((item) => '--${item.name}').join(' & ')}',
       );
     }
+    for (final group in registry.selectedOptionses) {
+      lines.add(
+        '  ${group.options.map((item) => '--${item.name}').join(' * ')}',
+      );
+    }
     return lines.join('\n');
   }
 

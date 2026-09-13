@@ -294,6 +294,17 @@ void main() {
 
       expect(help, contains('--host & --port'));
     });
+
+    test('renders selected option members as a list', () {
+      final json = PairStringOption('json');
+      final text = PairStringOption('text');
+      final output = SelectedOptions<String>([json, text]);
+      final help = MambaHelpFormatter().format(
+        CommandRegistry.create('tool', 'Tool.', selectedOptionses: [output]),
+      );
+
+      expect(help, contains('--json * --text'));
+    });
   });
 
   group('CommandRegistry', () {

@@ -157,6 +157,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
+    List<SelectedOptions>? selectedOptionses,
     List<MandatoryPositional>? mandatoryPositionals,
     List<DiscretionaryPositional>? discretionaryPositionals,
     this.variadic,
@@ -167,6 +168,7 @@ final class CommandRegistry {
   }) : flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
        pairedOptionGroups = List.unmodifiable(pairedOptions ?? const []),
+       selectedOptionses = List.unmodifiable(selectedOptionses ?? const []),
        mandatoryPositionals = List.unmodifiable(
          mandatoryPositionals ?? const [],
        ),
@@ -185,6 +187,7 @@ final class CommandRegistry {
   final List<Flag> flags;
   final List<Option> options;
   final List<PairedOptionsDefinition> pairedOptionGroups;
+  final List<SelectedOptions> selectedOptionses;
   final List<MandatoryPositional> mandatoryPositionals;
   final List<DiscretionaryPositional> discretionaryPositionals;
   final Variadic? variadic;
@@ -230,6 +233,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
+    List<SelectedOptions>? selectedOptionses,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
   }) {
@@ -239,6 +243,7 @@ final class CommandRegistry {
       flags: flags,
       options: options,
       paired: pairedOptions,
+      selected: selectedOptionses,
       accessors: accessors,
       mandatory: mandatoryPositionals,
       discretionary: discretionaryPositionals,
@@ -251,6 +256,7 @@ final class CommandRegistry {
       flags: flags,
       options: options,
       pairedOptions: pairedOptions,
+      selectedOptionses: selectedOptionses,
       mandatoryPositionals: mandatoryPositionals,
       discretionaryPositionals: discretionaryPositionals,
       variadic: variadic,
@@ -268,6 +274,7 @@ final class CommandRegistry {
       flags: command.flags,
       options: command.options,
       paired: command.pairedOptions,
+      selected: command.selectedOptionses,
       accessors: command.accessors,
       mandatory: command.mandatoryPositionals,
       discretionary: command.discretionaryPositionals,
@@ -282,6 +289,7 @@ final class CommandRegistry {
       flags: command.flags,
       options: command.options,
       pairedOptions: command.pairedOptions,
+      selectedOptionses: command.selectedOptionses,
       mandatoryPositionals: command.mandatoryPositionals,
       discretionaryPositionals: command.discretionaryPositionals,
       variadic: command.variadic,
@@ -395,6 +403,7 @@ final class CommandRegistry {
   Iterable<InputDefinition> get _allValueInputs sync* {
     yield* applicableOptions;
     for (final group in pairedOptionGroups) yield* group.options;
+    for (final group in selectedOptionses) yield* group.options;
   }
 
   AccessorPrimitiveOption? _accessorFor(String path) {
@@ -421,6 +430,7 @@ final class CommandRegistry {
     final options = [
       ...registry.applicableOptions,
       for (final group in registry.pairedOptionGroups) ...group.options,
+      for (final group in registry.selectedOptionses) ...group.options,
     ];
     return (
       name: registry.name,
@@ -634,6 +644,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? paired,
+    List<SelectedOptions>? selected,
     List<AccessorListOption>? accessors,
     List<Positional>? mandatory,
     List<Positional>? discretionary,
@@ -642,8 +653,11 @@ final class CommandRegistry {
     if (!_name.hasMatch(name) || description.isEmpty)
       throw MambaRegistryError('Invalid command definition');
     if ((paired ?? const <PairedOptionsDefinition>[]).any(
-      (group) => group.options.isEmpty,
-    )) {
+          (group) => group.options.isEmpty,
+        ) ||
+        (selected ?? const <SelectedOptions>[]).any(
+          (group) => group.options.isEmpty,
+        )) {
       throw MambaRegistryError(
         'Option groups must contain at least one member.',
       );
@@ -652,6 +666,8 @@ final class CommandRegistry {
       ...?flags,
       ...?options,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
+        ...group.options,
+      for (final group in selected ?? const <SelectedOptions>[])
         ...group.options,
     ];
     final names = <String>{};
@@ -747,6 +763,8 @@ final class CommandRegistry {
       ...?accessors,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
         ...group.options,
+      for (final group in selected ?? const <SelectedOptions>[])
+        ...group.options,
     ]) {
       validateChoices(input);
     }
@@ -799,6 +817,8 @@ final class CommandRegistry {
       ...?options,
       ...?accessors,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
+        ...group.options,
+      for (final group in selected ?? const <SelectedOptions>[])
         ...group.options,
     ]) {
       validateNumeric(input);

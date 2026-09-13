@@ -10,6 +10,7 @@ Parser parser({
   List<DiscretionaryPositional>? discretionary,
   List<AccessorListOption>? accessors,
   List<PairedOptionsDefinition>? paired,
+  List<SelectedOptions>? selectedOptionses,
   Variadic? variadic,
 }) => Parser(
   CommandRegistry.create(
@@ -21,6 +22,7 @@ Parser parser({
     discretionaryPositionals: discretionary,
     accessors: accessors,
     pairedOptions: paired,
+    selectedOptionses: selectedOptionses,
     variadic: variadic,
   ),
 );
@@ -346,6 +348,166 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('selected options', () {
+    test('returns a map for a registered selected option', () {
+      final json = PairStringOption('json');
+      final output = SelectedOptions<String>([json]);
+
+      final inputs = parser(selectedOptionses: [output])
+          .parse(['--json', 'tasks.json'])
+          .$2;
+
+      expect(inputs.valueOf(output), {'json': 'tasks.json'});
+    });
+
+    group('returns typed maps for each pair option type', () {
+      final name = PairStringOption('name');
+      final retries = PairIntOption('retries');
+      final ratio = PairDoubleOption('ratio');
+      final selected = SelectedOptions<Object>([name, retries, ratio]);
+      final subject = parser(selectedOptionses: [selected]);
+      final cases = <({List<String> arguments, Map<String, Object> expected})>[
+        (arguments: ['--name', 'mamba'], expected: {'name': 'mamba'}),
+        (arguments: ['--retries', '3'], expected: {'retries': 3}),
+        (arguments: ['--ratio', '0.5'], expected: {'ratio': 0.5}),
+      ];
+
+      for (final testCase in cases) {
+        test('returns ${testCase.expected.keys.single}', () {
+          final inputs = subject.parse(testCase.arguments).$2;
+
+          expect(inputs.valueOf(selected), testCase.expected);
+        });
+      }
+    });
+
+    group('honors explicit value types', () {
+      test('uses only string pair options for String', () {
+        final host = PairStringOption('host');
+        final database = PairStringOption('database');
+        final connection = SelectedOptions<String>([host, database]);
+
+        final Map<String, String> values =
+            parser(selectedOptionses: [connection])
+                .parse(['--host', 'db.internal', '--database', 'mamba'])
+                .$2
+                .valueOf(connection);
+
+        expect(values, {'host': 'db.internal', 'database': 'mamba'});
+      });
+
+      test('uses only int pair options for int', () {
+        final port = PairIntOption('port');
+        final retries = PairIntOption('retries');
+        final connection = SelectedOptions<int>([port, retries]);
+
+        final Map<String, int> values = parser(selectedOptionses: [connection])
+            .parse(['--port', '5432', '--retries', '3'])
+            .$2
+            .valueOf(connection);
+
+        expect(values, {'port': 5432, 'retries': 3});
+      });
+
+      test('uses only double pair options for double', () {
+        final timeout = PairDoubleOption('timeout');
+        final ratio = PairDoubleOption('ratio');
+        final connection = SelectedOptions<double>([timeout, ratio]);
+
+        final Map<String, double> values = parser(
+          selectedOptionses: [connection],
+        ).parse(['--timeout', '1.5', '--ratio', '0.75']).$2.valueOf(connection);
+
+        expect(values, {'timeout': 1.5, 'ratio': 0.75});
+      });
+    });
+
+    group('parses multiple values', () {
+      final host = PairStringOption('host');
+      final port = PairIntOption('port');
+      final timeout = PairDoubleOption('timeout');
+      final connection = SelectedOptions<Object>([host, port, timeout]);
+      final subject = parser(selectedOptionses: [connection]);
+      final cases = <({List<String> arguments, Map<String, Object> expected})>[
+        (
+          arguments: ['--host', 'db.internal', '--port', '5432'],
+          expected: {'host': 'db.internal', 'port': 5432},
+        ),
+        (
+          arguments: ['--host', 'db.internal', '--timeout', '1.5'],
+          expected: {'host': 'db.internal', 'timeout': 1.5},
+        ),
+        (
+          arguments: ['--port', '5432', '--timeout', '1.5'],
+          expected: {'port': 5432, 'timeout': 1.5},
+        ),
+        (
+          arguments: [
+            '--host',
+            'db.internal',
+            '--port',
+            '5432',
+            '--timeout',
+            '1.5',
+          ],
+          expected: {'host': 'db.internal', 'port': 5432, 'timeout': 1.5},
+        ),
+      ];
+
+      for (final testCase in cases) {
+        test('returns ${testCase.expected.keys.join(', ')}', () {
+          final inputs = subject.parse(testCase.arguments).$2;
+
+          expect(inputs.valueOf(connection), testCase.expected);
+        });
+      }
+    });
+
+    test('requires at least one selected value', () {
+      final json = PairStringOption('json');
+      final text = PairStringOption('text');
+      final output = SelectedOptions<String>.required([json, text]);
+      final subject = parser(selectedOptionses: [output]);
+
+      expect(() => subject.parse([]), throwsA(isA<MambaParseException>()));
+    });
+
+    test('allows a single selected value when requested', () {
+      final json = PairStringOption('json');
+      final text = PairStringOption('text');
+      final output = SelectedOptions<String>.single([json, text]);
+      final subject = parser(selectedOptionses: [output]);
+
+      expect(subject.parse(['--json', 'tasks.json']).$2.valueOf(output), {
+        'json': 'tasks.json',
+      });
+      expect(
+        () => subject.parse(['--json', 'tasks.json', '--text', 'tasks.txt']),
+        throwsA(isA<MambaParseException>()),
+      );
+    });
+
+    group('single and required selected options', () {
+      final json = PairStringOption('json');
+      final text = PairStringOption('text');
+      final attempts = PairIntOption('attempts');
+      final output = SelectedOptions<String>.single([json, text]);
+      final retry = SelectedOptions<int>.required([attempts]);
+      final subject = parser(selectedOptionses: [output, retry]);
+
+      test('requires a value for the required selection', () {
+        expect(() => subject.parse([]), throwsA(isA<MambaParseException>()));
+      });
+
+      test('returns one required selected value', () {
+        final inputs = subject.parse(['--attempts', '3']).$2;
+
+        expect(inputs.valueOf(retry), {'attempts': 3});
+        expect(inputs.valueOf(output), isEmpty);
+      });
     });
   });
 
