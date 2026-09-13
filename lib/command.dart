@@ -1171,34 +1171,34 @@ abstract interface class PairedOptionsDefinition {
 }
 
 /// A group whose members must either all be supplied or all be omitted.
-final class PairedOptions<T extends Object>
-    implements PairedOptionsDefinition, ParsedValue<Map<String, T>?> {
-  PairedOptions(List<PairOption<T>> options, {this.description})
+final class PairedOptions<Result extends Object>
+    implements PairedOptionsDefinition, ParsedValue<Map<String, Result>?> {
+  PairedOptions(List<PairOption<Result>> options, {this.description})
     : options = List.unmodifiable(options);
 
-  static RequiredPairedOptions<T> required<T extends Object>(
-    List<PairOption<T>> options, {
+  static RequiredPairedOptions<Result> required<Result extends Object>(
+    List<PairOption<Result>> options, {
     String? description,
   }) => _RequiredPairedOptions(options, description: description);
 
   @override
-  final List<PairOption<T>> options;
+  final List<PairOption<Result>> options;
   @override
   final String? description;
   @override
   bool get isRequired => false;
 }
 
-sealed class RequiredPairedOptions<T extends Object>
-    implements PairedOptionsDefinition, ParsedValue<Map<String, T>>;
+sealed class RequiredPairedOptions<Result extends Object>
+    implements PairedOptionsDefinition, ParsedValue<Map<String, Result>>;
 
-final class _RequiredPairedOptions<T extends Object>
-    extends RequiredPairedOptions<T> {
-  _RequiredPairedOptions(List<PairOption<T>> options, {this.description})
+final class _RequiredPairedOptions<Result extends Object>
+    extends RequiredPairedOptions<Result> {
+  _RequiredPairedOptions(List<PairOption<Result>> options, {this.description})
     : options = List.unmodifiable(options);
 
   @override
-  final List<PairOption<T>> options;
+  final List<PairOption<Result>> options;
   @override
   final String? description;
   @override
