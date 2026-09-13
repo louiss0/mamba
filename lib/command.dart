@@ -1164,69 +1164,45 @@ final class _RequiredRepeatableChoiceOption<T extends Enum>
   final bool unique;
 }
 
-final class PairValues {
-  PairValues(Map<PairOption, Object?> values)
-    : _values = Map.unmodifiable(values);
-
-  final Map<PairOption, Object?> _values;
-
-  T valueOf<T>(PairOption<T> option) => _values[option] as T;
-}
-
-abstract interface class PairedOptionsDefinition implements InputDefinition {
+abstract interface class PairedOptionsDefinition {
   List<PairOption> get options;
   String? get description;
   bool get isRequired;
-  Object map(PairValues values);
 }
 
 /// A group whose members must either all be supplied or all be omitted.
-final class PairedOptions<Result extends Object> extends Input<Result?>
-    implements OptionalInput<Result>, PairedOptionsDefinition {
-  PairedOptions(List<PairOption> options, this.toResult, {this.description})
+final class PairedOptions<T extends Object>
+    implements PairedOptionsDefinition, ParsedValue<Map<String, T>?> {
+  PairedOptions(List<PairOption<T>> options, {this.description})
     : options = List.unmodifiable(options);
 
-  static RequiredPairedOptions<Result> required<Result extends Object>(
-    List<PairOption> options,
-    Result Function(PairValues values) toResult, {
+  static RequiredPairedOptions<T> required<T extends Object>(
+    List<PairOption<T>> options, {
     String? description,
-  }) => _RequiredPairedOptions(options, toResult, description: description);
+  }) => _RequiredPairedOptions(options, description: description);
 
   @override
-  final List<PairOption> options;
-  final Result Function(PairValues values) toResult;
+  final List<PairOption<T>> options;
   @override
   final String? description;
   @override
   bool get isRequired => false;
-  @override
-  String get name => options.map((option) => option.name).join('&');
-  @override
-  Result map(PairValues values) => toResult(values);
 }
 
-sealed class RequiredPairedOptions<Result extends Object> extends Input<Result>
-    implements RequiredInput<Result>, PairedOptionsDefinition;
+sealed class RequiredPairedOptions<T extends Object>
+    implements PairedOptionsDefinition, ParsedValue<Map<String, T>>;
 
-final class _RequiredPairedOptions<Result extends Object>
-    extends RequiredPairedOptions<Result> {
-  _RequiredPairedOptions(
-    List<PairOption> options,
-    this.toResult, {
-    this.description,
-  }) : options = List.unmodifiable(options);
+final class _RequiredPairedOptions<T extends Object>
+    extends RequiredPairedOptions<T> {
+  _RequiredPairedOptions(List<PairOption<T>> options, {this.description})
+    : options = List.unmodifiable(options);
 
   @override
-  final List<PairOption> options;
-  final Result Function(PairValues values) toResult;
+  final List<PairOption<T>> options;
   @override
   final String? description;
   @override
   bool get isRequired => true;
-  @override
-  String get name => options.map((option) => option.name).join('&');
-  @override
-  Result map(PairValues values) => toResult(values);
 }
 
 sealed class PairOption<T> implements InputDefinition {

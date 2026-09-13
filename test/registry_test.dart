@@ -284,10 +284,7 @@ void main() {
     test('renders paired option groups', () {
       final host = PairStringOption('host');
       final port = PairStringOption('port');
-      final pair = PairedOptions([
-        host,
-        port,
-      ], (values) => (values.valueOf(host), values.valueOf(port)));
+      final pair = PairedOptions<String>([host, port]);
       final help = MambaHelpFormatter().format(
         CommandRegistry.create('tool', 'Tool.', pairedOptions: [pair]),
       );
@@ -316,10 +313,10 @@ void main() {
             'tool',
             'Tool command.',
             pairedOptions: [
-              PairedOptions.required([
+              PairedOptions.required<Object>([
                 PairStringOption('username'),
                 PairIntOption('port'),
-              ], (_) => Object()),
+              ]),
             ],
             commands: [
               TestCommand(
@@ -1755,7 +1752,7 @@ void main() {
           PairedOptions<Object>([
             PairChoiceOption('json', choices: DeploymentFormat.values),
             PairChoiceOption('yaml', choices: DeploymentFormat.values),
-          ], (_) => Object()),
+          ]),
         ],
       );
 
@@ -1767,7 +1764,7 @@ void main() {
         () => CommandRegistry.create(
           'tool',
           'Tool command.',
-          pairedOptions: [PairedOptions<Object>([], (_) => Object())],
+          pairedOptions: [PairedOptions<Object>([])],
         ),
         throwsA(isA<MambaRegistryError>()),
       );
@@ -1779,12 +1776,8 @@ void main() {
           'tool',
           'Tool command.',
           pairedOptions: [
-            PairedOptions<Object>([
-              PairStringOption('username'),
-            ], (_) => Object()),
-            PairedOptions<Object>([
-              PairStringOption('username'),
-            ], (_) => Object()),
+            PairedOptions<Object>([PairStringOption('username')]),
+            PairedOptions<Object>([PairStringOption('username')]),
           ],
         ),
         throwsA(isA<MambaRegistryError>()),
@@ -2223,7 +2216,7 @@ void main() {
         flags: [color, verbose],
         options: [file],
         pairedOptions: [
-          PairedOptions<Object>([port], (_) => Object()),
+          PairedOptions<Object>([port]),
         ],
         accessors: [
           AccessorListOption('server', [AccessorStringOption('host')]),

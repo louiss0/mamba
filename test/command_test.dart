@@ -595,22 +595,14 @@ void main() {
       expect(() => parsed.valueOf(required), throwsStateError);
     });
 
-    test('paired groups map typed values', () {
+    test('paired groups describe typed map results', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
-      final pairValues = PairValues({host: 'localhost', port: 8080});
-      final optionalPair = PairedOptions([
-        host,
-        port,
-      ], (values) => '${values.valueOf(host)}:${values.valueOf(port)}');
-      final requiredPair = PairedOptions.required([
-        host,
-        port,
-      ], (values) => '${values.valueOf(host)}:${values.valueOf(port)}');
-      expect(optionalPair.name, 'host&port');
-      expect(optionalPair.map(pairValues), 'localhost:8080');
+      final optionalPair = PairedOptions<Object>([host, port]);
+      final requiredPair = PairedOptions.required<Object>([host, port]);
+      expect(optionalPair.options, [host, port]);
+      expect(optionalPair.isRequired, isFalse);
       expect(requiredPair.isRequired, isTrue);
-      expect(requiredPair.map(pairValues), 'localhost:8080');
     });
 
     group('Repeated positionals', () {
@@ -667,8 +659,8 @@ void main() {
       test('describes scalar and repeatable pair inputs', () {
         final host = PairStringOption('host');
         final port = PairIntOption('port');
-        final optional = PairedOptions([host, port], (_) => 'server');
-        final required = PairedOptions.required([host, port], (_) => 'server');
+        final optional = PairedOptions<Object>([host, port]);
+        final required = PairedOptions.required<Object>([host, port]);
         final ratio = PairDoubleOption('ratio', min: 0, max: 1, step: 0.1);
         final tags = RepeatablePairStringOption('tag');
         final ports = RepeatablePairIntOption('ports', min: 1, max: 10);
@@ -680,7 +672,7 @@ void main() {
         );
 
         expect(optional.isRequired, isFalse);
-        expect(required.name, 'host&port');
+        expect(required.options, [host, port]);
         expect(ratio.min, 0);
         expect(ratio.max, 1);
         expect(ratio.step, 0.1);

@@ -119,19 +119,42 @@ void main() {
     });
   });
   group('paired options', () {
-    test('maps a complete group into one typed output', () {
+    test('returns a nullable map when the optional group is omitted', () {
+      final host = PairStringOption('host');
+      final password = PairStringOption('password');
+      final credentials = PairedOptions<String>([host, password]);
+
+      final Map<String, String>? values = parser(paired: [credentials])
+          .parse([])
+          .$2
+          .valueOf(credentials);
+
+      expect(values, isNull);
+    });
+
+    test('preserves the declared map value type', () {
+      final host = PairStringOption('host');
+      final password = PairStringOption('password');
+      final credentials = PairedOptions.required<String>([host, password]);
+
+      final Map<String, String> values = parser(paired: [credentials])
+          .parse(['--host', 'db.internal', '--password', 'mamba'])
+          .$2
+          .valueOf(credentials);
+
+      expect(values, {'host': 'db.internal', 'password': 'mamba'});
+    });
+
+    test('maps a complete group into one typed map', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
-      final server = PairedOptions.required([
-        host,
-        port,
-      ], (values) => (host: values.valueOf(host), port: values.valueOf(port)));
+      final server = PairedOptions.required<Object>([host, port]);
 
       final inputs = parser(paired: [server])
           .parse(['--host', 'localhost', '--port', '8080'])
           .$2;
 
-      expect(inputs.valueOf(server), (host: 'localhost', port: 8080));
+      expect(inputs.valueOf(server), {'host': 'localhost', 'port': 8080});
       expect(inputs.contains(host), isFalse);
       expect(inputs.contains(port), isFalse);
     });
@@ -751,7 +774,7 @@ void main() {
     test('reports missing required paired options', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
-      final server = PairedOptions.required([host, port], (_) => Object());
+      final server = PairedOptions.required<Object>([host, port]);
 
       expect(
         () => parser(paired: [server]).parse([]),
@@ -768,7 +791,7 @@ void main() {
     test('requires optional paired options to appear together', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
-      final server = PairedOptions([host, port], (_) => Object());
+      final server = PairedOptions<Object>([host, port]);
 
       expect(
         () => parser(paired: [server]).parse(['--host', 'localhost']),
@@ -786,17 +809,7 @@ void main() {
       final tags = RepeatablePairStringOption('tag');
       final ports = RepeatablePairIntOption('port');
       final ratios = RepeatablePairDoubleOption('ratio');
-      final group =
-          PairedOptions<
-            ({List<String> tags, List<int> ports, List<double> ratios})
-          >(
-            [tags, ports, ratios],
-            (values) => (
-              tags: values.valueOf(tags),
-              ports: values.valueOf(ports),
-              ratios: values.valueOf(ratios),
-            ),
-          );
+      final group = PairedOptions<Object>([tags, ports, ratios]);
 
       final inputs = parser(paired: [group]).parse([
         '--tag',
@@ -811,9 +824,9 @@ void main() {
       ]).$2;
 
       final result = inputs.valueOf(group)!;
-      expect(result.tags, ['one', 'two']);
-      expect(result.ports, [1, 2]);
-      expect(result.ratios, [0.5, 1.0]);
+      expect(result['tag'], ['one', 'two']);
+      expect(result['port'], [1, 2]);
+      expect(result['ratio'], [0.5, 1.0]);
     });
   });
 

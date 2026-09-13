@@ -354,11 +354,7 @@ final class Parser {
           'Paired options ${group.options.map((item) => '--${item.name}').join(', ')} must be passed together',
         );
       if (present.length == group.options.length) {
-        values[group] = group.map(
-          PairValues({
-            for (final option in group.options) option: values[option],
-          }),
-        );
+        _addPairedValuesFor(group, values);
         for (final option in group.options) {
           values.remove(option);
         }
@@ -408,6 +404,37 @@ final class Parser {
       for (final option in group.options)
         if (values.containsKey(option)) option.name: values[option] as T,
     });
+  }
+
+  void _addPairedValues<T extends Object>(
+    PairedOptionsDefinition group,
+    Map<Object, Object?> values,
+  ) {
+    values[group] = Map<String, T>.unmodifiable({
+      for (final option in group.options) option.name: values[option] as T,
+    });
+  }
+
+  void _addPairedValuesFor(
+    PairedOptionsDefinition group,
+    Map<Object, Object?> values,
+  ) {
+    switch (group) {
+      case PairedOptions<String> stringOptions:
+        _addPairedValues<String>(stringOptions, values);
+      case PairedOptions<int> intOptions:
+        _addPairedValues<int>(intOptions, values);
+      case PairedOptions<double> doubleOptions:
+        _addPairedValues<double>(doubleOptions, values);
+      case RequiredPairedOptions<String> stringOptions:
+        _addPairedValues<String>(stringOptions, values);
+      case RequiredPairedOptions<int> intOptions:
+        _addPairedValues<int>(intOptions, values);
+      case RequiredPairedOptions<double> doubleOptions:
+        _addPairedValues<double>(doubleOptions, values);
+      default:
+        _addPairedValues<Object>(group, values);
+    }
   }
 
   void _addSelectedValuesFor(

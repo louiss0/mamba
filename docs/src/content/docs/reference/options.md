@@ -121,24 +121,22 @@ RepeatableChoiceOption<OutputFormat>(
 
 ## Paired options
 
-`PairedOptions<R>` requires all members together when any member is supplied
-and maps the complete set into one output:
+`PairedOptions<T>` requires all members together when any member is supplied
+and maps the complete set into an immutable `Map<String, T>`:
 
 ```dart
 final host = PairStringOption('host');
-final port = PairIntOption('port');
-final server = PairedOptions(
-  [host, port],
-  (values) => Server(
-    values.valueOf(host),
-    values.valueOf(port),
-  ),
-);
+final password = PairStringOption('password');
+final credentials = PairedOptions<String>([host, password]);
+
+final values = inputs.valueOf(credentials);
+// --host db.internal --password mamba produces
+// {'host': 'db.internal', 'password': 'mamba'}
 ```
 
-The ordinary group is omittable and produces `Server?`.
-`PairedOptions.required` requires the complete group and produces `Server`.
-Pair members are available only inside the mapper.
+The ordinary group is omittable and produces `Map<String, T>?`.
+`PairedOptions.required` requires the complete group and produces
+`Map<String, T>`.
 
 ## Selected options
 

@@ -253,8 +253,6 @@ final class ReadTaskCommand extends TaskIdCommand {
   }
 }
 
-typedef TaskChanges = ({String title, String description});
-
 final class UpdateTaskCommand extends Command {
   UpdateTaskCommand(this.store)
     : super(mandatoryPositionals: [id], pairedOptions: [changes]);
@@ -270,13 +268,7 @@ final class UpdateTaskCommand extends Command {
     regex: RegExp(r'.+'),
     description: 'Replacement description.',
   );
-  static final changes = PairedOptions.required(
-    [title, description],
-    (values) => (
-      title: values.valueOf(title),
-      description: values.valueOf(description),
-    ),
-  );
+  static final changes = PairedOptions.required<String>([title, description]);
 
   final TaskStore store;
 
@@ -289,11 +281,11 @@ final class UpdateTaskCommand extends Command {
   @override
   String run(ParsedInputs inputs, List<String> args) {
     final idValue = _taskId(inputs, id);
-    final changesValue = inputs.valueOf(changes);
+    final changesValues = inputs.valueOf(changes);
     store.update(
       idValue,
-      title: _validatedText('title', changesValue.title),
-      description: _validatedText('description', changesValue.description),
+      title: _validatedText('title', changesValues['title']!),
+      description: _validatedText('description', changesValues['description']!),
     );
     return 'Updated task $idValue.';
   }
