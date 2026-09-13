@@ -18,8 +18,8 @@ final class CreateProjectCommand extends Command {
   String get shortDescription =>
       'Create a Dart console application using Mamba.';
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final name = invocation.valueOf(packageName);
+  String run(ParsedInputs inputs, List<String> args) {
+    final name = inputs.valueOf(packageName);
     final directory = Directory('${_parentDirectory.path}/$name');
     if (directory.existsSync())
       throw MambaException(
@@ -55,15 +55,15 @@ final class ScaffoldCommand extends Command {
   @override
   String get shortDescription => 'Create a Mamba command.';
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final name = invocation.valueOf(commandName);
+  String run(ParsedInputs inputs, List<String> args) {
+    final name = inputs.valueOf(commandName);
     final file = File('${_parentDirectory.path}/lib/$name.dart');
     if (file.existsSync())
       throw MambaException('Cannot create $name: the file already exists.');
     file.parent.createSync(recursive: true);
     final className = '${name[0].toUpperCase()}${name.substring(1)}Command';
     file.writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\n\nfinal class $className extends Command {\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n  @override String run(CommandInvocation invocation, List<String> args) => '';\n}\n",
+      "import 'package:mamba/mamba.dart';\n\nfinal class $className extends Command {\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n  @override String run(ParsedInputs inputs, List<String> args) => '';\n}\n",
     );
     return 'Created command in ${file.path}.';
   }

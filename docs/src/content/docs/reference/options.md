@@ -169,9 +169,19 @@ final format = AccessorChoiceOption.withDefault(
 final server = AccessorListOption('server', [host, format]);
 ```
 
-Accessor leaves remain omittable. Ordinary leaves return nullable values;
-defaulted choice leaves return non-null enum values. `AccessorListOption` is a
-registration node and is not itself a value-producing handle.
+Accessor leaves remain omittable. Ordinary leaves are omitted from the map;
+defaulted leaves are always present. `AccessorListOption` is the typed,
+value-producing handle for its complete accessor tree. Read it from
+`ParsedInputs` using the top-level declaration:
+
+```dart
+final values = inputs.valueOf(server);
+final String? hostValue = values['host'] as String?;
+final OutputFormat formatValue = values['format'] as OutputFormat;
+```
+
+Nested accessor lists produce nested immutable maps, so an option such as
+`--server.auth.token secret` is available below `inputs.valueOf(server)`.
 
 ## Shared metadata
 

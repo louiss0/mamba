@@ -143,6 +143,7 @@ final class Parser {
         values.putIfAbsent(flag, () => flag.defaultValue);
       if (flag is CountFlag) values.putIfAbsent(flag, () => 0);
     }
+    _addAccessorMaps(registry, values);
     return (
       commandPath,
       ParsedInputs(values, _knownInputs(registry)),
@@ -394,6 +395,28 @@ final class Parser {
     }
   }
 
+  void _addAccessorMaps(
+    CommandRegistry registry,
+    Map<InputDefinition, Object?> values,
+  ) {
+    Map<String, Object?> mapAccessor(AccessorListOption accessor) {
+      final map = <String, Object?>{};
+      for (final option in accessor.options) {
+        if (option is AccessorListOption) {
+          map[option.name] = mapAccessor(option);
+        } else if (values.containsKey(option)) {
+          map[option.name] = values[option];
+          values.remove(option);
+        }
+      }
+      return Map.unmodifiable(map);
+    }
+
+    for (final accessor in registry.accessors) {
+      values[accessor] = mapAccessor(accessor);
+    }
+  }
+
   void _parsePositionals(
     CommandRegistry registry,
     List<String> source,
@@ -490,17 +513,7 @@ final class Parser {
     yield* registry.discretionaryPositionals;
     yield* registry.pairedOptionGroups;
     yield* registry.selectedOptionGroups;
-    void visit(AccessorOption option) {
-      if (option is AccessorPrimitiveOption) {
-        // Accessor leaves are declaration handles even though their spelling is
-        // a dotted path.
-        known.add(option);
-      } else if (option is AccessorListOption) {
-        for (final child in option.options) visit(child);
-      }
-    }
-
-    for (final root in registry.accessors) visit(root);
+    known.addAll(registry.accessors);
     yield* known;
   }
 

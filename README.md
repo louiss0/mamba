@@ -75,7 +75,7 @@ final class HelloCommand extends Command {
   String get shortDescription => 'Say hello.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) =>
+  String run(ParsedInputs inputs, List<String> args) =>
       'Hello from Mamba!';
 }
 
@@ -136,10 +136,10 @@ final class AddCommand extends Command {
   String get shortDescription => 'Add a path.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final pathValue = invocation.valueOf(path);
-    final allPaths = invocation.valueOf(all);
-    final messageValue = invocation.valueOf(message);
+  String run(ParsedInputs inputs, List<String> args) {
+    final pathValue = inputs.valueOf(path);
+    final allPaths = inputs.valueOf(all);
+    final messageValue = inputs.valueOf(message);
     return 'Adding ${allPaths ? 'all paths' : pathValue} with: $messageValue';
   }
 }
@@ -169,12 +169,12 @@ return a `String`, return `null` for no output, or return a `Future`.
 | `StringOption`, `IntOption`, `DoubleOption`, `ChoiceOption` | Typed named values with optional aliases, defaults, ranges, or validation. |
 | `Repeatable*Option` | Collect multiple values into typed lists. |
 | `PairedOptions` / `SelectedOptions<R>` | Require members together or map one selected member to a typed result. |
-| `AccessorListOption` and accessor leaves | Parse nested values such as `--database.port 5432`. |
+| `AccessorListOption` and accessor leaves | Parse nested values such as `--database.port 5432` into an immutable map. |
 
 Long options accept `--name value` and `--name=value`; short options accept
 `-n value`. Boolean short flags can be bundled, for example `-vvv`. `--` ends
 option parsing and passes the remaining validated tokens to `Command.run` as
-`args`. They are not stored in `CommandInvocation.inputs`.
+`args`. They are not stored in `ParsedInputs`.
 
 ### Group commands
 

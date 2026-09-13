@@ -98,7 +98,7 @@ final formats = RepeatedChoicePositional.withDefault(
 
 A `Variadic` validates tokens after the first `--`. Validated values remain
 strings and are passed to `Command.run` as the immutable `args` list; they are
-not stored in `CommandInvocation`.
+not stored in `ParsedInputs`.
 
 ### `NormalVariadic`
 

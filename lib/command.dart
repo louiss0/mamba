@@ -1425,13 +1425,19 @@ sealed class AccessorPrimitiveOption<T> extends Input<T>
   final String? description;
 }
 
-final class AccessorListOption extends AccessorOption {
+final class AccessorListOption extends Input<Map<String, Object?>>
+    implements AccessorOption {
   AccessorListOption(
-    super.name,
+    this.name,
     List<AccessorOption> options, {
-    super.description,
+    this.description,
     this.hidden = false,
   }) : options = List.unmodifiable(options);
+
+  @override
+  final String name;
+  @override
+  final String? description;
   final bool hidden;
   final List<AccessorOption> options;
 }
@@ -1683,13 +1689,6 @@ final class ParsedInputs {
   bool contains(InputDefinition input) => _values.containsKey(input);
 }
 
-final class CommandInvocation {
-  const CommandInvocation(this._inputs);
-  final ParsedInputs _inputs;
-
-  T valueOf<T>(Input<T> input) => _inputs.valueOf(input);
-}
-
 abstract class Command {
   final String? longDescription;
   final List<String>? aliases;
@@ -1722,7 +1721,7 @@ abstract class Command {
        accessors = _copyList(accessors);
   String get name;
   String get shortDescription;
-  FutureOr<String?> run(CommandInvocation invocation, List<String> args);
+  FutureOr<String?> run(ParsedInputs inputs, List<String> args);
 }
 
 abstract class GroupCommand extends Command {
@@ -1760,7 +1759,7 @@ abstract class GroupCommand extends Command {
 
   FutureOr<String?> runChildCommand(
     List<String> path,
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     List<String> args,
   ) async {
     if (path.isEmpty || path.contains(name))
@@ -1779,13 +1778,13 @@ abstract class GroupCommand extends Command {
         throw MambaException('command not found in $name ${path.join(' ')}');
       children = current is GroupCommand ? current.commands : null;
     }
-    return current!.run(invocation, args);
+    return current!.run(inputs, args);
   }
 
   @override
-  FutureOr<String?> run(CommandInvocation invocation, List<String> args) {
+  FutureOr<String?> run(ParsedInputs inputs, List<String> args) {
     final path = defaultSubCommandPath;
-    return path == null ? '' : runChildCommand(path, invocation, args);
+    return path == null ? '' : runChildCommand(path, inputs, args);
   }
 }
 
@@ -1819,9 +1818,9 @@ class CompletionCommand extends Command {
          discretionaryPositionals: [pathInput],
        );
   @override
-  String? run(CommandInvocation invocation, List<String> args) {
-    final shell = invocation.valueOf(shellInput);
-    final path = invocation.valueOf(pathInput) ?? '';
+  String? run(ParsedInputs inputs, List<String> args) {
+    final shell = inputs.valueOf(shellInput);
+    final path = inputs.valueOf(pathInput) ?? '';
     final extension = _extensionFor(shell);
     if (path.isNotEmpty && !_isValidPath(path, extension))
       throw MambaException(
@@ -1867,23 +1866,14 @@ final class ProcessedStandardInput {
 
 mixin HookRunner on Command {
   FutureOr<void> preRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
     ProcessedStandardInput? input,
   );
-  FutureOr<void> postRun(
-    CommandInvocation invocation,
-    MambaReadContext context,
-  ) {}
+  FutureOr<void> postRun(ParsedInputs inputs, MambaReadContext context) {}
 }
 
 mixin PersistentHookRunner on GroupCommand {
-  FutureOr<void> prePersistentRun(
-    CommandInvocation invocation,
-    MambaContext context,
-  );
-  FutureOr<void> postPersistentRun(
-    CommandInvocation invocation,
-    MambaContext context,
-  ) {}
+  FutureOr<void> prePersistentRun(ParsedInputs inputs, MambaContext context);
+  FutureOr<void> postPersistentRun(ParsedInputs inputs, MambaContext context) {}
 }

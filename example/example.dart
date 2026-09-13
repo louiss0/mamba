@@ -152,8 +152,8 @@ String _validatedText(String field, String value) {
   return text;
 }
 
-int _taskId(CommandInvocation invocation, NormalPositional input) =>
-    int.parse(invocation.valueOf(input));
+int _taskId(ParsedInputs inputs, NormalPositional input) =>
+    int.parse(inputs.valueOf(input));
 
 final class CreateTaskCommand extends Command {
   CreateTaskCommand(this.store) : super(options: [title, description]);
@@ -178,10 +178,10 @@ final class CreateTaskCommand extends Command {
   String get shortDescription => 'Create a task.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
+  String run(ParsedInputs inputs, List<String> args) {
     final task = store.add(
-      _validatedText('title', invocation.valueOf(title)),
-      _validatedText('description', invocation.valueOf(description)),
+      _validatedText('title', inputs.valueOf(title)),
+      _validatedText('description', inputs.valueOf(description)),
     );
     return 'Created task ${task.id}: ${task.title}';
   }
@@ -209,8 +209,8 @@ final class ListTaskCommand extends Command {
       'List tasks, optionally filtered by completion.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final statusValue = invocation.valueOf(status);
+  String run(ParsedInputs inputs, List<String> args) {
+    final statusValue = inputs.valueOf(status);
     final tasks = store.readAll().where((task) {
       return switch (statusValue) {
         TaskStatus.all => true,
@@ -246,8 +246,8 @@ final class ReadTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Read one task.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final task = store.find(_taskId(invocation, TaskIdCommand.id));
+  String run(ParsedInputs inputs, List<String> args) {
+    final task = store.find(_taskId(inputs, TaskIdCommand.id));
     if (task == null) throw MambaException('Task not found.');
     return '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title}\n${task.description}';
   }
@@ -287,9 +287,9 @@ final class UpdateTaskCommand extends Command {
   String get shortDescription => 'Update a task.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final idValue = _taskId(invocation, id);
-    final changesValue = invocation.valueOf(changes);
+  String run(ParsedInputs inputs, List<String> args) {
+    final idValue = _taskId(inputs, id);
+    final changesValue = inputs.valueOf(changes);
     store.update(
       idValue,
       title: _validatedText('title', changesValue.title),
@@ -311,8 +311,8 @@ final class DeleteTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Delete a task.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final id = _taskId(invocation, TaskIdCommand.id);
+  String run(ParsedInputs inputs, List<String> args) {
+    final id = _taskId(inputs, TaskIdCommand.id);
     store.delete(id);
     return 'Deleted task $id.';
   }
@@ -357,8 +357,8 @@ final class ExportTasksCommand extends Command {
   String get shortDescription => 'Export every task.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final export = invocation.valueOf(output);
+  String run(ParsedInputs inputs, List<String> args) {
+    final export = inputs.valueOf(output);
     final content = switch (export) {
       JsonTaskExport() => JsonEncoder.withIndent(
         '  ',
@@ -383,8 +383,8 @@ final class CompleteTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Mark a task as completed.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final id = _taskId(invocation, TaskIdCommand.id);
+  String run(ParsedInputs inputs, List<String> args) {
+    final id = _taskId(inputs, TaskIdCommand.id);
     store.setCompleted(id, true);
     return 'Completed task $id.';
   }
@@ -402,8 +402,8 @@ final class ReopenTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Mark a task as pending.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final id = _taskId(invocation, TaskIdCommand.id);
+  String run(ParsedInputs inputs, List<String> args) {
+    final id = _taskId(inputs, TaskIdCommand.id);
     store.setCompleted(id, false);
     return 'Reopened task $id.';
   }
@@ -424,8 +424,8 @@ final class CompletionTaskCommand extends CompletionCommand {
   String get shortDescription => 'Generate the Carapace completion spec.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
-    final path = invocation.valueOf(output);
+  String run(ParsedInputs inputs, List<String> args) {
+    final path = inputs.valueOf(output);
     CarapaceSpecWriter(
       CarapaceSpecConverter(registryRecord),
       outputPath: path,

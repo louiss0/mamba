@@ -3,9 +3,9 @@ title: Hooks
 description: Run lifecycle behavior around Mamba commands
 ---
 
-Hooks receive the same `CommandInvocation` as the selected command, so they can
-read retained input handles through `invocation.valueOf`. Context is passed to
-hook methods as a separate argument; it is not part of `CommandInvocation` and
+Hooks receive the same `ParsedInputs` as the selected command, so they can
+read retained input handles through `inputs.valueOf`. Context is passed to
+hook methods as a separate argument; it is not part of `ParsedInputs` and
 is not available to `Command.run`.
 
 ## Command hooks
@@ -17,14 +17,14 @@ its `run` method:
 final class DeployCommand extends Command with HookRunner {
   @override
   FutureOr<void> preRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {}
 
   @override
   FutureOr<void> postRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
   ) {}
 }
@@ -47,13 +47,13 @@ final class WorkspaceCommand extends GroupCommand
 
   @override
   FutureOr<void> prePersistentRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaContext context,
   ) {}
 
   @override
   FutureOr<void> postPersistentRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaContext context,
   ) {}
 }

@@ -38,10 +38,10 @@ The command indexes that value by the flag's long name:
 ```dart
 @override
 FutureOr<String?> run(
-  CommandInvocation invocation,
+  ParsedInputs inputs,
   List<String> args,
 ) {
-  final forceValue = invocation.valueOf(force);
+  final forceValue = inputs.valueOf(force);
   return 'force: $forceValue';
 }
 ```
@@ -95,10 +95,10 @@ The command indexes the integer by the flag's long name:
 ```dart
 @override
 FutureOr<String?> run(
-  CommandInvocation invocation,
+  ParsedInputs inputs,
   List<String> args,
 ) {
-  final verbosity = invocation.valueOf(verbose);
+  final verbosity = inputs.valueOf(verbose);
   return 'verbosity: $verbosity';
 }
 ```

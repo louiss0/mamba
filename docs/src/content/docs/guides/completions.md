@@ -167,7 +167,7 @@ String _processSubcommands(List<Command>) {
 
 @override
 FutureOr<String?> run(
-  CommandInvocation invocation,
+  ParsedInputs inputs,
   List<String> args,
 ) {
 

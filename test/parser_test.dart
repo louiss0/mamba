@@ -66,13 +66,14 @@ void main() {
       expect(inputs.valueOf(first), 'one');
       expect(inputs.valueOf(second), isNull);
     });
-    test('stores accessor leaves rather than dynamic path maps', () {
+    test('returns accessor values through their top-level map', () {
       final host = AccessorStringOption('host');
       final port = AccessorIntOption('port');
+      final server = AccessorListOption('server', [host, port]);
       final inputs =
           parser(
             accessors: [
-              AccessorListOption('server', [host, port]),
+              server,
               AccessorListOption('proxy', [AccessorStringOption('host')]),
             ],
           ).parse([
@@ -82,8 +83,26 @@ void main() {
             '--proxy.host',
             'remote',
           ]).$2;
-      expect(inputs.valueOf(host), 'localhost');
-      expect(inputs.valueOf(port), 80);
+      expect(inputs.valueOf(server), {'host': 'localhost', 'port': 80});
+    });
+    test('returns nested accessor values in immutable maps', () {
+      final token = AccessorStringOption('token');
+      final auth = AccessorListOption('auth', [token]);
+      final server = AccessorListOption('server', [auth]);
+
+      final values = parser(accessors: [server])
+          .parse(['--server.auth.token', 'secret'])
+          .$2
+          .valueOf(server);
+
+      expect(values, {
+        'auth': {'token': 'secret'},
+      });
+      expect(() => values['auth'] = {}, throwsUnsupportedError);
+      expect(
+        () => (values['auth']! as Map<String, Object?>)['token'] = 'changed',
+        throwsUnsupportedError,
+      );
     });
     test('rejects reusing an accessor leaf in multiple paths', () {
       final leaf = AccessorStringOption('host');
@@ -248,13 +267,10 @@ void main() {
       choices: Format.values,
       defaultValue: Format.text,
     );
-    final inputs = parser(
-      accessors: [
-        AccessorListOption('output', [format]),
-      ],
-    ).parse([]).$2;
+    final output = AccessorListOption('output', [format]);
+    final inputs = parser(accessors: [output]).parse([]).$2;
 
-    expect(inputs.valueOf(format), Format.text);
+    expect(inputs.valueOf(output), {'format': Format.text});
   });
 
   test('required and defaulted options always produce values', () {

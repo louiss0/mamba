@@ -34,7 +34,7 @@ final class AddCommand extends Command {
   String get shortDescription => 'Add a word.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
+  String run(ParsedInputs inputs, List<String> args) {
     final wordValue = invocation.valueOf(word);
     return 'Added $wordValue';
   }
@@ -67,7 +67,7 @@ To trigger a failure, either:
 
 ```dart
 @override
-String run(CommandInvocation invocation, List<String> args) {
+String run(ParsedInputs inputs, List<String> args) {
   throw MambaException('Something went wrong.');
 }
 ```

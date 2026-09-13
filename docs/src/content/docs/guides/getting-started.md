@@ -95,7 +95,7 @@ final class GreetCommand extends Command {
   String get shortDescription => 'Greet the user.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) =>
+  String run(ParsedInputs inputs, List<String> args) =>
       'Hello from Mamba!';
 }
 ```

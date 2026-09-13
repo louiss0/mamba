@@ -26,7 +26,7 @@ class TestGroupCommand extends GroupCommand {
       );
 
   FutureOr<String?> runChildAtPath(List<String> commandPath) {
-    return runChildCommand(commandPath, invocationWithoutInputs, const []);
+    return runChildCommand(commandPath, inputsWithoutValues, const []);
   }
 }
 
@@ -49,7 +49,7 @@ final class _VariadicCommand extends Command {
   String get shortDescription => 'A test command.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) => '';
+  String run(ParsedInputs inputs, List<String> args) => '';
 }
 
 class TestChildGroupCommand extends Mock implements GroupCommand {
@@ -62,23 +62,18 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
   new(this.name, this.commands);
 }
 
-final invocationWithoutInputs = CommandInvocation(ParsedInputs({}, []));
+final inputsWithoutValues = ParsedInputs({}, []);
 
-CommandInvocation createCompletionInvocation(
-  ShellCompletion shell, {
-  String? path,
-}) {
+ParsedInputs createCompletionInputs(ShellCompletion shell, {String? path}) {
   final values = <InputDefinition, Object?>{
     CompletionCommand.shellInput: shell,
   };
   if (path != null) values[CompletionCommand.pathInput] = path;
 
-  return CommandInvocation(
-    ParsedInputs(values, [
-      CompletionCommand.shellInput,
-      CompletionCommand.pathInput,
-    ]),
-  );
+  return ParsedInputs(values, [
+    CompletionCommand.shellInput,
+    CompletionCommand.pathInput,
+  ]);
 }
 
 class TestCompletionCommand extends CompletionCommand {
@@ -99,7 +94,7 @@ class TestCompletionCommand extends CompletionCommand {
 }
 
 void main() {
-  registerFallbackValue(invocationWithoutInputs);
+  registerFallbackValue(inputsWithoutValues);
 
   group('CompletionCommand', () {
     group('metadata', () {
@@ -129,7 +124,7 @@ void main() {
         final path = '${directory.path}${Platform.pathSeparator}rig.bash';
 
         completionCommand.run(
-          createCompletionInvocation(ShellCompletion.bash, path: path),
+          createCompletionInputs(ShellCompletion.bash, path: path),
           const [],
         );
 
@@ -142,7 +137,7 @@ void main() {
         for (final shell in ShellCompletion.values) {
           test('writes ${shell.name} completions to the global path', () {
             completionCommand.createdPaths.clear();
-            completionCommand.run(createCompletionInvocation(shell), const []);
+            completionCommand.run(createCompletionInputs(shell), const []);
 
             expect(completionCommand.createdPaths, ['']);
           });
@@ -170,7 +165,7 @@ void main() {
           test('rejects ${$case.path} for ${$case.shell.name}', () {
             expect(
               () => completionCommand.run(
-                createCompletionInvocation($case.shell, path: $case.path),
+                createCompletionInputs($case.shell, path: $case.path),
                 const [],
               ),
               throwsA(
@@ -191,7 +186,7 @@ void main() {
           () {
             expect(
               () => completionCommand.run(
-                createCompletionInvocation(
+                createCompletionInputs(
                   ShellCompletion.bash,
                   path: 'ffff.${TestCompletionCommand.commandName}',
                 ),
@@ -205,10 +200,7 @@ void main() {
         test('rejects a correctly extended path without the command name', () {
           expect(
             () => completionCommand.run(
-              createCompletionInvocation(
-                ShellCompletion.bash,
-                path: 'ffff.bash',
-              ),
+              createCompletionInputs(ShellCompletion.bash, path: 'ffff.bash'),
               const [],
             ),
             throwsA(isA<MambaException>()),
@@ -244,7 +236,7 @@ void main() {
           test('uses ${$case.path} for ${$case.shell.name}', () {
             completionCommand.createdPaths.clear();
             final output = completionCommand.run(
-              createCompletionInvocation($case.shell, path: $case.path),
+              createCompletionInputs($case.shell, path: $case.path),
               const [],
             );
 
@@ -304,7 +296,7 @@ void main() {
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
-      await git.run(invocationWithoutInputs, const []);
+      await git.run(inputsWithoutValues, const []);
 
       verify(() => stashPop.run(any(), any())).called(1);
     });
@@ -325,7 +317,7 @@ void main() {
       );
 
       await expectLater(
-        git.run(invocationWithoutInputs, const []),
+        git.run(inputsWithoutValues, const []),
         throwsA(isA<ArgumentError>()),
       );
     });
@@ -349,10 +341,7 @@ void main() {
     });
 
     test('returns empty output when no default child is configured', () async {
-      expect(
-        await groupCommand.run(invocationWithoutInputs, const []),
-        isEmpty,
-      );
+      expect(await groupCommand.run(inputsWithoutValues, const []), isEmpty);
     });
 
     test('rejects empty segments in default paths', () {
@@ -597,13 +586,13 @@ void main() {
       final required = StringOption.required('required');
       final unknown = StringOption('unknown');
       final inputs = ParsedInputs({optional: 'value'}, [optional, required]);
-      final invocation = CommandInvocation(inputs);
+      final parsed = inputs;
 
-      expect(invocation.valueOf(optional), 'value');
+      expect(parsed.valueOf(optional), 'value');
       expect(inputs.contains(optional), isTrue);
       expect(inputs.contains(required), isFalse);
-      expect(() => invocation.valueOf(unknown), throwsStateError);
-      expect(() => invocation.valueOf(required), throwsStateError);
+      expect(() => parsed.valueOf(unknown), throwsStateError);
+      expect(() => parsed.valueOf(required), throwsStateError);
     });
 
     test('paired and selected groups map typed values', () {

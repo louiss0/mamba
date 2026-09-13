@@ -21,7 +21,7 @@ class Commit extends Command {
 
   @override
   FutureOr<String?> run(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     List<String> args,
   ) => 'Committed the files';
 }

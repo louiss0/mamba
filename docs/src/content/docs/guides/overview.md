@@ -56,7 +56,7 @@ final class AddCommand extends Command {
   String get shortDescription => 'Add paths to the index.';
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
+  String run(ParsedInputs inputs, List<String> args) {
     final pathValue = invocation.valueOf(path);
     final allPaths = invocation.valueOf(all);
     final messageValue = invocation.valueOf(message);
@@ -87,7 +87,7 @@ final format = ChoiceOption.withDefault(
   choices: OutputFormat.values,
   defaultValue: OutputFormat.text,
 );
-final OutputFormat formatValue = invocation.valueOf(format);
+final OutputFormat formatValue = inputs.valueOf(format);
 ```
 
 Options are optional by default. Positionals are mandatory by default:
@@ -109,13 +109,13 @@ Paired options map an all-or-nothing set into one output. Selected options map
 one mutually exclusive member into one output. Use each group's `.required`
 factory when its output must be present.
 
-Accessor lists group dotted paths such as `--database.host`. Read each accessor
-leaf through its own typed handle.
+Accessor lists group dotted paths such as `--database.host`. Read the value
+through the top-level accessor handle; it returns an immutable nested map.
 
 ## Trailing arguments
 
 Register a `Variadic` to validate values after `--`. Mamba passes those values
-to `run` as `args`; they are deliberately separate from `CommandInvocation`.
+to `run` as `args`; they are deliberately separate from `ParsedInputs`.
 
 ## Testing
 

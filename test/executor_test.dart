@@ -21,24 +21,24 @@ final class ResultCommand extends Command with HookRunner {
   String get shortDescription => 'Runs.';
   @override
   void preRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
     events.add('pre');
     if (failPre) throw Exception('pre failed');
-    expect(invocation.valueOf(enabled), isA<bool>());
+    expect(inputs.valueOf(enabled), isA<bool>());
   }
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
+  String run(ParsedInputs inputs, List<String> args) {
     events.add('run');
     if (failRun) throw MambaException('run failed', exitCode: 7);
     return 'output';
   }
 
   @override
-  void postRun(CommandInvocation invocation, MambaReadContext context) {
+  void postRun(ParsedInputs inputs, MambaReadContext context) {
     events.add('post');
     if (failPost) throw MambaException('post failed', exitCode: 9);
   }
@@ -59,13 +59,13 @@ final class Persistent extends GroupCommand with PersistentHookRunner {
   @override
   String get shortDescription => 'Group.';
   @override
-  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
     events.add('pre-group');
     if (failPre) throw MambaException('persistent pre failed', exitCode: 6);
   }
 
   @override
-  void postPersistentRun(CommandInvocation invocation, MambaContext context) {
+  void postPersistentRun(ParsedInputs inputs, MambaContext context) {
     events.add('post-group');
     if (failPost) throw MambaException('persistent failed', exitCode: 8);
   }
@@ -81,7 +81,7 @@ final class ContextReader extends Command with HookRunner {
 
   @override
   void preRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
@@ -89,12 +89,12 @@ final class ContextReader extends Command with HookRunner {
   }
 
   @override
-  void postRun(CommandInvocation invocation, MambaReadContext context) {
+  void postRun(ParsedInputs inputs, MambaReadContext context) {
     expect(context.get(_contextValue), 'available');
   }
 
   @override
-  String? run(CommandInvocation invocation, List<String> args) => null;
+  String? run(ParsedInputs inputs, List<String> args) => null;
 }
 
 final class ContextWriter extends GroupCommand with PersistentHookRunner {
@@ -105,12 +105,12 @@ final class ContextWriter extends GroupCommand with PersistentHookRunner {
   String get shortDescription => 'Writes hook context.';
 
   @override
-  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
     context.set(_contextValue, const MambaContextString('available'));
   }
 
   @override
-  void postPersistentRun(CommandInvocation invocation, MambaContext context) {
+  void postPersistentRun(ParsedInputs inputs, MambaContext context) {
     expect(context.get(_contextValue), 'available');
     context.set(_contextValue, const MambaContextString('replaced'));
   }
@@ -125,7 +125,7 @@ final class RetainingContextWriter extends GroupCommand
   String get shortDescription => 'Retains hook context.';
 
   @override
-  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
     if (context.get(_contextValue) == null) {
       context.set(_contextValue, const MambaContextString('available'));
     }
@@ -141,13 +141,13 @@ final class DefaultPostHookCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {}
 
   @override
-  String run(CommandInvocation invocation, List<String> args) => 'complete';
+  String run(ParsedInputs inputs, List<String> args) => 'complete';
 }
 
 final class NoOutputCommand extends Command {
@@ -158,7 +158,7 @@ final class NoOutputCommand extends Command {
   String get shortDescription => 'Produces no output.';
 
   @override
-  String? run(CommandInvocation invocation, List<String> args) => null;
+  String? run(ParsedInputs inputs, List<String> args) => null;
 }
 
 final class DefaultCommand extends Command {
@@ -174,7 +174,7 @@ final class DefaultCommand extends Command {
   List<String> get aliases => ['d'];
 
   @override
-  String run(CommandInvocation invocation, List<String> args) {
+  String run(ParsedInputs inputs, List<String> args) {
     events.add('run');
     return 'default output';
   }
@@ -191,7 +191,7 @@ final class InputCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    CommandInvocation invocation,
+    ParsedInputs inputs,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
@@ -199,7 +199,7 @@ final class InputCommand extends Command with HookRunner {
   }
 
   @override
-  String? run(CommandInvocation invocation, List<String> args) => null;
+  String? run(ParsedInputs inputs, List<String> args) => null;
 }
 
 final class RecordingProcess implements MambaProcess {
@@ -231,7 +231,7 @@ final class InvalidContextWriter extends GroupCommand
   String get shortDescription => 'Writes invalid hook context.';
 
   @override
-  void prePersistentRun(CommandInvocation invocation, MambaContext context) {
+  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
     final dynamic rawKey = _contextValue;
     context.set(rawKey, const MambaContextBool(true));
   }
