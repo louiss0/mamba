@@ -143,11 +143,6 @@ final class MambaCommandNotFoundException extends MambaException {
 }
 
 final class CommandRegistry {
-  static final BooleanFlag _helpFlag = BooleanFlag(
-    'help',
-    short: 'h',
-    description: 'Show this help message.',
-  );
   CommandRegistry._({
     required this.name,
     required this.shortDescription,
@@ -158,6 +153,7 @@ final class CommandRegistry {
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
     List<SelectedOptions>? selectedOptionses,
+    Map<String, List<String>>? conflicts,
     List<MandatoryPositional>? mandatoryPositionals,
     List<DiscretionaryPositional>? discretionaryPositionals,
     this.variadic,
@@ -169,6 +165,11 @@ final class CommandRegistry {
        options = List.unmodifiable(options ?? const []),
        pairedOptionGroups = List.unmodifiable(pairedOptions ?? const []),
        selectedOptionses = List.unmodifiable(selectedOptionses ?? const []),
+       conflicts = Map<String, List<String>>.unmodifiable({
+         for (final entry
+             in (conflicts ?? const <String, List<String>>{}).entries)
+           entry.key: List<String>.unmodifiable(entry.value),
+       }),
        mandatoryPositionals = List.unmodifiable(
          mandatoryPositionals ?? const [],
        ),
@@ -188,6 +189,7 @@ final class CommandRegistry {
   final List<Option> options;
   final List<PairedOptionsDefinition> pairedOptionGroups;
   final List<SelectedOptions> selectedOptionses;
+  final Map<String, List<String>> conflicts;
   final List<MandatoryPositional> mandatoryPositionals;
   final List<DiscretionaryPositional> discretionaryPositionals;
   final Variadic? variadic;
@@ -198,14 +200,16 @@ final class CommandRegistry {
   late final List<CommandRegistry> commandRegistries = [
     for (final command in commands) _fromCommand(command, this),
   ];
-  BooleanFlag get helpFlag => _helpFlag;
+  BooleanFlag get helpFlag => MambaBuiltInFlags.help;
   List<String> get fullPath => [...?parent?.fullPath, name];
   List<Flag> get applicableFlags {
     final resolved = <String, Flag>{
       for (final flag in [...?parent?._publishedFlagsToHere, ...flags])
         flag.name: flag,
     };
-    if (parent == null) resolved[_helpFlag.name] = _helpFlag;
+    if (parent == null) {
+      resolved[MambaBuiltInFlags.help.name] = MambaBuiltInFlags.help;
+    }
     return List.unmodifiable(resolved.values);
   }
 
@@ -234,16 +238,18 @@ final class CommandRegistry {
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
     List<SelectedOptions>? selectedOptionses,
+    Map<String, List<String>>? conflicts,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
   }) {
     _validate(
       name,
       shortDescription,
-      flags: flags,
+      flags: [...?flags, MambaBuiltInFlags.help],
       options: options,
       paired: pairedOptions,
       selected: selectedOptionses,
+      conflicts: conflicts,
       accessors: accessors,
       mandatory: mandatoryPositionals,
       discretionary: discretionaryPositionals,
@@ -257,6 +263,7 @@ final class CommandRegistry {
       options: options,
       pairedOptions: pairedOptions,
       selectedOptionses: selectedOptionses,
+      conflicts: conflicts,
       mandatoryPositionals: mandatoryPositionals,
       discretionaryPositionals: discretionaryPositionals,
       variadic: variadic,
@@ -275,6 +282,7 @@ final class CommandRegistry {
       options: command.options,
       paired: command.pairedOptions,
       selected: command.selectedOptionses,
+      conflicts: command.conflicts,
       accessors: command.accessors,
       mandatory: command.mandatoryPositionals,
       discretionary: command.discretionaryPositionals,
@@ -290,6 +298,7 @@ final class CommandRegistry {
       options: command.options,
       pairedOptions: command.pairedOptions,
       selectedOptionses: command.selectedOptionses,
+      conflicts: command.conflicts,
       mandatoryPositionals: command.mandatoryPositionals,
       discretionaryPositionals: command.discretionaryPositionals,
       variadic: command.variadic,
@@ -418,6 +427,11 @@ final class CommandRegistry {
     }
     return current is AccessorPrimitiveOption ? current : null;
   }
+
+  InputDefinition? conflictInput(String name) =>
+      applicableFlags.where((input) => input.name == name).firstOrNull ??
+      _allValueInputs.where((input) => input.name == name).firstOrNull ??
+      _accessorFor(name);
 
   static String? _shortOf(InputDefinition input) => switch (input) {
     Flag(:final short) ||
@@ -645,6 +659,7 @@ final class CommandRegistry {
     List<Option>? options,
     List<PairedOptionsDefinition>? paired,
     List<SelectedOptions>? selected,
+    Map<String, List<String>>? conflicts,
     List<AccessorListOption>? accessors,
     List<Positional>? mandatory,
     List<Positional>? discretionary,
@@ -670,6 +685,33 @@ final class CommandRegistry {
       for (final group in selected ?? const <SelectedOptions>[])
         ...group.options,
     ];
+    final registeredNames = {for (final input in inputs) input.name};
+    void registerAccessorPaths(AccessorOption accessor, String path) {
+      if (accessor is AccessorPrimitiveOption) registeredNames.add(path);
+      if (accessor is AccessorListOption) {
+        for (final child in accessor.options) {
+          registerAccessorPaths(child, '$path.${child.name}');
+        }
+      }
+    }
+
+    for (final accessor in accessors ?? const <AccessorListOption>[]) {
+      registerAccessorPaths(accessor, accessor.name);
+    }
+    for (final entry in (conflicts ?? const <String, List<String>>{}).entries) {
+      if (!registeredNames.contains(entry.key)) {
+        throw MambaRegistryError(
+          'Conflict key ${entry.key} is not a registered input.',
+        );
+      }
+      for (final (index, member) in entry.value.indexed) {
+        if (!registeredNames.contains(member)) {
+          throw MambaRegistryError(
+            'Conflict member at index $index for ${entry.key} is not a registered input: $member.',
+          );
+        }
+      }
+    }
     final names = <String>{};
     final shorts = <String, InputDefinition>{};
     for (final input in inputs) {

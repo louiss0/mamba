@@ -305,6 +305,62 @@ void main() {
   });
 
   group('CommandRegistry', () {
+    group('registers conflicts!', () {
+      CommandRegistry register(Map<String, List<String>> conflicts) =>
+          CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: [BooleanFlag('enabled')],
+            options: [StringOption('output')],
+            accessors: [
+              AccessorListOption('profile', [
+                AccessorListOption('contact', [AccessorStringOption('email')]),
+              ]),
+            ],
+            conflicts: conflicts,
+          );
+
+      test('accepts registered input and accessor paths', () {
+        expect(
+          () => register({
+            'enabled': ['output', 'profile.contact.email'],
+            'profile.contact.email': ['enabled'],
+          }),
+          returnsNormally,
+        );
+      });
+
+      test('names an invalid conflict key', () {
+        expect(
+          () => register({
+            'missing': ['enabled'],
+          }),
+          throwsA(
+            isA<MambaRegistryError>().having(
+              (error) => error.message,
+              'message',
+              contains('missing'),
+            ),
+          ),
+        );
+      });
+
+      test('names the key, index, and value of an invalid conflict member', () {
+        expect(
+          () => register({
+            'enabled': ['output', 'missing'],
+          }),
+          throwsA(
+            isA<MambaRegistryError>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('enabled'), contains('1'), contains('missing')),
+            ),
+          ),
+        );
+      });
+    });
+
     group("toMap", () {
       test(
         'preserves paired groups and choice metadata in immutable records',
@@ -2103,6 +2159,24 @@ void main() {
         ),
         throwsA(isA<MambaRegistryError>()),
       );
+    });
+
+    test('rejects declarations that collide with the built-in help flag', () {
+      for (final input in [
+        BooleanFlag('help'),
+        BooleanFlag('verbose', short: 'h'),
+        IntOption('help', short: 'H'),
+      ]) {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            flags: input is Flag ? [input] : null,
+            options: input is Option ? [input] : null,
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      }
     });
 
     test('rejects invalid and duplicate list definitions', () {

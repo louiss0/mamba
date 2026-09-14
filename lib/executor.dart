@@ -73,16 +73,9 @@ abstract interface class MambaExecutor<T> {
 
 final class Executor {
   static final List<Flag> _defaultFlags = [
-    BooleanFlag(
-      'dry-run',
-      description: 'Show what would happen without changing anything.',
-    ),
-    CountFlag('verbose', short: 'v', description: 'Increase output verbosity.'),
-    BooleanFlag(
-      'version',
-      short: 'V',
-      description: 'Show the application version.',
-    ),
+    MambaBuiltInFlags.dryRun,
+    MambaBuiltInFlags.verbose,
+    MambaBuiltInFlags.version,
   ];
 
   Executor(
@@ -95,6 +88,7 @@ final class Executor {
     List<Flag>? flags,
     List<Option>? options,
     List<SelectedOptions>? selectedOptionses,
+    Map<String, List<String>>? conflicts,
     List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
@@ -104,6 +98,11 @@ final class Executor {
        flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
        selectedOptionses = List.unmodifiable(selectedOptionses ?? const []),
+       conflicts = Map<String, List<String>>.unmodifiable({
+         for (final entry
+             in (conflicts ?? const <String, List<String>>{}).entries)
+           entry.key: List<String>.unmodifiable(entry.value),
+       }),
        defaultCommandPath = defaultCommandPath == null
            ? null
            : List.unmodifiable(defaultCommandPath);
@@ -115,6 +114,7 @@ final class Executor {
   final List<Flag> flags;
   final List<Option> options;
   final List<SelectedOptions> selectedOptionses;
+  final Map<String, List<String>> conflicts;
   final List<String>? defaultCommandPath;
   final List<Command> commands;
   final MambaContext? context;
@@ -185,6 +185,7 @@ final class _Execution {
         flags: [...Executor._defaultFlags, ...executor.flags],
         options: executor.options,
         selectedOptionses: executor.selectedOptionses,
+        conflicts: executor.conflicts,
         accessors: executor.accessors,
         commands: executor.commands,
       ),

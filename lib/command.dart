@@ -50,6 +50,15 @@ abstract interface class DefaultValue<T> {
 List<T>? _copyList<T>(List<T>? items) =>
     items == null ? null : List.unmodifiable(items);
 
+Map<String, List<String>>? _copyStringLists(
+  Map<String, List<String>>? entries,
+) => entries == null
+    ? null
+    : Map<String, List<String>>.unmodifiable({
+        for (final entry in entries.entries)
+          entry.key: List<String>.unmodifiable(entry.value),
+      });
+
 void _validateRepeatedTimes(int times) {
   if (times < 0) {
     throw MambaRegistryError.value(times, 'times', 'must not be negative');
@@ -366,6 +375,29 @@ final class BooleanFlag extends Flag<bool> implements DefaultedInput<bool> {
 
 final class CountFlag extends Flag<int> implements DefaultedInput<int> {
   const CountFlag(super.name, {super.short, super.description, super.hidden});
+}
+
+/// Declarations Mamba uses for its built-in flags.
+abstract final class MambaBuiltInFlags {
+  static const help = BooleanFlag(
+    'help',
+    short: 'h',
+    description: 'Show this help message.',
+  );
+  static const dryRun = BooleanFlag(
+    'dry-run',
+    description: 'Show what would happen without changing anything.',
+  );
+  static const verbose = CountFlag(
+    'verbose',
+    short: 'v',
+    description: 'Increase output verbosity.',
+  );
+  static const version = BooleanFlag(
+    'version',
+    short: 'V',
+    description: 'Show the application version.',
+  );
 }
 
 sealed class Option<T> extends Input<T> {
@@ -1613,6 +1645,7 @@ abstract class Command {
   final List<PairedOptionsDefinition>? pairedOptions;
   final List<SelectedOptions>? selectedOptionses;
   final List<AccessorListOption>? accessors;
+  final Map<String, List<String>>? conflicts;
   Command({
     this.longDescription,
     List<String>? aliases,
@@ -1624,6 +1657,7 @@ abstract class Command {
     List<PairedOptionsDefinition>? pairedOptions,
     List<SelectedOptions>? selectedOptionses,
     List<AccessorListOption>? accessors,
+    Map<String, List<String>>? conflicts,
   }) : aliases = _copyList(aliases),
        mandatoryPositionals = _copyList(mandatoryPositionals),
        discretionaryPositionals = _copyList(discretionaryPositionals),
@@ -1631,7 +1665,8 @@ abstract class Command {
        options = _copyList(options),
        pairedOptions = _copyList(pairedOptions),
        selectedOptionses = _copyList(selectedOptionses),
-       accessors = _copyList(accessors);
+       accessors = _copyList(accessors),
+       conflicts = _copyStringLists(conflicts);
   String get name;
   String get shortDescription;
   FutureOr<String?> run(ParsedInputs inputs, List<String> args);
@@ -1657,6 +1692,7 @@ abstract class GroupCommand extends Command {
     super.pairedOptions,
     super.selectedOptionses,
     super.accessors,
+    super.conflicts,
   }) : commands = List.unmodifiable(commands),
        inheritedFlags = _copyList(propagatedFlags),
        inheritedOptions = _copyList(propagatedOptions),
