@@ -340,7 +340,7 @@ final class Parser {
   void _validateGroups(CommandRegistry registry, Map<Object, Object?> values) {
     for (final group in registry.pairedOptionGroups) {
       final present = group.options.where(values.containsKey).toList();
-      if (group.isRequired && present.length != group.options.length) {
+      if (group.required && present.length != group.options.length) {
         final missing = group.options
             .where((item) => !values.containsKey(item))
             .map((item) => '--${item.name}')
@@ -353,11 +353,9 @@ final class Parser {
         throw MambaParseException(
           'Paired options ${group.options.map((item) => '--${item.name}').join(', ')} must be passed together',
         );
-      if (present.length == group.options.length) {
-        _addPairedValuesFor(group, values);
-        for (final option in group.options) {
-          values.remove(option);
-        }
+      _addPairedValuesFor(group, values);
+      for (final option in group.options) {
+        values.remove(option);
       }
     }
     for (final group in registry.selectedOptionses) {
@@ -411,7 +409,8 @@ final class Parser {
     Map<Object, Object?> values,
   ) {
     values[group] = Map<String, T>.unmodifiable({
-      for (final option in group.options) option.name: values[option] as T,
+      for (final option in group.options)
+        if (values.containsKey(option)) option.name: values[option] as T,
     });
   }
 
@@ -425,12 +424,6 @@ final class Parser {
       case PairedOptions<int> intOptions:
         _addPairedValues<int>(intOptions, values);
       case PairedOptions<double> doubleOptions:
-        _addPairedValues<double>(doubleOptions, values);
-      case RequiredPairedOptions<String> stringOptions:
-        _addPairedValues<String>(stringOptions, values);
-      case RequiredPairedOptions<int> intOptions:
-        _addPairedValues<int>(intOptions, values);
-      case RequiredPairedOptions<double> doubleOptions:
         _addPairedValues<double>(doubleOptions, values);
       default:
         _addPairedValues<Object>(group, values);

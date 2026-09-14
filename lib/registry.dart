@@ -467,7 +467,7 @@ final class CommandRegistry {
       optionGroups: [
         ...registry.pairedOptionGroups.map(
           (group) => (
-            required: group.isRequired,
+            required: group.required,
             members: List.unmodifiable(group.options.map((item) => item.name)),
           ),
         ),

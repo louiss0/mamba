@@ -599,10 +599,10 @@ void main() {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
       final optionalPair = PairedOptions<Object>([host, port]);
-      final requiredPair = PairedOptions.required<Object>([host, port]);
+      final requiredPair = PairedOptions<Object>.required([host, port]);
       expect(optionalPair.options, [host, port]);
-      expect(optionalPair.isRequired, isFalse);
-      expect(requiredPair.isRequired, isTrue);
+      expect(optionalPair.required, isFalse);
+      expect(requiredPair.required, isTrue);
     });
 
     group('Repeated positionals', () {
@@ -660,7 +660,7 @@ void main() {
         final host = PairStringOption('host');
         final port = PairIntOption('port');
         final optional = PairedOptions<Object>([host, port]);
-        final required = PairedOptions.required<Object>([host, port]);
+        final required = PairedOptions<Object>.required([host, port]);
         final ratio = PairDoubleOption('ratio', min: 0, max: 1, step: 0.1);
         final tags = RepeatablePairStringOption('tag');
         final ports = RepeatablePairIntOption('ports', min: 1, max: 10);
@@ -671,7 +671,7 @@ void main() {
           step: 0.5,
         );
 
-        expect(optional.isRequired, isFalse);
+        expect(optional.required, isFalse);
         expect(required.options, [host, port]);
         expect(ratio.min, 0);
         expect(ratio.max, 1);

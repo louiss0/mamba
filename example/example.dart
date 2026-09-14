@@ -268,7 +268,7 @@ final class UpdateTaskCommand extends Command {
     regex: RegExp(r'.+'),
     description: 'Replacement description.',
   );
-  static final changes = PairedOptions.required<String>([title, description]);
+  static final changes = PairedOptions<String>.required([title, description]);
 
   final TaskStore store;
 

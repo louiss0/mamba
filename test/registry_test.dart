@@ -313,7 +313,7 @@ void main() {
             'tool',
             'Tool command.',
             pairedOptions: [
-              PairedOptions.required<Object>([
+              PairedOptions<Object>.required([
                 PairStringOption('username'),
                 PairIntOption('port'),
               ]),

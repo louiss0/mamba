@@ -119,23 +119,23 @@ void main() {
     });
   });
   group('paired options', () {
-    test('returns a nullable map when the optional group is omitted', () {
+    test('returns an empty map when the optional group is omitted', () {
       final host = PairStringOption('host');
       final password = PairStringOption('password');
       final credentials = PairedOptions<String>([host, password]);
 
-      final Map<String, String>? values = parser(paired: [credentials])
+      final Map<String, String> values = parser(paired: [credentials])
           .parse([])
           .$2
           .valueOf(credentials);
 
-      expect(values, isNull);
+      expect(values, isEmpty);
     });
 
     test('preserves the declared map value type', () {
       final host = PairStringOption('host');
       final password = PairStringOption('password');
-      final credentials = PairedOptions.required<String>([host, password]);
+      final credentials = PairedOptions<String>.required([host, password]);
 
       final Map<String, String> values = parser(paired: [credentials])
           .parse(['--host', 'db.internal', '--password', 'mamba'])
@@ -148,7 +148,7 @@ void main() {
     test('maps a complete group into one typed map', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
-      final server = PairedOptions.required<Object>([host, port]);
+      final server = PairedOptions<Object>.required([host, port]);
 
       final inputs = parser(paired: [server])
           .parse(['--host', 'localhost', '--port', '8080'])
@@ -774,7 +774,7 @@ void main() {
     test('reports missing required paired options', () {
       final host = PairStringOption('host');
       final port = PairIntOption('port');
-      final server = PairedOptions.required<Object>([host, port]);
+      final server = PairedOptions<Object>.required([host, port]);
 
       expect(
         () => parser(paired: [server]).parse([]),
@@ -823,7 +823,7 @@ void main() {
         '--ratio=1',
       ]).$2;
 
-      final result = inputs.valueOf(group)!;
+      final result = inputs.valueOf(group);
       expect(result['tag'], ['one', 'two']);
       expect(result['port'], [1, 2]);
       expect(result['ratio'], [0.5, 1.0]);

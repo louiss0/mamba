@@ -1167,42 +1167,26 @@ final class _RequiredRepeatableChoiceOption<T extends Enum>
 abstract interface class PairedOptionsDefinition {
   List<PairOption> get options;
   String? get description;
-  bool get isRequired;
+  bool get required;
 }
 
 /// A group whose members must either all be supplied or all be omitted.
-final class PairedOptions<Result extends Object>
-    implements PairedOptionsDefinition, ParsedValue<Map<String, Result>?> {
-  PairedOptions(List<PairOption<Result>> options, {this.description})
-    : options = List.unmodifiable(options);
+final class PairedOptions<T extends Object>
+    implements PairedOptionsDefinition, ParsedValue<Map<String, T>> {
+  PairedOptions(List<PairOption<T>> options, {this.description})
+    : options = List.unmodifiable(options),
+      required = false;
 
-  static RequiredPairedOptions<Result> required<Result extends Object>(
-    List<PairOption<Result>> options, {
-    String? description,
-  }) => _RequiredPairedOptions(options, description: description);
+  PairedOptions.required(List<PairOption<T>> options, {this.description})
+    : options = List.unmodifiable(options),
+      required = true;
 
   @override
-  final List<PairOption<Result>> options;
+  final List<PairOption<T>> options;
   @override
   final String? description;
   @override
-  bool get isRequired => false;
-}
-
-sealed class RequiredPairedOptions<Result extends Object>
-    implements PairedOptionsDefinition, ParsedValue<Map<String, Result>>;
-
-final class _RequiredPairedOptions<Result extends Object>
-    extends RequiredPairedOptions<Result> {
-  _RequiredPairedOptions(List<PairOption<Result>> options, {this.description})
-    : options = List.unmodifiable(options);
-
-  @override
-  final List<PairOption<Result>> options;
-  @override
-  final String? description;
-  @override
-  bool get isRequired => true;
+  final bool required;
 }
 
 sealed class PairOption<T> implements InputDefinition {
