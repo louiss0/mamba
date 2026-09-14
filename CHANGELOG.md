@@ -1,3 +1,16 @@
+## 0.7.0
+
+### Breaking migration
+
+- Commands and hooks now receive `ParsedInputs` directly; `CommandInvocation`
+  has been removed.
+- Accessor options resolve through their top-level declaration as immutable
+  maps, rather than through nested declaration keys.
+- `PairedOptions<T>` and `SelectedOptions<T>` resolve to immutable
+  `Map<String, T>` values. Paired groups require all supplied members together;
+  their ordinary form returns an empty map when omitted.
+- Removed selectable option groups in favor of map-based `SelectedOptions<T>`.
+
 ## 0.6.0
 
 - Command resolution now skips option values, including inherited, paired,
