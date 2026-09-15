@@ -1,3 +1,10 @@
+## 0.8.0
+
+- Added command-level `conflicts` maps for rejecting incompatible flags,
+  options, paired or selected members, and dotted accessor leaves.
+- Exposed `MambaBuiltInFlags` so built-in declarations can be read through
+  `ParsedInputs.valueOf`.
+
 ## 0.7.0
 
 ### Breaking migration
