@@ -63,3 +63,10 @@ When that path is written it the command will be run if the group command is sel
 Otherwise nothing will happen.
 
 These kinds of commands can run [persistent](/reference/hooks/#persistent-hooks) and [normal hooks](/reference/hooks/#normal-hooks)
+
+## Input conflicts
+
+Use the `conflicts` map on a command to reject incompatible flags and options.
+Each key conflicts with every name in its list. Accessor leaves use dotted
+names, such as `server.auth.token`. Conflicts belong to individual commands,
+not to `Executor`.

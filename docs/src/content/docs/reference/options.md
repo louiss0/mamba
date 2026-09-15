@@ -184,6 +184,29 @@ final OutputFormat formatValue = values['format'] as OutputFormat;
 Nested accessor lists produce nested immutable maps, so an option such as
 `--server.auth.token secret` is available below `inputs.valueOf(server)`.
 
+## Conflicting inputs
+
+`Command.conflicts` rejects incompatible named inputs before the command runs.
+Each map key conflicts with every name in its list. Keys and list entries must
+name a flag, ordinary option, paired or selected option member, or an accessor
+leaf. Accessor leaves use their dotted spelling.
+
+```dart
+final class DeployCommand extends Command {
+  DeployCommand()
+      : super(
+          conflicts: {
+            'replace': ['output', 'server.auth.token'],
+          },
+        );
+
+  // Command members omitted.
+}
+```
+
+The conflict map belongs to the command that declares the inputs; it is not an
+`Executor` configuration option.
+
 ## Shared metadata
 
 `description` supplies help text. `hidden: true` keeps ordinary options

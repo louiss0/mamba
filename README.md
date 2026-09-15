@@ -177,6 +177,30 @@ Long options accept `--name value` and `--name=value`; short options accept
 option parsing and passes the remaining validated tokens to `Command.run` as
 `args`. They are not stored in `ParsedInputs`.
 
+### Conflicting inputs
+
+Commands can reject incompatible named inputs with `conflicts`. Each map key
+conflicts with every name in its list. Names may refer to flags, ordinary,
+paired, or selected option members, and accessor leaves use dotted paths.
+
+```dart
+final class DeployCommand extends Command {
+  DeployCommand()
+      : super(
+          flags: [BooleanFlag('replace')],
+          options: [StringOption('output')],
+          conflicts: {
+            'replace': ['output'],
+          },
+        );
+
+  // Command members omitted.
+}
+```
+
+The map belongs to the command that owns those inputs; `Executor` does not
+define conflicts.
+
 ### Group commands
 
 Use `GroupCommand` for nested command paths such as `remote add`. Groups can
