@@ -1,3 +1,8 @@
+## 0.8.1
+
+- Rejected conflicts involving required inputs during registry creation,
+  including required paired members and nested accessor leaves.
+
 ## 0.8.0
 
 - Added command-level `conflicts` maps for rejecting incompatible flags,
