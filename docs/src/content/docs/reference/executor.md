@@ -154,22 +154,14 @@ Optional named parameters configure the root command surface:
 The version must satisfy Mamba's Semantic Version 2.0.0-shaped validation,
 for example `1.2.3` or `1.2.3-rc.1`.
 
-Selected-option groups belong to individual commands and are configured with
-`Command.selectedOptionses`; `Executor` does not accept root selected-option
-groups. Executor accessors are global. Commands read their nested values from
-`ParsedInputs` through the same `AccessorListOption` instance passed to the
-executor.
-
 ```dart
 final configuration = AccessorListOption('config', [
   AccessorStringOption.required('host'),
 ]);
 
 final class DeployCommand extends Command {
-  new(this.configuration);
-
-  final AccessorListOption configuration;
-
+  
+  
   @override
   String get name => 'deploy';
 
@@ -187,7 +179,7 @@ final executor = Executor(
   'my-cli',
   'Manage application resources.',
   '1.0.0',
-  [DeployCommand(configuration)],
+  [DeployCommand()],
   accessors: [configuration],
 );
 ```
