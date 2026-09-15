@@ -59,10 +59,12 @@ cd my_app
 dart pub get
 dart run bin/my_app.dart
 mamba command greet
+mamba command admin --group
 ```
 
 The generated command file still needs to be registered in the application's
-command list. Run `mamba --help` or `mamba command --help` for all scaffolding
+command list. `--group` generates an empty `GroupCommand` for nesting child
+commands. Run `mamba --help` or `mamba command --help` for all scaffolding
 options.
 
 ## Quick start
