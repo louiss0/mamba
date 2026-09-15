@@ -371,7 +371,7 @@ void main() {
         );
       });
 
-      test('rejects required inputs as keys or members', () {
+      group('rejects required inputs as keys or members', () {
         final cases = [
           (
             flags: <Flag>[BooleanFlag('enabled')],
@@ -394,25 +394,27 @@ void main() {
         ];
 
         for (final testCase in cases) {
-          expect(
-            () => CommandRegistry.create(
-              'tool',
-              'Tool command.',
-              flags: testCase.flags,
-              options: testCase.options,
-              conflicts: testCase.conflicts,
-            ),
-            throwsA(
-              isA<MambaRegistryError>().having(
-                (error) => error.message,
-                'message',
-                allOf(
-                  contains(testCase.requiredName),
-                  contains(testCase.optionalName),
+          test("rejects ${testCase.requiredName} as a key or member", () {
+            expect(
+              () => CommandRegistry.create(
+                'tool',
+                'Tool command.',
+                flags: testCase.flags,
+                options: testCase.options,
+                conflicts: testCase.conflicts,
+              ),
+              throwsA(
+                isA<MambaRegistryError>().having(
+                  (error) => error.message,
+                  'message',
+                  allOf(
+                    contains(testCase.requiredName),
+                    contains(testCase.optionalName),
+                  ),
                 ),
               ),
-            ),
-          );
+            );
+          });
         }
       });
 
