@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.8.2
+
 - Adopted Dart 3.13 concise constructor declarations throughout the package,
   tests, examples, generated projects, and documentation.
 - Enabled analyzer enforcement for concise constructor declarations.
