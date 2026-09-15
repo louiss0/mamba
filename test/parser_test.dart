@@ -11,6 +11,7 @@ Parser parser({
   List<AccessorListOption>? accessors,
   List<PairedOptionsDefinition>? paired,
   List<SelectedOptions>? selectedOptionses,
+  Map<String, List<String>>? conflicts,
   Variadic? variadic,
 }) => Parser(
   CommandRegistry.create(
@@ -23,6 +24,7 @@ Parser parser({
     accessors: accessors,
     pairedOptions: paired,
     selectedOptionses: selectedOptionses,
+    conflicts: conflicts,
     variadic: variadic,
   ),
 );
@@ -65,6 +67,290 @@ void main() {
           .$2;
       expect(inputs.valueOf(first), 'one');
       expect(inputs.valueOf(second), isNull);
+    });
+  });
+  group('built-in flags', () {
+    final registry = CommandRegistry.create(
+      'tool',
+      'Test tool.',
+      flags: [
+        MambaBuiltInFlags.dryRun,
+        MambaBuiltInFlags.verbose,
+        MambaBuiltInFlags.version,
+      ],
+    );
+    final builtInParser = Parser(registry);
+
+    test('returns the help flag through its declaration', () {
+      final inputs = builtInParser.parse(['--help']).$2;
+
+      expect(inputs.valueOf(MambaBuiltInFlags.help), isTrue);
+    });
+
+    test('returns the dry-run flag through its declaration', () {
+      final inputs = builtInParser.parse(['--dry-run']).$2;
+
+      expect(inputs.valueOf(MambaBuiltInFlags.dryRun), isTrue);
+    });
+
+    test('returns the verbose flag through its declaration', () {
+      final inputs = builtInParser.parse(['--verbose', '--verbose']).$2;
+
+      expect(inputs.valueOf(MambaBuiltInFlags.verbose), 2);
+    });
+
+    test('returns the version flag through its declaration', () {
+      final inputs = builtInParser.parse(['--version']).$2;
+
+      expect(inputs.valueOf(MambaBuiltInFlags.version), isTrue);
+    });
+  });
+  group("rejects conflict's", () {
+    Parser namedInputParser(Map<String, List<String>> conflicts) => parser(
+      flags: [BooleanFlag('enabled'), CountFlag('verbose')],
+      options: [
+        StringOption('text'),
+        IntOption('number'),
+        DoubleOption('ratio'),
+        ChoiceOption<Format>('format', choices: Format.values),
+        RepeatableStringOption('tags'),
+        RepeatableIntOption('retries'),
+        RepeatableDoubleOption('weights'),
+        RepeatableChoiceOption<Format>('formats', Format.values),
+      ],
+      paired: [
+        PairedOptions<Object>([
+          PairStringOption('host'),
+          PairIntOption('port'),
+        ]),
+      ],
+      selectedOptionses: [
+        SelectedOptions<Object>([
+          PairStringOption('output'),
+          PairIntOption('limit'),
+        ]),
+      ],
+      conflicts: conflicts,
+    );
+
+    group('named inputs', () {
+      final cases =
+          <
+            ({
+              String description,
+              Map<String, List<String>> conflicts,
+              List<String> arguments,
+            })
+          >[
+            (
+              description: 'flags',
+              conflicts: {
+                'enabled': ['verbose'],
+              },
+              arguments: ['--enabled', '--verbose'],
+            ),
+            (
+              description: 'scalar options',
+              conflicts: {
+                'text': ['number'],
+              },
+              arguments: ['--text', 'value', '--number', '1'],
+            ),
+            (
+              description: 'numeric and choice options',
+              conflicts: {
+                'ratio': ['format'],
+              },
+              arguments: ['--ratio', '1.5', '--format', 'json'],
+            ),
+            (
+              description: 'repeatable options',
+              conflicts: {
+                'tags': ['retries'],
+              },
+              arguments: ['--tags', 'one', '--retries', '2'],
+            ),
+            (
+              description: 'repeatable numeric and choice options',
+              conflicts: {
+                'weights': ['formats'],
+              },
+              arguments: ['--weights', '1.5', '--formats', 'text'],
+            ),
+            (
+              description: 'paired options',
+              conflicts: {
+                'host': ['port'],
+              },
+              arguments: ['--host', 'localhost', '--port', '8080'],
+            ),
+            (
+              description: 'selected options',
+              conflicts: {
+                'output': ['limit'],
+              },
+              arguments: ['--output', 'stdout', '--limit', '10'],
+            ),
+          ];
+
+      for (final testCase in cases) {
+        test('rejects ${testCase.description}', () {
+          expect(
+            () =>
+                namedInputParser(testCase.conflicts).parse(testCase.arguments),
+            throwsA(isA<MambaParseException>()),
+          );
+        });
+      }
+    });
+
+    Parser accessorParser(Map<String, List<String>> conflicts) => parser(
+      accessors: [
+        AccessorListOption('profile', [
+          AccessorStringOption('name'),
+          AccessorListOption('contact', [AccessorStringOption('email')]),
+        ]),
+        AccessorListOption('deployment', [
+          AccessorListOption('release', [
+            AccessorListOption('channel', [AccessorStringOption('name')]),
+          ]),
+        ]),
+        AccessorListOption('telemetry', [
+          AccessorListOption('exporter', [
+            AccessorListOption('otlp', [
+              AccessorListOption('authentication', [
+                AccessorStringOption('token'),
+              ]),
+            ]),
+          ]),
+        ]),
+      ],
+      conflicts: conflicts,
+    );
+
+    group('accessor inputs', () {
+      final cases =
+          <
+            ({
+              String description,
+              Map<String, List<String>> conflicts,
+              List<String> arguments,
+            })
+          >[
+            (
+              description: 'a one-dot key',
+              conflicts: {
+                'profile.name': ['profile.contact.email'],
+              },
+              arguments: [
+                '--profile.name',
+                'Ada',
+                '--profile.contact.email',
+                'ada@example.com',
+              ],
+            ),
+            (
+              description: 'a two-dot key',
+              conflicts: {
+                'profile.contact.email': ['deployment.release.channel.name'],
+              },
+              arguments: [
+                '--profile.contact.email',
+                'ada@example.com',
+                '--deployment.release.channel.name',
+                'stable',
+              ],
+            ),
+            (
+              description: 'a three-dot key',
+              conflicts: {
+                'deployment.release.channel.name': [
+                  'telemetry.exporter.otlp.authentication.token',
+                ],
+              },
+              arguments: [
+                '--deployment.release.channel.name',
+                'stable',
+                '--telemetry.exporter.otlp.authentication.token',
+                'secret',
+              ],
+            ),
+            (
+              description: 'a four-dot key',
+              conflicts: {
+                'telemetry.exporter.otlp.authentication.token': [
+                  'profile.name',
+                ],
+              },
+              arguments: [
+                '--telemetry.exporter.otlp.authentication.token',
+                'secret',
+                '--profile.name',
+                'Ada',
+              ],
+            ),
+            (
+              description: 'a one-dot list value',
+              conflicts: {
+                'telemetry.exporter.otlp.authentication.token': [
+                  'profile.name',
+                ],
+              },
+              arguments: [
+                '--telemetry.exporter.otlp.authentication.token',
+                'secret',
+                '--profile.name',
+                'Ada',
+              ],
+            ),
+            (
+              description: 'a two-dot list value',
+              conflicts: {
+                'profile.name': ['profile.contact.email'],
+              },
+              arguments: [
+                '--profile.name',
+                'Ada',
+                '--profile.contact.email',
+                'ada@example.com',
+              ],
+            ),
+            (
+              description: 'a three-dot list value',
+              conflicts: {
+                'profile.name': ['deployment.release.channel.name'],
+              },
+              arguments: [
+                '--profile.name',
+                'Ada',
+                '--deployment.release.channel.name',
+                'stable',
+              ],
+            ),
+            (
+              description: 'a four-dot list value',
+              conflicts: {
+                'profile.name': [
+                  'telemetry.exporter.otlp.authentication.token',
+                ],
+              },
+              arguments: [
+                '--profile.name',
+                'Ada',
+                '--telemetry.exporter.otlp.authentication.token',
+                'secret',
+              ],
+            ),
+          ];
+
+      for (final testCase in cases) {
+        test('rejects ${testCase.description}', () {
+          expect(
+            () => accessorParser(testCase.conflicts).parse(testCase.arguments),
+            throwsA(isA<MambaParseException>()),
+          );
+        });
+      }
     });
   });
   group('repeatable choices', () {

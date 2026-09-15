@@ -43,10 +43,12 @@ final class Parser {
         break;
       }
       if (token == '--help' || token == '-h') {
+        values[MambaBuiltInFlags.help] = true;
         help = true;
         continue;
       }
       if (token == '--version') {
+        values[MambaBuiltInFlags.version] = true;
         version = true;
         continue;
       }
@@ -133,6 +135,7 @@ final class Parser {
     if (!help && !version) {
       _addDefaults(registry, values);
       _validateRequired(registry, values);
+      _validateConflicts(registry, values);
       _validateGroups(registry, values);
       _parsePositionals(registry, positionals, values);
       _validateVariadic(registry.variadic, trailing);
@@ -371,6 +374,24 @@ final class Parser {
       _addSelectedValuesFor(group, values);
       for (final option in group.options) {
         values.remove(option);
+      }
+    }
+  }
+
+  void _validateConflicts(
+    CommandRegistry registry,
+    Map<Object, Object?> values,
+  ) {
+    for (final entry in registry.conflicts.entries) {
+      final key = registry.conflictInput(entry.key)!;
+      if (!values.containsKey(key)) continue;
+      for (final memberName in entry.value) {
+        final member = registry.conflictInput(memberName)!;
+        if (values.containsKey(member)) {
+          throw MambaParseException(
+            'Input --${entry.key} conflicts with --$memberName.',
+          );
+        }
       }
     }
   }
