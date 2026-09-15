@@ -56,13 +56,17 @@ final class ScaffoldCommand extends Command {
   @override
   String run(ParsedInputs inputs, List<String> args) {
     final name = inputs.valueOf(commandName);
+    final isGroup = inputs.valueOf(group);
     final file = File('${_parentDirectory.path}/lib/$name.dart');
     if (file.existsSync())
       throw MambaException('Cannot create $name: the file already exists.');
     file.parent.createSync(recursive: true);
     final className = '${name[0].toUpperCase()}${name.substring(1)}Command';
+    final implementation = isGroup
+        ? "final class $className extends GroupCommand {\n  new() : super([]);\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n}\n"
+        : "final class $className extends Command {\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n  @override String run(ParsedInputs inputs, List<String> args) => '';\n}\n";
     file.writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\n\nfinal class $className extends Command {\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n  @override String run(ParsedInputs inputs, List<String> args) => '';\n}\n",
+      "import 'package:mamba/mamba.dart';\n\n$implementation",
     );
     return 'Created command in ${file.path}.';
   }

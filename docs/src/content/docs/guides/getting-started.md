@@ -84,6 +84,12 @@ This creates `lib/greet.dart` with a typed `Command` class. The generated
 command is intentionally small: edit its description and `run` method to
 implement your behavior.
 
+Pass `--group` to scaffold an empty `GroupCommand` for nesting children:
+
+```sh
+mamba command admin --group
+```
+
 For example, update the generated file to:
 
 ```dart

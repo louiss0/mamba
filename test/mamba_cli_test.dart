@@ -52,6 +52,20 @@ void main() {
     expect(File('${directory.path}/lib/demo.dart').existsSync(), isTrue);
   });
 
+  test('scaffolding command creates a group command when requested', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      ScaffoldCommand(directory),
+    ]).fake().execute(['command', 'demo', '--group']);
+
+    expect(result.exitCode, 0);
+    expect(
+      File('${directory.path}/lib/demo.dart').readAsStringSync(),
+      allOf(contains('extends GroupCommand'), contains(': super([]);')),
+    );
+  });
+
   test('scaffolding command rejects an existing file', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
