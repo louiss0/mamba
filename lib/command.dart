@@ -16,7 +16,7 @@ abstract interface class ParsedValue<T>;
 
 /// An identity-based, typed handle for a parsed command value.
 sealed class Input<T> implements InputDefinition, ParsedValue<T> {
-  const Input();
+  const new();
 }
 
 abstract interface class RequiredInput<T> implements Input<T>;
@@ -66,7 +66,7 @@ void _validateRepeatedTimes(int times) {
 }
 
 sealed class Positional<T> extends Input<T> with RegExpValidated {
-  Positional(this.name, {this.description, RegExp? regex})
+  new(this.name, {this.description, RegExp? regex})
     : _regex = regex ?? RegExpValidated.anyToken;
   @override
   final String name;
@@ -79,26 +79,25 @@ sealed class Positional<T> extends Input<T> with RegExpValidated {
 
 sealed class MandatoryPositional<T> extends Positional<T>
     implements RequiredInput<T> {
-  MandatoryPositional(super.name, {super.description, super.regex});
+  new(super.name, {super.description, super.regex});
 }
 
 sealed class DiscretionaryPositional<T> extends Positional<T> {
-  DiscretionaryPositional(super.name, {super.description, super.regex});
+  new(super.name, {super.description, super.regex});
 }
 
 sealed class OptionalPositional<T> extends DiscretionaryPositional<T?>
     implements OptionalInput<T> {
-  OptionalPositional(super.name, {super.description, super.regex});
+  new(super.name, {super.description, super.regex});
 }
 
 sealed class DefaultedPositional<T> extends DiscretionaryPositional<T>
     implements DefaultedInput<T> {
-  DefaultedPositional(super.name, {super.description, super.regex});
+  new(super.name, {super.description, super.regex});
 }
 
 final class NormalPositional extends MandatoryPositional<String> {
-  NormalPositional(super.name, {super.description, RegExp? regExp})
-    : super(regex: regExp);
+  new(super.name, {super.description, RegExp? regExp}) : super(regex: regExp);
 
   static OptionalPositional<String> optional(
     String name, {
@@ -109,12 +108,12 @@ final class NormalPositional extends MandatoryPositional<String> {
 }
 
 final class _OptionalNormalPositional extends OptionalPositional<String> {
-  _OptionalNormalPositional(super.name, {super.description, super.regex});
+  new(super.name, {super.description, super.regex});
 }
 
 final class ChoicePositional<T extends Enum> extends MandatoryPositional<T>
     with ChoiceValidated<T> {
-  ChoicePositional(super.name, {super.description, required List<T> choices})
+  new(super.name, {super.description, required List<T> choices})
     : choices = List.unmodifiable(choices);
 
   static OptionalPositional<T> optional<T extends Enum>(
@@ -146,11 +145,8 @@ final class ChoicePositional<T extends Enum> extends MandatoryPositional<T>
 final class _OptionalChoicePositional<T extends Enum>
     extends OptionalPositional<T>
     with ChoiceValidated<T> {
-  _OptionalChoicePositional(
-    super.name, {
-    super.description,
-    required List<T> choices,
-  }) : choices = List.unmodifiable(choices);
+  new(super.name, {super.description, required List<T> choices})
+    : choices = List.unmodifiable(choices);
 
   @override
   final List<T> choices;
@@ -160,7 +156,7 @@ final class _DefaultedChoicePositional<T extends Enum>
     extends DefaultedPositional<T>
     with ChoiceValidated<T>
     implements DefaultValue<T> {
-  _DefaultedChoicePositional(
+  new(
     super.name, {
     super.description,
     required List<T> choices,
@@ -181,12 +177,7 @@ abstract interface class RepeatedPositionalDefinition
 
 sealed class RepeatedPositional<T> extends MandatoryPositional<List<T>>
     implements RepeatedPositionalDefinition {
-  RepeatedPositional(
-    super.name, {
-    super.description,
-    super.regex,
-    this.times = 1,
-  }) {
+  new(super.name, {super.description, super.regex, this.times = 1}) {
     _validateRepeatedTimes(times);
   }
   final int times;
@@ -196,12 +187,8 @@ sealed class RepeatedPositional<T> extends MandatoryPositional<List<T>>
 }
 
 final class RepeatedStringPositional extends RepeatedPositional<String> {
-  RepeatedStringPositional(
-    super.name, {
-    super.description,
-    RegExp? regExp,
-    super.times = 1,
-  }) : super(regex: regExp);
+  new(super.name, {super.description, RegExp? regExp, super.times = 1})
+    : super(regex: regExp);
 
   static OptionalPositional<List<String>> optional(
     String name, {
@@ -219,12 +206,7 @@ final class RepeatedStringPositional extends RepeatedPositional<String> {
 final class _OptionalRepeatedStringPositional
     extends OptionalPositional<List<String>>
     implements RepeatedPositionalDefinition {
-  _OptionalRepeatedStringPositional(
-    super.name, {
-    super.description,
-    super.regex,
-    this.times = 1,
-  }) {
+  new(super.name, {super.description, super.regex, this.times = 1}) {
     _validateRepeatedTimes(times);
   }
 
@@ -238,7 +220,7 @@ final class _OptionalRepeatedStringPositional
 final class RepeatedChoicePositional<T extends Enum>
     extends RepeatedPositional<T>
     with ChoiceValidated<T> {
-  RepeatedChoicePositional(
+  new(
     super.name, {
     super.description,
     required List<T> choices,
@@ -279,12 +261,8 @@ final class _OptionalRepeatedChoicePositional<T extends Enum>
     extends OptionalPositional<List<T>>
     with ChoiceValidated<T>
     implements RepeatedPositionalDefinition {
-  _OptionalRepeatedChoicePositional(
-    super.name, {
-    super.description,
-    required List<T> choices,
-    this.times = 1,
-  }) : choices = List.unmodifiable(choices) {
+  new(super.name, {super.description, required List<T> choices, this.times = 1})
+    : choices = List.unmodifiable(choices) {
     _validateRepeatedTimes(times);
   }
 
@@ -301,7 +279,7 @@ final class _DefaultedRepeatedChoicePositional<T extends Enum>
     extends DefaultedPositional<List<T>>
     with ChoiceValidated<T>
     implements DefaultValue<List<T>>, RepeatedPositionalDefinition {
-  _DefaultedRepeatedChoicePositional(
+  new(
     super.name, {
     super.description,
     required List<T> choices,
@@ -324,29 +302,26 @@ final class _DefaultedRepeatedChoicePositional<T extends Enum>
 }
 
 sealed class Variadic {
-  const Variadic({this.description});
+  const new({this.description});
   final String? description;
 }
 
 final class NormalVariadic extends Variadic with RegExpValidated {
-  NormalVariadic({super.description, RegExp? regExp})
+  new({super.description, RegExp? regExp})
     : regex = regExp ?? RegExpValidated.anyToken;
   final RegExp regex;
 }
 
 class ChoiceVariadic<T extends Enum> extends Variadic with ChoiceValidated<T> {
-  ChoiceVariadic({
-    super.description,
-    required List<T> choices,
-    this.defaultValue,
-  }) : choices = List.unmodifiable(choices);
+  new({super.description, required List<T> choices, this.defaultValue})
+    : choices = List.unmodifiable(choices);
   @override
   final List<T> choices;
   final T? defaultValue;
 }
 
 sealed class Flag<T> extends Input<T> {
-  const Flag(
+  const new(
     this.name, {
     required this.short,
     this.description,
@@ -361,7 +336,7 @@ sealed class Flag<T> extends Input<T> {
 }
 
 final class BooleanFlag extends Flag<bool> implements DefaultedInput<bool> {
-  const BooleanFlag(
+  const new(
     super.name, {
     super.short,
     super.description,
@@ -374,7 +349,7 @@ final class BooleanFlag extends Flag<bool> implements DefaultedInput<bool> {
 }
 
 final class CountFlag extends Flag<int> implements DefaultedInput<int> {
-  const CountFlag(super.name, {super.short, super.description, super.hidden});
+  const new(super.name, {super.short, super.description, super.hidden});
 }
 
 /// Declarations Mamba uses for its built-in flags.
@@ -401,7 +376,7 @@ abstract final class MambaBuiltInFlags {
 }
 
 sealed class Option<T> extends Input<T> {
-  const Option(
+  const new(
     this.name, {
     required this.short,
     this.description,
@@ -418,7 +393,7 @@ sealed class Option<T> extends Input<T> {
 }
 
 sealed class SingleOption<T> extends Option<T> {
-  const SingleOption(
+  const new(
     super.name, {
     required super.short,
     required super.description,
@@ -430,13 +405,8 @@ sealed class SingleOption<T> extends Option<T> {
 final class StringOption extends SingleOption<String?>
     with RegExpValidated
     implements OptionalInput<String> {
-  StringOption(
-    super.name, {
-    RegExp? regex,
-    super.short,
-    super.description,
-    super.hidden,
-  }) : _regex = regex ?? RegExpValidated.anyToken;
+  new(super.name, {RegExp? regex, super.short, super.description, super.hidden})
+    : _regex = regex ?? RegExpValidated.anyToken;
 
   static RequiredOption<String> required(
     String name, {
@@ -476,7 +446,7 @@ final class StringOption extends SingleOption<String?>
 final class _DefaultedStringOption extends DefaultedOption<String>
     with RegExpValidated
     implements DefaultValue<String> {
-  _DefaultedStringOption(
+  new(
     super.name, {
     required this.defaultValue,
     RegExp? regex,
@@ -492,23 +462,14 @@ final class _DefaultedStringOption extends DefaultedOption<String>
 
 sealed class RequiredOption<T> extends SingleOption<T>
     implements RequiredInput<T> {
-  const RequiredOption(
-    super.name, {
-    super.short,
-    super.description,
-    super.hidden,
-  }) : super(isRequired: true);
+  const new(super.name, {super.short, super.description, super.hidden})
+    : super(isRequired: true);
 }
 
 final class _RequiredStringOption extends RequiredOption<String>
     with RegExpValidated {
-  _RequiredStringOption(
-    super.name, {
-    RegExp? regex,
-    super.short,
-    super.description,
-    super.hidden,
-  }) : _regex = regex ?? RegExpValidated.anyToken;
+  new(super.name, {RegExp? regex, super.short, super.description, super.hidden})
+    : _regex = regex ?? RegExpValidated.anyToken;
 
   final RegExp _regex;
   @override
@@ -518,7 +479,7 @@ final class _RequiredStringOption extends RequiredOption<String>
 final class IntOption extends SingleOption<int?>
     with NumericRangeValidated<int>
     implements OptionalInput<int> {
-  const IntOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -570,7 +531,7 @@ final class IntOption extends SingleOption<int?>
 final class _DefaultedIntOption extends DefaultedOption<int>
     with NumericRangeValidated<int>
     implements DefaultValue<int> {
-  const _DefaultedIntOption(
+  const new(
     super.name, {
     required this.defaultValue,
     this.min,
@@ -589,7 +550,7 @@ final class _DefaultedIntOption extends DefaultedOption<int>
 
 final class _RequiredIntOption extends RequiredOption<int>
     with NumericRangeValidated<int> {
-  const _RequiredIntOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -607,7 +568,7 @@ final class _RequiredIntOption extends RequiredOption<int>
 final class DoubleOption extends SingleOption<double?>
     with NumericRangeValidated<double>, NumericStepValidated
     implements OptionalInput<double> {
-  const DoubleOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -666,7 +627,7 @@ final class DoubleOption extends SingleOption<double?>
 final class _DefaultedDoubleOption extends DefaultedOption<double>
     with NumericRangeValidated<double>, NumericStepValidated
     implements DefaultValue<double> {
-  const _DefaultedDoubleOption(
+  const new(
     super.name, {
     required this.defaultValue,
     this.min,
@@ -688,7 +649,7 @@ final class _DefaultedDoubleOption extends DefaultedOption<double>
 
 final class _RequiredDoubleOption extends RequiredOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  const _RequiredDoubleOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -709,7 +670,7 @@ final class _RequiredDoubleOption extends RequiredOption<double>
 final class ChoiceOption<T extends Enum> extends SingleOption<T?>
     with ChoiceValidated<T>
     implements OptionalInput<T> {
-  ChoiceOption(
+  new(
     super.name, {
     required List<T> choices,
     super.short,
@@ -753,7 +714,7 @@ final class ChoiceOption<T extends Enum> extends SingleOption<T?>
 
 final class _RequiredChoiceOption<T extends Enum> extends RequiredOption<T>
     with ChoiceValidated<T> {
-  _RequiredChoiceOption(
+  new(
     super.name, {
     required List<T> choices,
     super.short,
@@ -767,18 +728,13 @@ final class _RequiredChoiceOption<T extends Enum> extends RequiredOption<T>
 
 sealed class DefaultedOption<T> extends SingleOption<T>
     implements DefaultedInput<T> {
-  const DefaultedOption(
-    super.name, {
-    super.short,
-    super.description,
-    super.hidden,
-  });
+  const new(super.name, {super.short, super.description, super.hidden});
 }
 
 final class _DefaultedChoiceOption<T extends Enum> extends DefaultedOption<T>
     with ChoiceValidated<T>
     implements DefaultValue<T> {
-  _DefaultedChoiceOption(
+  new(
     super.name, {
     required List<T> choices,
     required this.defaultValue,
@@ -800,12 +756,7 @@ abstract interface class RepeatableOptionDefinition implements InputDefinition {
 
 sealed class RepeatableOption<T> extends Option<List<T>?>
     implements OptionalInput<List<T>>, RepeatableOptionDefinition {
-  const RepeatableOption(
-    super.name, {
-    super.short,
-    super.description,
-    super.hidden,
-  });
+  const new(super.name, {super.short, super.description, super.hidden});
 
   @override
   bool get unique => false;
@@ -816,12 +767,8 @@ sealed class RepeatableOption<T> extends Option<List<T>?>
 
 sealed class RequiredRepeatableOption<T> extends Option<List<T>>
     implements RequiredInput<List<T>>, RepeatableOptionDefinition {
-  const RequiredRepeatableOption(
-    super.name, {
-    super.short,
-    super.description,
-    super.hidden,
-  }) : super(isRequired: true);
+  const new(super.name, {super.short, super.description, super.hidden})
+    : super(isRequired: true);
 
   @override
   bool get unique => false;
@@ -835,7 +782,7 @@ sealed class DefaultedRepeatableOption<T> extends Option<List<T>>
         DefaultedInput<List<T>>,
         RepeatableOptionDefinition,
         DefaultValue<List<T>> {
-  DefaultedRepeatableOption(
+  new(
     super.name, {
     required List<T> defaultValue,
     super.short,
@@ -854,13 +801,8 @@ sealed class DefaultedRepeatableOption<T> extends Option<List<T>>
 
 final class RepeatableStringOption extends RepeatableOption<String>
     with RegExpValidated {
-  RepeatableStringOption(
-    super.name, {
-    RegExp? regex,
-    super.short,
-    super.description,
-    super.hidden,
-  }) : regex = regex ?? RegExpValidated.anyToken;
+  new(super.name, {RegExp? regex, super.short, super.description, super.hidden})
+    : regex = regex ?? RegExpValidated.anyToken;
 
   static RequiredRepeatableOption<String> required(
     String name, {
@@ -899,7 +841,7 @@ final class RepeatableStringOption extends RepeatableOption<String>
 final class _DefaultedRepeatableStringOption
     extends DefaultedRepeatableOption<String>
     with RegExpValidated {
-  _DefaultedRepeatableStringOption(
+  new(
     super.name, {
     required super.defaultValue,
     RegExp? regex,
@@ -914,13 +856,8 @@ final class _DefaultedRepeatableStringOption
 final class _RequiredRepeatableStringOption
     extends RequiredRepeatableOption<String>
     with RegExpValidated {
-  _RequiredRepeatableStringOption(
-    super.name, {
-    RegExp? regex,
-    super.short,
-    super.description,
-    super.hidden,
-  }) : regex = regex ?? RegExpValidated.anyToken;
+  new(super.name, {RegExp? regex, super.short, super.description, super.hidden})
+    : regex = regex ?? RegExpValidated.anyToken;
 
   @override
   final RegExp regex;
@@ -928,7 +865,7 @@ final class _RequiredRepeatableStringOption
 
 final class RepeatableIntOption extends RepeatableOption<int>
     with NumericRangeValidated<int> {
-  const RepeatableIntOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -979,7 +916,7 @@ final class RepeatableIntOption extends RepeatableOption<int>
 
 final class _DefaultedRepeatableIntOption extends DefaultedRepeatableOption<int>
     with NumericRangeValidated<int> {
-  _DefaultedRepeatableIntOption(
+  new(
     super.name, {
     required super.defaultValue,
     this.min,
@@ -996,7 +933,7 @@ final class _DefaultedRepeatableIntOption extends DefaultedRepeatableOption<int>
 
 final class _RequiredRepeatableIntOption extends RequiredRepeatableOption<int>
     with NumericRangeValidated<int> {
-  const _RequiredRepeatableIntOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -1012,7 +949,7 @@ final class _RequiredRepeatableIntOption extends RequiredRepeatableOption<int>
 
 final class RepeatableDoubleOption extends RepeatableOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  const RepeatableDoubleOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -1071,7 +1008,7 @@ final class RepeatableDoubleOption extends RepeatableOption<double>
 final class _DefaultedRepeatableDoubleOption
     extends DefaultedRepeatableOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  _DefaultedRepeatableDoubleOption(
+  new(
     super.name, {
     required super.defaultValue,
     this.min,
@@ -1092,7 +1029,7 @@ final class _DefaultedRepeatableDoubleOption
 final class _RequiredRepeatableDoubleOption
     extends RequiredRepeatableOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  const _RequiredRepeatableDoubleOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -1111,7 +1048,7 @@ final class _RequiredRepeatableDoubleOption
 
 final class RepeatableChoiceOption<T extends Enum> extends RepeatableOption<T>
     with ChoiceValidated<T> {
-  RepeatableChoiceOption(
+  new(
     super.name,
     List<T> choices, {
     super.short,
@@ -1163,7 +1100,7 @@ final class RepeatableChoiceOption<T extends Enum> extends RepeatableOption<T>
 final class _DefaultedRepeatableChoiceOption<T extends Enum>
     extends DefaultedRepeatableOption<T>
     with ChoiceValidated<T> {
-  _DefaultedRepeatableChoiceOption(
+  new(
     super.name,
     List<T> choices, {
     required super.defaultValue,
@@ -1181,7 +1118,7 @@ final class _DefaultedRepeatableChoiceOption<T extends Enum>
 final class _RequiredRepeatableChoiceOption<T extends Enum>
     extends RequiredRepeatableOption<T>
     with ChoiceValidated<T> {
-  _RequiredRepeatableChoiceOption(
+  new(
     super.name,
     List<T> choices, {
     super.short,
@@ -1205,11 +1142,11 @@ abstract interface class PairedOptionsDefinition {
 /// A group whose members must either all be supplied or all be omitted.
 final class PairedOptions<T extends Object>
     implements PairedOptionsDefinition, ParsedValue<Map<String, T>> {
-  PairedOptions(List<PairOption<T>> options, {this.description})
+  new(List<PairOption<T>> options, {this.description})
     : options = List.unmodifiable(options),
       required = false;
 
-  PairedOptions.required(List<PairOption<T>> options, {this.description})
+  new required(List<PairOption<T>> options, {this.description})
     : options = List.unmodifiable(options),
       required = true;
 
@@ -1222,7 +1159,7 @@ final class PairedOptions<T extends Object>
 }
 
 sealed class PairOption<T> implements InputDefinition {
-  const PairOption(this.name, {required this.short, this.description});
+  const new(this.name, {required this.short, this.description});
   @override
   final String name;
   final String? short;
@@ -1231,7 +1168,7 @@ sealed class PairOption<T> implements InputDefinition {
 }
 
 final class PairStringOption extends PairOption<String> with RegExpValidated {
-  PairStringOption(super.name, {RegExp? regex, super.short, super.description})
+  new(super.name, {RegExp? regex, super.short, super.description})
     : regex = regex ?? RegExpValidated.anyToken;
   @override
   final RegExp regex;
@@ -1239,13 +1176,7 @@ final class PairStringOption extends PairOption<String> with RegExpValidated {
 
 final class PairIntOption extends PairOption<int>
     with NumericRangeValidated<int> {
-  const PairIntOption(
-    super.name, {
-    this.min,
-    this.max,
-    super.short,
-    super.description,
-  });
+  const new(super.name, {this.min, this.max, super.short, super.description});
   @override
   final int? min;
   @override
@@ -1254,7 +1185,7 @@ final class PairIntOption extends PairOption<int>
 
 final class PairDoubleOption extends PairOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  const PairDoubleOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -1272,41 +1203,27 @@ final class PairDoubleOption extends PairOption<double>
 
 final class PairChoiceOption<T extends Enum> extends PairOption<T>
     with ChoiceValidated<T> {
-  PairChoiceOption(
-    super.name, {
-    required List<T> choices,
-    super.short,
-    super.description,
-  }) : choices = List.unmodifiable(choices);
+  new(super.name, {required List<T> choices, super.short, super.description})
+    : choices = List.unmodifiable(choices);
   @override
   final List<T> choices;
 }
 
 sealed class RepeatablePairOption<T> extends PairOption<List<T>> {
-  const RepeatablePairOption(super.name, {super.short, super.description});
+  const new(super.name, {super.short, super.description});
 }
 
 final class RepeatablePairStringOption extends RepeatablePairOption<String>
     with RegExpValidated {
-  RepeatablePairStringOption(
-    super.name, {
-    RegExp? regex,
-    super.short,
-    super.description,
-  }) : regex = regex ?? RegExpValidated.anyToken;
+  new(super.name, {RegExp? regex, super.short, super.description})
+    : regex = regex ?? RegExpValidated.anyToken;
   @override
   final RegExp regex;
 }
 
 final class RepeatablePairIntOption extends RepeatablePairOption<int>
     with NumericRangeValidated<int> {
-  const RepeatablePairIntOption(
-    super.name, {
-    this.min,
-    this.max,
-    super.short,
-    super.description,
-  });
+  const new(super.name, {this.min, this.max, super.short, super.description});
   @override
   final int? min;
   @override
@@ -1315,7 +1232,7 @@ final class RepeatablePairIntOption extends RepeatablePairOption<int>
 
 final class RepeatablePairDoubleOption extends RepeatablePairOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  const RepeatablePairDoubleOption(
+  const new(
     super.name, {
     this.min,
     this.max,
@@ -1334,17 +1251,17 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption<double>
 /// A named collection of pair options that resolves to a map of supplied values.
 final class SelectedOptions<T extends Object>
     implements ParsedValue<Map<String, T>> {
-  SelectedOptions(List<PairOption<T>> options, {this.description})
+  new(List<PairOption<T>> options, {this.description})
     : options = List.unmodifiable(options),
       required = false,
       single = false;
 
-  SelectedOptions.required(List<PairOption<T>> options, {this.description})
+  new required(List<PairOption<T>> options, {this.description})
     : options = List.unmodifiable(options),
       required = true,
       single = false;
 
-  SelectedOptions.single(List<PairOption<T>> options, {this.description})
+  new single(List<PairOption<T>> options, {this.description})
     : options = List.unmodifiable(options),
       required = false,
       single = true;
@@ -1356,7 +1273,7 @@ final class SelectedOptions<T extends Object>
 }
 
 sealed class AccessorOption implements InputDefinition {
-  const AccessorOption(this.name, {this.description});
+  const new(this.name, {this.description});
   @override
   final String name;
   @override
@@ -1365,7 +1282,7 @@ sealed class AccessorOption implements InputDefinition {
 
 sealed class AccessorPrimitiveOption<T> extends Input<T>
     implements AccessorOption {
-  const AccessorPrimitiveOption(this.name, {this.description});
+  const new(this.name, {this.description});
   @override
   final String name;
   @override
@@ -1374,7 +1291,7 @@ sealed class AccessorPrimitiveOption<T> extends Input<T>
 
 final class AccessorListOption extends Input<Map<String, Object?>>
     implements AccessorOption {
-  AccessorListOption(
+  new(
     this.name,
     List<AccessorOption> options, {
     this.description,
@@ -1392,7 +1309,7 @@ final class AccessorListOption extends Input<Map<String, Object?>>
 final class AccessorStringOption extends AccessorPrimitiveOption<String?>
     with RegExpValidated
     implements OptionalInput<String> {
-  AccessorStringOption(super.name, {super.description, RegExp? regex})
+  new(super.name, {super.description, RegExp? regex})
     : _regex = regex ?? RegExpValidated.anyToken;
   static RequiredAccessorOption<String> required(
     String name, {
@@ -1423,12 +1340,12 @@ final class AccessorStringOption extends AccessorPrimitiveOption<String?>
 
 sealed class RequiredAccessorOption<T> extends AccessorPrimitiveOption<T>
     implements RequiredInput<T> {
-  const RequiredAccessorOption(super.name, {super.description});
+  const new(super.name, {super.description});
 }
 
 final class _RequiredAccessorStringOption extends RequiredAccessorOption<String>
     with RegExpValidated {
-  _RequiredAccessorStringOption(super.name, {RegExp? regex, super.description})
+  new(super.name, {RegExp? regex, super.description})
     : regex = regex ?? RegExpValidated.anyToken;
   @override
   final RegExp regex;
@@ -1438,7 +1355,7 @@ final class _DefaultedAccessorStringOption
     extends DefaultedAccessorOption<String>
     with RegExpValidated
     implements DefaultValue<String> {
-  _DefaultedAccessorStringOption(
+  new(
     super.name, {
     required this.defaultValue,
     RegExp? regex,
@@ -1452,7 +1369,7 @@ final class _DefaultedAccessorStringOption
 
 final class AccessorIntOption extends AccessorPrimitiveOption<int?>
     implements OptionalInput<int> {
-  const AccessorIntOption(super.name, {super.description});
+  const new(super.name, {super.description});
   static RequiredAccessorOption<int> required(
     String name, {
     String? description,
@@ -1471,7 +1388,7 @@ final class AccessorIntOption extends AccessorPrimitiveOption<int?>
 
 final class _RequiredAccessorIntOption extends RequiredAccessorOption<int>
     with NumericRangeValidated<int> {
-  const _RequiredAccessorIntOption(super.name, {super.description});
+  const new(super.name, {super.description});
   @override
   int? get min => null;
   @override
@@ -1481,11 +1398,7 @@ final class _RequiredAccessorIntOption extends RequiredAccessorOption<int>
 final class _DefaultedAccessorIntOption extends DefaultedAccessorOption<int>
     with NumericRangeValidated<int>
     implements DefaultValue<int> {
-  const _DefaultedAccessorIntOption(
-    super.name, {
-    required this.defaultValue,
-    super.description,
-  });
+  const new(super.name, {required this.defaultValue, super.description});
   @override
   final int defaultValue;
   @override
@@ -1496,7 +1409,7 @@ final class _DefaultedAccessorIntOption extends DefaultedAccessorOption<int>
 
 final class AccessorDoubleOption extends AccessorPrimitiveOption<double?>
     implements OptionalInput<double> {
-  const AccessorDoubleOption(super.name, {super.description});
+  const new(super.name, {super.description});
   static RequiredAccessorOption<double> required(
     String name, {
     String? description,
@@ -1515,7 +1428,7 @@ final class AccessorDoubleOption extends AccessorPrimitiveOption<double?>
 
 final class _RequiredAccessorDoubleOption extends RequiredAccessorOption<double>
     with NumericRangeValidated<double>, NumericStepValidated {
-  const _RequiredAccessorDoubleOption(super.name, {super.description});
+  const new(super.name, {super.description});
   @override
   double? get min => null;
   @override
@@ -1528,11 +1441,7 @@ final class _DefaultedAccessorDoubleOption
     extends DefaultedAccessorOption<double>
     with NumericRangeValidated<double>, NumericStepValidated
     implements DefaultValue<double> {
-  const _DefaultedAccessorDoubleOption(
-    super.name, {
-    required this.defaultValue,
-    super.description,
-  });
+  const new(super.name, {required this.defaultValue, super.description});
   @override
   final double defaultValue;
   @override
@@ -1545,18 +1454,15 @@ final class _DefaultedAccessorDoubleOption
 
 sealed class DefaultedAccessorOption<T> extends AccessorPrimitiveOption<T>
     implements DefaultedInput<T> {
-  const DefaultedAccessorOption(super.name, {super.description});
+  const new(super.name, {super.description});
 }
 
 final class AccessorChoiceOption<T extends Enum>
     extends AccessorPrimitiveOption<T?>
     with ChoiceValidated<T>
     implements OptionalInput<T> {
-  AccessorChoiceOption(
-    super.name, {
-    required List<T> choices,
-    super.description,
-  }) : choices = List.unmodifiable(choices);
+  new(super.name, {required List<T> choices, super.description})
+    : choices = List.unmodifiable(choices);
 
   static RequiredAccessorOption<T> required<T extends Enum>(
     String name, {
@@ -1587,11 +1493,8 @@ final class AccessorChoiceOption<T extends Enum>
 final class _RequiredAccessorChoiceOption<T extends Enum>
     extends RequiredAccessorOption<T>
     with ChoiceValidated<T> {
-  _RequiredAccessorChoiceOption(
-    super.name, {
-    required List<T> choices,
-    super.description,
-  }) : choices = List.unmodifiable(choices);
+  new(super.name, {required List<T> choices, super.description})
+    : choices = List.unmodifiable(choices);
   @override
   final List<T> choices;
 }
@@ -1600,7 +1503,7 @@ final class _DefaultedAccessorChoiceOption<T extends Enum>
     extends DefaultedAccessorOption<T>
     with ChoiceValidated<T>
     implements DefaultValue<T> {
-  _DefaultedAccessorChoiceOption(
+  new(
     super.name, {
     required List<T> choices,
     required this.defaultValue,
@@ -1614,7 +1517,7 @@ final class _DefaultedAccessorChoiceOption<T extends Enum>
 }
 
 final class ParsedInputs {
-  ParsedInputs(Map<Object, Object?> values, Iterable<Object> known)
+  new(Map<Object, Object?> values, Iterable<Object> known)
     : _values = Map.unmodifiable(values),
       _known = Set.unmodifiable(known);
 
@@ -1646,7 +1549,7 @@ abstract class Command {
   final List<SelectedOptions>? selectedOptionses;
   final List<AccessorListOption>? accessors;
   final Map<String, List<String>>? conflicts;
-  Command({
+  new({
     this.longDescription,
     List<String>? aliases,
     List<MandatoryPositional>? mandatoryPositionals,
@@ -1677,7 +1580,7 @@ abstract class GroupCommand extends Command {
   final List<Flag>? inheritedFlags;
   final List<Option>? inheritedOptions;
   final List<Command> commands;
-  GroupCommand(
+  new(
     List<Command> commands, {
     List<String>? defaultSubCommandPath,
     super.aliases,
@@ -1746,7 +1649,7 @@ class CompletionCommand extends Command {
   String get name => 'completion';
   @override
   String get shortDescription => 'Generate completion for various shells';
-  CompletionCommand({
+  new({
     void Function(String)? createFile,
     super.longDescription,
     super.aliases,
@@ -1754,18 +1657,16 @@ class CompletionCommand extends Command {
     super.discretionaryPositionals,
     super.options,
   }) : createFile = createFile ?? _createFileSynchronously;
-  CompletionCommand.preset(
-    void Function(String path)? createFile, {
-    String? longDescription,
-  }) : this(
-         createFile: createFile,
-         longDescription:
-             longDescription ??
-             'Generate completions for Bash ZSH Fish or Powershell',
-         aliases: ['cmp', 'cpt'],
-         mandatoryPositionals: [shellInput],
-         discretionaryPositionals: [pathInput],
-       );
+  new preset(void Function(String path)? createFile, {String? longDescription})
+    : this(
+        createFile: createFile,
+        longDescription:
+            longDescription ??
+            'Generate completions for Bash ZSH Fish or Powershell',
+        aliases: ['cmp', 'cpt'],
+        mandatoryPositionals: [shellInput],
+        discretionaryPositionals: [pathInput],
+      );
   @override
   String? run(ParsedInputs inputs, List<String> args) {
     final shell = inputs.valueOf(shellInput);
@@ -1806,7 +1707,7 @@ class CompletionCommand extends Command {
 }
 
 final class ProcessedStandardInput {
-  const ProcessedStandardInput(this.bytes);
+  const new(this.bytes);
   final List<int> bytes;
   String get text => String.fromCharCodes(bytes);
   String get utf8Text => utf8.decode(bytes);

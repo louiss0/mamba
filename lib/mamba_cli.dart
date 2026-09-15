@@ -5,8 +5,7 @@ import 'package:mamba/errors.dart';
 
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
-  CreateProjectCommand(this._parentDirectory)
-    : super(mandatoryPositionals: [packageName]);
+  new(this._parentDirectory) : super(mandatoryPositionals: [packageName]);
   static final packageName = NormalPositional(
     'package-name',
     regExp: RegExp(r'[a-z][a-z0-9_]*'),
@@ -28,7 +27,7 @@ final class CreateProjectCommand extends Command {
     directory.createSync();
     Directory('${directory.path}/bin').createSync();
     File('${directory.path}/pubspec.yaml').writeAsStringSync(
-      'name: $name\nenvironment:\n  sdk: ^3.0.0\ndependencies:\n  mamba: any\n',
+      'name: $name\nenvironment:\n  sdk: ^3.13.2\ndependencies:\n  mamba: any\n',
     );
     File('${directory.path}/bin/$name.dart').writeAsStringSync(
       "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$name', 'A command-line application.', '1.0.0', []).create().execute(args);\n",
@@ -39,7 +38,7 @@ final class CreateProjectCommand extends Command {
 
 /// Generates a typed command skeleton.
 final class ScaffoldCommand extends Command {
-  ScaffoldCommand(this._parentDirectory)
+  new(this._parentDirectory)
     : super(mandatoryPositionals: [commandName], flags: [group]);
   static final commandName = NormalPositional(
     'name',

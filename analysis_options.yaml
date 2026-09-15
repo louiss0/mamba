@@ -28,7 +28,6 @@ analyzer:
     annotate_overrides: ignore
     curly_braces_in_flow_control_structures: ignore
     prefer_interpolation_to_compose_strings: ignore
-    unnecessary_type_name_in_constructor: ignore
 
 # For more information about the core and recommended set of lints, see
 # https://dart.dev/go/core-lints

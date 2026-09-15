@@ -13,19 +13,19 @@ import 'package:mamba/src/system_process.dart' as system_process;
 export 'src/process.dart';
 
 sealed class MambaExecutionResult {
-  const MambaExecutionResult();
+  const new();
   int get exitCode;
 }
 
 final class MambaSuccessResult extends MambaExecutionResult {
-  const MambaSuccessResult(this.output);
+  const new(this.output);
   final String? output;
   @override
   int get exitCode => 0;
 }
 
 final class MambaFailureResult extends MambaExecutionResult {
-  MambaFailureResult({
+  new({
     required this.exitCode,
     required List<MambaExecutionError> errors,
     this.output,
@@ -52,7 +52,7 @@ enum MambaExecutionPhase {
 }
 
 final class MambaExecutionError {
-  MambaExecutionError({
+  new({
     required this.phase,
     required this.exception,
     required this.stackTrace,
@@ -78,7 +78,7 @@ final class Executor {
     MambaBuiltInFlags.version,
   ];
 
-  Executor(
+  new(
     this.name,
     this.shortDescription,
     String version,
@@ -134,7 +134,7 @@ final class Executor {
 }
 
 final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
-  _FakeExecutor(this.execution);
+  new(this.execution);
   final _Execution execution;
   @override
   Future<MambaExecutionResult> execute(List<String> args) =>
@@ -142,7 +142,7 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
 }
 
 final class _CreateExecutor implements MambaExecutor<void> {
-  _CreateExecutor(this.execution, this.process);
+  new(this.execution, this.process);
   final _Execution execution;
   final MambaProcess process;
   @override
@@ -166,7 +166,7 @@ final class _CreateExecutor implements MambaExecutor<void> {
 }
 
 final class _Execution {
-  _Execution(Executor executor, {this.readStandardInput})
+  new(Executor executor, {this.readStandardInput})
     : _help = executor.helpFormatter ?? MambaHelpFormatter(),
       _context = executor.context ?? MambaContext(),
       _version = executor._version,

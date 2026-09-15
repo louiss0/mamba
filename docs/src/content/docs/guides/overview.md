@@ -30,7 +30,7 @@ A command retains the same declaration handles it registers through `super`:
 
 ```dart
 final class AddCommand extends Command {
-  AddCommand()
+  new()
     : super(
         mandatoryPositionals: [path],
         flags: [all],

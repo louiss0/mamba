@@ -11,8 +11,8 @@ commands with an `Executor`.
 
 ## Install the Mamba CLI
 
-Mamba requires Dart SDK `^3.13.2`. Install the `mamba` executable globally
-with Dart:
+Mamba requires Dart SDK `^3.13.2` and uses Dart 3.13 constructor syntax in its
+source and examples. Install the `mamba` executable globally with Dart:
 
 ```sh
 dart pub global activate mamba
@@ -58,6 +58,8 @@ my_app/
 │   └── my_app.dart
 └── pubspec.yaml
 ```
+
+Its `pubspec.yaml` targets Dart `^3.13.2`, matching Mamba's language version.
 
 The generated executable uses Mamba's `Executor` and starts with no
 application commands. Run it to see the generated help output:

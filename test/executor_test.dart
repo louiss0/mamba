@@ -4,7 +4,7 @@ import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
 final class ResultCommand extends Command with HookRunner {
-  ResultCommand(
+  new(
     this.events, {
     this.failPre = false,
     this.failRun = false,
@@ -45,7 +45,7 @@ final class ResultCommand extends Command with HookRunner {
 }
 
 final class Persistent extends GroupCommand with PersistentHookRunner {
-  Persistent(
+  new(
     this.events,
     super.commands, {
     this.failPre = false,
@@ -98,7 +98,7 @@ final class ContextReader extends Command with HookRunner {
 }
 
 final class ContextWriter extends GroupCommand with PersistentHookRunner {
-  ContextWriter(super.commands) : super();
+  new(super.commands) : super();
   @override
   String get name => 'context';
   @override
@@ -118,7 +118,7 @@ final class ContextWriter extends GroupCommand with PersistentHookRunner {
 
 final class RetainingContextWriter extends GroupCommand
     with PersistentHookRunner {
-  RetainingContextWriter(super.commands) : super();
+  new(super.commands) : super();
   @override
   String get name => 'retaining';
   @override
@@ -162,7 +162,7 @@ final class NoOutputCommand extends Command {
 }
 
 final class DefaultCommand extends Command {
-  DefaultCommand(this.events);
+  new(this.events);
   final List<String> events;
   @override
   String get name => 'default';
@@ -181,7 +181,7 @@ final class DefaultCommand extends Command {
 }
 
 final class InputCommand extends Command with HookRunner {
-  InputCommand(this.input);
+  new(this.input);
   final ProcessedStandardInput input;
   @override
   String get name => 'input';
@@ -203,7 +203,7 @@ final class InputCommand extends Command with HookRunner {
 }
 
 final class RecordingProcess implements MambaProcess {
-  RecordingProcess({this.input});
+  new({this.input});
   final ProcessedStandardInput? input;
   final output = <String>[];
   final errors = <String>[];
@@ -224,7 +224,7 @@ final class RecordingProcess implements MambaProcess {
 
 final class InvalidContextWriter extends GroupCommand
     with PersistentHookRunner {
-  InvalidContextWriter() : super([ResultCommand(<String>[])]);
+  new() : super([ResultCommand(<String>[])]);
   @override
   String get name => 'invalid';
   @override

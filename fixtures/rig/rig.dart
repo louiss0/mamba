@@ -4,7 +4,7 @@ import 'package:mamba/mamba.dart';
 enum Output { text, json }
 
 final class RigCommand extends Command {
-  RigCommand() : super(options: [format]);
+  new() : super(options: [format]);
   static final format = ChoiceOption.required('format', choices: Output.values);
   @override
   String get name => 'rig';

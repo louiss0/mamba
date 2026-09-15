@@ -4,7 +4,7 @@
 /// and the code that reads it. Keys are typed by the primitive returned from
 /// [MambaContext.get].
 class MambaContextKey<T extends Object> {
-  const MambaContextKey();
+  const new();
 
   bool _accepts(MambaContextValue<Object> value) {
     if (T == String) return value is MambaContextString;
@@ -21,7 +21,7 @@ class MambaContextKey<T extends Object> {
 /// [MambaContextString], [MambaContextBool], [MambaContextInt], or
 /// [MambaContextDouble] to store hook state.
 sealed class MambaContextValue<T extends Object> {
-  const MambaContextValue(this.value);
+  const new(this.value);
 
   /// The scalar wrapped by this context value.
   final T value;
@@ -29,22 +29,22 @@ sealed class MambaContextValue<T extends Object> {
 
 /// A [String] value stored in [MambaContext].
 final class MambaContextString extends MambaContextValue<String> {
-  const MambaContextString(super.value);
+  const new(super.value);
 }
 
 /// A [bool] value stored in [MambaContext].
 final class MambaContextBool extends MambaContextValue<bool> {
-  const MambaContextBool(super.value);
+  const new(super.value);
 }
 
 /// An [int] value stored in [MambaContext].
 final class MambaContextInt extends MambaContextValue<int> {
-  const MambaContextInt(super.value);
+  const new(super.value);
 }
 
 /// A [double] value stored in [MambaContext].
 final class MambaContextDouble extends MambaContextValue<double> {
-  const MambaContextDouble(super.value);
+  const new(super.value);
 }
 
 /// Mutable state scoped to an executor and shared by all of its executions.

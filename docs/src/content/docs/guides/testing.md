@@ -23,7 +23,7 @@ import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
 final class AddCommand extends Command {
-  AddCommand() : super(mandatoryPositionals: [word]);
+  new() : super(mandatoryPositionals: [word]);
 
   static final word = NormalPositional('word');
 
@@ -83,7 +83,7 @@ String get name => 'add';
 @override
 String get shortDescription => 'Add a word.';
 
-AddCommand() : super(mandatoryPositionals: [word]);
+new() : super(mandatoryPositionals: [word]);
 ```
 
 Running `execute(['add'])` without a word fails before `run` is called. The

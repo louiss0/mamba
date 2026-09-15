@@ -43,7 +43,7 @@ execution:
 ```dart
 final class WorkspaceCommand extends GroupCommand
     with PersistentHookRunner {
-  WorkspaceCommand(super.commands) : super();
+  new(super.commands) : super();
 
   @override
   FutureOr<void> prePersistentRun(

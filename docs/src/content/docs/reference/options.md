@@ -193,7 +193,7 @@ leaf. Accessor leaves use their dotted spelling.
 
 ```dart
 final class DeployCommand extends Command {
-  DeployCommand()
+  new()
       : super(
           conflicts: {
             'replace': ['output', 'server.auth.token'],

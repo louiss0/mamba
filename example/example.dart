@@ -23,7 +23,7 @@ Future<void> main(List<String> args) {
 }
 
 final class Task {
-  const Task({
+  const new({
     required this.id,
     required this.title,
     required this.description,
@@ -49,7 +49,7 @@ final class Task {
     'completed': completed,
   };
 
-  factory Task.fromJson(Map<String, dynamic> json) => Task(
+  factory fromJson(Map<String, dynamic> json) => Task(
     id: json['id'] as int,
     title: json['title'] as String,
     description: json['description'] as String,
@@ -58,7 +58,7 @@ final class Task {
 }
 
 final class TaskStore {
-  const TaskStore(this.file);
+  const new(this.file);
 
   final File file;
 
@@ -156,7 +156,7 @@ int _taskId(ParsedInputs inputs, NormalPositional input) =>
     int.parse(inputs.valueOf(input));
 
 final class CreateTaskCommand extends Command {
-  CreateTaskCommand(this.store) : super(options: [title, description]);
+  new(this.store) : super(options: [title, description]);
 
   static final title = StringOption.required(
     'title',
@@ -190,7 +190,7 @@ final class CreateTaskCommand extends Command {
 enum TaskStatus { all, completed, pending }
 
 final class ListTaskCommand extends Command {
-  ListTaskCommand(this.store) : super(options: [status]);
+  new(this.store) : super(options: [status]);
 
   static final status = ChoiceOption.withDefault(
     'status',
@@ -229,13 +229,13 @@ final class ListTaskCommand extends Command {
 }
 
 abstract class TaskIdCommand extends Command {
-  TaskIdCommand() : super(mandatoryPositionals: [id]);
+  new() : super(mandatoryPositionals: [id]);
 
   static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
 }
 
 final class ReadTaskCommand extends TaskIdCommand {
-  ReadTaskCommand(this.store);
+  new(this.store);
 
   final TaskStore store;
 
@@ -254,8 +254,7 @@ final class ReadTaskCommand extends TaskIdCommand {
 }
 
 final class UpdateTaskCommand extends Command {
-  UpdateTaskCommand(this.store)
-    : super(mandatoryPositionals: [id], pairedOptions: [changes]);
+  new(this.store) : super(mandatoryPositionals: [id], pairedOptions: [changes]);
 
   static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
   static final title = PairStringOption(
@@ -292,7 +291,7 @@ final class UpdateTaskCommand extends Command {
 }
 
 final class DeleteTaskCommand extends TaskIdCommand {
-  DeleteTaskCommand(this.store);
+  new(this.store);
 
   final TaskStore store;
 
@@ -313,7 +312,7 @@ final class DeleteTaskCommand extends TaskIdCommand {
 enum TaskExportFormat { json, text }
 
 final class ExportTasksCommand extends Command {
-  ExportTasksCommand(this.store) : super(options: [format, output]);
+  new(this.store) : super(options: [format, output]);
 
   static final format = ChoiceOption.required(
     'format',
@@ -349,7 +348,7 @@ final class ExportTasksCommand extends Command {
 }
 
 final class CompleteTaskCommand extends TaskIdCommand {
-  CompleteTaskCommand(this.store);
+  new(this.store);
 
   final TaskStore store;
 
@@ -368,7 +367,7 @@ final class CompleteTaskCommand extends TaskIdCommand {
 }
 
 final class ReopenTaskCommand extends TaskIdCommand {
-  ReopenTaskCommand(this.store);
+  new(this.store);
 
   final TaskStore store;
 
@@ -387,7 +386,7 @@ final class ReopenTaskCommand extends TaskIdCommand {
 }
 
 final class CompletionTaskCommand extends CompletionCommand {
-  CompletionTaskCommand() : super(options: [output]);
+  new() : super(options: [output]);
 
   static final output = StringOption.required(
     'output',

@@ -31,6 +31,11 @@ CLI's syntax and the code that implements it.
 
 Mamba requires Dart SDK `^3.13.2`.
 
+Mamba uses Dart 3.13 primary constructors where appropriate and concise
+in-body constructor declarations throughout its source and examples.
+Constructors declared inside a class use `new` or `factory` without repeating
+the class name.
+
 Add it to an existing Dart package:
 
 ```sh
@@ -110,7 +115,7 @@ A command declares its syntax in its constructor and receives parsed values in
 
 ```dart
 final class AddCommand extends Command {
-  AddCommand()
+  new()
       : super(
           mandatoryPositionals: [path],
           flags: [all],
@@ -186,7 +191,7 @@ Positional names, variadics, and accessor group names are not conflict inputs.
 
 ```dart
 final class DeployCommand extends Command {
-  DeployCommand()
+  new()
       : super(
           flags: [BooleanFlag('replace')],
           options: [StringOption('output')],
@@ -213,7 +218,7 @@ publish inherited flags and options, and can select a child by setting
 
 ```dart
 final class RemoteCommand extends GroupCommand {
-  RemoteCommand()
+  new()
       : super(
           [RemoteAddCommand()],
           propagatedFlags: [
@@ -247,7 +252,7 @@ completion converters:
 
 ```dart
 final class Completion extends CompletionCommand {
-  Completion() : super.preset(null);
+  new() : super.preset(null);
 }
 ```
 

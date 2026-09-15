@@ -3,7 +3,7 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
 
 class MambaParseException extends MambaException {
-  MambaParseException(super.message, {super.exitCode});
+  new(super.message, {super.exitCode});
 }
 
 typedef ParsedArguments = (
@@ -16,7 +16,7 @@ typedef ParsedArguments = (
 
 /// Parses one command line into identity-keyed typed input values.
 final class Parser {
-  Parser(this._registry);
+  new(this._registry);
   final CommandRegistry _registry;
 
   ParsedArguments parse(List<String> tokens) {

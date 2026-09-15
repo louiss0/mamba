@@ -1,3 +1,9 @@
+## Unreleased
+
+- Adopted Dart 3.13 concise constructor declarations throughout the package,
+  tests, examples, generated projects, and documentation.
+- Enabled analyzer enforcement for concise constructor declarations.
+
 ## 0.8.1
 
 - Rejected conflicts involving required inputs during registry creation,
@@ -68,8 +74,6 @@
   stdin detection.
 - Replaced guessed numeric completion ranges with explicit completion metadata.
 
-See `MIGRATION.md` for breaking-change guidance.
-
 ## 0.3.0
 
 - Made `Parser.parse` return a sealed `ParseOutcome`: `ParsedInvocation` or
@@ -86,8 +90,6 @@ See `MIGRATION.md` for breaking-change guidance.
 - Added negated boolean flags to Carapace specs.
 - Added `MambaExecutionError` to preserve non-recoverable primary and cleanup
   failures together.
-
-See `MIGRATION.md` for breaking-change guidance.
 
 ## 0.2.0
 

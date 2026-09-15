@@ -141,7 +141,7 @@ import 'package:mamba/mamba.dart';
 enum Mode { local }
 
 final class ApplicationValue extends MambaContextValue<String> {
-  const ApplicationValue(super.value);
+  const new(super.value);
 }
 
 void invalid() {

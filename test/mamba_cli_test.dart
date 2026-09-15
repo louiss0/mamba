@@ -19,7 +19,7 @@ void main() {
     );
     expect(
       File('${directory.path}/demo/pubspec.yaml').readAsStringSync(),
-      contains('name: demo'),
+      allOf(contains('name: demo'), contains('sdk: ^3.13.2')),
     );
     expect(
       File('${directory.path}/demo/bin/demo.dart').readAsStringSync(),

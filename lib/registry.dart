@@ -59,7 +59,7 @@ typedef RegistryVariadic = ({
 typedef RegistryOptionGroup = ({bool required, List<String> members});
 
 final class RegistryCommand {
-  RegistryCommand({
+  new({
     required this.name,
     required this.description,
     this.aliases,
@@ -88,7 +88,7 @@ final class RegistryCommand {
 }
 
 final class RegistryAccessor {
-  RegistryAccessor.group({
+  new group({
     required this.name,
     required this.hidden,
     this.description,
@@ -99,7 +99,7 @@ final class RegistryAccessor {
        defaultValue = null,
        pattern = null,
        options = List.unmodifiable(options);
-  RegistryAccessor.value({
+  new value({
     required this.name,
     required this.valueType,
     this.description,
@@ -121,7 +121,7 @@ final class RegistryAccessor {
 }
 
 final class CommandResolution {
-  const CommandResolution({
+  const new({
     required this.registry,
     required this.path,
     required this.tokenIndices,
@@ -133,17 +133,14 @@ final class CommandResolution {
 }
 
 final class MambaCommandNotFoundException extends MambaException {
-  MambaCommandNotFoundException(
-    String name,
-    List<String> parentPath,
-    List<String> available,
-  ) : super(
+  new(String name, List<String> parentPath, List<String> available)
+    : super(
         'Command $name was not found under ${parentPath.join(' ')}. ${available.isEmpty ? 'This command has no subcommands.' : 'Available commands: ${available.join(', ')}'}',
       );
 }
 
 final class CommandRegistry {
-  CommandRegistry._({
+  new _({
     required this.name,
     required this.shortDescription,
     this.longDescription,
@@ -227,7 +224,7 @@ final class CommandRegistry {
     ...?parent?._publishedOptionsToHere,
     ...publishedOptions,
   ];
-  factory CommandRegistry.create(
+  factory create(
     String name,
     String shortDescription, {
     String? longDescription,
