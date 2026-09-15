@@ -182,6 +182,7 @@ option parsing and passes the remaining validated tokens to `Command.run` as
 Commands can reject incompatible named inputs with `conflicts`. Each map key
 conflicts with every name in its list. Names may refer to flags, ordinary,
 paired, or selected option members, and accessor leaves use dotted paths.
+Positional names, variadics, and accessor group names are not conflict inputs.
 
 ```dart
 final class DeployCommand extends Command {

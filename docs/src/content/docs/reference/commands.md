@@ -66,10 +66,11 @@ These kinds of commands can run [persistent](/reference/hooks/#persistent-hooks)
 
 ## Input conflicts
 
-Use the `conflicts` map on a command to reject incompatible flags and options.
-Each key conflicts with every name in its list. Accessor leaves use dotted
-names, such as `server.auth.token`. Conflicts belong to individual commands,
-not to `Executor`.
+Use the `conflicts` map on a command to reject incompatible flags, ordinary
+options, paired or selected option members, and accessor leaves. Accessor
+leaves use dotted names such as `server.auth.token`. Positional names,
+variadics, and accessor group names are not conflict inputs. Conflicts belong
+to individual commands, not to `Executor`.
 
 Registry creation resolves both map keys and list members through an indexed
 collection of registered names. A required input cannot conflict with another
