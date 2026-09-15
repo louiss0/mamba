@@ -481,7 +481,7 @@ final class Parser {
       if (positional is RepeatedPositionalDefinition) {
         final collected = <Object>[];
         while (index < source.length &&
-            collected.length <=
+            collected.length <
                 (positional as RepeatedPositionalDefinition).times) {
           try {
             collected.add(_positionalValue(positional, source[index]));

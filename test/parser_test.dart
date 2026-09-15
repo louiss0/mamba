@@ -1139,6 +1139,18 @@ void main() {
       expect(inputs.valueOf(count), '3');
     });
 
+    test('limits repeated positionals when the next input also matches', () {
+      final files = RepeatedStringPositional('files', times: 2);
+      final destination = NormalPositional('destination');
+
+      final inputs = parser(mandatory: [files, destination])
+          .parse(['one', 'two', 'three'])
+          .$2;
+
+      expect(inputs.valueOf(files), ['one', 'two']);
+      expect(inputs.valueOf(destination), 'three');
+    });
+
     test('reports missing mandatory positional inputs', () {
       final files = RepeatedStringPositional('files');
       final destination = NormalPositional('destination');
