@@ -259,37 +259,23 @@ configuration files remain application responsibilities.
 
 ### Shell completions
 
-Extend `CompletionCommand` to receive the application's typed registry record,
-then pass that record to a completion converter. This example writes a
-Carapace specification:
+Register the preset completion command to generate Bash, Zsh, Fish,
+PowerShell, or Carapace artifacts from the application's registry:
 
 ```dart
-final class Completion extends CompletionCommand {
-  new() : super(options: [output]);
-
-  static final output = StringOption.required('output');
-
-  @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final path = inputs.valueOf(output);
-    CarapaceSpecWriter(
-      CarapaceSpecConverter(registryRecord),
-      outputPath: path,
-    ).write();
-    return 'Wrote Carapace completions to $path.';
-  }
-}
+final completion = CompletionCommand.preset(null);
 ```
 
-Register `Completion()` with the executor, then generate the artifact:
+After adding `completion` to the executor's command list, select the shell and
+a shell-appropriate output path:
 
 ```sh
-dart run bin/hello.dart completion --output ./hello.yaml
+dart run bin/hello.dart completion bash ./hello.bash
+dart run bin/hello.dart completion carapace ./hello.yaml
 ```
 
-The Bash, Zsh, Fish, and PowerShell converters use the same `registryRecord`.
-See the completions guide for a command that selects between all supported
-formats.
+Pass a callback instead of `null` to customize destination handling. See the
+completions guide for direct converter and Carapace platform-writer usage.
 
 ## Configuration
 

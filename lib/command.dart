@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/integrations.dart' as integrations;
 import 'package:mamba/registry.dart';
 
 /// Metadata used by the parser, registry, help, and completion integrations.
@@ -1645,6 +1646,7 @@ enum ShellCompletion { bash, zsh, fish, powershell, carapace }
 class CompletionCommand extends Command {
   late RegistryRecord registryRecord;
   final void Function(String path) createFile;
+  final bool _usesDefaultGenerator;
   @override
   String get name => 'completion';
   @override
@@ -1656,7 +1658,8 @@ class CompletionCommand extends Command {
     super.mandatoryPositionals,
     super.discretionaryPositionals,
     super.options,
-  }) : createFile = createFile ?? _createFileSynchronously;
+  }) : createFile = createFile ?? _createFileSynchronously,
+       _usesDefaultGenerator = createFile == null;
   new preset(void Function(String path)? createFile, {String? longDescription})
     : this(
         createFile: createFile,
@@ -1676,9 +1679,31 @@ class CompletionCommand extends Command {
       throw MambaException(
         'When shell is ${shell.name} the path must end in $extension and must have ${registryRecord.name} in the file name',
       );
-    createFile(path);
+    if (_usesDefaultGenerator) {
+      File(path).writeAsStringSync(_completionFor(shell));
+    } else {
+      createFile(path);
+    }
     return 'Created completion ${shell.name} in $path';
   }
+
+  String _completionFor(ShellCompletion shell) => switch (shell) {
+    ShellCompletion.bash => integrations.ToBashCompletionConverter(
+      registryRecord,
+    ).convert(),
+    ShellCompletion.zsh => integrations.ToZshCompletionConverter(
+      registryRecord,
+    ).convert(),
+    ShellCompletion.fish => integrations.ToFishCompletionConverter(
+      registryRecord,
+    ).convert(),
+    ShellCompletion.powershell => integrations.ToPowerShellCompletionConverter(
+      registryRecord,
+    ).convert(),
+    ShellCompletion.carapace => integrations.CarapaceSpecConverter(
+      registryRecord,
+    ).convert(),
+  };
 
   static final ChoicePositional<ShellCompletion> shellInput = ChoicePositional(
     'shell',

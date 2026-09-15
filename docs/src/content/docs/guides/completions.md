@@ -91,14 +91,18 @@ metadata:
 - an optional output-path positional;
 - shell-specific path validation.
 
-Its callback receives the validated path. Passing `null` uses the default
-synchronous file-creation callback. The preset creates the destination file;
-use a converter or override `run` when the command also needs to write an
-artifact's contents.
+Its callback receives the validated path. Passing `null` uses the selected
+converter and writes the generated artifact synchronously to the destination.
+
+```dart
+final completion = CompletionCommand.preset(null);
+```
+
+Pass a callback to replace the default destination handling:
 
 ```dart
 final completion = CompletionCommand.preset(
-  (path) => print('Create completion at $path'),
+  (path) => print('Write completion through custom storage at $path'),
 );
 ```
 

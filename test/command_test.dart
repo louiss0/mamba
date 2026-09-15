@@ -110,7 +110,7 @@ void main() {
     });
 
     group('preset', () {
-      test('creates a file synchronously by default', () {
+      test('writes generated completion content for every shell by default', () {
         final directory = Directory.systemTemp.createTempSync(
           'mamba_completion_test_',
         );
@@ -121,14 +121,44 @@ void main() {
           TestCompletionCommand.commandName,
           'A test command.',
         ).toMap();
-        final path = '${directory.path}${Platform.pathSeparator}rig.bash';
+        final cases = [
+          (
+            shell: ShellCompletion.bash,
+            fileName: 'rig.bash',
+            marker: 'complete -F _rig_completion rig',
+          ),
+          (
+            shell: ShellCompletion.zsh,
+            fileName: 'rig.zsh',
+            marker: 'compdef _rig rig',
+          ),
+          (
+            shell: ShellCompletion.fish,
+            fileName: 'rig.fish',
+            marker: '# Completion for rig: A test command.',
+          ),
+          (
+            shell: ShellCompletion.powershell,
+            fileName: 'rig.ps1',
+            marker: "-CommandName 'rig'",
+          ),
+          (
+            shell: ShellCompletion.carapace,
+            fileName: 'rig.yaml',
+            marker: 'name: "rig"',
+          ),
+        ];
 
-        completionCommand.run(
-          createCompletionInputs(ShellCompletion.bash, path: path),
-          const [],
-        );
+        for (final testCase in cases) {
+          final path =
+              '${directory.path}${Platform.pathSeparator}${testCase.fileName}';
+          completionCommand.run(
+            createCompletionInputs(testCase.shell, path: path),
+            const [],
+          );
 
-        expect(File(path).existsSync(), isTrue);
+          expect(File(path).readAsStringSync(), contains(testCase.marker));
+        }
       });
 
       final completionCommand = TestCompletionCommand([]);
