@@ -47,7 +47,10 @@ By the time `run` is called, command aliases have been canonicalized and values 
 
 ## Registration: `CommandRegistry`
 
-Registration happens when the production execution environment is created. The executor passes its application metadata, global declarations, and command objects to `CommandRegistry.create`, which recursively builds one registry node for every command.
+Registration happens when `create()` or `fake()` builds an execution
+environment. The executor passes its application metadata, global
+declarations, and command objects to `CommandRegistry.create`, which
+recursively builds one registry node for every command.
 
 The registry performs several jobs during this phase:
 
@@ -70,14 +73,17 @@ Parsing occurs in two broad passes:
 1. **Find the command path.** The parser walks the registry tree, resolves aliases, and skips registered named inputs and their values while looking for child commands. The resulting path contains canonical command names.
 2. **Parse the selected command.** The parser obtains the selected registry's effective inherited view, consumes the remaining tokens, validates values, applies defaults, and checks required relationships.
 
-The result contains four pieces of execution data:
+The result contains three positional fields and two named control fields:
 
 - the canonical command path;
-- parsed positional values;
-- parsed named values grouped by type;
+- all parsed values in one identity-keyed `ParsedInputs` object;
 - untouched arguments that appeared after `--`.
+- whether help was requested;
+- whether version output was requested.
 
-It also carries whether help was requested. Help and version requests are treated as control paths: they can be resolved without requiring an otherwise complete command invocation. This allows users to inspect a command even when its normal required values were not supplied.
+Help and version requests are treated as control paths: they can be resolved
+without requiring an otherwise complete command invocation. This allows users
+to inspect a command even when its normal required values were not supplied.
 
 Keeping parsing independent has an important consequence: command code never needs to distinguish long names from short aliases, split inline values, resolve command aliases, or convert strings into numbers. It receives only the parser's canonical result.
 
@@ -87,7 +93,7 @@ Keeping parsing independent has an important consequence: command code never nee
 
 For each call to `execute`, the production path is:
 
-1. **Apply command defaults.** A root default path can be inserted when no root command was selected. Defaults on selected groups are then applied from outermost to innermost. Explicit help requests are not rewritten, so help describes the path the user actually named.
+1. **Resolve the selected registry.** The registry identifies the command path represented by the argument list. When the list is empty, `Executor.defaultCommandPath` can supply a root command path.
 2. **Parse the arguments.** The normalized list is passed to `Parser` with the previously built registry.
 3. **Resolve the command objects.** The canonical path returned by the parser is followed through the original command tree.
 4. **Handle framework output.** Version requests return the application name and version. Help requests, or an invocation with no selected command, render the selected registry instead of dispatching command behavior.
@@ -122,7 +128,14 @@ Mamba distinguishes failures by where they occur:
 - `MambaIntegrationException` reports failures while producing an external artifact.
 - `MambaException` is the common recoverable framework failure used by selection, parsing, integrations, and command behavior.
 
-The production executor is the process boundary for invocation failures. It catches thrown `Exception` values, writes them to standard error, and sets the process exit code to `1`. Successful non-null output goes to standard output. Registry construction errors occur before this invocation boundary, which keeps configuration defects distinct from user input failures.
+The production executor is the process boundary for invocation failures. It
+catches thrown `Exception` values, records their execution phase and command
+path, writes their messages to standard error, and uses the first failure's
+exit code. A plain exception is wrapped with exit code `1`; a
+`MambaException` can provide another non-zero code. Successful non-null output
+goes to standard output. Registry construction errors occur before this
+invocation boundary, which keeps configuration defects distinct from user
+input failures.
 
 ## Architectural boundaries at a glance
 

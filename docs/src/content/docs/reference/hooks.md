@@ -16,6 +16,12 @@ its `run` method:
 ```dart
 final class DeployCommand extends Command with HookRunner {
   @override
+  String get name => 'deploy';
+
+  @override
+  String get shortDescription => 'Deploy the application.';
+
+  @override
   FutureOr<void> preRun(
     ParsedInputs inputs,
     MambaReadContext context,
@@ -27,6 +33,9 @@ final class DeployCommand extends Command with HookRunner {
     ParsedInputs inputs,
     MambaReadContext context,
   ) {}
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
 }
 ```
 
@@ -43,7 +52,13 @@ execution:
 ```dart
 final class WorkspaceCommand extends GroupCommand
     with PersistentHookRunner {
-  new(super.commands) : super();
+  new() : super([DeployCommand()]);
+
+  @override
+  String get name => 'workspace';
+
+  @override
+  String get shortDescription => 'Manage the workspace.';
 
   @override
   FutureOr<void> prePersistentRun(

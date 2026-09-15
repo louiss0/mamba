@@ -3,6 +3,8 @@
 - Adopted Dart 3.13 concise constructor declarations throughout the package,
   tests, examples, generated projects, and documentation.
 - Enabled analyzer enforcement for concise constructor declarations.
+- Updated public guides and examples to use `ParsedInputs`, typed registry
+  records, current executor arguments, and the supported completion APIs.
 
 ## 0.8.1
 

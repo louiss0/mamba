@@ -58,12 +58,12 @@ mamba create my_app
 cd my_app
 dart pub get
 dart run bin/my_app.dart
-mamba command greet --with-suite
+mamba command greet
 ```
 
-The generated command and test files still need to be registered in the
-application's command list. Run `mamba --help` or `mamba command --help` for
-all scaffolding options.
+The generated command file still needs to be registered in the application's
+command list. Run `mamba --help` or `mamba command --help` for all scaffolding
+options.
 
 ## Quick start
 
@@ -192,15 +192,25 @@ Positional names, variadics, and accessor group names are not conflict inputs.
 ```dart
 final class DeployCommand extends Command {
   new()
-      : super(
-          flags: [BooleanFlag('replace')],
-          options: [StringOption('output')],
-          conflicts: {
-            'replace': ['output'],
-          },
-        );
+    : super(
+        flags: [replace],
+        options: [output],
+        conflicts: {
+          'replace': ['output'],
+        },
+      );
 
-  // Command members omitted.
+  static const replace = BooleanFlag('replace');
+  static final output = StringOption('output');
+
+  @override
+  String get name => 'deploy';
+
+  @override
+  String get shortDescription => 'Deploy the application.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
 }
 ```
 
@@ -247,25 +257,37 @@ configuration files remain application responsibilities.
 
 ### Shell completions
 
-Add the built-in completion command to expose Mamba's registry to the supported
-completion converters:
+Extend `CompletionCommand` to receive the application's typed registry record,
+then pass that record to a completion converter. This example writes a
+Carapace specification:
 
 ```dart
 final class Completion extends CompletionCommand {
-  new() : super.preset(null);
+  new() : super(options: [output]);
+
+  static final output = StringOption.required('output');
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    final path = inputs.valueOf(output);
+    CarapaceSpecWriter(
+      CarapaceSpecConverter(registryRecord),
+      outputPath: path,
+    ).write();
+    return 'Wrote Carapace completions to $path.';
+  }
 }
 ```
 
-Register `Completion()` with the executor, then generate an artifact using the
-shell name and an optional output path:
+Register `Completion()` with the executor, then generate the artifact:
 
 ```sh
-dart run bin/hello.dart completion bash ./hello.bash
-dart run bin/hello.dart completion carapace ./hello.yaml
+dart run bin/hello.dart completion --output ./hello.yaml
 ```
 
-For custom completion integrations, extend `CompletionCommand` and use its
-assigned `registryRecord`.
+The Bash, Zsh, Fish, and PowerShell converters use the same `registryRecord`.
+See the completions guide for a command that selects between all supported
+formats.
 
 ## Configuration
 
@@ -279,7 +301,7 @@ name, description, version, and commands, it can receive:
 - a custom `HelpFormatter`.
 
 Every executor includes `--help`/`-h`, `--dry-run`, `--verbose`/`-v`, and
-`--version`. Mamba parses these values; application code decides what
+`--version`/`-V`. Mamba parses these values; application code decides what
 `--dry-run` and `--verbose` mean for its own behavior. `--version` prints the
 semantic version supplied to `Executor`.
 

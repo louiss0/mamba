@@ -57,9 +57,9 @@ final class AddCommand extends Command {
 
   @override
   String run(ParsedInputs inputs, List<String> args) {
-    final pathValue = invocation.valueOf(path);
-    final allPaths = invocation.valueOf(all);
-    final messageValue = invocation.valueOf(message);
+    final pathValue = inputs.valueOf(path);
+    final allPaths = inputs.valueOf(all);
+    final messageValue = inputs.valueOf(message);
     return 'Adding ${allPaths ? 'all paths' : pathValue}: $messageValue';
   }
 }
@@ -77,10 +77,10 @@ dart run <file> add README.md --message "Document Mamba"
 
 ```dart
 final label = StringOption('label');
-final String? labelValue = invocation.valueOf(label);
+final String? labelValue = inputs.valueOf(label);
 
 final output = StringOption.required('output');
-final String outputValue = invocation.valueOf(output);
+final String outputValue = inputs.valueOf(output);
 
 final format = ChoiceOption.withDefault(
   'format',

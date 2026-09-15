@@ -11,8 +11,8 @@ process exit codes; the fake executor returns a `MambaExecutionResult` that
 you can assert against in tests.
 
 A `MambaSuccessResult` is returned when a command produces output or `null`.
-A `MambaFailureResult` is returned when a command or hook throws an
-`MambaException`.
+A `MambaFailureResult` is returned when parsing, a command, or a hook reports
+a recoverable failure.
 
 ## Write a test
 
@@ -35,7 +35,7 @@ final class AddCommand extends Command {
 
   @override
   String run(ParsedInputs inputs, List<String> args) {
-    final wordValue = invocation.valueOf(word);
+    final wordValue = inputs.valueOf(word);
     return 'Added $wordValue';
   }
 }
@@ -74,18 +74,17 @@ String run(ParsedInputs inputs, List<String> args) {
 
 ### Option 2: Trigger a parse error
 
-Register a mandatory positional and invoke the command without it:
+The command above registers `word` as a mandatory positional. Invoke it
+without that positional:
 
 ```dart
-@override
-String get name => 'add';
-
-@override
-String get shortDescription => 'Add a word.';
-
-new() : super(mandatoryPositionals: [word]);
+final result = await Executor(
+  'my-app',
+  'This is my app.',
+  '1.0.0',
+  [AddCommand()],
+).fake().execute(['add']);
 ```
 
-Running `execute(['add'])` without a word fails before `run` is called. The
-fake executor returns a `MambaFailureResult` whose `exitCode` and `errors`
-describe the parse failure.
+The invocation fails before `run` is called. The fake executor returns a
+`MambaFailureResult` whose `exitCode` and `errors` describe the parse failure.

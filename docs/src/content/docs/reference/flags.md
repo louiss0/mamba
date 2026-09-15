@@ -6,11 +6,10 @@ description: Make flags in Mamba
 Flags are named inputs that do not take values. Register them in
 `Command.flags` for one command, in `Executor.flags` for the entire command
 tree, or in `GroupCommand.propagatedFlags` for a group and its descendants.
-The executor also registers `--dry-run`, `--verbose`, and `--version` globally;
-`--help` is built into every command registry.
+The executor also registers `--dry-run`, `--verbose` / `-v`, and `--version` /
+`-V` globally; `--help` / `-h` is built into every command registry.
 
-The examples below show help without its ANSI colors. Flag expressions are
-optional and therefore appear inside `[ ... ]`.
+The examples below show help without its ANSI colors.
 
 ## `BooleanFlag`
 
@@ -33,7 +32,7 @@ mamba deploy --force
 mamba deploy --no-force
 ```
 
-The command indexes that value by the flag's long name:
+The command reads that value through the retained declaration:
 
 ```dart
 @override
@@ -47,7 +46,7 @@ FutureOr<String?> run(
 ```
 
 `--force` and `-f` produce `true`; `--no-force` produces `false`. When the flag
-is omitted, the same index returns `defaultValue`.
+is omitted, `valueOf(force)` returns `defaultValue`.
 
 :::
 
@@ -57,13 +56,12 @@ With `short: 'f'` and `description: 'Replace the existing deployment.'`, the
 Flags section contains:
 
 ```text
-Flags
-
-[ -f|--force ] Replace the existing deployment.
+Flags:
+  -f, --force    Replace the existing deployment.
 ```
 
-Without a short alias, the expression becomes `[ --force ]`. Neither
-`negatable: true` nor `defaultValue` changes the displayed DSL, so
+Without a short alias, the entry starts with `--force`. Neither
+`negatable: true` nor `defaultValue` adds another help entry, so
 `--no-force` and the default are not shown. Setting `hidden: true` removes the
 entry from help without disabling parsing.
 
@@ -90,7 +88,7 @@ mamba build -vv
 mamba build --verbose --verbose
 ```
 
-The command indexes the integer by the flag's long name:
+The command reads the integer through the retained declaration:
 
 ```dart
 @override
@@ -103,7 +101,7 @@ FutureOr<String?> run(
 }
 ```
 
-The same index returns `0` when the flag is omitted.
+`valueOf(verbose)` returns `0` when the flag is omitted.
 
 :::
 
@@ -112,14 +110,13 @@ The same index returns `0` when the flag is omitted.
 With `description: 'Increase output verbosity.'`, the Flags section contains:
 
 ```text
-Flags
-
-[ -v|--verbose ] Increase output verbosity.
+Flags:
+  -v, --verbose    Increase output verbosity.
 ```
 
 The formatter does not add a repetition marker: `-vv`, repeated `-v`, and
 repeated `--verbose` are parser spellings rather than separate help forms.
-Without `short`, the expression becomes `[ --verbose ]`; with `hidden: true`,
-the entry is omitted.
+Without `short`, the entry starts with `--verbose`; with `hidden: true`, the
+entry is omitted.
 
 :::

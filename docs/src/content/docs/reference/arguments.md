@@ -15,10 +15,26 @@ create a discretionary positional:
 final source = NormalPositional('source');
 final destination = NormalPositional.optional('destination');
 
-Command(
-  mandatoryPositionals: [source],
-  discretionaryPositionals: [destination],
-);
+final class CopyCommand extends Command {
+  new()
+    : super(
+        mandatoryPositionals: [source],
+        discretionaryPositionals: [destination],
+      );
+
+  @override
+  String get name => 'copy';
+
+  @override
+  String get shortDescription => 'Copy a file.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    final sourceValue = inputs.valueOf(source);
+    final destinationValue = inputs.valueOf(destination);
+    return 'Copy $sourceValue to ${destinationValue ?? 'the default path'}';
+  }
+}
 ```
 
 The registration lists enforce these categories at compile time:
@@ -38,14 +54,14 @@ final target = NormalPositional(
   'target',
   regExp: RegExp(r'.+\.txt'),
 );
-final String targetValue = invocation.valueOf(target);
+final String targetValue = inputs.valueOf(target);
 ```
 
 A discretionary normal positional produces `String?`:
 
 ```dart
 final target = NormalPositional.optional('target');
-final String? targetValue = invocation.valueOf(target);
+final String? targetValue = inputs.valueOf(target);
 ```
 
 ## `ChoicePositional<T>`
@@ -80,7 +96,7 @@ Mandatory declarations produce non-null lists:
 
 ```dart
 final files = RepeatedStringPositional('files', times: 2);
-final List<String> fileValues = invocation.valueOf(files);
+final List<String> fileValues = inputs.valueOf(files);
 ```
 
 Use `.optional` for nullable discretionary lists. Repeated choices also support

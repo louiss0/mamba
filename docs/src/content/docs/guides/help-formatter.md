@@ -106,8 +106,8 @@ final class CompactHelpFormatter implements HelpFormatter {
   }
 
   String _optionPlaceholder(Option option) {
-    if (option is ChoiceValidated) {
-      return '(${option.choices.map((c) => c.name).join('|')})';
+    if (option case ChoiceValidated(:final choices)) {
+      return '(${choices.map((choice) => choice.name).join('|')})';
     }
     if (option is NumericRangeValidated) return 'VALUE';
     return 'VALUE';
@@ -152,19 +152,21 @@ final class CompactHelpFormatter implements HelpFormatter {
 }
 ```
 
-## Extend `MambaHelpFormatter`
+## Wrap `MambaHelpFormatter`
 
-`MambaHelpFormatter` is the final default implementation. You can extend it to
-reuse its rendering logic and override individual behavior:
+`MambaHelpFormatter` is the final default implementation, so it cannot be
+extended. Implement `HelpFormatter` and delegate to it when you only need to
+decorate the default output:
 
 ```dart
 import 'package:mamba/mamba.dart';
 
-final class BrandedHelpFormatter extends MambaHelpFormatter {
+final class BrandedHelpFormatter implements HelpFormatter {
+  final MambaHelpFormatter _defaultFormatter = MambaHelpFormatter();
+
   @override
   String format(CommandRegistry registry) {
-    // Delegate to the default implementation, then post-process.
-    final defaultOutput = super.format(registry);
+    final defaultOutput = _defaultFormatter.format(registry);
     return 'My CLI\n$defaultOutput';
   }
 }

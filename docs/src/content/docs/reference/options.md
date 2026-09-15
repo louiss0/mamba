@@ -18,14 +18,14 @@ Ordinary options are optional by default:
 
 ```dart
 final label = StringOption('label');
-final String? labelValue = invocation.valueOf(label);
+final String? labelValue = inputs.valueOf(label);
 ```
 
 Use `.required` when the user must provide the option:
 
 ```dart
 final output = StringOption.required('output');
-final String outputValue = invocation.valueOf(output);
+final String outputValue = inputs.valueOf(output);
 ```
 
 Choice options use `.withDefault` when omission supplies a fallback:
@@ -36,7 +36,7 @@ final format = ChoiceOption.withDefault(
   choices: OutputFormat.values,
   defaultValue: OutputFormat.text,
 );
-final OutputFormat formatValue = invocation.valueOf(format);
+final OutputFormat formatValue = inputs.valueOf(format);
 ```
 
 The ordinary constructors no longer accept `required` or `defaultValue`
@@ -194,13 +194,25 @@ leaf. Accessor leaves use their dotted spelling.
 ```dart
 final class DeployCommand extends Command {
   new()
-      : super(
-          conflicts: {
-            'replace': ['output', 'server.auth.token'],
-          },
-        );
+    : super(
+        flags: [replace],
+        options: [output],
+        conflicts: {
+          'replace': ['output'],
+        },
+      );
 
-  // Command members omitted.
+  static const replace = BooleanFlag('replace');
+  static final output = StringOption('output');
+
+  @override
+  String get name => 'deploy';
+
+  @override
+  String get shortDescription => 'Deploy the application.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
 }
 ```
 

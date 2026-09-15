@@ -133,7 +133,7 @@ Complete this milestone before publishing 0.5.0.
 - [ ] Reject unknown nullable accessor leaves.
 - [ ] Reject unknown optional paired or selected aggregate handles.
 - [ ] Preserve non-null results for registered required and defaulted handles.
-- [ ] Preserve the same behavior through `CommandInvocation.valueOf`.
+- [ ] Preserve the same behavior through `ParsedInputs.valueOf`.
 
 ### Implementation
 
@@ -150,7 +150,7 @@ Complete this milestone before publishing 0.5.0.
 - [ ] Search public docs for obsolete string-keyed or type-bucket consumption.
 - [ ] Correct parsed-result language in the architecture reference.
 - [ ] Correct default-command diagrams after R2 is complete.
-- [x] Correct the hook documentation: context is not on `CommandInvocation`.
+- [x] Correct the hook documentation: context is not on `ParsedInputs`.
 - [ ] Verify examples use current declaration handles and result types.
 - [ ] Add public behavior changes to `CHANGELOG.md`.
 - [ ] Run `dart pub publish --dry-run` and address metadata warnings.
@@ -340,7 +340,7 @@ unsupported object in the private map.
 - [x] Do not add string-keyed lookup.
 - [x] Do not add implicit conversion from arbitrary objects.
 - [x] Do not add environment or configuration loading.
-- [x] Do not expose context through `CommandInvocation` or `Command.run`.
+- [x] Do not expose context through `ParsedInputs` or `Command.run`.
 
 ---
 
@@ -574,7 +574,7 @@ validation behavior.
 
 ## X1. Investigate optional typed binding
 
-Keep `invocation.valueOf(handle)` as the transparent baseline.
+Keep `inputs.valueOf(handle)` as the transparent baseline.
 
 - [ ] Collect two real handlers with repetitive extraction.
 - [ ] Prototype an explicit mapper to a typed record or application class.

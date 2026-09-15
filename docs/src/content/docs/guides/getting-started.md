@@ -178,4 +178,5 @@ the command directly.
 - Add typed positionals, flags, and options to your command.
 - Use `GroupCommand` for nested commands such as `remote add`.
 - Use `Executor.fake()` to test commands without writing to process streams.
-- Add `CompletionCommand` to generate shell completions.
+- Extend `CompletionCommand` and use a registry converter to generate shell
+  completions.
