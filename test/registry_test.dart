@@ -7,6 +7,9 @@ import 'package:test/test.dart';
 
 import 'fixtures.dart';
 
+String _withoutAnsi(String value) =>
+    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
+
 enum VariantChoice { one }
 
 enum _Format { json, yaml }
@@ -251,32 +254,37 @@ Matcher matchRegistry(
 void main() {
   group('MambaHelpFormatter', () {
     test('renders commands, usage, flags, and options', () {
-      final help = MambaHelpFormatter().format(
-        CommandRegistry.create(
-          'tool',
-          'Tool.',
-          commands: [TestCommand('run', 'Run the tool.')],
-          mandatoryPositionals: [NormalPositional('source')],
-          discretionaryPositionals: [NormalPositional.optional('destination')],
-          flags: [
-            BooleanFlag('verbose', short: 'v', description: 'Show details.'),
-            BooleanFlag('internal', hidden: true),
-          ],
-          options: [
-            StringOption('output', short: 'o', description: 'Output path.'),
-            StringOption('format'),
-            StringOption('secret', hidden: true),
-          ],
+      final help = _withoutAnsi(
+        MambaHelpFormatter().format(
+          CommandRegistry.create(
+            'tool',
+            'Tool.',
+            commands: [TestCommand('run', 'Run the tool.')],
+            mandatoryPositionals: [NormalPositional('source')],
+            discretionaryPositionals: [
+              NormalPositional.optional('destination'),
+            ],
+            flags: [
+              BooleanFlag('verbose', short: 'v', description: 'Show details.'),
+              BooleanFlag('internal', hidden: true),
+            ],
+            options: [
+              StringOption('output', short: 'o', description: 'Output path.'),
+              StringOption('format'),
+              StringOption('secret', hidden: true),
+            ],
+          ),
         ),
       );
 
-      expect(help, contains('  tool [options] <source> [destination]'));
-      expect(help, contains('Commands:\n  run\tRun the tool.'));
-      expect(help, contains('Flags:'));
-      expect(help, contains('  -h, --help\tShow this help message.'));
-      expect(help, contains('  -v, --verbose\tShow details.'));
-      expect(help, contains('Options:\n  -o, --output <value>\tOutput path.'));
-      expect(help, contains('  --format <value>\t'));
+      expect(help, startsWith("tool < source > [ destination ]  'Tool.'"));
+      expect(help, contains('Commands\n\nrun Run the tool.'));
+      expect(help, contains('Flags'));
+      expect(help, contains('[ -h|--help ] Show this help message.'));
+      expect(help, contains('[ -v|--verbose ] Show details.'));
+      expect(help, contains('Options'));
+      expect(help, contains('[ -o|--output OUTPUT ] Output path.'));
+      expect(help, contains('[ --format FORMAT ]'));
       expect(help, isNot(contains('internal')));
       expect(help, isNot(contains('secret')));
     });
@@ -285,22 +293,26 @@ void main() {
       final host = PairStringOption('host');
       final port = PairStringOption('port');
       final pair = PairedOptions<String>([host, port]);
-      final help = MambaHelpFormatter().format(
-        CommandRegistry.create('tool', 'Tool.', pairedOptions: [pair]),
+      final help = _withoutAnsi(
+        MambaHelpFormatter().format(
+          CommandRegistry.create('tool', 'Tool.', pairedOptions: [pair]),
+        ),
       );
 
-      expect(help, contains('--host & --port'));
+      expect(help, contains('--host HOST & --port PORT'));
     });
 
     test('renders selected option members as a list', () {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
       final output = SelectedOptions<String>([json, text]);
-      final help = MambaHelpFormatter().format(
-        CommandRegistry.create('tool', 'Tool.', selectedOptionses: [output]),
+      final help = _withoutAnsi(
+        MambaHelpFormatter().format(
+          CommandRegistry.create('tool', 'Tool.', selectedOptionses: [output]),
+        ),
       );
 
-      expect(help, contains('--json * --text'));
+      expect(help, contains('--json JSON * --text TEXT'));
     });
   });
 

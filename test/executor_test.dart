@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
+String _withoutAnsi(String value) =>
+    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
+
 final class ResultCommand extends Command with HookRunner {
   new(
     this.events, {
@@ -434,7 +437,7 @@ void main() {
     expect(
       result,
       isA<MambaSuccessResult>().having(
-        (value) => value.output,
+        (value) => _withoutAnsi(value.output!),
         'output',
         startsWith('tool 1.2.3\n\ntool'),
       ),
@@ -493,7 +496,7 @@ void main() {
     expect(
       result,
       isA<MambaSuccessResult>().having(
-        (value) => value.output,
+        (value) => _withoutAnsi(value.output!),
         'output',
         startsWith('tool'),
       ),
