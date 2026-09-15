@@ -69,6 +69,7 @@ void main() {
       expect(inputs.valueOf(second), isNull);
     });
   });
+
   group('built-in flags', () {
     final registry = CommandRegistry.create(
       'tool',
@@ -105,6 +106,7 @@ void main() {
       expect(inputs.valueOf(MambaBuiltInFlags.version), isTrue);
     });
   });
+
   group("rejects conflict's", () {
     Parser namedInputParser(Map<String, List<String>> conflicts) => parser(
       flags: [BooleanFlag('enabled'), CountFlag('verbose')],
@@ -353,6 +355,7 @@ void main() {
       }
     });
   });
+
   group('repeatable choices', () {
     test('preserves duplicates unless unique is enabled', () {
       final mode = RepeatableChoiceOption<Format>('format', Format.values);
@@ -364,6 +367,7 @@ void main() {
         [Format.json, Format.json],
       );
     });
+
     test('rejects duplicate enum members for all option spellings', () {
       for (final args in [
         ['--format', 'json', '--format', 'json'],
@@ -388,6 +392,7 @@ void main() {
         );
       }
     });
+
     test('exports unique only when enabled', () {
       final enabled = RepeatableChoiceOption<Format>(
         'format',
@@ -404,6 +409,7 @@ void main() {
       expect(record.options!.last.unique, isNull);
     });
   });
+
   group('paired options', () {
     test('returns an empty map when the optional group is omitted', () {
       final host = PairStringOption('host');
