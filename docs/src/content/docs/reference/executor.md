@@ -146,14 +146,55 @@ Optional named parameters configure the root command surface:
 | `longDescription` | Detailed root help text. |
 | `flags` | Flags available throughout the command tree. |
 | `options` | Options available throughout the command tree. |
-| `selectedOptionses` | Root selected-option groups. |
-| `accessors` | Root dotted accessor trees. |
+| `accessors` | Root dotted accessor trees available to every command. |
 | `defaultCommandPath` | Root command path selected when `execute` receives an empty list. |
 | `context` | Executor-scoped hook state. |
 | `helpFormatter` | Custom help rendering policy. |
 
 The version must satisfy Mamba's Semantic Version 2.0.0-shaped validation,
 for example `1.2.3` or `1.2.3-rc.1`.
+
+Selected-option groups belong to individual commands and are configured with
+`Command.selectedOptionses`; `Executor` does not accept root selected-option
+groups. Executor accessors are global. Commands read their nested values from
+`ParsedInputs` through the same `AccessorListOption` instance passed to the
+executor.
+
+```dart
+final configuration = AccessorListOption('config', [
+  AccessorStringOption.required('host'),
+]);
+
+final class DeployCommand extends Command {
+  new(this.configuration);
+
+  final AccessorListOption configuration;
+
+  @override
+  String get name => 'deploy';
+
+  @override
+  String get shortDescription => 'Deploy the application.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    final values = inputs.valueOf(configuration);
+    return 'Deploying to ${values['host']}';
+  }
+}
+
+final executor = Executor(
+  'my-cli',
+  'Manage application resources.',
+  '1.0.0',
+  [DeployCommand(configuration)],
+  accessors: [configuration],
+);
+```
+
+The accessor may appear before or after the command token, for example
+`my-cli --config.host localhost deploy` or
+`my-cli deploy --config.host localhost`.
 
 ## Default commands
 

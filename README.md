@@ -295,10 +295,13 @@ formats.
 name, description, version, and commands, it can receive:
 
 - `longDescription` for detailed help;
-- root `flags`, `options`, and `accessors`;
+- root `flags`, `options`, and `accessors` available to every command;
 - `defaultCommandPath` for a command to run when no command is selected;
 - a custom `MambaContext`; and
 - a custom `HelpFormatter`.
+
+Commands read an executor accessor through the same retained
+`AccessorListOption` instance passed in `accessors`.
 
 Every executor includes `--help`/`-h`, `--dry-run`, `--verbose`/`-v`, and
 `--version`/`-V`. Mamba parses these values; application code decides what

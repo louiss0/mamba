@@ -237,6 +237,24 @@ final class InvalidContextWriter extends GroupCommand
   }
 }
 
+final class GlobalAccessorCommand extends Command {
+  new(this.configuration);
+
+  final AccessorListOption configuration;
+
+  @override
+  String get name => 'read-config';
+
+  @override
+  String get shortDescription => 'Reads global configuration.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    final values = inputs.valueOf(configuration);
+    return values['host'] as String;
+  }
+}
+
 void main() {
   group('MambaException', () {
     test('uses a portable default exit code', () {
@@ -507,6 +525,35 @@ void main() {
 
     expect(result, isA<MambaSuccessResult>());
     expect(events, ['run']);
+  });
+
+  test('makes executor accessors available to commands', () async {
+    final configuration = AccessorListOption('config', [
+      AccessorStringOption.required('host'),
+    ]);
+    final executor = Executor(
+      'tool',
+      'Tool.',
+      '1.0.0',
+      [GlobalAccessorCommand(configuration)],
+      accessors: [configuration],
+    ).fake();
+
+    for (final arguments in [
+      ['--config.host', 'localhost', 'read-config'],
+      ['read-config', '--config.host', 'localhost'],
+    ]) {
+      final result = await executor.execute(arguments);
+
+      expect(
+        result,
+        isA<MambaSuccessResult>().having(
+          (value) => value.output,
+          'output',
+          'localhost',
+        ),
+      );
+    }
   });
 
   test('assigns completion commands their root registry', () {

@@ -60,7 +60,13 @@ The registry performs several jobs during this phase:
 4. **Preserve hierarchy.** Every child registry points to its parent and can reconstruct its full path from the application root.
 5. **Model inheritance.** Root declarations and values published by enclosing groups remain owned by the level that declared them. `withInheritedInputs()` creates the effective view needed at a selected command without changing the original tree.
 
-Positionals, trailing-value rules, paired groups, accessor trees, and child commands remain local to the command that declares them. Only the inputs explicitly designed for descendants participate in inheritance. This prevents unrelated command state from being flattened into every node while still giving the parser a complete view at the selected path.
+Positionals, trailing-value rules, paired groups, command-owned accessor
+trees, and child commands remain local to the command that declares them.
+Root accessors configured on `Executor` are global and remain available at
+every selected command. A command-owned accessor with the same root name
+overrides that global accessor for its command path. Only inputs explicitly
+designed for descendants participate in inheritance, which keeps unrelated
+command state from being flattened into every node.
 
 Invalid definitions raise `MambaRegistryError` during composition. As a result, a malformed CLI fails while the execution environment is being built rather than halfway through a user invocation.
 

@@ -183,6 +183,9 @@ final OutputFormat formatValue = values['format'] as OutputFormat;
 
 Nested accessor lists produce nested immutable maps, so an option such as
 `--server.auth.token secret` is available below `inputs.valueOf(server)`.
+Accessor trees registered on `Executor` are global and can be read by every
+command through the same top-level declaration handle. Accessors registered
+on a command remain local to that command.
 
 ## Conflicting inputs
 

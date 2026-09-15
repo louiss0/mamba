@@ -555,9 +555,13 @@ void main() {
       });
 
       test('publishes inherited inputs on descendant records', () {
+        final configuration = AccessorListOption('config', [
+          AccessorStringOption('host'),
+        ]);
         final record = CommandRegistry.create(
           'tool',
           'Tool command.',
+          accessors: [configuration],
           commands: [
             TestGroupCommand(
               'group',
@@ -576,8 +580,33 @@ void main() {
         expect(group.options!.single.name, 'local-path');
         expect(group.persistentFlags, isNull);
         expect(group.persistentOptions, isNull);
+        expect(group.accessors!.single.name, 'config');
         expect(run.flags!.map((flag) => flag.name), ['shared']);
         expect(run.options!.single.name, 'shared-path');
+        expect(run.accessors!.single.name, 'config');
+      });
+
+      test('lets command accessors override a global accessor root', () {
+        final record = CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          accessors: [
+            AccessorListOption('config', [AccessorStringOption('host')]),
+          ],
+          commands: [
+            TestCommand(
+              'run',
+              'Run command.',
+              accessors: [
+                AccessorListOption('config', [AccessorIntOption('port')]),
+              ],
+            ),
+          ],
+        ).toMap();
+
+        final accessor = record.commands!.single.accessors!.single;
+        expect(accessor.name, 'config');
+        expect(accessor.options!.single.name, 'port');
       });
 
       test("exports a record from the inputs", () {

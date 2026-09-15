@@ -55,7 +55,7 @@ final class Parser {
       if (help || version) continue;
       if (token.startsWith('--') && token.length > 2) {
         final (name, inline) = _split(token.substring(2));
-        final accessor = _accessorFor(name, registry.accessors);
+        final accessor = _accessorFor(name, registry.applicableAccessors);
         if (accessor != null) {
           values[accessor] = _parseValue(
             accessor,
@@ -310,7 +310,7 @@ final class Parser {
         for (final child in input.options) access(child);
     }
 
-    for (final accessor in registry.accessors) access(accessor);
+    for (final accessor in registry.applicableAccessors) access(accessor);
   }
 
   void _validateRequired(
@@ -335,7 +335,7 @@ final class Parser {
       }
     }
 
-    for (final accessor in registry.accessors) {
+    for (final accessor in registry.applicableAccessors) {
       validateAccessor(accessor, accessor.name);
     }
   }
@@ -410,7 +410,7 @@ final class Parser {
       return Map.unmodifiable(map);
     }
 
-    for (final accessor in registry.accessors) {
+    for (final accessor in registry.applicableAccessors) {
       values[accessor] = mapAccessor(accessor);
     }
   }
@@ -563,7 +563,7 @@ final class Parser {
     yield* registry.discretionaryPositionals;
     yield* registry.pairedOptionGroups;
     yield* registry.selectedOptionses;
-    known.addAll(registry.accessors);
+    known.addAll(registry.applicableAccessors);
     yield* known;
   }
 

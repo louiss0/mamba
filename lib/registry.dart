@@ -158,6 +158,7 @@ final class CommandRegistry {
     List<Command>? commands,
     List<Flag>? publishedFlags,
     List<Option>? publishedOptions,
+    List<AccessorListOption>? publishedAccessors,
   }) : flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
        pairedOptionGroups = List.unmodifiable(pairedOptions ?? const []),
@@ -176,6 +177,7 @@ final class CommandRegistry {
        accessors = List.unmodifiable(accessors ?? const []),
        publishedFlags = List.unmodifiable(publishedFlags ?? const []),
        publishedOptions = List.unmodifiable(publishedOptions ?? const []),
+       publishedAccessors = List.unmodifiable(publishedAccessors ?? const []),
        commands = List.unmodifiable(commands ?? const []);
   final String name;
   final String shortDescription;
@@ -193,6 +195,7 @@ final class CommandRegistry {
   final List<AccessorListOption> accessors;
   final List<Flag> publishedFlags;
   final List<Option> publishedOptions;
+  final List<AccessorListOption> publishedAccessors;
   final List<Command> commands;
   late final List<CommandRegistry> commandRegistries = [
     for (final command in commands) _fromCommand(command, this),
@@ -223,6 +226,19 @@ final class CommandRegistry {
   List<Option> get _publishedOptionsToHere => [
     ...?parent?._publishedOptionsToHere,
     ...publishedOptions,
+  ];
+  List<AccessorListOption> get applicableAccessors => List.unmodifiable(
+    {
+      for (final accessor in [
+        ...?parent?._publishedAccessorsToHere,
+        ...accessors,
+      ])
+        accessor.name: accessor,
+    }.values,
+  );
+  List<AccessorListOption> get _publishedAccessorsToHere => [
+    ...?parent?._publishedAccessorsToHere,
+    ...publishedAccessors,
   ];
   factory create(
     String name,
@@ -268,6 +284,7 @@ final class CommandRegistry {
       commands: commands,
       publishedFlags: flags,
       publishedOptions: options,
+      publishedAccessors: accessors,
     );
   }
   static CommandRegistry _fromCommand(Command command, CommandRegistry parent) {
@@ -413,7 +430,7 @@ final class CommandRegistry {
   }
 
   AccessorPrimitiveOption? _accessorFor(String path) {
-    AccessorOption? current = accessors
+    AccessorOption? current = applicableAccessors
         .where((root) => root.name == path.split('.').first)
         .firstOrNull;
     for (final part in path.split('.').skip(1)) {
@@ -483,10 +500,10 @@ final class CommandRegistry {
           ),
         ),
       ],
-      accessors: registry.accessors.isEmpty
+      accessors: registry.applicableAccessors.isEmpty
           ? null
           : List.unmodifiable([
-              for (final accessor in registry.accessors)
+              for (final accessor in registry.applicableAccessors)
                 _accessorRecord(accessor),
             ]),
     );

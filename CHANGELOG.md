@@ -5,6 +5,9 @@
 - Enabled analyzer enforcement for concise constructor declarations.
 - Updated public guides and examples to use `ParsedInputs`, typed registry
   records, current executor arguments, and the supported completion APIs.
+- Removed root `selectedOptionses` from `Executor`; selected-option groups now
+  belong exclusively to commands.
+- Made executor-level accessor trees available to every selected command.
 
 ## 0.8.1
 
