@@ -70,3 +70,9 @@ Use the `conflicts` map on a command to reject incompatible flags and options.
 Each key conflicts with every name in its list. Accessor leaves use dotted
 names, such as `server.auth.token`. Conflicts belong to individual commands,
 not to `Executor`.
+
+Registry creation resolves both map keys and list members through an indexed
+collection of registered names. A required input cannot conflict with another
+input because that would make the other input impossible to supply. If both
+inputs are required, the registry error names both and explains that they cannot
+be used together.

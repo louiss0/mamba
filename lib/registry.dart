@@ -685,9 +685,19 @@ final class CommandRegistry {
       for (final group in selected ?? const <SelectedOptions>[])
         ...group.options,
     ];
-    final registeredNames = {for (final input in inputs) input.name};
+    final requiredByName = <String, bool>{
+      for (final flag in flags ?? const <Flag>[]) flag.name: false,
+      for (final option in options ?? const <Option>[])
+        option.name: option.isRequired,
+      for (final group in paired ?? const <PairedOptionsDefinition>[])
+        for (final option in group.options) option.name: group.required,
+      for (final group in selected ?? const <SelectedOptions>[])
+        for (final option in group.options) option.name: false,
+    };
     void registerAccessorPaths(AccessorOption accessor, String path) {
-      if (accessor is AccessorPrimitiveOption) registeredNames.add(path);
+      if (accessor is AccessorPrimitiveOption) {
+        requiredByName[path] = accessor is RequiredInput;
+      }
       if (accessor is AccessorListOption) {
         for (final child in accessor.options) {
           registerAccessorPaths(child, '$path.${child.name}');
@@ -699,15 +709,29 @@ final class CommandRegistry {
       registerAccessorPaths(accessor, accessor.name);
     }
     for (final entry in (conflicts ?? const <String, List<String>>{}).entries) {
-      if (!registeredNames.contains(entry.key)) {
+      final keyRequired = requiredByName[entry.key];
+      if (keyRequired == null) {
         throw MambaRegistryError(
           'Conflict key ${entry.key} is not a registered input.',
         );
       }
       for (final (index, member) in entry.value.indexed) {
-        if (!registeredNames.contains(member)) {
+        final memberRequired = requiredByName[member];
+        if (memberRequired == null) {
           throw MambaRegistryError(
             'Conflict member at index $index for ${entry.key} is not a registered input: $member.',
+          );
+        }
+        if (keyRequired && memberRequired) {
+          throw MambaRegistryError(
+            'Inputs --${entry.key} and --$member are both required but cannot be used together.',
+          );
+        }
+        if (keyRequired || memberRequired) {
+          final requiredName = keyRequired ? entry.key : member;
+          final optionalName = keyRequired ? member : entry.key;
+          throw MambaRegistryError(
+            'Input --$optionalName cannot be supplied because it conflicts with required input --$requiredName.',
           );
         }
       }

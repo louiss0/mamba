@@ -306,6 +306,16 @@ void main() {
 
   group('CommandRegistry', () {
     group('registers conflicts!', () {
+      AccessorListOption nestedAccessor(int depth, {bool required = false}) {
+        AccessorOption child = required
+            ? AccessorStringOption.required('value')
+            : AccessorStringOption('value');
+        for (var level = 1; level < depth; level++) {
+          child = AccessorListOption('level', [child]);
+        }
+        return child as AccessorListOption;
+      }
+
       CommandRegistry register(Map<String, List<String>> conflicts) =>
           CommandRegistry.create(
             'tool',
@@ -324,6 +334,7 @@ void main() {
         expect(
           () => register({
             'enabled': ['output', 'profile.contact.email'],
+            'output': ['enabled'],
             'profile.contact.email': ['enabled'],
           }),
           returnsNormally,
@@ -358,6 +369,101 @@ void main() {
             ),
           ),
         );
+      });
+
+      test('rejects required inputs as keys or members', () {
+        final cases = [
+          (
+            flags: <Flag>[BooleanFlag('enabled')],
+            options: <Option>[StringOption.required('output')],
+            conflicts: <String, List<String>>{
+              'output': ['enabled'],
+            },
+            requiredName: 'output',
+            optionalName: 'enabled',
+          ),
+          (
+            flags: <Flag>[BooleanFlag('enabled')],
+            options: <Option>[StringOption.required('output')],
+            conflicts: <String, List<String>>{
+              'enabled': ['output'],
+            },
+            requiredName: 'output',
+            optionalName: 'enabled',
+          ),
+        ];
+
+        for (final testCase in cases) {
+          expect(
+            () => CommandRegistry.create(
+              'tool',
+              'Tool command.',
+              flags: testCase.flags,
+              options: testCase.options,
+              conflicts: testCase.conflicts,
+            ),
+            throwsA(
+              isA<MambaRegistryError>().having(
+                (error) => error.message,
+                'message',
+                allOf(
+                  contains(testCase.requiredName),
+                  contains(testCase.optionalName),
+                ),
+              ),
+            ),
+          );
+        }
+      });
+
+      test('rejects two required inputs that conflict', () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            options: [
+              StringOption.required('source'),
+              StringOption.required('output'),
+            ],
+            conflicts: {
+              'source': ['output'],
+            },
+          ),
+          throwsA(
+            isA<MambaRegistryError>().having(
+              (error) => error.message,
+              'message',
+              'Inputs --source and --output are both required but cannot be used together.',
+            ),
+          ),
+        );
+      });
+
+      group('finds required accessor keys', () {
+        for (var depth = 2; depth <= 10; depth++) {
+          final path = [...List.filled(depth - 1, 'level'), 'value'].join('.');
+
+          test('$depth segments', () {
+            expect(
+              () => CommandRegistry.create(
+                'tool',
+                'Tool command.',
+                flags: [BooleanFlag('enabled')],
+                accessors: [nestedAccessor(depth, required: true)],
+                conflicts: {
+                  path: ['enabled'],
+                },
+              ),
+              throwsA(
+                isA<MambaRegistryError>().having(
+                  (error) => error.message,
+                  'message',
+                  allOf(contains(path), contains('enabled')),
+                ),
+              ),
+            );
+          });
+        }
       });
     });
 

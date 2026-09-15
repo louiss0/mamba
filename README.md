@@ -199,7 +199,10 @@ final class DeployCommand extends Command {
 ```
 
 The map belongs to the command that owns those inputs; `Executor` does not
-define conflicts.
+define conflicts. Registry creation rejects a conflict between a required input
+and another input because the other input could never be supplied. When both
+inputs are required, the error names both inputs and explains that they cannot
+be used together.
 
 ### Group commands
 
