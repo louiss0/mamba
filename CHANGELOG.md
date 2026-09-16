@@ -1,5 +1,13 @@
 ## Unreleased
 
+## 0.9.0
+
+- Restored styled help output with richer command, positional, flag, option,
+  and option-group formatting.
+- Added `--group` support to `mamba command` for scaffolding group commands.
+- Added generated completion presets and capped repeated positional values at
+  their declared limits.
+
 ## 0.8.2
 
 - Adopted Dart 3.13 concise constructor declarations throughout the package,
