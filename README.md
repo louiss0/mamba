@@ -165,6 +165,9 @@ final executor = Executor(
 
 `run` is called only after the invocation has been parsed and validated. It may
 return a `String`, return `null` for no output, or return a `Future`.
+Production execution forwards a returned string unchanged to stdout and writes
+nothing for `null`. It assigns the process exit code only when execution
+fails.
 
 ### Input types
 
@@ -178,6 +181,27 @@ return a `String`, return `null` for no output, or return a `Future`.
 | `PairedOptions` | Require members together and map them by option name. |
 | `SelectedOptions<T>` | Map selected pair options to an immutable `Map<String, T>`. |
 | `AccessorListOption` and accessor leaves | Parse nested values such as `--database.port 5432` into an immutable map. |
+
+`SelectedOptions<T>` accepts zero or more members by default. Use the required
+constructor to require at least one member, and set `single: true` on either
+constructor to limit the result to at most one member:
+
+```dart
+final json = PairStringOption('json');
+final text = PairStringOption('text');
+
+final optionalFormat = SelectedOptions<String>(
+  [json, text],
+  single: true,
+);
+final requiredFormat = SelectedOptions<String>.required(
+  [json, text],
+  single: true,
+);
+```
+
+The optional form accepts zero or one selection. The required form accepts
+exactly one.
 
 Long options accept `--name value` and `--name=value`; short options accept
 `-n value`. Boolean short flags can be bundled, for example `-vvv`. `--` ends

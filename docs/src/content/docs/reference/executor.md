@@ -25,13 +25,16 @@ Future<void> main(List<String> args) => Executor(
 ).create().execute(args);
 ```
 
-The production executor writes non-null command output to stdout. On failure,
-it writes every recorded error message to stderr and assigns the first
-failure's exit code to the process.
+The production executor forwards non-null command output unchanged to stdout
+and writes nothing when the command returns `null`. A successful execution
+leaves the process exit code untouched. On failure, the executor writes every
+recorded error message to stderr and assigns the first failure's exit code to
+the process.
 
 For a custom process boundary, pass a `MambaProcess` implementation to
 `create(process: ...)`. This is useful for embedding Mamba without reading or
-writing the global Dart process streams.
+writing the global Dart process streams. The adapter supplies standard input
+and receives output, errors, and failure exit codes.
 
 ```mermaid
 flowchart TD

@@ -7,8 +7,8 @@ sidebar:
 
 When testing commands, use the fake executor instead of the production
 executor. The production executor writes to stdout and stderr and manages
-process exit codes; the fake executor returns a `MambaExecutionResult` that
-you can assert against in tests.
+failure exit codes; the fake executor returns a `MambaExecutionResult` that you
+can assert against in tests.
 
 A `MambaSuccessResult` is returned when a command produces output or `null`.
 A `MambaFailureResult` is returned when parsing, a command, or a hook reports
