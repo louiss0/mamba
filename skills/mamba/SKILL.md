@@ -39,7 +39,11 @@ The executor also allows something called a context to be used!
 The `context` is the place where values that need to be available to all commands typically go!
 It's created by using the `MambaContext`. 
 
-The `create` function will set the exit code
+Use `Executor.create()` for process-facing execution. Its `MambaProcess`
+adapter supplies standard input, receives non-null output unchanged, receives
+error messages, and receives an exit code only when execution fails. The
+default adapter connects those operations to Dart's global process streams and
+`exitCode`.
  
 ## Commands 
 
@@ -95,11 +99,10 @@ The `propagatedOptions` prop is used to register options that can be accessed by
 
 Only use the `MambaException` exception to throw exceptions! 
 
-Whenever there are no problems always return a message in the Run function!
-If the user doesn't test for or ask for a message to be returned from a command please ask! 
-Tell the user it's not good to return an empty message! 
-If the user doesn't care write one based on the context of the command! Think about what the command does it's a success message!
-Messages returned from the run function should be green by default!
+Return a message from `run()` when the command should produce standard output,
+or return `null` when successful execution should remain silent. Mamba forwards
+the returned string unchanged. Apply `MambaColors.primary(...)` explicitly
+when colored output is part of the command's interface.
 
 ## References
 
