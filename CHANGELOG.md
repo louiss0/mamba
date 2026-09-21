@@ -1,4 +1,4 @@
-## Unreleased
+## 0.9.1
 
 - Added `Executor.fake(standardInput: ...)` for testing piped command input.
 - Made `Executor.create()` always use the current process and removed the
