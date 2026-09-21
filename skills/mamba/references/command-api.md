@@ -135,10 +135,12 @@ immutable `Map<String, T>`:
 
 - `SelectedOptions<T>(members)` permits zero or more selections.
 - `SelectedOptions<T>.required(members)` requires at least one selection.
-- `SelectedOptions<T>.single(members)` permits zero or one selection.
+- `SelectedOptions<T>(members, single: true)` permits zero or one selection.
+- `SelectedOptions<T>.required(members, single: true)` requires exactly one
+  selection.
 
 Use the same `Pair*Option` and `RepeatablePair*Option` members supported by
-`PairedOptions`. Register the group in `Command.selectedOptionses` and read it
+`PairedOptions`. Register the group in `Command.selectedOptions` and read it
 using the retained group instance.
 
 ## Nested accessor options

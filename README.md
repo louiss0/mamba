@@ -263,7 +263,7 @@ Register the preset completion command to generate Bash, Zsh, Fish,
 PowerShell, or Carapace artifacts from the application's registry:
 
 ```dart
-final completion = CompletionCommand.preset(null);
+final completion = CompletionCommand.preset(createFile: null);
 ```
 
 After adding `completion` to the executor's command list, select the shell and
@@ -274,8 +274,9 @@ dart run bin/hello.dart completion bash ./hello.bash
 dart run bin/hello.dart completion carapace ./hello.yaml
 ```
 
-Pass a callback instead of `null` to customize destination handling. See the
-completions guide for direct converter and Carapace platform-writer usage.
+Pass a callback through the required `createFile` parameter instead of `null`
+to customize destination handling. See the completions guide for direct
+converter and Carapace platform-writer usage.
 
 ## Configuration
 

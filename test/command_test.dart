@@ -82,10 +82,12 @@ class TestCompletionCommand extends CompletionCommand {
   final List<String> createdPaths;
 
   new(this.createdPaths)
-    : super.preset((path) {
-        // Keep the test isolated from the real filesystem.
-        createdPaths.add(path);
-      }) {
+    : super.preset(
+        createFile: (path) {
+          // Keep the test isolated from the real filesystem.
+          createdPaths.add(path);
+        },
+      ) {
     registryRecord = CommandRegistry.create(
       commandName,
       'A test command.',
@@ -116,7 +118,7 @@ void main() {
         );
         addTearDown(() => directory.deleteSync(recursive: true));
 
-        final completionCommand = CompletionCommand.preset(null);
+        final completionCommand = CompletionCommand.preset(createFile: null);
         completionCommand.registryRecord = CommandRegistry.create(
           TestCompletionCommand.commandName,
           'A test command.',

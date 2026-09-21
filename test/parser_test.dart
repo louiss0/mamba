@@ -793,7 +793,7 @@ void main() {
     test('allows a single selected value when requested', () {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
-      final output = SelectedOptions<String>.single([json, text]);
+      final output = SelectedOptions<String>([json, text], single: true);
       final subject = parser(selectedOptions: [output]);
 
       expect(subject.parse(['--json', 'tasks.json']).$2.valueOf(output), {
@@ -809,8 +809,12 @@ void main() {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
       final attempts = PairIntOption('attempts');
-      final output = SelectedOptions<String>.single([json, text]);
-      final retry = SelectedOptions<int>.required([attempts]);
+      final delay = PairIntOption('delay');
+      final output = SelectedOptions<String>([json, text], single: true);
+      final retry = SelectedOptions<int>.required([
+        attempts,
+        delay,
+      ], single: true);
       final subject = parser(selectedOptions: [output, retry]);
 
       test('requires a value for the required selection', () {
@@ -822,6 +826,13 @@ void main() {
 
         expect(inputs.valueOf(retry), {'attempts': 3});
         expect(inputs.valueOf(output), isEmpty);
+      });
+
+      test('rejects multiple values for a required single selection', () {
+        expect(
+          () => subject.parse(['--attempts', '3', '--delay', '1']),
+          throwsA(isA<MambaParseException>()),
+        );
       });
     });
   });

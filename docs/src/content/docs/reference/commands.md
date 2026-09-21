@@ -61,7 +61,7 @@ The `Command` constructor accepts:
 | `variadic` | Validation for values after `--`. |
 | `flags` and `options` | Command-local named inputs. |
 | `pairedOptions` | All-or-nothing option groups. |
-| `selectedOptionses` | Option groups that allow selected members. |
+| `selectedOptions` | Option groups that allow selected members. |
 | `accessors` | Dotted option trees. |
 | `conflicts` | Pairs of named inputs that cannot be used together. |
 

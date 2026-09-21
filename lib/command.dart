@@ -1252,20 +1252,16 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption<double>
 /// A named collection of pair options that resolves to a map of supplied values.
 final class SelectedOptions<T extends Object>
     implements ParsedValue<Map<String, T>> {
-  new(List<PairOption<T>> options, {this.description})
+  new(List<PairOption<T>> options, {this.description, this.single = false})
     : options = List.unmodifiable(options),
-      required = false,
-      single = false;
+      required = false;
 
-  new required(List<PairOption<T>> options, {this.description})
-    : options = List.unmodifiable(options),
-      required = true,
-      single = false;
-
-  new single(List<PairOption<T>> options, {this.description})
-    : options = List.unmodifiable(options),
-      required = false,
-      single = true;
+  new required(
+    List<PairOption<T>> options, {
+    this.description,
+    this.single = false,
+  }) : options = List.unmodifiable(options),
+       required = true;
 
   final String? description;
   final bool single;
@@ -1660,16 +1656,18 @@ class CompletionCommand extends Command {
     super.options,
   }) : createFile = createFile ?? _createFileSynchronously,
        _usesDefaultGenerator = createFile == null;
-  new preset(void Function(String path)? createFile, {String? longDescription})
-    : this(
-        createFile: createFile,
-        longDescription:
-            longDescription ??
-            'Generate completions for Bash ZSH Fish or Powershell',
-        aliases: ['cmp', 'cpt'],
-        mandatoryPositionals: [shellInput],
-        discretionaryPositionals: [pathInput],
-      );
+  new preset({
+    required void Function(String path)? createFile,
+    String? longDescription,
+  }) : this(
+         createFile: createFile,
+         longDescription:
+             longDescription ??
+             'Generate completions for Bash ZSH Fish or Powershell',
+         aliases: ['cmp', 'cpt'],
+         mandatoryPositionals: [shellInput],
+         discretionaryPositionals: [pathInput],
+       );
   @override
   String? run(ParsedInputs inputs, List<String> args) {
     final shell = inputs.valueOf(shellInput);

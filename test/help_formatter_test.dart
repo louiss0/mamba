@@ -149,10 +149,11 @@ void main() {
         ], description: 'Login credentials.'),
       ],
       selectedOptions: [
-        SelectedOptions<String>.single([
-          json,
-          yaml,
-        ], description: 'One output format.'),
+        SelectedOptions<String>(
+          [json, yaml],
+          description: 'One output format.',
+          single: true,
+        ),
         SelectedOptions<Object>.required([
           host,
           port,

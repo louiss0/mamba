@@ -152,8 +152,22 @@ final values = inputs.valueOf(output);
 ```
 
 Use `SelectedOptions<T>.required(...)` when at least one member must be
-supplied. Use `SelectedOptions<T>.single(...)` when exactly zero or one member
-may be supplied. Without an explicit type argument, Dart infers the common
+supplied. Set the `single` option on either constructor to limit the group to
+one selection:
+
+```dart
+final optionalFormat = SelectedOptions<String>(
+  [json, text],
+  single: true,
+);
+final requiredFormat = SelectedOptions<String>.required([
+  json,
+  text,
+], single: true);
+```
+
+The normal form accepts zero or one member. The required form accepts exactly
+one member. Without an explicit type argument, Dart infers the common
 pair-value type; mixed pair types infer `Object`.
 
 ## Accessor options

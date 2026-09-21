@@ -7,15 +7,15 @@ descriptions, so completion generation stays aligned with parsing and help.
 
 ## Use the preset command
 
-Register `CompletionCommand.preset(null)` in the executor's command list to
-use Mamba's built-in generators:
+Register `CompletionCommand.preset(createFile: null)` in the executor's
+command list to use Mamba's built-in generators:
 
 ```dart
 Future<void> main(List<String> args) => Executor(
   'my-cli',
   'Manage application resources.',
   '1.0.0',
-  [CompletionCommand.preset(null)],
+  [CompletionCommand.preset(createFile: null)],
 ).create().execute(args);
 ```
 
@@ -45,12 +45,12 @@ same retained declarations used by the preset. Use them with
 
 ## Replace destination handling
 
-Pass a callback instead of `null` when another system should handle the
-validated path:
+Pass a callback through the required named `createFile` parameter when another
+system should handle the validated path:
 
 ```dart
 final completion = CompletionCommand.preset(
-  (path) => print('Handle completion output at $path'),
+  createFile: (path) => print('Handle completion output at $path'),
 );
 ```
 
@@ -76,6 +76,78 @@ final content = switch (shell) {
   ShellCompletion.carapace => CarapaceSpecConverter(registryRecord).convert(),
 };
 ```
+
+## Inspect the registry record
+
+Treat `registryRecord` as an immutable typed description, not a map. The root
+is a `RegistryRecord`; its `commands` recursively contain `RegistryCommand`
+objects. Nullable collections mean that the command has no entries of that
+kind, so traverse them with `?? const []`.
+
+### `RegistryCommand`
+
+A `RegistryCommand` is one command-tree node. Use:
+
+- `name` for its canonical command token and `aliases` for equivalent tokens;
+- `description` for its combined short and optional long help text;
+- `commands` for direct children;
+- `positionals` and `variadic` for ordered and post-`--` values;
+- `flags`, `options`, `optionGroups`, and `accessors` for its named inputs; and
+- `persistentFlags` and `persistentOptions` for inputs that converters should
+  carry into descendants.
+
+Build the command path while recursing through `commands`. Records produced by
+`CommandRegistry.toMap()` already place effective inherited inputs in each
+command's `flags`, `options`, and `accessors`; their `persistentFlags` and
+`persistentOptions` are currently `null`.
+
+### `RegistryPositional`
+
+List order determines the parse position. `name` and `description` provide
+display text, while `required` distinguishes mandatory from discretionary
+values. Offer `choices` directly when present. `defaultValue` is textual,
+`pattern` contains the validation expression, and `repeatable == true` pairs
+with `times` to describe an exact repeated count.
+
+### `RegistryFlag`
+
+`name` and `short` omit their leading dashes. `defaultValue` and `negatable`
+describe boolean flags; both are `null` for flag kinds without boolean
+semantics. A negatable flag also has a `--no-<name>` spelling. Suppress an
+entry when `hidden` is true and use `description` as candidate help text.
+
+### `RegistryOption`
+
+Use `name`, `short`, `hidden`, and `description` for spelling and display.
+`required`, `repeatable`, and `unique` describe cardinality. Interpret
+`valueType` as `string`, `int`, `double`, or `choice`, then use the applicable
+validation metadata:
+
+- offer `choices` as finite candidates;
+- treat `defaultValue` as text, including comma-separated list defaults;
+- retain `pattern` for string validation; and
+- use `min`, `max`, and `step` for bounded numeric candidates.
+
+`pairedOptions` names every member of the same all-or-nothing paired group.
+
+### `RegistryOptionGroup`
+
+`members` lists the option names in one `PairedOptions` declaration. Supplying
+one member requires all members. `required` controls whether the whole group
+may be omitted. Selected-option groups are flattened into `options` and do not
+produce `RegistryOptionGroup` values.
+
+### `RegistryAccessor`
+
+Switch on `kind` before reading variant fields:
+
+- A `group` has `name`, `hidden`, `description`, and recursive `options`.
+- A `value` has `name`, `valueType`, `description`, `choices`, `defaultValue`,
+  and `pattern`.
+
+Join ancestor and leaf names with `.` to form the long spelling. For example,
+the `certificate` value below `server` and `tls` becomes
+`--server.tls.certificate`. A hidden group hides its descendant leaves.
 
 Use the unnamed `CompletionCommand` constructor to supply custom positionals
 or options. Access `registryRecord` during `run`, after the executor has
