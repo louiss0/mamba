@@ -149,7 +149,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
-    List<SelectedOptions>? selectedOptionses,
+    List<SelectedOptions>? selectedOptions,
     Map<String, List<String>>? conflicts,
     List<MandatoryPositional>? mandatoryPositionals,
     List<DiscretionaryPositional>? discretionaryPositionals,
@@ -162,7 +162,7 @@ final class CommandRegistry {
   }) : flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
        pairedOptionGroups = List.unmodifiable(pairedOptions ?? const []),
-       selectedOptionses = List.unmodifiable(selectedOptionses ?? const []),
+       selectedOptions = List.unmodifiable(selectedOptions ?? const []),
        conflicts = Map<String, List<String>>.unmodifiable({
          for (final entry
              in (conflicts ?? const <String, List<String>>{}).entries)
@@ -187,7 +187,7 @@ final class CommandRegistry {
   final List<Flag> flags;
   final List<Option> options;
   final List<PairedOptionsDefinition> pairedOptionGroups;
-  final List<SelectedOptions> selectedOptionses;
+  final List<SelectedOptions> selectedOptions;
   final Map<String, List<String>> conflicts;
   final List<MandatoryPositional> mandatoryPositionals;
   final List<DiscretionaryPositional> discretionaryPositionals;
@@ -250,7 +250,7 @@ final class CommandRegistry {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
-    List<SelectedOptions>? selectedOptionses,
+    List<SelectedOptions>? selectedOptions,
     Map<String, List<String>>? conflicts,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
@@ -261,7 +261,7 @@ final class CommandRegistry {
       flags: [...?flags, MambaBuiltInFlags.help],
       options: options,
       paired: pairedOptions,
-      selected: selectedOptionses,
+      selected: selectedOptions,
       conflicts: conflicts,
       accessors: accessors,
       mandatory: mandatoryPositionals,
@@ -275,7 +275,7 @@ final class CommandRegistry {
       flags: flags,
       options: options,
       pairedOptions: pairedOptions,
-      selectedOptionses: selectedOptionses,
+      selectedOptions: selectedOptions,
       conflicts: conflicts,
       mandatoryPositionals: mandatoryPositionals,
       discretionaryPositionals: discretionaryPositionals,
@@ -295,7 +295,7 @@ final class CommandRegistry {
       flags: command.flags,
       options: command.options,
       paired: command.pairedOptions,
-      selected: command.selectedOptionses,
+      selected: command.selectedOptions,
       conflicts: command.conflicts,
       accessors: command.accessors,
       mandatory: command.mandatoryPositionals,
@@ -311,7 +311,7 @@ final class CommandRegistry {
       flags: command.flags,
       options: command.options,
       pairedOptions: command.pairedOptions,
-      selectedOptionses: command.selectedOptionses,
+      selectedOptions: command.selectedOptions,
       conflicts: command.conflicts,
       mandatoryPositionals: command.mandatoryPositionals,
       discretionaryPositionals: command.discretionaryPositionals,
@@ -426,7 +426,7 @@ final class CommandRegistry {
   Iterable<InputDefinition> get _allValueInputs sync* {
     yield* applicableOptions;
     for (final group in pairedOptionGroups) yield* group.options;
-    for (final group in selectedOptionses) yield* group.options;
+    for (final group in selectedOptions) yield* group.options;
   }
 
   AccessorPrimitiveOption? _accessorFor(String path) {
@@ -458,7 +458,7 @@ final class CommandRegistry {
     final options = [
       ...registry.applicableOptions,
       for (final group in registry.pairedOptionGroups) ...group.options,
-      for (final group in registry.selectedOptionses) ...group.options,
+      for (final group in registry.selectedOptions) ...group.options,
     ];
     return (
       name: registry.name,

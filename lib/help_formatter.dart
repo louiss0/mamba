@@ -203,7 +203,7 @@ final class MambaHelpFormatter extends HelpFormatter {
           .where((option) => !option.hidden)
           .map(_option),
       ...registry.pairedOptionGroups.map(_pairedOptions),
-      ...registry.selectedOptionses.map(_selectedOptions),
+      ...registry.selectedOptions.map(_selectedOptions),
     ]);
     _writeSection(
       buffer,

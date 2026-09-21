@@ -148,7 +148,7 @@ void main() {
           password,
         ], description: 'Login credentials.'),
       ],
-      selectedOptionses: [
+      selectedOptions: [
         SelectedOptions<String>.single([
           json,
           yaml,

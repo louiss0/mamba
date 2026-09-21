@@ -10,7 +10,7 @@ Parser parser({
   List<DiscretionaryPositional>? discretionary,
   List<AccessorListOption>? accessors,
   List<PairedOptionsDefinition>? paired,
-  List<SelectedOptions>? selectedOptionses,
+  List<SelectedOptions>? selectedOptions,
   Map<String, List<String>>? conflicts,
   Variadic? variadic,
 }) => Parser(
@@ -23,7 +23,7 @@ Parser parser({
     discretionaryPositionals: discretionary,
     accessors: accessors,
     pairedOptions: paired,
-    selectedOptionses: selectedOptionses,
+    selectedOptions: selectedOptions,
     conflicts: conflicts,
     variadic: variadic,
   ),
@@ -126,7 +126,7 @@ void main() {
           PairIntOption('port'),
         ]),
       ],
-      selectedOptionses: [
+      selectedOptions: [
         SelectedOptions<Object>([
           PairStringOption('output'),
           PairIntOption('limit'),
@@ -671,7 +671,7 @@ void main() {
       final json = PairStringOption('json');
       final output = SelectedOptions<String>([json]);
 
-      final inputs = parser(selectedOptionses: [output])
+      final inputs = parser(selectedOptions: [output])
           .parse(['--json', 'tasks.json'])
           .$2;
 
@@ -683,7 +683,7 @@ void main() {
       final retries = PairIntOption('retries');
       final ratio = PairDoubleOption('ratio');
       final selected = SelectedOptions<Object>([name, retries, ratio]);
-      final subject = parser(selectedOptionses: [selected]);
+      final subject = parser(selectedOptions: [selected]);
       final cases = <({List<String> arguments, Map<String, Object> expected})>[
         (arguments: ['--name', 'mamba'], expected: {'name': 'mamba'}),
         (arguments: ['--retries', '3'], expected: {'retries': 3}),
@@ -705,11 +705,10 @@ void main() {
         final database = PairStringOption('database');
         final connection = SelectedOptions<String>([host, database]);
 
-        final Map<String, String> values =
-            parser(selectedOptionses: [connection])
-                .parse(['--host', 'db.internal', '--database', 'mamba'])
-                .$2
-                .valueOf(connection);
+        final Map<String, String> values = parser(selectedOptions: [connection])
+            .parse(['--host', 'db.internal', '--database', 'mamba'])
+            .$2
+            .valueOf(connection);
 
         expect(values, {'host': 'db.internal', 'database': 'mamba'});
       });
@@ -719,7 +718,7 @@ void main() {
         final retries = PairIntOption('retries');
         final connection = SelectedOptions<int>([port, retries]);
 
-        final Map<String, int> values = parser(selectedOptionses: [connection])
+        final Map<String, int> values = parser(selectedOptions: [connection])
             .parse(['--port', '5432', '--retries', '3'])
             .$2
             .valueOf(connection);
@@ -732,9 +731,10 @@ void main() {
         final ratio = PairDoubleOption('ratio');
         final connection = SelectedOptions<double>([timeout, ratio]);
 
-        final Map<String, double> values = parser(
-          selectedOptionses: [connection],
-        ).parse(['--timeout', '1.5', '--ratio', '0.75']).$2.valueOf(connection);
+        final Map<String, double> values = parser(selectedOptions: [connection])
+            .parse(['--timeout', '1.5', '--ratio', '0.75'])
+            .$2
+            .valueOf(connection);
 
         expect(values, {'timeout': 1.5, 'ratio': 0.75});
       });
@@ -745,7 +745,7 @@ void main() {
       final port = PairIntOption('port');
       final timeout = PairDoubleOption('timeout');
       final connection = SelectedOptions<Object>([host, port, timeout]);
-      final subject = parser(selectedOptionses: [connection]);
+      final subject = parser(selectedOptions: [connection]);
       final cases = <({List<String> arguments, Map<String, Object> expected})>[
         (
           arguments: ['--host', 'db.internal', '--port', '5432'],
@@ -785,7 +785,7 @@ void main() {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
       final output = SelectedOptions<String>.required([json, text]);
-      final subject = parser(selectedOptionses: [output]);
+      final subject = parser(selectedOptions: [output]);
 
       expect(() => subject.parse([]), throwsA(isA<MambaParseException>()));
     });
@@ -794,7 +794,7 @@ void main() {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
       final output = SelectedOptions<String>.single([json, text]);
-      final subject = parser(selectedOptionses: [output]);
+      final subject = parser(selectedOptions: [output]);
 
       expect(subject.parse(['--json', 'tasks.json']).$2.valueOf(output), {
         'json': 'tasks.json',
@@ -811,7 +811,7 @@ void main() {
       final attempts = PairIntOption('attempts');
       final output = SelectedOptions<String>.single([json, text]);
       final retry = SelectedOptions<int>.required([attempts]);
-      final subject = parser(selectedOptionses: [output, retry]);
+      final subject = parser(selectedOptions: [output, retry]);
 
       test('requires a value for the required selection', () {
         expect(() => subject.parse([]), throwsA(isA<MambaParseException>()));

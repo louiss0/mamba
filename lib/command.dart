@@ -1547,7 +1547,7 @@ abstract class Command {
   final List<Flag>? flags;
   final List<Option>? options;
   final List<PairedOptionsDefinition>? pairedOptions;
-  final List<SelectedOptions>? selectedOptionses;
+  final List<SelectedOptions>? selectedOptions;
   final List<AccessorListOption>? accessors;
   final Map<String, List<String>>? conflicts;
   new({
@@ -1559,7 +1559,7 @@ abstract class Command {
     List<Flag>? flags,
     List<Option>? options,
     List<PairedOptionsDefinition>? pairedOptions,
-    List<SelectedOptions>? selectedOptionses,
+    List<SelectedOptions>? selectedOptions,
     List<AccessorListOption>? accessors,
     Map<String, List<String>>? conflicts,
   }) : aliases = _copyList(aliases),
@@ -1568,7 +1568,7 @@ abstract class Command {
        flags = _copyList(flags),
        options = _copyList(options),
        pairedOptions = _copyList(pairedOptions),
-       selectedOptionses = _copyList(selectedOptionses),
+       selectedOptions = _copyList(selectedOptions),
        accessors = _copyList(accessors),
        conflicts = _copyStringLists(conflicts);
   String get name;
@@ -1594,7 +1594,7 @@ abstract class GroupCommand extends Command {
     super.flags,
     super.options,
     super.pairedOptions,
-    super.selectedOptionses,
+    super.selectedOptions,
     super.accessors,
     super.conflicts,
   }) : commands = List.unmodifiable(commands),

@@ -32,7 +32,7 @@ final class Parser {
     final optionInputs = [
       ...registry.applicableOptions,
       for (final group in registry.pairedOptionGroups) ...group.options,
-      for (final group in registry.selectedOptionses) ...group.options,
+      for (final group in registry.selectedOptions) ...group.options,
     ];
     for (var index = 0; index < tokens.length; index++) {
       if (consumed.contains(index) || resolution.tokenIndices.contains(index))
@@ -361,7 +361,7 @@ final class Parser {
         values.remove(option);
       }
     }
-    for (final group in registry.selectedOptionses) {
+    for (final group in registry.selectedOptions) {
       final selected = group.options.where(values.containsKey).toList();
       if (group.required && selected.isEmpty) {
         throw MambaParseException(
@@ -562,7 +562,7 @@ final class Parser {
     yield* registry.mandatoryPositionals;
     yield* registry.discretionaryPositionals;
     yield* registry.pairedOptionGroups;
-    yield* registry.selectedOptionses;
+    yield* registry.selectedOptions;
     known.addAll(registry.applicableAccessors);
     yield* known;
   }

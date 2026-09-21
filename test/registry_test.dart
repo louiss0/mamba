@@ -308,7 +308,7 @@ void main() {
       final output = SelectedOptions<String>([json, text]);
       final help = _withoutAnsi(
         MambaHelpFormatter().format(
-          CommandRegistry.create('tool', 'Tool.', selectedOptionses: [output]),
+          CommandRegistry.create('tool', 'Tool.', selectedOptions: [output]),
         ),
       );
 

@@ -145,19 +145,15 @@ final class _CreateExecutor implements MambaExecutor<void> {
   @override
   Future<void> execute(List<String> args) async {
     final result = await execution.execute(args);
+    process.processExitCode = result.exitCode;
     switch (result) {
       case MambaSuccessResult(:final output):
         if (output != null) process.writeOutput(output);
-      case MambaFailureResult(
-        :final output,
-        :final errors,
-        exitCode: final code,
-      ):
+      case MambaFailureResult(:final output, :final errors):
         if (output != null) process.writeOutput(output);
         for (final error in errors) {
           process.writeError(error.exception.message);
         }
-        process.processExitCode = code;
     }
   }
 }
@@ -256,7 +252,12 @@ final class _Execution {
     String? output;
     if (errors.isEmpty) {
       try {
-        output = await command.run(inputs, parsed.$3);
+        final message = await command.run(inputs, parsed.$3);
+        output = MambaColors.primary(
+          message == null || message.isEmpty
+              ? 'Completed ${command.name}.'
+              : message,
+        );
       } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.run, error, trace, errorPath));
       }
