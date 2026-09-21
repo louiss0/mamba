@@ -100,3 +100,12 @@ If the user doesn't test for or ask for a message to be returned from a command 
 Tell the user it's not good to return an empty message! 
 If the user doesn't care write one based on the context of the command! Think about what the command does it's a success message!
 Messages returned from the run function should be green by default!
+
+## References
+
+- Read [Command API](references/command-api.md) when declaring commands or
+  selecting input types.
+- Read [Completion commands](references/completion-commands.md) when adding
+  Bash, Zsh, Fish, PowerShell, or Carapace completion generation.
+- Read [Hook runners](references/hook-runners.md) when adding behavior before
+  or after command execution or around a group command's descendants.
