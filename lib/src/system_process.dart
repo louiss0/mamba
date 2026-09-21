@@ -1,10 +1,8 @@
 import 'dart:io';
 
 import 'package:mamba/command.dart';
-import 'package:mamba/src/process.dart';
 
-final class SystemMambaProcess implements MambaProcess {
-  @override
+final class SystemMambaProcess {
   Future<ProcessedStandardInput?> readStandardInput() async {
     try {
       if (stdioType(stdin) != StdioType.pipe) return null;
@@ -17,13 +15,10 @@ final class SystemMambaProcess implements MambaProcess {
     }
   }
 
-  @override
   void writeOutput(String message) => stdout.writeln(message);
 
-  @override
   void writeError(String message) => stderr.writeln(message);
 
-  @override
   set processExitCode(int value) => exitCode = value;
 }
 

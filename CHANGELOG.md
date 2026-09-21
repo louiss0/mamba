@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Added `Executor.fake(standardInput: ...)` for testing piped command input.
+- Made `Executor.create()` always use the current process and removed the
+  public `MambaProcess` adapter interface.
 - Made `CompletionCommand.preset` accept its required nullable `createFile`
   callback as a named parameter.
 - Replaced the `SelectedOptions.single` constructor with the `single` named

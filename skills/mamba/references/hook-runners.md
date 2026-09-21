@@ -57,7 +57,8 @@ final class DeployCommand extends Command with HookRunner {
 
 `preRun` is the only hook that receives processed standard input. A successful
 `preRun` makes `postRun` eligible, even when `run` later fails. If `preRun`
-fails, Mamba skips both `run` and `postRun`.
+fails, Mamba skips both `run` and `postRun`. Pass `standardInput` to
+`Executor.fake()` to supply input in a test.
 
 ## Wrap group descendants
 

@@ -153,17 +153,6 @@ final class DefaultPostHookCommand extends Command with HookRunner {
   String run(ParsedInputs inputs, List<String> args) => 'complete';
 }
 
-final class NoOutputCommand extends Command {
-  @override
-  String get name => 'silent';
-
-  @override
-  String get shortDescription => 'Produces no output.';
-
-  @override
-  String? run(ParsedInputs inputs, List<String> args) => null;
-}
-
 final class DefaultCommand extends Command {
   new(this.events);
   final List<String> events;
@@ -184,8 +173,8 @@ final class DefaultCommand extends Command {
 }
 
 final class InputCommand extends Command with HookRunner {
-  new(this.input);
-  final ProcessedStandardInput input;
+  ProcessedStandardInput? _input;
+
   @override
   String get name => 'input';
 
@@ -198,31 +187,16 @@ final class InputCommand extends Command with HookRunner {
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
-    expect(input?.utf8Text, this.input.utf8Text);
+    _input = input;
   }
 
   @override
-  String? run(ParsedInputs inputs, List<String> args) => null;
-}
-
-final class RecordingProcess implements MambaProcess {
-  new({this.input});
-  final ProcessedStandardInput? input;
-  final output = <String>[];
-  final errors = <String>[];
-  int? exitCode;
+  String? run(ParsedInputs inputs, List<String> args) => _input?.utf8Text;
 
   @override
-  Future<ProcessedStandardInput?> readStandardInput() async => input;
-
-  @override
-  void writeError(String message) => errors.add(message);
-
-  @override
-  void writeOutput(String message) => output.add(message);
-
-  @override
-  set processExitCode(int value) => exitCode = value;
+  void postRun(ParsedInputs inputs, MambaReadContext context) {
+    _input = null;
+  }
 }
 
 final class InvalidContextWriter extends GroupCommand
@@ -567,6 +541,19 @@ void main() {
     expect(completion.registryRecord.name, 'tool');
   });
 
+  test('delivers standard input through the fake executor', () async {
+    const input = ProcessedStandardInput([104, 105]);
+
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      InputCommand(),
+    ]).fake(standardInput: input).execute(['input']);
+
+    expect(
+      result,
+      isA<MambaSuccessResult>().having((value) => value.output, 'output', 'hi'),
+    );
+  });
+
   test(
     'creates the system process adapter without accessing process streams',
     () {
@@ -575,40 +562,6 @@ void main() {
       expect(executor, isA<MambaExecutor<void>>());
     },
   );
-
-  test('delivers production results through an injected process', () async {
-    final process = RecordingProcess();
-    await Executor('tool', 'Tool.', '1.0.0', [
-      ResultCommand(<String>[]),
-    ]).create(process: process).execute(['run']);
-
-    expect(process.output, ['output']);
-    expect(process.errors, isEmpty);
-    expect(process.exitCode, isNull);
-  });
-
-  test('delivers production failures through an injected process', () async {
-    final process = RecordingProcess();
-    await Executor('tool', 'Tool.', '1.0.0', [
-      ResultCommand(<String>[], failPost: true),
-    ]).create(process: process).execute(['run']);
-
-    expect(process.output, ['output']);
-    expect(process.errors, ['post failed']);
-    expect(process.exitCode, 9);
-  });
-
-  test('delivers injected standard input to command hooks', () async {
-    final process = RecordingProcess(
-      input: const ProcessedStandardInput([104, 105]),
-    );
-    await Executor('tool', 'Tool.', '1.0.0', [
-      InputCommand(const ProcessedStandardInput([104, 105])),
-    ]).create(process: process).execute(['input']);
-
-    expect(process.output, isEmpty);
-    expect(process.errors, isEmpty);
-  });
 
   test('identifies closed pipe errors without reading process streams', () {
     expect(
@@ -621,15 +574,5 @@ void main() {
       isClosedPipeFileSystemException(FileSystemException('write')),
       isFalse,
     );
-  });
-
-  test('does not write successful commands without output', () async {
-    final process = RecordingProcess();
-    await Executor('tool', 'Tool.', '1.0.0', [
-      NoOutputCommand(),
-    ]).create(process: process).execute(['silent']);
-
-    expect(process.output, isEmpty);
-    expect(process.errors, isEmpty);
   });
 }

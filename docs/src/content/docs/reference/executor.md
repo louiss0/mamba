@@ -25,16 +25,11 @@ Future<void> main(List<String> args) => Executor(
 ).create().execute(args);
 ```
 
-The production executor forwards non-null command output unchanged to stdout
-and writes nothing when the command returns `null`. A successful execution
-leaves the process exit code untouched. On failure, the executor writes every
-recorded error message to stderr and assigns the first failure's exit code to
-the process.
-
-For a custom process boundary, pass a `MambaProcess` implementation to
-`create(process: ...)`. This is useful for embedding Mamba without reading or
-writing the global Dart process streams. The adapter supplies standard input
-and receives output, errors, and failure exit codes.
+The production executor reads piped standard input from the current process,
+forwards non-null command output unchanged to stdout, and writes nothing when
+the command returns `null`. A successful execution leaves the process exit
+code untouched. On failure, the executor writes every recorded error message
+to stderr and assigns the first failure's exit code to the process.
 
 ```mermaid
 flowchart TD
@@ -67,15 +62,17 @@ flowchart TD
 
 ## Test execution
 
-Call `fake()` to receive a result without process I/O:
+Call `fake()` to receive a result without process I/O. Supply
+`standardInput` when the selected command reads input in `HookRunner.preRun`:
 
 ```dart
+final input = ProcessedStandardInput(utf8.encode('{"enabled":true}'));
 final result = await Executor(
   'my-cli',
   'Manage application resources.',
   '1.0.0',
-  [StatusCommand()],
-).fake().execute(['status']);
+  [ImportCommand()],
+).fake(standardInput: input).execute(['import']);
 
 switch (result) {
   case MambaSuccessResult(:final output):
@@ -84,6 +81,9 @@ switch (result) {
     print('Failed with $exitCode: ${errors.first.exception.message}');
 }
 ```
+
+Import `dart:convert` when using `utf8.encode`. Omitting `standardInput`
+supplies `null` to the selected command's pre-hook.
 
 `MambaSuccessResult.output` is nullable because commands may intentionally
 produce no output. `MambaFailureResult` exposes `exitCode`, any output produced

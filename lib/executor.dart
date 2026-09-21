@@ -7,10 +7,7 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/help_formatter.dart';
 import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
-import 'package:mamba/src/process.dart';
 import 'package:mamba/src/system_process.dart' as system_process;
-
-export 'src/process.dart';
 
 sealed class MambaExecutionResult {
   const new();
@@ -115,17 +112,24 @@ final class Executor {
     throw MambaRegistryError('version must be a Semantic Version 2.0.0 value');
   }
 
-  MambaExecutor<MambaExecutionResult> fake() => _FakeExecutor(_Execution(this));
+  /// Creates an executor that returns results without process side effects.
+  ///
+  /// Supply [standardInput] to test a command that reads piped input in its
+  /// [HookRunner.preRun] method.
+  MambaExecutor<MambaExecutionResult> fake({
+    ProcessedStandardInput? standardInput,
+  }) => _FakeExecutor(
+    _Execution(this, readStandardInput: () async => standardInput),
+  );
 
   /// Creates a process-facing executor.
   ///
-  /// When [process] is omitted, it reads and writes the current Dart process.
-  /// Supply a [MambaProcess] to redirect input, output, errors, and exit code.
-  MambaExecutor<void> create({MambaProcess? process}) {
-    final selectedProcess = process ?? system_process.SystemMambaProcess();
+  /// Reads and writes the current Dart process.
+  MambaExecutor<void> create() {
+    final process = system_process.SystemMambaProcess();
     return _CreateExecutor(
-      _Execution(this, readStandardInput: selectedProcess.readStandardInput),
-      selectedProcess,
+      _Execution(this, readStandardInput: process.readStandardInput),
+      process,
     );
   }
 }
@@ -141,7 +145,7 @@ final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
 final class _CreateExecutor implements MambaExecutor<void> {
   new(this.execution, this.process);
   final _Execution execution;
-  final MambaProcess process;
+  final system_process.SystemMambaProcess process;
   @override
   Future<void> execute(List<String> args) async {
     final result = await execution.execute(args);

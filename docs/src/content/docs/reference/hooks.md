@@ -42,7 +42,8 @@ final class DeployCommand extends Command with HookRunner {
 Ordinary command hooks receive a read-only `MambaReadContext`. `preRun` also
 receives piped standard input when available. `postRun` runs only when the
 matching pre-hook completed. Eligible cleanup hooks still run after command
-failure.
+failure. Pass `standardInput` to `Executor.fake()` to supply this value in a
+test.
 
 ## Persistent group hooks
 

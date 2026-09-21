@@ -342,7 +342,8 @@ completion command.
 
 Use `fake()` in tests instead of the production executor. It returns a
 `MambaSuccessResult` or `MambaFailureResult` rather than writing to stdout or
-stderr:
+stderr. Pass `standardInput` when testing a command that reads piped input in
+`HookRunner.preRun`:
 
 ```dart
 final result = await Executor(
@@ -353,7 +354,18 @@ final result = await Executor(
 ).fake().execute(['hello']);
 
 expect(result, isA<MambaSuccessResult>());
+
+final input = ProcessedStandardInput(utf8.encode('{"enabled":true}'));
+final importResult = await Executor(
+  'hello',
+  'A test CLI.',
+  '1.0.0',
+  [ImportCommand()],
+).fake(standardInput: input).execute(['import']);
 ```
+
+Import `dart:convert` when using `utf8.encode`. Call `create()` only in the
+application entry point; it always connects execution to the current process.
 
 Run the package tests with:
 

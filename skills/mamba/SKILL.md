@@ -1,7 +1,7 @@
 ---
 name: mamba
 description: Develop and test Dart CLI applications that use Mamba. Use when adding or changing executors, commands, command groups, typed inputs, injected dependencies, hooks, context, standard input, output, errors, help, or shell completions.
-compatibility: For Dart and Mamba projects
+compatibility: requires mamba cli and dart cli
 ---
 
 # Mamba
@@ -34,9 +34,8 @@ Run the focused test and confirm that it fails because the requested behavior
 does not exist. A compilation failure caused by a missing command or dependency
 contract is an acceptable initial failure.
 
-For standard-input behavior, inject a test `MambaProcess` through
-`Executor.create(process: process)` instead. `Executor.fake()` does not read
-standard input.
+For standard-input behavior, pass a `ProcessedStandardInput` through
+`Executor.fake(standardInput: input)`.
 
 ### Alter the command or executor
 
@@ -109,12 +108,12 @@ Use these named parameters when needed:
 - `helpFormatter` for custom help rendering.
 
 Call `create().execute(args)` only at the process-facing application boundary.
-The default process adapter reads piped standard input, writes command output
-and errors, and sets a non-zero process exit code for failures.
+The system process reads piped standard input, writes command output and
+errors, and sets a non-zero process exit code for failures.
 
 Call `fake().execute(args)` in tests. It performs real Mamba parsing,
 validation, command selection, hooks, and execution without writing to process
-streams.
+streams. Supply `standardInput` when testing a command that reads piped input.
 
 `fake()` returns:
 
@@ -568,37 +567,28 @@ input only when the process input is a pipe. No executor option is required:
 Get-Content payload.json | dart run bin/app.dart import
 ```
 
-Test standard input with an injected process adapter:
+Test standard input through the fake executor:
 
 ```dart
-final class TestProcess implements MambaProcess {
-  const new(this.input);
-
-  final ProcessedStandardInput? input;
-
-  @override
-  Future<ProcessedStandardInput?> readStandardInput() async => input;
-
-  @override
-  void writeOutput(String message) {}
-
-  @override
-  void writeError(String message) {}
-
-  @override
-  set processExitCode(int value) {}
-}
-
-final process = TestProcess(
-  ProcessedStandardInput(utf8.encode('{"name":"tasks"}')),
-);
-
-await Executor(
+final result = await Executor(
   'app',
   'Import data.',
   '1.0.0',
   [ImportCommand()],
-).create(process: process).execute(['import']);
+).fake(
+  standardInput: ProcessedStandardInput(
+    utf8.encode('{"name":"tasks"}'),
+  ),
+).execute(['import']);
+
+expect(
+  result,
+  isA<MambaSuccessResult>().having(
+    (value) => value.output,
+    'output',
+    'Imported tasks.',
+  ),
+);
 ```
 
 Import `dart:convert` when constructing UTF-8 input in a test. Treat malformed
