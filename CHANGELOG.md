@@ -1,5 +1,15 @@
 ## Unreleased
 
+- Made `CompletionCommand.preset` accept its required nullable `createFile`
+  callback as a named parameter.
+- Replaced the `SelectedOptions.single` constructor with the `single` named
+  option on both the normal and required constructors.
+- Renamed command-level `selectedOptionses` to `selectedOptions`.
+- Restored nullable command output without automatic success text or coloring,
+  and limited process exit-code assignment to failures.
+- Added `mamba command --append` for appending generated commands to an
+  existing Dart file.
+
 ## 0.9.0
 
 - Restored styled help output with richer command, positional, flag, option,
