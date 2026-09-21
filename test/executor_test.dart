@@ -276,7 +276,7 @@ void main() {
         isA<MambaSuccessResult>().having(
           (value) => value.output,
           'output',
-          MambaColors.primary('complete'),
+          'complete',
         ),
       );
     });
@@ -342,11 +342,7 @@ void main() {
       expect(
         result,
         isA<MambaFailureResult>()
-            .having(
-              (value) => value.output,
-              'output',
-              MambaColors.primary('output'),
-            )
+            .having((value) => value.output, 'output', 'output')
             .having((value) => value.exitCode, 'exit code', 9)
             .having(
               (value) => value.errors.single.phase,
@@ -557,7 +553,7 @@ void main() {
         isA<MambaSuccessResult>().having(
           (value) => value.output,
           'output',
-          MambaColors.primary('localhost'),
+          'localhost',
         ),
       );
     }
@@ -586,9 +582,9 @@ void main() {
       ResultCommand(<String>[]),
     ]).create(process: process).execute(['run']);
 
-    expect(process.output, [MambaColors.primary('output')]);
+    expect(process.output, ['output']);
     expect(process.errors, isEmpty);
-    expect(process.exitCode, 0);
+    expect(process.exitCode, isNull);
   });
 
   test('delivers production failures through an injected process', () async {
@@ -597,7 +593,7 @@ void main() {
       ResultCommand(<String>[], failPost: true),
     ]).create(process: process).execute(['run']);
 
-    expect(process.output, [MambaColors.primary('output')]);
+    expect(process.output, ['output']);
     expect(process.errors, ['post failed']);
     expect(process.exitCode, 9);
   });
@@ -610,9 +606,8 @@ void main() {
       InputCommand(const ProcessedStandardInput([104, 105])),
     ]).create(process: process).execute(['input']);
 
-    expect(process.output, [MambaColors.primary('Completed input.')]);
+    expect(process.output, isEmpty);
     expect(process.errors, isEmpty);
-    expect(process.exitCode, 0);
   });
 
   test('identifies closed pipe errors without reading process streams', () {
@@ -628,14 +623,13 @@ void main() {
     );
   });
 
-  test('writes a default green message for successful empty output', () async {
+  test('does not write successful commands without output', () async {
     final process = RecordingProcess();
     await Executor('tool', 'Tool.', '1.0.0', [
       NoOutputCommand(),
     ]).create(process: process).execute(['silent']);
 
-    expect(process.output, [MambaColors.primary('Completed silent.')]);
+    expect(process.output, isEmpty);
     expect(process.errors, isEmpty);
-    expect(process.exitCode, 0);
   });
 }

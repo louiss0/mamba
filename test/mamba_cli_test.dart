@@ -15,9 +15,7 @@ void main() {
     expect(result.exitCode, 0);
     expect(
       (result as MambaSuccessResult).output,
-      MambaColors.primary(
-        'Created Mamba command-line application in ${directory.path}/demo.',
-      ),
+      'Created Mamba command-line application in ${directory.path}/demo.',
     );
     expect(
       File('${directory.path}/demo/pubspec.yaml').readAsStringSync(),
