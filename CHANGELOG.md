@@ -1,3 +1,9 @@
+## 0.10.1
+
+- Made `mamba create` install dependencies, Mamba skills for generic agents and
+  Claude, and offer Git repository initialization.
+- Added the `mamba-framework` package skill.
+
 ## 0.10.0
 
 - Added `Executor.fake(standardInput: ...)` for testing piped command input.
