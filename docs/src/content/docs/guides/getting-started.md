@@ -39,8 +39,8 @@ The command takes a package name and creates a directory with that name:
 ```sh
 cd ~/code
 mamba create my_app
+# Initialize a Git repository? [y/N]
 cd my_app
-dart pub get
 ```
 
 The package name must start with a lowercase letter and may contain lowercase
@@ -50,7 +50,9 @@ letters, numbers, and underscores. For example, `my_app` is valid, while
 If the `mamba` executable is not on your `PATH`, replace
 `mamba create my_app` with `dart pub global run mamba create my_app`.
 
-The generated project contains:
+The command automatically runs `dart pub get`, installs Mamba's
+package-provided skills with `dart run skills@ get --all -p mamba`, and then
+asks whether to initialize a Git repository. The generated project contains:
 
 ```text
 my_app/

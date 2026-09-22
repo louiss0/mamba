@@ -5,25 +5,87 @@ import 'package:mamba/mamba_cli.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('project command creates a Dart application', () async {
+  test('project command scaffolds the requested application', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(directory),
+      CreateProjectCommand(directory, projectScaffolder: projectScaffolder),
     ]).fake().execute(['create', 'demo']);
 
     expect(result.exitCode, 0);
+    expect(projectScaffolder.packageNames, ['demo']);
     expect(
       (result as MambaSuccessResult).output,
-      'Created Mamba command-line application in ${directory.path}/demo.',
+      'Created Mamba command-line application in '
+      '${directory.path}${Platform.pathSeparator}demo.',
+    );
+  });
+
+  test('project scaffolder installs dependencies, Mamba skills, and Git', () {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final processRunner = FakeProjectProcessRunner();
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: processRunner,
+      gitPrompt: FakeGitPrompt(shouldInitialize: true),
+    );
+
+    projectScaffolder.scaffold('demo');
+
+    final projectDirectory = Directory(
+      '${directory.path}${Platform.pathSeparator}demo',
     );
     expect(
-      File('${directory.path}/demo/pubspec.yaml').readAsStringSync(),
+      File('${projectDirectory.path}/pubspec.yaml').readAsStringSync(),
       allOf(contains('name: demo'), contains('sdk: ^3.13.2')),
     );
     expect(
-      File('${directory.path}/demo/bin/demo.dart').readAsStringSync(),
+      File('${projectDirectory.path}/bin/demo.dart').readAsStringSync(),
       contains("Executor('demo'"),
+    );
+    expect(
+      processRunner.invocations
+          .map(
+            (invocation) =>
+                (invocation.$1, invocation.$2.join(' '), invocation.$3),
+          )
+          .toList(),
+      [
+        ('dart', 'pub get', projectDirectory.path),
+        ('dart', 'run skills@ get --all -p mamba', projectDirectory.path),
+        ('git', 'init', projectDirectory.path),
+      ],
+    );
+  });
+
+  test('project scaffolder skips Git when the user declines', () {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final processRunner = FakeProjectProcessRunner();
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: processRunner,
+      gitPrompt: FakeGitPrompt(shouldInitialize: false),
+    );
+
+    projectScaffolder.scaffold('demo');
+
+    final projectDirectory = Directory(
+      '${directory.path}${Platform.pathSeparator}demo',
+    );
+    expect(
+      processRunner.invocations
+          .map(
+            (invocation) =>
+                (invocation.$1, invocation.$2.join(' '), invocation.$3),
+          )
+          .toList(),
+      [
+        ('dart', 'pub get', projectDirectory.path),
+        ('dart', 'run skills@ get --all -p mamba', projectDirectory.path),
+      ],
     );
   });
 
@@ -144,4 +206,31 @@ void main() {
       expect((result as MambaFailureResult).message, testCase.message);
     }
   });
+}
+
+final class FakeProjectScaffolder implements ProjectScaffolder {
+  final packageNames = <String>[];
+
+  @override
+  void scaffold(String packageName) {
+    packageNames.add(packageName);
+  }
+}
+
+final class FakeProjectProcessRunner implements ProjectProcessRunner {
+  final invocations = <(String, List<String>, String)>[];
+
+  @override
+  void run(String executable, List<String> arguments, String workingDirectory) {
+    invocations.add((executable, arguments, workingDirectory));
+  }
+}
+
+final class FakeGitPrompt implements GitPrompt {
+  const new({required this.shouldInitialize});
+
+  final bool shouldInitialize;
+
+  @override
+  bool confirmsInitialization() => shouldInitialize;
 }

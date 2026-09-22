@@ -3,9 +3,126 @@ import 'dart:io';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 
+/// Scaffolds a project in a parent directory.
+abstract interface class ProjectScaffolder {
+  void scaffold(String packageName);
+}
+
+/// Runs a required project-setup command in a project directory.
+abstract interface class ProjectProcessRunner {
+  void run(String executable, List<String> arguments, String workingDirectory);
+}
+
+/// Asks whether a new project should be initialized as a Git repository.
+abstract interface class GitPrompt {
+  bool confirmsInitialization();
+}
+
+final class DirectoryProjectScaffolder implements ProjectScaffolder {
+  new(
+    this._parentDirectory, {
+    ProjectProcessRunner? processRunner,
+    GitPrompt? gitPrompt,
+  }) : _processRunner = processRunner ?? SystemProjectProcessRunner(),
+       _gitPrompt = gitPrompt ?? SystemGitPrompt();
+
+  final Directory _parentDirectory;
+  final ProjectProcessRunner _processRunner;
+  final GitPrompt _gitPrompt;
+
+  @override
+  void scaffold(String packageName) {
+    final projectDirectory = Directory(
+      '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
+    );
+
+    if (projectDirectory.existsSync()) {
+      throw MambaException(
+        'Cannot create $packageName: the directory already exists.',
+      );
+    }
+
+    projectDirectory.createSync();
+    _createProjectFiles(projectDirectory, packageName);
+    _installDependencies(projectDirectory);
+    _installMambaSkills(projectDirectory);
+
+    if (_gitPrompt.confirmsInitialization()) {
+      _initializeGitRepository(projectDirectory);
+    }
+  }
+
+  void _createProjectFiles(Directory projectDirectory, String packageName) {
+    Directory('${projectDirectory.path}${Platform.pathSeparator}bin')
+        .createSync();
+
+    File(
+      '${projectDirectory.path}${Platform.pathSeparator}pubspec.yaml',
+    ).writeAsStringSync(
+      'name: $packageName\nenvironment:\n  sdk: ^3.13.2\ndependencies:\n  mamba: any\n',
+    );
+
+    File(
+      '${projectDirectory.path}${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
+    ).writeAsStringSync(
+      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', 'A command-line application.', '1.0.0', []).create().execute(args);\n",
+    );
+  }
+
+  void _installDependencies(Directory projectDirectory) {
+    _processRunner.run('dart', ['pub', 'get'], projectDirectory.path);
+  }
+
+  void _installMambaSkills(Directory projectDirectory) {
+    _processRunner.run('dart', [
+      'run',
+      'skills@',
+      'get',
+      '--all',
+      '-p',
+      'mamba',
+    ], projectDirectory.path);
+  }
+
+  void _initializeGitRepository(Directory projectDirectory) {
+    _processRunner.run('git', ['init'], projectDirectory.path);
+  }
+}
+
+final class SystemProjectProcessRunner implements ProjectProcessRunner {
+  @override
+  void run(String executable, List<String> arguments, String workingDirectory) {
+    final result = Process.runSync(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory,
+    );
+
+    stdout.write(result.stdout);
+    stderr.write(result.stderr);
+
+    if (result.exitCode != 0) {
+      throw MambaException('Failed to run $executable ${arguments.join(' ')}.');
+    }
+  }
+}
+
+final class SystemGitPrompt implements GitPrompt {
+  @override
+  bool confirmsInitialization() {
+    stdout.write('Initialize a Git repository? [y/N] ');
+    final response = stdin.readLineSync()?.trim().toLowerCase();
+    return response == 'y' || response == 'yes';
+  }
+}
+
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
-  new(this._parentDirectory) : super(mandatoryPositionals: [packageName]);
+  new(Directory parentDirectory, {ProjectScaffolder? projectScaffolder})
+    : _parentDirectory = parentDirectory,
+      _projectScaffolder =
+          projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
+      super(mandatoryPositionals: [packageName]);
 
   static final packageName = NormalPositional(
     'package-name',
@@ -13,6 +130,7 @@ final class CreateProjectCommand extends Command {
   );
 
   final Directory _parentDirectory;
+  final ProjectScaffolder _projectScaffolder;
 
   @override
   String get name => 'create';
@@ -25,26 +143,10 @@ final class CreateProjectCommand extends Command {
   String run(ParsedInputs inputs, List<String> args) {
     final name = inputs.valueOf(packageName);
 
-    final directory = Directory('${_parentDirectory.path}/$name');
+    _projectScaffolder.scaffold(name);
 
-    if (directory.existsSync())
-      throw MambaException(
-        'Cannot create $name: the directory already exists.',
-      );
-
-    directory.createSync();
-
-    Directory('${directory.path}/bin').createSync();
-
-    File('${directory.path}/pubspec.yaml').writeAsStringSync(
-      'name: $name\nenvironment:\n  sdk: ^3.13.2\ndependencies:\n  mamba: any\n',
-    );
-
-    File('${directory.path}/bin/$name.dart').writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$name', 'A command-line application.', '1.0.0', []).create().execute(args);\n",
-    );
-
-    return 'Created Mamba command-line application in ${directory.path}.';
+    return 'Created Mamba command-line application in '
+        '${_parentDirectory.path}${Platform.pathSeparator}$name.';
   }
 }
 
