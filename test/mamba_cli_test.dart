@@ -59,6 +59,11 @@ void main() {
           'run skills@ get --all -p mamba --agent generic',
           projectDirectory.path,
         ),
+        (
+          'dart',
+          'run skills@ get --all -p mamba --agent claude',
+          projectDirectory.path,
+        ),
         ('git', 'init', projectDirectory.path),
       ],
     );
@@ -91,6 +96,11 @@ void main() {
         (
           'dart',
           'run skills@ get --all -p mamba --agent generic',
+          projectDirectory.path,
+        ),
+        (
+          'dart',
+          'run skills@ get --all -p mamba --agent claude',
           projectDirectory.path,
         ),
       ],

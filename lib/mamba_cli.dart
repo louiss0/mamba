@@ -75,6 +75,11 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
   }
 
   void _installMambaSkills(Directory projectDirectory) {
+    _installMambaSkillsFor(projectDirectory, 'generic');
+    _installMambaSkillsFor(projectDirectory, 'claude');
+  }
+
+  void _installMambaSkillsFor(Directory projectDirectory, String agent) {
     _processRunner.run('dart', [
       'run',
       'skills@',
@@ -83,7 +88,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
       '-p',
       'mamba',
       '--agent',
-      'generic',
+      agent,
     ], projectDirectory.path);
   }
 
