@@ -51,8 +51,9 @@ If the `mamba` executable is not on your `PATH`, replace
 `mamba create my_app` with `dart pub global run mamba create my_app`.
 
 The command automatically runs `dart pub get`, installs Mamba's
-package-provided skills with `dart run skills@ get --all -p mamba`, and then
-asks whether to initialize a Git repository. The generated project contains:
+package-provided skills with `dart run skills@ get --all -p mamba --agent
+generic`, and then asks whether to initialize a Git repository. The generated
+project contains:
 
 ```text
 my_app/

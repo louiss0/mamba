@@ -63,9 +63,10 @@ mamba command admin --group
 ```
 
 `mamba create` automatically runs `dart pub get` and installs Mamba's
-package-provided skills with `dart run skills@ get --all -p mamba`. It then
-prompts you whether to initialize the project as a Git repository. The generated command
-file still needs to be registered in the application's command list. `--group`
+package-provided skills with `dart run skills@ get --all -p mamba --agent
+generic`. It then prompts you whether to initialize the project as a Git
+repository. The generated command file still needs to be registered in the
+application's command list. `--group`
 generates an empty `GroupCommand` for nesting child commands. Run `mamba
 --help` or `mamba command --help` for all scaffolding options.
 

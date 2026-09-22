@@ -54,7 +54,11 @@ void main() {
           .toList(),
       [
         ('dart', 'pub get', projectDirectory.path),
-        ('dart', 'run skills@ get --all -p mamba', projectDirectory.path),
+        (
+          'dart',
+          'run skills@ get --all -p mamba --agent generic',
+          projectDirectory.path,
+        ),
         ('git', 'init', projectDirectory.path),
       ],
     );
@@ -84,7 +88,11 @@ void main() {
           .toList(),
       [
         ('dart', 'pub get', projectDirectory.path),
-        ('dart', 'run skills@ get --all -p mamba', projectDirectory.path),
+        (
+          'dart',
+          'run skills@ get --all -p mamba --agent generic',
+          projectDirectory.path,
+        ),
       ],
     );
   });

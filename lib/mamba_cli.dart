@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:interact/interact.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 
@@ -24,7 +25,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     ProjectProcessRunner? processRunner,
     GitPrompt? gitPrompt,
   }) : _processRunner = processRunner ?? SystemProjectProcessRunner(),
-       _gitPrompt = gitPrompt ?? SystemGitPrompt();
+       _gitPrompt = gitPrompt ?? InteractGitPrompt();
 
   final Directory _parentDirectory;
   final ProjectProcessRunner _processRunner;
@@ -81,6 +82,8 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
       '--all',
       '-p',
       'mamba',
+      '--agent',
+      'generic',
     ], projectDirectory.path);
   }
 
@@ -107,13 +110,13 @@ final class SystemProjectProcessRunner implements ProjectProcessRunner {
   }
 }
 
-final class SystemGitPrompt implements GitPrompt {
+final class InteractGitPrompt implements GitPrompt {
   @override
-  bool confirmsInitialization() {
-    stdout.write('Initialize a Git repository? [y/N] ');
-    final response = stdin.readLineSync()?.trim().toLowerCase();
-    return response == 'y' || response == 'yes';
-  }
+  bool confirmsInitialization() => Confirm(
+    prompt: 'Initialize a Git repository?',
+    defaultValue: false,
+    waitForNewLine: true,
+  ).interact();
 }
 
 /// Creates a small Dart package using the current typed command API.
