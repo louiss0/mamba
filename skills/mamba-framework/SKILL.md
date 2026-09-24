@@ -47,9 +47,12 @@ Testing the `Executor` should always be done using the fake method.
 
 Make sure the create method is never called in a function that isn't `main`.
 
-When you find the main file that's meant to be focused on! Follow the instructions.
+When you find the main file that's meant to be focused on! Follow these instructions.
 
-Edit the call to `Executor` to register flags, options, and accessors, 
+Edit the call to `Executor` to register flags, options, and accessors when they must be accessed across multiple commands.
+
+When there are scalar values that must be accessed across multiple commands register a `MambaContext` using the `context` named parameter! 
+
 
 ## Commands
 
@@ -72,6 +75,8 @@ When making a single command follow these steps:
 2. Look at the file 
 3. Edit the file with the logic that's needed
 
+When editing commands make sure that everything that's suppossed to be registered is private!
+Then when they are used to retrive values make sure that the public name is used as the variable name in `run`.
 
 ## References 
 
@@ -81,4 +86,3 @@ When making a single command follow these steps:
 - [Options](references/options.md) for scalar, repeatable, paired, selected, or dotted accessor values.
 - [Completions](references/completion-commands.md) for how to register completions 
 - [Hooks](references/hook-runners.md) for how to use hooks
-
