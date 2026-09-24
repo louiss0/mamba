@@ -1,4 +1,4 @@
-## Unreleased
+## 0.11.0
 
 - Added `mamba binary` for scaffolding process-facing executors.
 - Added `mamba test` for creating and appending grouped command test suites.
