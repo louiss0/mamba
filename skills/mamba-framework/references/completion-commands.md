@@ -7,7 +7,7 @@ descriptions, so completion generation stays aligned with parsing and help.
 
 ## Use the preset command
 
-Register `CompletionCommand.preset(createFile: null)` in the executor's
+Register `CompletionCommand.preset()` in the executor's
 command list to use Mamba's built-in generators:
 
 ```dart
@@ -15,7 +15,7 @@ Future<void> main(List<String> args) => Executor(
   'my-cli',
   'Manage application resources.',
   '1.0.0',
-  [CompletionCommand.preset(createFile: null)],
+  [CompletionCommand.preset()],
 ).create().execute(args);
 ```
 
