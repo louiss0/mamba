@@ -9,5 +9,10 @@ Future<void> main(List<String> arguments) => Executor(
   'mamba',
   'Scaffold Mamba command-line applications.',
   _mambaVersion,
-  [CreateProjectCommand(Directory.current), ScaffoldCommand(Directory.current)],
+  [
+    CreateProjectCommand(Directory.current),
+    ScaffoldBinaryCommand(Directory.current),
+    ScaffoldCommand(Directory.current),
+    ScaffoldTestCommand(Directory.current),
+  ],
 ).create().execute(arguments);

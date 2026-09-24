@@ -25,7 +25,7 @@ CLI's syntax and the code that implements it.
 - Add lifecycle hooks and typed executor-scoped context.
 - Test invocations without writing to process streams through `Executor.fake()`.
 - Generate Bash, Zsh, Fish, PowerShell, and Carapace completions.
-- Scaffold new Dart CLI projects and commands with the `mamba` executable.
+- Scaffold Dart CLI projects, executables, commands, and tests with `mamba`.
 
 ## Installation
 
@@ -60,6 +60,8 @@ cd my_app
 dart run bin/my_app.dart
 mamba command greet
 mamba command admin --group
+mamba binary worker
+mamba command status --test
 ```
 
 `mamba create` automatically runs `dart pub get` and installs Mamba's
@@ -67,9 +69,24 @@ package-provided skills for generic agents and Claude with `dart run skills@
 get --all -p mamba --agent generic` and `dart run skills@ get --all -p mamba
 --agent claude`. It then prompts you whether to initialize the project as a Git
 repository. The generated command file still needs to be registered in the
-application's command list. `--group`
-generates an empty `GroupCommand` for nesting child commands. Run `mamba
---help` or `mamba command --help` for all scaffolding options.
+application's command list. `--group` generates an empty `GroupCommand` for
+nesting child commands. `mamba binary <name>` creates another executable in
+`bin/`, while `mamba test <name>` creates a grouped test suite for the matching
+`lib/<name>.dart` command. Pass `--test` to `mamba command` to create the
+matching suite at the same time:
+
+```sh
+mamba command greet --test
+mamba command admin --group --test
+mamba command user lib/admin.dart --append --test
+mamba test role lib/admin.dart --append
+```
+
+Appended commands and suites share mirrored files: `lib/admin.dart` maps to
+`test/admin_test.dart`. Generated tests call `Executor.fake()` and check the
+command's help path, so the starter test works for both `Command` and
+`GroupCommand`. Run `mamba --help`, `mamba command --help`, or `mamba test
+--help` for all scaffolding options.
 
 ## Quick start
 

@@ -94,6 +94,37 @@ Pass `--group` to scaffold an empty `GroupCommand` for nesting children:
 mamba command admin --group
 ```
 
+Pass `--test` to create a matching grouped test suite that exercises the
+command through `Executor.fake()`:
+
+```sh
+mamba command greet --test
+mamba command admin --group --test
+```
+
+Use `mamba test` when the command already exists:
+
+```sh
+mamba test greet
+```
+
+Both scaffolders support appending related declarations to mirrored files.
+For example, these commands append `UserCommand` to `lib/admin.dart` and its
+suite to `test/admin_test.dart`:
+
+```sh
+mamba command user lib/admin.dart --append --test
+mamba test role lib/admin.dart --append
+```
+
+Create another process-facing entry point with an empty executor by running:
+
+```sh
+mamba binary worker
+```
+
+This creates `bin/worker.dart` with a call to `Executor.create()`.
+
 For example, update the generated file to:
 
 ```dart

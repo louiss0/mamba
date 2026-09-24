@@ -1,3 +1,11 @@
+## Unreleased
+
+- Added `mamba binary` for scaffolding process-facing executors.
+- Added `mamba test` for creating and appending grouped command test suites.
+- Added `mamba command --test` support for commands, groups, and appended
+  commands.
+- Added the `test` development dependency to newly scaffolded projects.
+
 ## 0.10.1
 
 - Made `mamba create` install dependencies, Mamba skills for generic agents and
