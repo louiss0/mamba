@@ -36,47 +36,116 @@ When it's clear which file has the executor that needs to be changed then work!
 
 ## Executor
 
-The `Executor` is the class that's responsible for activating the CLI! 
-If you need to register a set of flags, options and that will be used by many commands that are registered at the root.
-Place them there! Be aware that the `Executor` has `dry-run`, `version` short `V`, `verbose` short `v` as flags already.
+Use `Executor` as the application's composition root. Pass the application
+name, short description, semantic version, and root commands in that order:
 
-The executor's create is in charge of setting the `exitCode` variable when an error happens.
+```dart
+Future<void> main(List<String> args) => Executor(
+  'acme',
+  'Manage Acme deployments.',
+  '1.0.0',
+  [Deploy(), Workspace()],
+).create().execute(args);
+```
 
-Make sure that the fake method is never called in files other than test files!
-Testing the `Executor` should always be done using the fake method. 
+Keep this call in the executable's `main` function. `create()` connects the
+executor to the current process, and `execute(args)` parses and runs the
+selected command.
 
-Make sure the create method is never called in a function that isn't `main`.
+Register an input on the executor when every command must be able to read the
+same declaration. Retain the declaration outside the executor call so
+commands can pass that exact instance to `ParsedInputs.valueOf`:
 
-When you find the main file that's meant to be focused on! Follow these instructions.
+```dart
+final profile = StringOption.withDefault(
+  'profile',
+  defaultValue: 'development',
+);
 
-Edit the call to `Executor` to register flags, options, and accessors when they must be accessed across multiple commands.
+Future<void> main(List<String> args) => Executor(
+  'acme',
+  'Manage Acme deployments.',
+  '1.0.0',
+  [DeployCommand()],
+  options: [profile],
+  flags: [MambaBuiltInFlags.dryRun],
+).create().execute(args);
+```
 
-When there are scalar values that must be accessed across multiple commands register a `MambaContext` using the `context` named parameter! 
+Every executor already supplies help, version (`-V`, `--version`), and
+verbosity (`-v`, `--verbose`). Dry-run is reusable but opt-in. Use `flags`,
+`options`, and `accessors` for root inputs, `defaultCommandPath` to select a
+command for an empty invocation, `context` for hook state, and `helpFormatter`
+to replace help rendering.
 
 
 ## Commands
 
-When working with commands You'll be making either single or group ones!
-They are classes that inherit the `Command` class. A group command inherits the `GroupCommand` class!
+Use `Command` for an executable action and `GroupCommand` for a named branch
+that owns child commands. Start a command in its own file with:
 
-Read the matching API reference before registering command inputs:
+```sh
+mamba command deploy
+```
 
+Declare each input once, register it through `super`, and retain that same
+declaration for `run`. Keep declarations private, then give the parsed value a domain name inside `run`:
 
-When making a group command follow these steps:
+```dart
+final class Deploy extends Command {
+  new() : super(mandatoryPositionals: [_environment], flags: [_force]);
 
-1. Use `mamba command <name> --group`.
-2. Look at the file 
-3. Use the `mamba command <name> --append` to make commands associated with that command
-4. Edit the file with the logic that's needed
+  static final _environment = NormalPositional('environment');
+  static final _force = BooleanFlag(
+    'force',
+    short: 'f',
+    description: 'Replace the current deployment.',
+  );
 
-When making a single command follow these steps:
+  @override
+  String get name => 'deploy';
 
-1. Use `mamba command <name>`.
-2. Look at the file 
-3. Edit the file with the logic that's needed
+  @override
+  String get shortDescription => 'Deploy the application.';
 
-When editing commands make sure that everything that's suppossed to be registered is private!
-Then when they are used to retrive values make sure that the public name is used as the variable name in `run`.
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    final environment = inputs.valueOf(_environment);
+    final force = inputs.valueOf(_force);
+    return 'Deploying to $environment (force: $force).';
+  }
+}
+```
+
+Read the matching API reference before choosing declarations. Register
+required unnamed values in `mandatoryPositionals`, optional unnamed values in
+`discretionaryPositionals`, switches in `flags`, named values in `options`,
+and dotted trees in `accessors`. Use `args` only for values after `--`.
+
+Create a group and append related commands to the same source file with:
+
+```sh
+mamba command workspace --group
+mamba command deploy lib/workspace.dart --append
+```
+
+A group receives its children through `super` and may register inputs for
+itself or propagate inputs to descendants:
+
+```dart
+final class Workspace extends GroupCommand {
+  new() : super([Deploy()]);
+
+  @override
+  String get name => 'workspace';
+
+  @override
+  String get shortDescription => 'Manage workspaces.';
+}
+```
+
+After creating or editing a command, register the root command in the
+executor or the child command in its parent group's command list.
 
 ## References 
 
