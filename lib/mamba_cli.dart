@@ -6,7 +6,7 @@ import 'package:mamba/errors.dart';
 
 /// Scaffolds a project in a parent directory.
 abstract interface class ProjectScaffolder {
-  void scaffold(String packageName);
+  void scaffold(String packageName, String shortDescription);
 }
 
 /// Runs a required project-setup command in a project directory.
@@ -32,7 +32,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
   final GitPrompt _gitPrompt;
 
   @override
-  void scaffold(String packageName) {
+  void scaffold(String packageName, String shortDescription) {
     final projectDirectory = Directory(
       '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
     );
@@ -44,7 +44,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     }
 
     projectDirectory.createSync();
-    _createProjectFiles(projectDirectory, packageName);
+    _createProjectFiles(projectDirectory, packageName, shortDescription);
     _installDependencies(projectDirectory);
     _installMambaSkills(projectDirectory);
 
@@ -53,7 +53,11 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     }
   }
 
-  void _createProjectFiles(Directory projectDirectory, String packageName) {
+  void _createProjectFiles(
+    Directory projectDirectory,
+    String packageName,
+    String shortDescription,
+  ) {
     Directory('${projectDirectory.path}${Platform.pathSeparator}bin')
         .createSync();
 
@@ -71,8 +75,25 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     File(
       '${projectDirectory.path}${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
     ).writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', 'A command-line application.', '1.0.0', []).create().execute(args);\n",
+      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', ${_dartString(shortDescription)}, '1.0.0', []).create().execute(args);\n",
     );
+  }
+
+  String _dartString(String value) {
+    final replacements = <String, String>{
+      r'\': r'\\',
+      "'": r"\'",
+      r'$': r'\$',
+      '\r': r'\r',
+      '\n': r'\n',
+    };
+    final escaped = replacements.entries.fold(
+      value,
+      (source, replacement) =>
+          source.replaceAll(replacement.key, replacement.value),
+    );
+
+    return "'$escaped'";
   }
 
   void _installDependencies(Directory projectDirectory) {
@@ -135,11 +156,15 @@ final class CreateProjectCommand extends Command {
     : _parentDirectory = parentDirectory,
       _projectScaffolder =
           projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
-      super(mandatoryPositionals: [packageName]);
+      super(mandatoryPositionals: [packageName, projectDescription]);
 
   static final packageName = NormalPositional(
     'package-name',
     regExp: RegExp(r'[a-z][a-z0-9_]*'),
+  );
+  static final projectDescription = NormalPositional(
+    'short-description',
+    regExp: RegExp(r'.+'),
   );
 
   final Directory _parentDirectory;
@@ -155,8 +180,9 @@ final class CreateProjectCommand extends Command {
   @override
   String run(ParsedInputs inputs, List<String> args) {
     final name = inputs.valueOf(packageName);
+    final description = inputs.valueOf(projectDescription);
 
-    _projectScaffolder.scaffold(name);
+    _projectScaffolder.scaffold(name, description);
 
     return 'Created Mamba command-line application in '
         '${_parentDirectory.path}${Platform.pathSeparator}$name.';

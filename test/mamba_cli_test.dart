@@ -11,10 +11,12 @@ void main() {
     final projectScaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(directory, projectScaffolder: projectScaffolder),
-    ]).fake().execute(['create', 'demo']);
+    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
 
     expect(result.exitCode, 0);
-    expect(projectScaffolder.packageNames, ['demo']);
+    expect(projectScaffolder.projects, [
+      (packageName: 'demo', shortDescription: 'A demonstration CLI.'),
+    ]);
     expect(
       (result as MambaSuccessResult).output,
       'Created Mamba command-line application in '
@@ -32,7 +34,7 @@ void main() {
       gitPrompt: FakeGitPrompt(shouldInitialize: true),
     );
 
-    projectScaffolder.scaffold('demo');
+    projectScaffolder.scaffold('demo', "Manage Bob's \$tasks.");
 
     final projectDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}demo',
@@ -47,7 +49,7 @@ void main() {
     );
     expect(
       File('${projectDirectory.path}/bin/demo.dart').readAsStringSync(),
-      contains("Executor('demo'"),
+      allOf(contains("Executor('demo'"), contains(r"'Manage Bob\'s \$tasks.'")),
     );
     expect(
       processRunner.invocations
@@ -83,7 +85,7 @@ void main() {
       gitPrompt: FakeGitPrompt(shouldInitialize: false),
     );
 
-    projectScaffolder.scaffold('demo');
+    projectScaffolder.scaffold('demo', 'A demonstration CLI.');
 
     final projectDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}demo',
@@ -117,13 +119,29 @@ void main() {
     Directory('${directory.path}/demo').createSync();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(directory),
-    ]).fake().execute(['create', 'demo']);
+    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
 
     expect(result.exitCode, 1);
     expect(
       (result as MambaFailureResult).message,
       'Cannot create demo: the directory already exists.',
     );
+  });
+
+  test('project command requires a short description', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = FakeProjectScaffolder();
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      CreateProjectCommand(directory, projectScaffolder: projectScaffolder),
+    ]).fake().execute(['create', 'demo']);
+
+    expect(result, isA<MambaFailureResult>());
+    expect(
+      (result as MambaFailureResult).message,
+      'The short-description is required at 1 after this command',
+    );
+    expect(projectScaffolder.projects, isEmpty);
   });
 
   test('binary command scaffolds a process-facing executor', () async {
@@ -470,11 +488,14 @@ void main() {
 }
 
 final class FakeProjectScaffolder implements ProjectScaffolder {
-  final packageNames = <String>[];
+  final projects = <({String packageName, String shortDescription})>[];
 
   @override
-  void scaffold(String packageName) {
-    packageNames.add(packageName);
+  void scaffold(String packageName, String shortDescription) {
+    projects.add((
+      packageName: packageName,
+      shortDescription: shortDescription,
+    ));
   }
 }
 

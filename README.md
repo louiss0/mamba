@@ -54,7 +54,7 @@ The global executable can create a Dart console package and add command
 skeletons:
 
 ```sh
-mamba create my_app
+mamba create my_app "Manage my application."
 # Initialize a Git repository? [y/N]
 cd my_app
 dart run bin/my_app.dart

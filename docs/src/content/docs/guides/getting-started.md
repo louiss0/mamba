@@ -34,11 +34,12 @@ mamba --help
 ## Create a project
 
 Run `mamba create` from the directory that should contain your new project.
-The command takes a package name and creates a directory with that name:
+The command takes a package name and short description, then creates a
+directory with that package name:
 
 ```sh
 cd ~/code
-mamba create my_app
+mamba create my_app "Manage my application."
 # Initialize a Git repository? [y/N]
 cd my_app
 ```
@@ -48,7 +49,8 @@ letters, numbers, and underscores. For example, `my_app` is valid, while
 `MyApp` is not.
 
 If the `mamba` executable is not on your `PATH`, replace
-`mamba create my_app` with `dart pub global run mamba create my_app`.
+`mamba create my_app "Manage my application."` with
+`dart pub global run mamba create my_app "Manage my application."`.
 
 The command automatically runs `dart pub get`, installs Mamba's
 package-provided skills for generic agents and Claude with `dart run skills@
