@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:mamba/built_in_flags.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';

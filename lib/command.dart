@@ -353,29 +353,6 @@ final class CountFlag extends Flag<int> implements DefaultedInput<int> {
   const new(super.name, {super.short, super.description, super.hidden});
 }
 
-/// Declarations Mamba uses for its built-in flags.
-abstract final class MambaBuiltInFlags {
-  static const help = BooleanFlag(
-    'help',
-    short: 'h',
-    description: 'Show this help message.',
-  );
-  static const dryRun = BooleanFlag(
-    'dry-run',
-    description: 'Show what would happen without changing anything.',
-  );
-  static const verbose = CountFlag(
-    'verbose',
-    short: 'v',
-    description: 'Increase output verbosity.',
-  );
-  static const version = BooleanFlag(
-    'version',
-    short: 'V',
-    description: 'Show the application version.',
-  );
-}
-
 sealed class Option<T> extends Input<T> {
   const new(
     this.name, {

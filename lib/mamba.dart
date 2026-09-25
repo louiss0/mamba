@@ -16,6 +16,7 @@ library;
 export 'package:chalkdart/chalk.dart';
 export 'package:yaml_writer/yaml_writer.dart';
 
+export 'built_in_flags.dart';
 export 'command.dart';
 export 'context.dart';
 export 'errors.dart';
