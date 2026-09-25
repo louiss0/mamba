@@ -1,3 +1,11 @@
+## Unreleased
+
+- Made the project short description a required second argument to
+  `mamba create` and used it in the generated executor.
+- Made `MambaBuiltInFlags.dryRun` opt-in instead of registering it on every
+  executor.
+- Moved reusable framework flag declarations into `built_in_flags.dart`.
+
 ## 0.11.0
 
 - Added `mamba binary` for scaffolding process-facing executors.
