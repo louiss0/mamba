@@ -155,3 +155,6 @@ executor or the child command in its parent group's command list.
 - [Options](references/options.md) for scalar, repeatable, paired, selected, or dotted accessor values.
 - [Completions](references/completion-commands.md) for how to register completions 
 - [Hooks](references/hook-runners.md) for how to use hooks
+- [Testing](references/testing.md) before writing or changing command tests;
+  it defines command-tree groups, parameterized cases, input and hook coverage,
+  and complete result assertions.
