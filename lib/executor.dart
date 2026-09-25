@@ -71,7 +71,6 @@ abstract interface class MambaExecutor<T> {
 
 final class Executor {
   static final List<Flag> _defaultFlags = [
-    MambaBuiltInFlags.dryRun,
     MambaBuiltInFlags.verbose,
     MambaBuiltInFlags.version,
   ];

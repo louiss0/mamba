@@ -125,6 +125,7 @@ final class Parser {
             throw MambaParseException(
               "This isn't a registered short flag or option",
             );
+          if (identical(flag, MambaBuiltInFlags.version)) version = true;
           if (flag is BooleanFlag) values[flag] = true;
           if (flag is CountFlag)
             values[flag] = ((values[flag] as int?) ?? 0) + 1;

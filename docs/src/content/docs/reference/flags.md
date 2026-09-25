@@ -6,8 +6,10 @@ description: Make flags in Mamba
 Flags are named inputs that do not take values. Register them in
 `Command.flags` for one command, in `Executor.flags` for the entire command
 tree, or in `GroupCommand.propagatedFlags` for a group and its descendants.
-The executor also registers `--dry-run`, `--verbose` / `-v`, and `--version` /
-`-V` globally; `--help` / `-h` is built into every command registry.
+The executor registers `--verbose` / `-v` and `--version` / `-V` globally;
+`--help` / `-h` is built into every command registry. Register
+`MambaBuiltInFlags.dryRun` explicitly when an application supports
+`--dry-run`.
 
 The examples below show help without its ANSI colors.
 

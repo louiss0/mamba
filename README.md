@@ -337,10 +337,11 @@ name, description, version, and commands, it can receive:
 Commands read an executor accessor through the same retained
 `AccessorListOption` instance passed in `accessors`.
 
-Every executor includes `--help`/`-h`, `--dry-run`, `--verbose`/`-v`, and
-`--version`/`-V`. Mamba parses these values; application code decides what
-`--dry-run` and `--verbose` mean for its own behavior. `--version` prints the
-semantic version supplied to `Executor`.
+Every executor includes `--help`/`-h`, `--verbose`/`-v`, and
+`--version`/`-V`. Register `MambaBuiltInFlags.dryRun` through the executor's
+`flags` parameter when the application supports `--dry-run`. Application code
+decides what dry-run and verbosity mean; `--version` prints the semantic
+version supplied to `Executor`.
 
 ## Examples
 

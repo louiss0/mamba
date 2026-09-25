@@ -21,8 +21,8 @@ Future<void> main(List<String> args) => Executor(
 ).create().execute(args);
 ```
 
-The version must be semantic. Every executor includes help, version, dry-run,
-and verbosity flags.
+The version must be semantic. Every executor includes help, version, and
+verbosity flags. Applications can opt into Mamba's reusable dry-run flag.
 
 ## Define a command
 

@@ -80,7 +80,7 @@ occurrence, including repeated short aliases such as `-vv`.
   group and its descendants.
 - `Executor(..., flags: [...])` makes flags available across the command tree.
 
-Mamba already reserves these built-in declarations:
+Mamba provides these reusable declarations:
 
 | Declaration | Spelling | Value |
 | --- | --- | --- |
@@ -89,9 +89,10 @@ Mamba already reserves these built-in declarations:
 | `MambaBuiltInFlags.verbose` | `--verbose`, `-v` | `int` |
 | `MambaBuiltInFlags.version` | `--version`, `-V` | `bool` |
 
-The executor supplies dry-run, verbose, and version globally. Help is built
-into command registries. Avoid registering inputs with those names or short
-aliases in a scope where they collide.
+The executor supplies verbose and version globally. Help is built into command
+registries. Register `MambaBuiltInFlags.dryRun` through `Executor.flags` when
+the application supports dry-run behavior. Avoid registering inputs with
+reserved names or short aliases in a scope where they collide.
 
 ## Conflicts and presence
 

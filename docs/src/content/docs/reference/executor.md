@@ -132,13 +132,13 @@ running command behavior or requiring the command's ordinary inputs.
 Every executor includes:
 
 - `--help` / `-h`
-- `--dry-run`
 - `--verbose` / `-v`
 - `--version` / `-V`
 
-Mamba parses `--dry-run` and `--verbose`, but application behavior decides
-what they mean. Read them with `MambaBuiltInFlags.dryRun` and
-`MambaBuiltInFlags.verbose` through `ParsedInputs.valueOf`.
+Mamba parses `--verbose`, but application behavior decides what it means. Read
+it with `MambaBuiltInFlags.verbose` through `ParsedInputs.valueOf`. To support
+`--dry-run`, add `MambaBuiltInFlags.dryRun` to the executor's `flags` list and
+read it through the same API.
 
 ## Configuration
 

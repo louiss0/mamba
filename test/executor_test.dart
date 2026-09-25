@@ -232,6 +232,18 @@ final class GlobalAccessorCommand extends Command {
   }
 }
 
+final class DryRunFlagReader extends Command {
+  @override
+  String get name => 'read-flags';
+
+  @override
+  String get shortDescription => 'Read opt-in framework flags.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      '${inputs.valueOf(MambaBuiltInFlags.dryRun)}';
+}
+
 void main() {
   group('MambaException', () {
     test('uses a portable default exit code', () {
@@ -384,21 +396,60 @@ void main() {
     );
   });
 
-  test('renders the application version without running a command', () async {
-    final events = <String>[];
-    final result = await Executor('tool', 'Tool.', '1.2.3', [
-      ResultCommand(events),
-    ]).fake().execute(['--version']);
+  test('does not register dry-run automatically', () async {
+    final result = await Executor(
+      'tool',
+      'Tool.',
+      '1.2.3',
+      const [],
+    ).fake().execute(['--help']);
+
+    expect(
+      result,
+      isA<MambaSuccessResult>().having(
+        (value) => _withoutAnsi(value.output!),
+        'output',
+        allOf(isNot(contains('--dry-run')), contains('--version')),
+      ),
+    );
+  });
+
+  test('makes a registered dry-run flag available to commands', () async {
+    final result = await Executor(
+      'tool',
+      'Tool.',
+      '1.2.3',
+      [DryRunFlagReader()],
+      flags: [MambaBuiltInFlags.dryRun],
+    ).fake().execute(['read-flags', '--dry-run']);
+
     expect(
       result,
       isA<MambaSuccessResult>().having(
         (value) => value.output,
         'output',
-        'tool 1.2.3',
+        'true',
       ),
     );
-    expect(events, isEmpty);
   });
+
+  for (final spelling in ['--version', '-V']) {
+    test('renders the application version for $spelling', () async {
+      final events = <String>[];
+      final result = await Executor('tool', 'Tool.', '1.2.3', [
+        ResultCommand(events),
+      ]).fake().execute([spelling]);
+      expect(
+        result,
+        isA<MambaSuccessResult>().having(
+          (value) => value.output,
+          'output',
+          'tool 1.2.3',
+        ),
+      );
+      expect(events, isEmpty);
+    });
+  }
 
   test('renders application help with the version', () async {
     final result = await Executor(
