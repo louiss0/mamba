@@ -1,4 +1,4 @@
-## Unreleased
+## 0.12.0
 
 - Made the project short description a required second argument to
   `mamba create` and used it in the generated executor.
