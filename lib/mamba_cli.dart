@@ -4,6 +4,9 @@ import 'package:interact/interact.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 
+/// Versions a newly scaffolded application executor.
+const _applicationVersion = '0.0.0';
+
 /// Scaffolds a project in a parent directory.
 abstract interface class ProjectScaffolder {
   void scaffold(String packageName, String shortDescription);
@@ -64,6 +67,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     File('${projectDirectory.path}${Platform.pathSeparator}pubspec.yaml')
         .writeAsStringSync(
           'name: $packageName\n'
+          'description: ${_yamlString(shortDescription)}\n'
           'environment:\n'
           '  sdk: ^3.13.2\n'
           'dependencies:\n'
@@ -75,7 +79,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     File(
       '${projectDirectory.path}${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
     ).writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', ${_dartString(shortDescription)}, '1.0.0', []).create().execute(args);\n",
+      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', ${_dartString(shortDescription)}, '$_applicationVersion', []).create().execute(args);\n",
     );
   }
 
@@ -95,6 +99,10 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
 
     return "'$escaped'";
   }
+
+  /// A single-quoted YAML scalar keeps colons, hashes, and leading spaces from
+  /// changing the meaning of the generated `pubspec.yaml`.
+  String _yamlString(String value) => "'${value.replaceAll("'", "''")}'";
 
   void _installDependencies(Directory projectDirectory) {
     _processRunner.run('dart', ['pub', 'get'], projectDirectory.path);
@@ -222,7 +230,7 @@ final class ScaffoldBinaryCommand extends Command {
     file.writeAsStringSync(
       "import 'package:mamba/mamba.dart';\n\n"
       'Future<void> main(List<String> args) => '
-      "Executor('$name', 'A command-line application.', '1.0.0', [])\n"
+      "Executor('$name', 'A command-line application.', '$_applicationVersion', [])\n"
       '    .create()\n'
       '    .execute(args);\n',
     );

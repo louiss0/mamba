@@ -65,10 +65,11 @@ my_app/
 └── pubspec.yaml
 ```
 
-Its `pubspec.yaml` targets Dart `^3.13.2`, matching Mamba's language version.
+Its `pubspec.yaml` records the short description you supplied and targets Dart
+`^3.13.2`, matching Mamba's language version.
 
-The generated executable uses Mamba's `Executor` and starts with no
-application commands. Run it to see the generated help output:
+The generated executable uses Mamba's `Executor` at version `0.0.0` and starts
+with no application commands. Run it to see the generated help output:
 
 ```sh
 dart run bin/my_app.dart
@@ -166,7 +167,7 @@ import 'package:my_app/greet.dart';
 Future<void> main(List<String> args) => Executor(
   'my_app',
   'A command-line application.',
-  '1.0.0',
+  '0.0.0',
   [GreetCommand()],
 ).create().execute(args);
 ```
@@ -206,7 +207,7 @@ If one command should run when no command name is supplied, pass its path as
 Future<void> main(List<String> args) => Executor(
   'my_app',
   'A command-line application.',
-  '1.0.0',
+  '0.0.0',
   [GreetCommand()],
   defaultCommandPath: ['greet'],
 ).create().execute(args);

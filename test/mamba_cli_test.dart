@@ -43,13 +43,18 @@ void main() {
       File('${projectDirectory.path}/pubspec.yaml').readAsStringSync(),
       allOf(
         contains('name: demo'),
+        contains(r"description: 'Manage Bob''s $tasks.'"),
         contains('sdk: ^3.13.2'),
         contains('dev_dependencies:\n  test: any'),
       ),
     );
     expect(
       File('${projectDirectory.path}/bin/demo.dart').readAsStringSync(),
-      allOf(contains("Executor('demo'"), contains(r"'Manage Bob\'s \$tasks.'")),
+      allOf(
+        contains("Executor('demo'"),
+        contains(r"'Manage Bob\'s \$tasks.'"),
+        contains("'0.0.0'"),
+      ),
     );
     expect(
       processRunner.invocations
@@ -113,6 +118,30 @@ void main() {
     );
   });
 
+  test('project scaffolder quotes a YAML-unsafe package description', () {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: FakeProjectProcessRunner(),
+      gitPrompt: FakeGitPrompt(shouldInitialize: false),
+    );
+
+    projectScaffolder.scaffold('demo', "Manage: Bob's #1 tasks");
+
+    final projectDirectory = Directory(
+      '${directory.path}${Platform.pathSeparator}demo',
+    );
+    expect(
+      File('${projectDirectory.path}/pubspec.yaml').readAsStringSync(),
+      contains(r"description: 'Manage: Bob''s #1 tasks'"),
+    );
+    expect(
+      File('${projectDirectory.path}/bin/demo.dart').readAsStringSync(),
+      contains(r"'Manage: Bob\'s #1 tasks'"),
+    );
+  });
+
   test('project command rejects an existing directory', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
@@ -156,6 +185,7 @@ void main() {
       File('${directory.path}/bin/demo.dart').readAsStringSync(),
       allOf(
         contains("Executor('demo'"),
+        contains("'0.0.0'"),
         contains('.create()'),
         contains('.execute(args)'),
       ),
