@@ -11,6 +11,8 @@
   command that finishes the install when the answer is no.
 - Kept installing Mamba skills for scaffolded projects when their dependencies
   are not installed.
+- Accepted `.` as a `mamba create` package name to scaffold the current
+  directory, which must hold nothing and be named like a Dart package.
 
 ## 0.12.0
 

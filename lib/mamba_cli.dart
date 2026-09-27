@@ -32,33 +32,26 @@ abstract interface class GitPrompt {
   bool confirmsInitialization();
 }
 
-/// Opens every scaffolded section heading, so a project that already carries an
-/// `AGENTS.md` can be told which sections it is missing.
-const _sectionHeadingPrefix = '## ';
+/// The `mamba create` package name that targets the current directory instead
+/// of a new child of it.
+const _currentDirectoryToken = '.';
 
-/// Introduces a freshly scaffolded `AGENTS.md` and nothing else, so the
-/// reconciliation in [_mergedAgentInstructions] has a base to append to.
-const _agentInstructionsPreamble = '''
+/// The Dart package name a scaffolded project is published under.
+const _packageNamePattern = r'[a-z][a-z0-9_]*';
+
+/// Hands Claude Code the same instructions without a second copy to drift.
+const _claudeInstructionsPointer = '@AGENTS.md\n';
+
+/// The instructions every scaffolded project receives.
+const _agentInstructions = '''
 # AGENTS.md
 
 This project is a Mamba command-line application. The `mamba` skill installed
 in this project documents the Mamba API; this file documents driving the
 `mamba` CLI.
-''';
 
-/// Hands Claude Code the same instructions without a second copy to drift.
-const _claudeInstructionsPointer = '@AGENTS.md\n';
+## The mamba CLI
 
-/// One scaffolded block of agent instructions, keyed by the heading that marks
-/// it as present.
-typedef _AgentInstructionSection = ({String heading, String body});
-
-/// The instructions every scaffolded project receives, split so each heading
-/// reconciles on its own.
-const _agentInstructionSections = <_AgentInstructionSection>[
-  (
-    heading: 'The mamba CLI',
-    body: '''
 Four commands write files. Run `mamba --help` for the full surface.
 
 | Command | Writes | Use it to |
@@ -72,11 +65,10 @@ Four commands write files. Run `mamba --help` for the full surface.
 
 `<file>` and `--append` require each other, so pass both or neither. `mamba
 test` mirrors `lib/a/b.dart` to `test/a/b_test.dart` and rejects a source file
-outside `lib/`.''',
-  ),
-  (
-    heading: 'What not to do',
-    body: '''
+outside `lib/`.
+
+## What not to do
+
 - **Do not hand-write `lib/` or `test/` Dart files.** Scaffold each command and
   each suite with `mamba command` and `mamba test`, so imports, class names,
   and mirrored paths stay correct.
@@ -89,29 +81,20 @@ outside `lib/`.''',
   honoured.
 - **Do not expect scaffolding to run the application.** `mamba create` runs
   `dart pub get` and installs the Mamba skills; every other command only writes
-  files.''',
-  ),
-];
+  files.
+''';
 
-/// Returns [existing] with each scaffolded section it lacks appended.
-///
-/// A generated file belongs to the project once written, so a section the
-/// project already carries is left exactly as the project left it.
-String _mergedAgentInstructions(String? existing) {
-  final declared = {
-    for (final line in (existing ?? '').split('\n'))
-      if (line.startsWith(_sectionHeadingPrefix))
-        line.substring(_sectionHeadingPrefix.length).trim(),
-  };
+/// The final path segment of [uri], skipping the empty segment a directory's
+/// trailing separator leaves behind.
+String? _lastPathSegment(Uri uri) =>
+    uri.pathSegments.where((segment) => segment.isNotEmpty).lastOrNull;
 
-  final missing = _agentInstructionSections
-      .where((section) => !declared.contains(section.heading))
-      .map(
-        (section) => '\n## ${section.heading}\n\n${section.body.trimRight()}\n',
-      )
-      .join();
+/// Where a scaffolded project lands and the package name it is published under.
+final class ProjectTarget {
+  new(this.directory, this.packageName);
 
-  return (existing ?? _agentInstructionsPreamble) + missing;
+  final Directory directory;
+  final String packageName;
 }
 
 final class DirectoryProjectScaffolder implements ProjectScaffolder {
@@ -128,75 +111,101 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     required bool installDependencies,
     required bool initializeGitRepository,
   }) {
-    final projectDirectory = Directory(
-      '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
-    );
+    final target = _createTarget(packageName);
 
-    if (projectDirectory.existsSync()) {
-      throw MambaException(
-        'Cannot create $packageName: the directory already exists.',
-      );
-    }
-
-    projectDirectory.createSync();
-    _createProjectFiles(projectDirectory, packageName, shortDescription);
+    _createProjectFiles(target, shortDescription);
 
     if (installDependencies) {
-      _installDependencies(projectDirectory);
+      _installDependencies(target.directory);
     }
 
     // Agent skills are installed for whoever reads the project next, so they
     // follow the project rather than its Dart dependency graph.
-    _installMambaSkills(projectDirectory);
+    _installMambaSkills(target.directory);
 
     if (initializeGitRepository) {
-      _initializeGitRepository(projectDirectory);
+      _initializeGitRepository(target.directory);
     }
   }
 
-  void _createProjectFiles(
-    Directory projectDirectory,
-    String packageName,
-    String shortDescription,
-  ) {
-    Directory('${projectDirectory.path}${Platform.pathSeparator}bin')
-        .createSync();
+  /// Claims the directory a [packageName] names, creating it when the name is
+  /// a new child and checking it when the name is the current directory.
+  ProjectTarget _createTarget(String packageName) {
+    if (packageName != _currentDirectoryToken) {
+      final directory = Directory(
+        '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
+      );
 
-    File('${projectDirectory.path}${Platform.pathSeparator}pubspec.yaml')
-        .writeAsStringSync(
-          'name: $packageName\n'
-          'description: ${_yamlString(shortDescription)}\n'
-          'environment:\n'
-          '  sdk: ^3.13.2\n'
-          'dependencies:\n'
-          '  mamba: any\n'
-          'dev_dependencies:\n'
-          '  test: any\n',
+      if (directory.existsSync()) {
+        throw MambaException(
+          'Cannot create $packageName: the directory already exists.',
         );
+      }
+
+      directory.createSync();
+
+      return ProjectTarget(directory, packageName);
+    }
+
+    // The current directory is claimed rather than created, so scaffolding into
+    // it has to prove nothing already lives there.
+    final occupied = _parentDirectory
+        .listSync()
+        .map((entry) => _lastPathSegment(entry.uri) ?? '')
+        .toList();
+
+    if (occupied.isNotEmpty) {
+      throw MambaException(
+        'Cannot scaffold into the current directory: it already contains '
+        '${occupied.join(', ')}.',
+      );
+    }
+
+    return ProjectTarget(_parentDirectory, _currentDirectoryPackageName());
+  }
+
+  /// Reads the package name off the current directory, which has to be one the
+  /// generated `pubspec.yaml` and executable can be named after.
+  String _currentDirectoryPackageName() {
+    final name = _lastPathSegment(_parentDirectory.absolute.uri) ?? '';
+
+    if (!RegExp('^$_packageNamePattern\$').hasMatch(name)) {
+      throw MambaException(
+        'Cannot scaffold into the current directory: "$name" is not a valid '
+        'Dart package name. Pass a name instead of $_currentDirectoryToken.',
+      );
+    }
+
+    return name;
+  }
+
+  void _createProjectFiles(ProjectTarget target, String shortDescription) {
+    final projectRoot = target.directory.path;
+    final packageName = target.packageName;
+
+    Directory('$projectRoot${Platform.pathSeparator}bin').createSync();
+
+    File('$projectRoot${Platform.pathSeparator}pubspec.yaml').writeAsStringSync(
+      'name: $packageName\n'
+      'description: ${_yamlString(shortDescription)}\n'
+      'environment:\n'
+      '  sdk: ^3.13.2\n'
+      'dependencies:\n'
+      '  mamba: any\n'
+      'dev_dependencies:\n'
+      '  test: any\n',
+    );
 
     File(
-      '${projectDirectory.path}${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
+      '$projectRoot${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
     ).writeAsStringSync(
       "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', ${_dartString(shortDescription)}, '$_applicationVersion', []).create().execute(args);\n",
     );
 
-    _writeAgentInstructions(projectDirectory);
-  }
-
-  void _writeAgentInstructions(Directory projectDirectory) {
-    final projectRoot = projectDirectory.path;
-    final agentsFile = File('$projectRoot${Platform.pathSeparator}AGENTS.md');
-    final declaredAgents = agentsFile.existsSync()
-        ? agentsFile.readAsStringSync()
-        : null;
-
-    agentsFile.writeAsStringSync(_mergedAgentInstructions(declaredAgents));
-
-    final claudeFile = File('$projectRoot${Platform.pathSeparator}CLAUDE.md');
-
-    if (!claudeFile.existsSync()) {
-      claudeFile.writeAsStringSync(_claudeInstructionsPointer);
-    }
+    File('$projectRoot${Platform.pathSeparator}AGENTS.md')
+        .writeAsStringSync(_agentInstructions);
+    File('$projectRoot${Platform.pathSeparator}CLAUDE.md')
+        .writeAsStringSync(_claudeInstructionsPointer);
   }
 
   String _dartString(String value) {
@@ -304,7 +313,10 @@ final class CreateProjectCommand extends Command {
 
   static final packageName = NormalPositional(
     'package-name',
-    regExp: RegExp(r'[a-z][a-z0-9_]*'),
+    regExp: RegExp('\\.|$_packageNamePattern'),
+    description:
+        'Name for the new package, or $_currentDirectoryToken to use the '
+        'current directory.',
   );
   static final projectDescription = NormalPositional(
     'short-description',
@@ -350,8 +362,9 @@ final class CreateProjectCommand extends Command {
       initializeGitRepository: initializesGitRepository,
     );
 
-    final projectPath =
-        '${_parentDirectory.path}${Platform.pathSeparator}$name';
+    final projectPath = name == _currentDirectoryToken
+        ? _parentDirectory.path
+        : '${_parentDirectory.path}${Platform.pathSeparator}$name';
 
     return [
       'Created Mamba command-line application in $projectPath.',
