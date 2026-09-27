@@ -7,14 +7,24 @@ import 'package:mamba/errors.dart';
 /// Versions a newly scaffolded application executor.
 const _applicationVersion = '0.0.0';
 
-/// Scaffolds a project in a parent directory.
+/// Creates a project and performs the setup its answers select.
 abstract interface class ProjectScaffolder {
-  void scaffold(String packageName, String shortDescription);
+  void scaffold(
+    String packageName,
+    String shortDescription, {
+    required bool installDependencies,
+    required bool initializeGitRepository,
+  });
 }
 
 /// Runs a required project-setup command in a project directory.
 abstract interface class ProjectProcessRunner {
   void run(String executable, List<String> arguments, String workingDirectory);
+}
+
+/// Asks whether a new project should have its dependencies installed.
+abstract interface class InstallPrompt {
+  bool confirmsInstallation();
 }
 
 /// Asks whether a new project should be initialized as a Git repository.
@@ -105,19 +115,19 @@ String _mergedAgentInstructions(String? existing) {
 }
 
 final class DirectoryProjectScaffolder implements ProjectScaffolder {
-  new(
-    this._parentDirectory, {
-    ProjectProcessRunner? processRunner,
-    GitPrompt? gitPrompt,
-  }) : _processRunner = processRunner ?? SystemProjectProcessRunner(),
-       _gitPrompt = gitPrompt ?? InteractGitPrompt();
+  new(this._parentDirectory, {ProjectProcessRunner? processRunner})
+    : _processRunner = processRunner ?? SystemProjectProcessRunner();
 
   final Directory _parentDirectory;
   final ProjectProcessRunner _processRunner;
-  final GitPrompt _gitPrompt;
 
   @override
-  void scaffold(String packageName, String shortDescription) {
+  void scaffold(
+    String packageName,
+    String shortDescription, {
+    required bool installDependencies,
+    required bool initializeGitRepository,
+  }) {
     final projectDirectory = Directory(
       '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
     );
@@ -130,10 +140,16 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
 
     projectDirectory.createSync();
     _createProjectFiles(projectDirectory, packageName, shortDescription);
-    _installDependencies(projectDirectory);
+
+    if (installDependencies) {
+      _installDependencies(projectDirectory);
+    }
+
+    // Agent skills are installed for whoever reads the project next, so they
+    // follow the project rather than its Dart dependency graph.
     _installMambaSkills(projectDirectory);
 
-    if (_gitPrompt.confirmsInitialization()) {
+    if (initializeGitRepository) {
       _initializeGitRepository(projectDirectory);
     }
   }
@@ -249,6 +265,17 @@ final class SystemProjectProcessRunner implements ProjectProcessRunner {
   }
 }
 
+final class InteractInstallPrompt implements InstallPrompt {
+  /// Installing is the answer that leaves a runnable project, so it is the
+  /// answer a bare Enter produces.
+  @override
+  bool confirmsInstallation() => Confirm(
+    prompt: 'Install dependencies?',
+    defaultValue: true,
+    waitForNewLine: true,
+  ).interact();
+}
+
 final class InteractGitPrompt implements GitPrompt {
   @override
   bool confirmsInitialization() => Confirm(
@@ -260,11 +287,20 @@ final class InteractGitPrompt implements GitPrompt {
 
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
-  new(Directory parentDirectory, {ProjectScaffolder? projectScaffolder})
-    : _parentDirectory = parentDirectory,
-      _projectScaffolder =
-          projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
-      super(mandatoryPositionals: [packageName, projectDescription]);
+  new(
+    Directory parentDirectory, {
+    ProjectScaffolder? projectScaffolder,
+    InstallPrompt? installPrompt,
+    GitPrompt? gitPrompt,
+  }) : _parentDirectory = parentDirectory,
+       _projectScaffolder =
+           projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
+       _installPrompt = installPrompt ?? InteractInstallPrompt(),
+       _gitPrompt = gitPrompt ?? InteractGitPrompt(),
+       super(
+         mandatoryPositionals: [packageName, projectDescription],
+         flags: [install, initializeGit],
+       );
 
   static final packageName = NormalPositional(
     'package-name',
@@ -274,9 +310,19 @@ final class CreateProjectCommand extends Command {
     'short-description',
     regExp: RegExp(r'.+'),
   );
+  static final install = BooleanFlag(
+    'install',
+    description: 'Install dependencies without prompting.',
+  );
+  static final initializeGit = BooleanFlag(
+    'git',
+    description: 'Initialize a Git repository without prompting.',
+  );
 
   final Directory _parentDirectory;
   final ProjectScaffolder _projectScaffolder;
+  final InstallPrompt _installPrompt;
+  final GitPrompt _gitPrompt;
 
   @override
   String get name => 'create';
@@ -290,10 +336,28 @@ final class CreateProjectCommand extends Command {
     final name = inputs.valueOf(packageName);
     final description = inputs.valueOf(projectDescription);
 
-    _projectScaffolder.scaffold(name, description);
+    // A flag answers its own step, so the prompt is only reached when the
+    // answer is still open.
+    final installsDependencies =
+        inputs.valueOf(install) || _installPrompt.confirmsInstallation();
+    final initializesGitRepository =
+        inputs.valueOf(initializeGit) || _gitPrompt.confirmsInitialization();
 
-    return 'Created Mamba command-line application in '
-        '${_parentDirectory.path}${Platform.pathSeparator}$name.';
+    _projectScaffolder.scaffold(
+      name,
+      description,
+      installDependencies: installsDependencies,
+      initializeGitRepository: initializesGitRepository,
+    );
+
+    final projectPath =
+        '${_parentDirectory.path}${Platform.pathSeparator}$name';
+
+    return [
+      'Created Mamba command-line application in $projectPath.',
+      if (!installsDependencies)
+        'Run `dart pub get` in $projectPath to install its dependencies.',
+    ].join('\n');
   }
 }
 

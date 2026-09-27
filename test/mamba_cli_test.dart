@@ -9,13 +9,27 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final projectScaffolder = FakeProjectScaffolder();
+    final installPrompt = FakeInstallPrompt(shouldInstall: true);
+    final gitPrompt = FakeGitPrompt(shouldInitialize: false);
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(directory, projectScaffolder: projectScaffolder),
+      CreateProjectCommand(
+        directory,
+        projectScaffolder: projectScaffolder,
+        installPrompt: installPrompt,
+        gitPrompt: gitPrompt,
+      ),
     ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
 
     expect(result.exitCode, 0);
+    expect(installPrompt.questions, 1);
+    expect(gitPrompt.questions, 1);
     expect(projectScaffolder.projects, [
-      (packageName: 'demo', shortDescription: 'A demonstration CLI.'),
+      (
+        packageName: 'demo',
+        shortDescription: 'A demonstration CLI.',
+        installDependencies: true,
+        initializeGitRepository: false,
+      ),
     ]);
     expect(
       (result as MambaSuccessResult).output,
@@ -31,10 +45,14 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: processRunner,
-      gitPrompt: FakeGitPrompt(shouldInitialize: true),
     );
 
-    projectScaffolder.scaffold('demo', "Manage Bob's \$tasks.");
+    projectScaffolder.scaffold(
+      'demo',
+      "Manage Bob's \$tasks.",
+      installDependencies: true,
+      initializeGitRepository: true,
+    );
 
     final projectDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}demo',
@@ -86,10 +104,14 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: FakeProjectProcessRunner(),
-      gitPrompt: FakeGitPrompt(shouldInitialize: false),
     );
 
-    projectScaffolder.scaffold('demo', 'A demonstration CLI.');
+    projectScaffolder.scaffold(
+      'demo',
+      'A demonstration CLI.',
+      installDependencies: true,
+      initializeGitRepository: false,
+    );
 
     final projectDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}demo',
@@ -110,6 +132,33 @@ void main() {
     );
   });
 
+  test('project scaffolder installs agent skills without dependencies', () {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final processRunner = FakeProjectProcessRunner();
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: processRunner,
+    );
+
+    projectScaffolder.scaffold(
+      'demo',
+      'A demonstration CLI.',
+      installDependencies: false,
+      initializeGitRepository: false,
+    );
+
+    expect(
+      processRunner.invocations
+          .map((invocation) => invocation.$2.join(' '))
+          .toList(),
+      [
+        'run skills@ get --all -p mamba --agent generic',
+        'run skills@ get --all -p mamba --agent claude',
+      ],
+    );
+  });
+
   test('project scaffolder skips Git when the user declines', () {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
@@ -117,10 +166,14 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: processRunner,
-      gitPrompt: FakeGitPrompt(shouldInitialize: false),
     );
 
-    projectScaffolder.scaffold('demo', 'A demonstration CLI.');
+    projectScaffolder.scaffold(
+      'demo',
+      'A demonstration CLI.',
+      installDependencies: true,
+      initializeGitRepository: false,
+    );
 
     final projectDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}demo',
@@ -154,10 +207,14 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: FakeProjectProcessRunner(),
-      gitPrompt: FakeGitPrompt(shouldInitialize: false),
     );
 
-    projectScaffolder.scaffold('demo', "Manage: Bob's #1 tasks");
+    projectScaffolder.scaffold(
+      'demo',
+      "Manage: Bob's #1 tasks",
+      installDependencies: true,
+      initializeGitRepository: false,
+    );
 
     final projectDirectory = Directory(
       '${directory.path}${Platform.pathSeparator}demo',
@@ -172,12 +229,68 @@ void main() {
     );
   });
 
+  test('project command answers both setup steps from flags alone', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = FakeProjectScaffolder();
+    final installPrompt = FakeInstallPrompt(shouldInstall: false);
+    final gitPrompt = FakeGitPrompt(shouldInitialize: false);
+    final result =
+        await Executor('tool', 'Tool.', '1.0.0', [
+          CreateProjectCommand(
+            directory,
+            projectScaffolder: projectScaffolder,
+            installPrompt: installPrompt,
+            gitPrompt: gitPrompt,
+          ),
+        ]).fake().execute([
+          'create',
+          'demo',
+          'A demonstration CLI.',
+          '--install',
+          '--git',
+        ]);
+
+    expect(result.exitCode, 0);
+    expect(installPrompt.questions, 0, reason: 'the flag answered the install');
+    expect(gitPrompt.questions, 0, reason: 'the flag answered Git');
+    expect(projectScaffolder.projects.single.installDependencies, isTrue);
+    expect(projectScaffolder.projects.single.initializeGitRepository, isTrue);
+    expect(
+      (result as MambaSuccessResult).output,
+      isNot(contains('dart pub get')),
+    );
+  });
+
+  test('project command reports what finishes a declined install', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = FakeProjectScaffolder();
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      CreateProjectCommand(
+        directory,
+        projectScaffolder: projectScaffolder,
+        installPrompt: FakeInstallPrompt(shouldInstall: false),
+        gitPrompt: FakeGitPrompt(shouldInitialize: true),
+      ),
+    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
+
+    final projectPath = '${directory.path}${Platform.pathSeparator}demo';
+    expect((result as MambaSuccessResult).output, '''
+Created Mamba command-line application in $projectPath.
+Run `dart pub get` in $projectPath to install its dependencies.''');
+  });
+
   test('project command rejects an existing directory', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     Directory('${directory.path}/demo').createSync();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(directory),
+      CreateProjectCommand(
+        directory,
+        installPrompt: FakeInstallPrompt(shouldInstall: true),
+        gitPrompt: FakeGitPrompt(shouldInitialize: false),
+      ),
     ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
 
     expect(result.exitCode, 1);
@@ -192,7 +305,12 @@ void main() {
     addTearDown(() => directory.deleteSync(recursive: true));
     final projectScaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(directory, projectScaffolder: projectScaffolder),
+      CreateProjectCommand(
+        directory,
+        projectScaffolder: projectScaffolder,
+        installPrompt: FakeInstallPrompt(shouldInstall: true),
+        gitPrompt: FakeGitPrompt(shouldInitialize: false),
+      ),
     ]).fake().execute(['create', 'demo']);
 
     expect(result, isA<MambaFailureResult>());
@@ -548,13 +666,28 @@ void main() {
 }
 
 final class FakeProjectScaffolder implements ProjectScaffolder {
-  final projects = <({String packageName, String shortDescription})>[];
+  final projects =
+      <
+        ({
+          String packageName,
+          String shortDescription,
+          bool installDependencies,
+          bool initializeGitRepository,
+        })
+      >[];
 
   @override
-  void scaffold(String packageName, String shortDescription) {
+  void scaffold(
+    String packageName,
+    String shortDescription, {
+    required bool installDependencies,
+    required bool initializeGitRepository,
+  }) {
     projects.add((
       packageName: packageName,
       shortDescription: shortDescription,
+      installDependencies: installDependencies,
+      initializeGitRepository: initializeGitRepository,
     ));
   }
 }
@@ -568,11 +701,28 @@ final class FakeProjectProcessRunner implements ProjectProcessRunner {
   }
 }
 
-final class FakeGitPrompt implements GitPrompt {
-  const new({required this.shouldInitialize});
+final class FakeInstallPrompt implements InstallPrompt {
+  new({required this.shouldInstall});
 
-  final bool shouldInitialize;
+  final bool shouldInstall;
+  var questions = 0;
 
   @override
-  bool confirmsInitialization() => shouldInitialize;
+  bool confirmsInstallation() {
+    questions++;
+    return shouldInstall;
+  }
+}
+
+final class FakeGitPrompt implements GitPrompt {
+  new({required this.shouldInitialize});
+
+  final bool shouldInitialize;
+  var questions = 0;
+
+  @override
+  bool confirmsInitialization() {
+    questions++;
+    return shouldInitialize;
+  }
 }

@@ -5,6 +5,12 @@
   `pubspec.yaml` `description` field.
 - Wrote an `AGENTS.md` of Mamba CLI usage and a `CLAUDE.md` pointer to it into
   every scaffolded project.
+- Added a `--install` and a `--git` flag to `mamba create` so either setup step
+  can be answered without prompting.
+- Asked whether to install dependencies during `mamba create`, and reported the
+  command that finishes the install when the answer is no.
+- Kept installing Mamba skills for scaffolded projects when their dependencies
+  are not installed.
 
 ## 0.12.0
 
