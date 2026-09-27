@@ -3,6 +3,8 @@
 - Started scaffolded application executables at version `0.0.0`.
 - Wrote the `mamba create` short description into the generated
   `pubspec.yaml` `description` field.
+- Wrote an `AGENTS.md` of Mamba CLI usage and a `CLAUDE.md` pointer to it into
+  every scaffolded project.
 
 ## 0.12.0
 

@@ -22,6 +22,88 @@ abstract interface class GitPrompt {
   bool confirmsInitialization();
 }
 
+/// Opens every scaffolded section heading, so a project that already carries an
+/// `AGENTS.md` can be told which sections it is missing.
+const _sectionHeadingPrefix = '## ';
+
+/// Introduces a freshly scaffolded `AGENTS.md` and nothing else, so the
+/// reconciliation in [_mergedAgentInstructions] has a base to append to.
+const _agentInstructionsPreamble = '''
+# AGENTS.md
+
+This project is a Mamba command-line application. The `mamba` skill installed
+in this project documents the Mamba API; this file documents driving the
+`mamba` CLI.
+''';
+
+/// Hands Claude Code the same instructions without a second copy to drift.
+const _claudeInstructionsPointer = '@AGENTS.md\n';
+
+/// One scaffolded block of agent instructions, keyed by the heading that marks
+/// it as present.
+typedef _AgentInstructionSection = ({String heading, String body});
+
+/// The instructions every scaffolded project receives, split so each heading
+/// reconciles on its own.
+const _agentInstructionSections = <_AgentInstructionSection>[
+  (
+    heading: 'The mamba CLI',
+    body: '''
+Four commands write files. Run `mamba --help` for the full surface.
+
+| Command | Writes | Use it to |
+| --- | --- | --- |
+| `mamba command <name>` | `lib/<name>.dart` | Start a command. |
+| `mamba command <name> --group` | `lib/<name>.dart` | Start a command that owns child commands. |
+| `mamba command <name> --test` | `lib/<name>.dart` and its suite | Start a command with tests. |
+| `mamba command <name> --append <file>` | appends to `<file>` | Add a command to an existing file. |
+| `mamba test <name>` | `test/<name>_test.dart` | Add a suite for an existing command. |
+| `mamba binary <name>` | `bin/<name>.dart` | Add a second executable. |
+
+`<file>` and `--append` require each other, so pass both or neither. `mamba
+test` mirrors `lib/a/b.dart` to `test/a/b_test.dart` and rejects a source file
+outside `lib/`.''',
+  ),
+  (
+    heading: 'What not to do',
+    body: '''
+- **Do not hand-write `lib/` or `test/` Dart files.** Scaffold each command and
+  each suite with `mamba command` and `mamba test`, so imports, class names,
+  and mirrored paths stay correct.
+- **Do not leave a scaffolded command unwired.** It runs nothing until its
+  instance reaches the executor's command list or its parent's constructor.
+- **Do not call `Executor.fake()` from `bin/`.** Call `create()` in the
+  executable and keep `fake()` in `test/`.
+- **Do not report a rejected invocation by returning a string.** Return the
+  success message, and throw `MambaException` when the invocation cannot be
+  honoured.
+- **Do not expect scaffolding to run the application.** `mamba create` runs
+  `dart pub get` and installs the Mamba skills; every other command only writes
+  files.''',
+  ),
+];
+
+/// Returns [existing] with each scaffolded section it lacks appended.
+///
+/// A generated file belongs to the project once written, so a section the
+/// project already carries is left exactly as the project left it.
+String _mergedAgentInstructions(String? existing) {
+  final declared = {
+    for (final line in (existing ?? '').split('\n'))
+      if (line.startsWith(_sectionHeadingPrefix))
+        line.substring(_sectionHeadingPrefix.length).trim(),
+  };
+
+  final missing = _agentInstructionSections
+      .where((section) => !declared.contains(section.heading))
+      .map(
+        (section) => '\n## ${section.heading}\n\n${section.body.trimRight()}\n',
+      )
+      .join();
+
+  return (existing ?? _agentInstructionsPreamble) + missing;
+}
+
 final class DirectoryProjectScaffolder implements ProjectScaffolder {
   new(
     this._parentDirectory, {
@@ -81,6 +163,24 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     ).writeAsStringSync(
       "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', ${_dartString(shortDescription)}, '$_applicationVersion', []).create().execute(args);\n",
     );
+
+    _writeAgentInstructions(projectDirectory);
+  }
+
+  void _writeAgentInstructions(Directory projectDirectory) {
+    final projectRoot = projectDirectory.path;
+    final agentsFile = File('$projectRoot${Platform.pathSeparator}AGENTS.md');
+    final declaredAgents = agentsFile.existsSync()
+        ? agentsFile.readAsStringSync()
+        : null;
+
+    agentsFile.writeAsStringSync(_mergedAgentInstructions(declaredAgents));
+
+    final claudeFile = File('$projectRoot${Platform.pathSeparator}CLAUDE.md');
+
+    if (!claudeFile.existsSync()) {
+      claudeFile.writeAsStringSync(_claudeInstructionsPointer);
+    }
   }
 
   String _dartString(String value) {

@@ -80,6 +80,36 @@ void main() {
     );
   });
 
+  test('project scaffolder points Claude Code at the agent instructions', () {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: FakeProjectProcessRunner(),
+      gitPrompt: FakeGitPrompt(shouldInitialize: false),
+    );
+
+    projectScaffolder.scaffold('demo', 'A demonstration CLI.');
+
+    final projectDirectory = Directory(
+      '${directory.path}${Platform.pathSeparator}demo',
+    );
+    expect(
+      File('${projectDirectory.path}/AGENTS.md').readAsStringSync(),
+      allOf(
+        contains('# AGENTS.md'),
+        contains('## The mamba CLI'),
+        contains('## What not to do'),
+        contains(r'mamba command <name> --append <file>'),
+        contains('throw `MambaException`'),
+      ),
+    );
+    expect(
+      File('${projectDirectory.path}/CLAUDE.md').readAsStringSync(),
+      '@AGENTS.md\n',
+    );
+  });
+
   test('project scaffolder skips Git when the user declines', () {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
