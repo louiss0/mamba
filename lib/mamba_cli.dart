@@ -22,6 +22,14 @@ abstract interface class ProjectProcessRunner {
   void run(String executable, List<String> arguments, String workingDirectory);
 }
 
+/// Puts a generated Dart source into the shape `dart format` writes.
+///
+/// The generators interpolate values of unknown length into fixed positions, so
+/// only the formatter knows where the eighty column limit falls.
+abstract interface class SourceFormatter {
+  void formatSource(String path);
+}
+
 /// Asks whether a new project should have its dependencies installed.
 abstract interface class InstallPrompt {
   bool confirmsInstallation();
@@ -41,6 +49,53 @@ const _packageNamePattern = r'[a-z][a-z0-9_]*';
 
 /// Hands Claude Code the same instructions without a second copy to drift.
 const _claudeInstructionsPointer = '@AGENTS.md\n';
+
+/// The analysis configuration a scaffolded project is held to.
+///
+/// Without it `dart analyze` reports nothing, because a package with no
+/// configuration has no lints to apply.
+const _analysisOptions = '''
+include: package:lints/recommended.yaml
+
+analyzer:
+  errors:
+    annotate_overrides: ignore
+''';
+
+/// A single-quoted Dart string literal for [value].
+String _dartString(String value) {
+  final replacements = <String, String>{
+    r'\': r'\\',
+    "'": r"\'",
+    r'$': r'\$',
+    '\r': r'\r',
+    '\n': r'\n',
+  };
+  final escaped = replacements.entries.fold(
+    value,
+    (source, replacement) =>
+        source.replaceAll(replacement.key, replacement.value),
+  );
+
+  return "'$escaped'";
+}
+
+/// A single-quoted YAML scalar keeps colons, hashes, and leading spaces from
+/// changing the meaning of the generated `pubspec.yaml`.
+String _yamlString(String value) => "'${value.replaceAll("'", "''")}'";
+
+/// The executable source for a Mamba application.
+///
+/// It is laid out the way `dart format` writes it, so a generated project is
+/// format-clean before anyone edits it.
+String _executableSource(String executableName, String shortDescription) =>
+    "import 'package:mamba/mamba.dart';\n\n"
+    'Future<void> main(List<String> args) => Executor(\n'
+    '  ${_dartString(executableName)},\n'
+    '  ${_dartString(shortDescription)},\n'
+    "  '$_applicationVersion',\n"
+    '  [],\n'
+    ').create().execute(args);\n';
 
 /// The instructions every scaffolded project receives.
 const _agentInstructions = '''
@@ -98,11 +153,16 @@ final class ProjectTarget {
 }
 
 final class DirectoryProjectScaffolder implements ProjectScaffolder {
-  new(this._parentDirectory, {ProjectProcessRunner? processRunner})
-    : _processRunner = processRunner ?? SystemProjectProcessRunner();
+  new(
+    this._parentDirectory, {
+    ProjectProcessRunner? processRunner,
+    SourceFormatter? sourceFormatter,
+  }) : _processRunner = processRunner ?? SystemProjectProcessRunner(),
+       _sourceFormatter = sourceFormatter ?? SystemSourceFormatter();
 
   final Directory _parentDirectory;
   final ProjectProcessRunner _processRunner;
+  final SourceFormatter _sourceFormatter;
 
   @override
   void scaffold(
@@ -193,41 +253,24 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
       'dependencies:\n'
       '  mamba: any\n'
       'dev_dependencies:\n'
+      '  lints: any\n'
       '  test: any\n',
     );
 
     File(
       '$projectRoot${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
-    ).writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\nFuture<void> main(List<String> args) => Executor('$packageName', ${_dartString(shortDescription)}, '$_applicationVersion', []).create().execute(args);\n",
+    ).writeAsStringSync(_executableSource(packageName, shortDescription));
+    _sourceFormatter.formatSource(
+      '$projectRoot${Platform.pathSeparator}bin${Platform.pathSeparator}$packageName.dart',
     );
 
+    File('$projectRoot${Platform.pathSeparator}analysis_options.yaml')
+        .writeAsStringSync(_analysisOptions);
     File('$projectRoot${Platform.pathSeparator}AGENTS.md')
         .writeAsStringSync(_agentInstructions);
     File('$projectRoot${Platform.pathSeparator}CLAUDE.md')
         .writeAsStringSync(_claudeInstructionsPointer);
   }
-
-  String _dartString(String value) {
-    final replacements = <String, String>{
-      r'\': r'\\',
-      "'": r"\'",
-      r'$': r'\$',
-      '\r': r'\r',
-      '\n': r'\n',
-    };
-    final escaped = replacements.entries.fold(
-      value,
-      (source, replacement) =>
-          source.replaceAll(replacement.key, replacement.value),
-    );
-
-    return "'$escaped'";
-  }
-
-  /// A single-quoted YAML scalar keeps colons, hashes, and leading spaces from
-  /// changing the meaning of the generated `pubspec.yaml`.
-  String _yamlString(String value) => "'${value.replaceAll("'", "''")}'";
 
   void _installDependencies(Directory projectDirectory) {
     _processRunner.run('dart', ['pub', 'get'], projectDirectory.path);
@@ -271,6 +314,15 @@ final class SystemProjectProcessRunner implements ProjectProcessRunner {
     if (result.exitCode != 0) {
       throw MambaException('Failed to run $executable ${arguments.join(' ')}.');
     }
+  }
+}
+
+final class SystemSourceFormatter implements SourceFormatter {
+  @override
+  void formatSource(String path) {
+    // A rewrite is the expected outcome, so its exit code is not a failure; only
+    // the formatter being unusable is.
+    Process.runSync('dart', ['format', path]);
   }
 }
 
@@ -376,7 +428,9 @@ final class CreateProjectCommand extends Command {
 
 /// Generates an executable backed by a process-facing Mamba executor.
 final class ScaffoldBinaryCommand extends Command {
-  new(this._parentDirectory) : super(mandatoryPositionals: [binaryName]);
+  new(this._parentDirectory, {SourceFormatter? sourceFormatter})
+    : _sourceFormatter = sourceFormatter ?? SystemSourceFormatter(),
+      super(mandatoryPositionals: [binaryName]);
 
   static final binaryName = NormalPositional(
     'name',
@@ -384,6 +438,7 @@ final class ScaffoldBinaryCommand extends Command {
   );
 
   final Directory _parentDirectory;
+  final SourceFormatter _sourceFormatter;
 
   @override
   String get name => 'binary';
@@ -405,12 +460,9 @@ final class ScaffoldBinaryCommand extends Command {
 
     file.parent.createSync(recursive: true);
     file.writeAsStringSync(
-      "import 'package:mamba/mamba.dart';\n\n"
-      'Future<void> main(List<String> args) => '
-      "Executor('$name', 'A command-line application.', '$_applicationVersion', [])\n"
-      '    .create()\n'
-      '    .execute(args);\n',
+      _executableSource(name, 'A command-line application.'),
     );
+    _sourceFormatter.formatSource(file.path);
 
     return 'Created executable in ${file.path}.';
   }
@@ -418,8 +470,9 @@ final class ScaffoldBinaryCommand extends Command {
 
 /// Generates a test suite for a scaffolded command.
 final class ScaffoldTestCommand extends Command {
-  new(this._parentDirectory)
-    : super(
+  new(this._parentDirectory, {SourceFormatter? sourceFormatter})
+    : _sourceFormatter = sourceFormatter ?? SystemSourceFormatter(),
+      super(
         mandatoryPositionals: [commandName],
         discretionaryPositionals: [sourcePath],
         flags: [append],
@@ -441,6 +494,7 @@ final class ScaffoldTestCommand extends Command {
   );
 
   final Directory _parentDirectory;
+  final SourceFormatter _sourceFormatter;
 
   @override
   String get name => 'test';
@@ -565,14 +619,17 @@ final class ScaffoldTestCommand extends Command {
       );
     }
 
+    _sourceFormatter.formatSource(testFile.path);
+
     return testFile;
   }
 }
 
 /// Generates a typed command skeleton.
 final class ScaffoldCommand extends Command {
-  new(this._parentDirectory)
-    : super(
+  new(this._parentDirectory, {SourceFormatter? sourceFormatter})
+    : _sourceFormatter = sourceFormatter ?? SystemSourceFormatter(),
+      super(
         mandatoryPositionals: [commandName],
         discretionaryPositionals: [fileName],
         flags: [group, append, test],
@@ -604,6 +661,7 @@ final class ScaffoldCommand extends Command {
   );
 
   final Directory _parentDirectory;
+  final SourceFormatter _sourceFormatter;
 
   @override
   String get name => 'command';
@@ -640,8 +698,26 @@ final class ScaffoldCommand extends Command {
     final className = '${name[0].toUpperCase()}${name.substring(1)}Command';
 
     final implementation = isGroup
-        ? "final class $className extends GroupCommand {\n  new() : super([]);\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n}\n"
-        : "final class $className extends Command {\n  @override String get name => '$name';\n  @override String get shortDescription => 'Describe $name.';\n  @override String run(ParsedInputs inputs, List<String> args) => 'Completed $name.';\n}\n";
+        ? 'final class $className extends GroupCommand {\n'
+              '  new() : super([]);\n'
+              '\n'
+              '  @override\n'
+              "  String get name => '$name';\n"
+              '\n'
+              '  @override\n'
+              "  String get shortDescription => 'Describe $name.';\n"
+              '}\n'
+        : 'final class $className extends Command {\n'
+              '  @override\n'
+              "  String get name => '$name';\n"
+              '\n'
+              '  @override\n'
+              "  String get shortDescription => 'Describe $name.';\n"
+              '\n'
+              '  @override\n'
+              '  String run(ParsedInputs inputs, List<String> args) =>\n'
+              "      'Completed $name.';\n"
+              '}\n';
 
     final previousSource = shouldAppend ? file.readAsStringSync() : null;
     try {
@@ -655,9 +731,13 @@ final class ScaffoldCommand extends Command {
       }
 
       if (shouldCreateTest) {
-        ScaffoldTestCommand(_parentDirectory)
-            ._createTestSuiteFile(name, file, appendToSuite: shouldAppend);
+        ScaffoldTestCommand(
+          _parentDirectory,
+          sourceFormatter: _sourceFormatter,
+        )._createTestSuiteFile(name, file, appendToSuite: shouldAppend);
       }
+
+      _sourceFormatter.formatSource(file.path);
     } on Object {
       if (previousSource == null) {
         if (file.existsSync()) file.deleteSync();

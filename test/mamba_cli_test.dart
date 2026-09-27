@@ -45,6 +45,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: processRunner,
+      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -63,15 +64,17 @@ void main() {
         contains('name: demo'),
         contains(r"description: 'Manage Bob''s $tasks.'"),
         contains('sdk: ^3.13.2'),
-        contains('dev_dependencies:\n  test: any'),
+        contains('dev_dependencies:\n  lints: any\n  test: any'),
       ),
     );
     expect(
       File('${projectDirectory.path}/bin/demo.dart').readAsStringSync(),
       allOf(
-        contains("Executor('demo'"),
-        contains(r"'Manage Bob\'s \$tasks.'"),
-        contains("'0.0.0'"),
+        contains("import 'package:mamba/mamba.dart';\n\n"),
+        contains("  'demo',\n"),
+        contains(r"  'Manage Bob\'s \$tasks.',"),
+        contains("  '0.0.0',\n"),
+        contains(').create().execute(args);'),
       ),
     );
     expect(
@@ -104,6 +107,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: FakeProjectProcessRunner(),
+      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -130,6 +134,11 @@ void main() {
       File('${projectDirectory.path}/CLAUDE.md').readAsStringSync(),
       '@AGENTS.md\n',
     );
+    expect(
+      _sourceFormatter.formatted,
+      contains(allOf(endsWith('demo.dart'), isNot(contains('.md')))),
+      reason: 'the generated executable is formatted, the documents are not',
+    );
   });
 
   test('project scaffolder writes into an empty current directory', () {
@@ -140,6 +149,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       workspace,
       processRunner: processRunner,
+      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -166,6 +176,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       workspace,
       processRunner: FakeProjectProcessRunner(),
+      sourceFormatter: _sourceFormatter,
     );
 
     expect(
@@ -199,6 +210,7 @@ void main() {
       final projectScaffolder = DirectoryProjectScaffolder(
         workspace,
         processRunner: FakeProjectProcessRunner(),
+        sourceFormatter: _sourceFormatter,
       );
 
       expect(
@@ -232,6 +244,7 @@ void main() {
         projectScaffolder: DirectoryProjectScaffolder(
           workspace,
           processRunner: FakeProjectProcessRunner(),
+          sourceFormatter: _sourceFormatter,
         ),
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: true),
@@ -270,6 +283,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: processRunner,
+      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -297,6 +311,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: processRunner,
+      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -338,6 +353,7 @@ void main() {
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: FakeProjectProcessRunner(),
+      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -456,17 +472,16 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldBinaryCommand(directory),
+      ScaffoldBinaryCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['binary', 'demo']);
 
     expect(result.exitCode, 0);
     expect(
       File('${directory.path}/bin/demo.dart').readAsStringSync(),
       allOf(
-        contains("Executor('demo'"),
-        contains("'0.0.0'"),
-        contains('.create()'),
-        contains('.execute(args)'),
+        contains("  'demo',\n"),
+        contains("  '0.0.0',\n"),
+        contains(').create().execute(args);'),
       ),
     );
   });
@@ -478,7 +493,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       ..createSync(recursive: true)
       ..writeAsStringSync('existing');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldBinaryCommand(directory),
+      ScaffoldBinaryCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['binary', 'demo']);
 
     expect(result, isA<MambaFailureResult>());
@@ -494,7 +509,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       ..createSync(recursive: true)
       ..writeAsStringSync('final class GreetCommand {}\n');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldTestCommand(directory),
+      ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['test', 'greet']);
 
     expect(result.exitCode, 0);
@@ -521,7 +536,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       ..createSync(recursive: true)
       ..writeAsStringSync('existing');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldTestCommand(directory),
+      ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['test', 'greet']);
 
     expect(result, isA<MambaFailureResult>());
@@ -541,7 +556,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
           'final class AdminCommand {}\nfinal class UserCommand {}\n',
         );
       final executor = Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldTestCommand(directory),
+        ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
       ]).fake();
       await executor.execute(['test', 'admin']);
 
@@ -570,7 +585,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     addTearDown(() => directory.deleteSync(recursive: true));
     final sourcePath = '${directory.path}/lib/admin.dart';
     final executor = Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldTestCommand(directory),
+      ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake();
     final cases = [
       (
@@ -595,7 +610,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['command', 'demo']);
     expect(result.exitCode, 0);
     expect(
@@ -609,7 +624,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     addTearDown(() => directory.deleteSync(recursive: true));
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['command', 'greet', '--test']);
 
     expect(result.exitCode, 0);
@@ -633,7 +648,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         ..createSync(recursive: true)
         ..writeAsStringSync('existing');
       final result = await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldCommand(directory),
+        ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
       ]).fake().execute(['command', 'greet', '--test']);
 
       expect(result, isA<MambaFailureResult>());
@@ -646,7 +661,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['command', 'demo', '--group']);
 
     expect(result.exitCode, 0);
@@ -661,7 +676,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     addTearDown(() => directory.deleteSync(recursive: true));
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['command', 'admin', '--group', '--test']);
 
     expect(result.exitCode, 0);
@@ -684,7 +699,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final file = File('${directory.path}/lib/demo.dart')
       ..createSync(recursive: true);
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['command', 'demo']);
 
     expect(result.exitCode, 1);
@@ -710,7 +725,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       );
 
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake().execute(['command', 'user', file.path, '--append']);
 
     expect(result.exitCode, 0);
@@ -741,7 +756,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
 
     final result =
         await Executor('tool', 'Tool.', '1.0.0', [
-          ScaffoldCommand(directory),
+          ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
         ]).fake().execute([
           'command',
           'user',
@@ -770,7 +785,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     addTearDown(() => directory.deleteSync(recursive: true));
     final missingFile = '${directory.path}/lib/admin.dart';
     final executor = Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory),
+      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
     ]).fake();
     final cases = [
       (
@@ -794,7 +809,138 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       expect((result as MambaFailureResult).message, testCase.message);
     }
   });
+
+  test(
+    'project scaffolder writes analysis options and the lints dependency',
+    () {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final projectScaffolder = DirectoryProjectScaffolder(
+        directory,
+        processRunner: FakeProjectProcessRunner(),
+        sourceFormatter: _sourceFormatter,
+      );
+
+      projectScaffolder.scaffold(
+        'demo',
+        'A demonstration CLI.',
+        installDependencies: false,
+        initializeGitRepository: false,
+      );
+
+      expect(
+        File('${directory.path}/demo/analysis_options.yaml').readAsStringSync(),
+        contains('include: package:lints/recommended.yaml'),
+      );
+      expect(
+        File('${directory.path}/demo/pubspec.yaml').readAsStringSync(),
+        contains('dev_dependencies:\n  lints: any\n  test: any\n'),
+      );
+    },
+  );
+
+  test('generated sources are already dart-format clean', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: FakeProjectProcessRunner(),
+      sourceFormatter: SystemSourceFormatter(),
+    );
+
+    projectScaffolder.scaffold(
+      'demo',
+      'A demonstration CLI.',
+      installDependencies: false,
+      initializeGitRepository: false,
+    );
+
+    final projectDirectory = Directory('${directory.path}/demo');
+    await Executor('tool', 'Tool.', '1.0.0', [
+      ScaffoldCommand(
+        projectDirectory,
+        sourceFormatter: SystemSourceFormatter(),
+      ),
+      ScaffoldBinaryCommand(
+        projectDirectory,
+        sourceFormatter: SystemSourceFormatter(),
+      ),
+    ]).fake().execute(['command', 'greet', '--test']);
+    await Executor('tool', 'Tool.', '1.0.0', [
+      ScaffoldBinaryCommand(
+        projectDirectory,
+        sourceFormatter: SystemSourceFormatter(),
+      ),
+    ]).fake().execute(['binary', 'helper']);
+
+    expect(_unformattedPaths(projectDirectory), isEmpty);
+  });
+
+  test(
+    'generated sources stay format clean at the edges of the line limit',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final projectScaffolder = DirectoryProjectScaffolder(
+        directory,
+        processRunner: FakeProjectProcessRunner(),
+        sourceFormatter: SystemSourceFormatter(),
+      );
+
+      projectScaffolder.scaffold(
+        'deploy_production_toolkit',
+        'A deliberately long description that pushes every generated line past '
+            'the eighty column limit the formatter wraps at.',
+        installDependencies: false,
+        initializeGitRepository: false,
+      );
+
+      final projectDirectory = Directory(
+        '${directory.path}/deploy_production_toolkit',
+      );
+      await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldCommand(
+          projectDirectory,
+          sourceFormatter: SystemSourceFormatter(),
+        ),
+      ]).fake().execute([
+        'command',
+        'synchronise_deployments_across_regions',
+        '--group',
+        '--test',
+      ]);
+
+      expect(_unformattedPaths(projectDirectory), isEmpty);
+    },
+  );
 }
+
+/// The generated Dart files `dart format` would rewrite, which is every one of
+/// them when a template's layout does not already match the formatter.
+List<String> _unformattedPaths(Directory projectDirectory) {
+  final result = Process.runSync('dart', [
+    'format',
+    '--output=none',
+    '--set-exit-if-changed',
+    'bin',
+    'lib',
+    'test',
+  ], workingDirectory: projectDirectory.path);
+
+  return RegExp(r'Changed (\S+)')
+      .allMatches(result.stdout.toString())
+      .map((match) => match.group(1)!.replaceAll(r'\', '/'))
+      .toList();
+}
+
+final class FakeSourceFormatter implements SourceFormatter {
+  final formatted = <String>[];
+
+  @override
+  void formatSource(String path) => formatted.add(path);
+}
+
+final _sourceFormatter = FakeSourceFormatter();
 
 final class FakeProjectScaffolder implements ProjectScaffolder {
   final projects =

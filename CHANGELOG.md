@@ -13,6 +13,11 @@
   are not installed.
 - Accepted `.` as a `mamba create` package name to scaffold the current
   directory, which must hold nothing and be named like a Dart package.
+- Formatted every generated Dart source, so a scaffolded project is
+  `dart format` clean before anyone edits it.
+- Wrote an `analysis_options.yaml` and an `lints` development dependency into
+  scaffolded projects, so `dart analyze` applies lints instead of passing
+  vacuously.
 
 ## 0.12.0
 
