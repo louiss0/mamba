@@ -810,6 +810,39 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     }
   });
 
+  test('generated test suite orders imports around the package name', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: FakeProjectProcessRunner(),
+      sourceFormatter: _sourceFormatter,
+    );
+
+    // A name sorting after both Mamba and test proves the order follows the
+    // package name instead of a fixed sequence.
+    projectScaffolder.scaffold(
+      'zzztool',
+      'A demonstration CLI.',
+      installDependencies: false,
+      initializeGitRepository: false,
+    );
+
+    final projectDirectory = Directory('${directory.path}/zzztool');
+    await Executor('tool', 'Tool.', '1.0.0', [
+      ScaffoldCommand(projectDirectory, sourceFormatter: _sourceFormatter),
+    ]).fake().execute(['command', 'greet', '--test']);
+
+    expect(
+      File('${projectDirectory.path}/test/greet_test.dart').readAsStringSync(),
+      startsWith(
+        "import 'package:mamba/mamba.dart';\n"
+        "import 'package:test/test.dart';\n"
+        "import 'package:zzztool/greet.dart';\n",
+      ),
+    );
+  });
+
   test(
     'project scaffolder writes analysis options and the lints dependency',
     () {

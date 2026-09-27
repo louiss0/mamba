@@ -54,13 +54,7 @@ const _claudeInstructionsPointer = '@AGENTS.md\n';
 ///
 /// Without it `dart analyze` reports nothing, because a package with no
 /// configuration has no lints to apply.
-const _analysisOptions = '''
-include: package:lints/recommended.yaml
-
-analyzer:
-  errors:
-    annotate_overrides: ignore
-''';
+const _analysisOptions = 'include: package:lints/recommended.yaml\n';
 
 /// A single-quoted Dart string literal for [value].
 String _dartString(String value) {
@@ -610,10 +604,17 @@ final class ScaffoldTestCommand extends Command {
         '${existing.substring(0, mainClosingBrace)}\n$suite}\n',
       );
     } else {
+      // The generated package name decides where its own import sorts, so the
+      // directives are ordered rather than written in a fixed sequence.
+      final directives = [
+        'package:$packageName/$libraryPath',
+        'package:mamba/mamba.dart',
+        'package:test/test.dart',
+      ]..sort();
+
       testFile.writeAsStringSync(
-        "import 'package:mamba/mamba.dart';\n"
-        "import 'package:$packageName/$libraryPath';\n"
-        "import 'package:test/test.dart';\n\n"
+        '${directives.map((directive) => "import '$directive';").join('\n')}'
+        '\n\n'
         'void main() {\n'
         '$suite}\n',
       );
