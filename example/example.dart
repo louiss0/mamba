@@ -66,7 +66,9 @@ final class TaskStore {
     if (!file.existsSync()) return (nextId: 1, tasks: <Task>[]);
 
     try {
-      final decoded = jsonDecode(file.readAsStringSync());
+      // `jsonDecode` hands back `dynamic`; the pattern below is what makes the
+      // shape trustworthy, so the boundary is made explicit rather than implied.
+      final Object? decoded = jsonDecode(file.readAsStringSync()) as Object?;
       if (decoded case {
         'nextId': final int nextId,
         'tasks': final List<dynamic> taskData,

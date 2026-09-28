@@ -1112,7 +1112,7 @@ final class _RequiredRepeatableChoiceOption<T extends Enum>
 }
 
 abstract interface class PairedOptionsDefinition {
-  List<PairOption> get options;
+  List<PairOption<Object?>> get options;
   String? get description;
   bool get required;
 }
@@ -1514,11 +1514,11 @@ final class ParsedInputs {
 abstract class Command {
   final String? longDescription;
   final List<String>? aliases;
-  final List<MandatoryPositional>? mandatoryPositionals;
-  final List<DiscretionaryPositional>? discretionaryPositionals;
+  final List<MandatoryPositional<Object?>>? mandatoryPositionals;
+  final List<DiscretionaryPositional<Object?>>? discretionaryPositionals;
   final Variadic? variadic;
-  final List<Flag>? flags;
-  final List<Option>? options;
+  final List<Flag<Object?>>? flags;
+  final List<Option<Object?>>? options;
   final List<PairedOptionsDefinition>? pairedOptions;
   final List<SelectedOptions>? selectedOptions;
   final List<AccessorListOption>? accessors;
@@ -1526,11 +1526,11 @@ abstract class Command {
   new({
     this.longDescription,
     List<String>? aliases,
-    List<MandatoryPositional>? mandatoryPositionals,
-    List<DiscretionaryPositional>? discretionaryPositionals,
+    List<MandatoryPositional<Object?>>? mandatoryPositionals,
+    List<DiscretionaryPositional<Object?>>? discretionaryPositionals,
     this.variadic,
-    List<Flag>? flags,
-    List<Option>? options,
+    List<Flag<Object?>>? flags,
+    List<Option<Object?>>? options,
     List<PairedOptionsDefinition>? pairedOptions,
     List<SelectedOptions>? selectedOptions,
     List<AccessorListOption>? accessors,
@@ -1551,15 +1551,15 @@ abstract class Command {
 
 abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
-  final List<Flag>? inheritedFlags;
-  final List<Option>? inheritedOptions;
+  final List<Flag<Object?>>? inheritedFlags;
+  final List<Option<Object?>>? inheritedOptions;
   final List<Command> commands;
   new(
     List<Command> commands, {
     List<String>? defaultSubCommandPath,
     super.aliases,
-    List<Flag>? propagatedFlags,
-    List<Option>? propagatedOptions,
+    List<Flag<Object?>>? propagatedFlags,
+    List<Option<Object?>>? propagatedOptions,
     super.longDescription,
     super.mandatoryPositionals,
     super.discretionaryPositionals,

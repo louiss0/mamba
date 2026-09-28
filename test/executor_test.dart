@@ -210,6 +210,9 @@ final class InvalidContextWriter extends GroupCommand
   @override
   void prePersistentRun(ParsedInputs inputs, MambaContext context) {
     final dynamic rawKey = _contextValue;
+    // This test exists to prove a dynamic write is rejected, so the implicit
+    // cast is the behaviour under test rather than an oversight.
+    // ignore: no_dynamic_casts
     context.set(rawKey, const MambaContextBool(true));
   }
 }

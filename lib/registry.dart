@@ -147,18 +147,18 @@ final class CommandRegistry {
     this.longDescription,
     this.commandAliases,
     this.parent,
-    List<Flag>? flags,
-    List<Option>? options,
+    List<Flag<Object?>>? flags,
+    List<Option<Object?>>? options,
     List<PairedOptionsDefinition>? pairedOptions,
     List<SelectedOptions>? selectedOptions,
     Map<String, List<String>>? conflicts,
-    List<MandatoryPositional>? mandatoryPositionals,
-    List<DiscretionaryPositional>? discretionaryPositionals,
+    List<MandatoryPositional<Object?>>? mandatoryPositionals,
+    List<DiscretionaryPositional<Object?>>? discretionaryPositionals,
     this.variadic,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
-    List<Flag>? publishedFlags,
-    List<Option>? publishedOptions,
+    List<Flag<Object?>>? publishedFlags,
+    List<Option<Object?>>? publishedOptions,
     List<AccessorListOption>? publishedAccessors,
   }) : flags = List.unmodifiable(flags ?? const []),
        options = List.unmodifiable(options ?? const []),
@@ -185,17 +185,17 @@ final class CommandRegistry {
   final String? longDescription;
   final List<String>? commandAliases;
   final CommandRegistry? parent;
-  final List<Flag> flags;
-  final List<Option> options;
+  final List<Flag<Object?>> flags;
+  final List<Option<Object?>> options;
   final List<PairedOptionsDefinition> pairedOptionGroups;
   final List<SelectedOptions> selectedOptions;
   final Map<String, List<String>> conflicts;
-  final List<MandatoryPositional> mandatoryPositionals;
-  final List<DiscretionaryPositional> discretionaryPositionals;
+  final List<MandatoryPositional<Object?>> mandatoryPositionals;
+  final List<DiscretionaryPositional<Object?>> discretionaryPositionals;
   final Variadic? variadic;
   final List<AccessorListOption> accessors;
-  final List<Flag> publishedFlags;
-  final List<Option> publishedOptions;
+  final List<Flag<Object?>> publishedFlags;
+  final List<Option<Object?>> publishedOptions;
   final List<AccessorListOption> publishedAccessors;
   final List<Command> commands;
   late final List<CommandRegistry> commandRegistries = [
@@ -203,8 +203,8 @@ final class CommandRegistry {
   ];
   BooleanFlag get helpFlag => MambaBuiltInFlags.help;
   List<String> get fullPath => [...?parent?.fullPath, name];
-  List<Flag> get applicableFlags {
-    final resolved = <String, Flag>{
+  List<Flag<Object?>> get applicableFlags {
+    final resolved = <String, Flag<Object?>>{
       for (final flag in [...?parent?._publishedFlagsToHere, ...flags])
         flag.name: flag,
     };
@@ -214,17 +214,17 @@ final class CommandRegistry {
     return List.unmodifiable(resolved.values);
   }
 
-  List<Flag> get _publishedFlagsToHere => [
+  List<Flag<Object?>> get _publishedFlagsToHere => [
     ...?parent?._publishedFlagsToHere,
     ...publishedFlags,
   ];
-  List<Option> get applicableOptions => List.unmodifiable(
+  List<Option<Object?>> get applicableOptions => List.unmodifiable(
     {
       for (final option in [...?parent?._publishedOptionsToHere, ...options])
         option.name: option,
     }.values,
   );
-  List<Option> get _publishedOptionsToHere => [
+  List<Option<Object?>> get _publishedOptionsToHere => [
     ...?parent?._publishedOptionsToHere,
     ...publishedOptions,
   ];
@@ -245,11 +245,11 @@ final class CommandRegistry {
     String name,
     String shortDescription, {
     String? longDescription,
-    List<MandatoryPositional>? mandatoryPositionals,
-    List<DiscretionaryPositional>? discretionaryPositionals,
+    List<MandatoryPositional<Object?>>? mandatoryPositionals,
+    List<DiscretionaryPositional<Object?>>? discretionaryPositionals,
     Variadic? variadic,
-    List<Flag>? flags,
-    List<Option>? options,
+    List<Flag<Object?>>? flags,
+    List<Option<Object?>>? options,
     List<PairedOptionsDefinition>? pairedOptions,
     List<SelectedOptions>? selectedOptions,
     Map<String, List<String>>? conflicts,
@@ -430,7 +430,7 @@ final class CommandRegistry {
     for (final group in selectedOptions) yield* group.options;
   }
 
-  AccessorPrimitiveOption? _accessorFor(String path) {
+  AccessorPrimitiveOption<Object?>? _accessorFor(String path) {
     AccessorOption? current = applicableAccessors
         .where((root) => root.name == path.split('.').first)
         .firstOrNull;
@@ -526,7 +526,7 @@ final class CommandRegistry {
     );
   }
 
-  static RegistryFlag _flagRecord(Flag flag) => (
+  static RegistryFlag _flagRecord(Flag<Object?> flag) => (
     name: flag.name,
     short: flag.short,
     defaultValue: flag is BooleanFlag ? flag.defaultValue : null,
@@ -587,14 +587,16 @@ final class CommandRegistry {
     );
   }
 
-  static String _defaultText(Object value) => switch (value) {
+  static String _defaultText(Object? value) => switch (value) {
     Enum value => value.name,
-    List values =>
-      values.map((value) => _defaultText(value as Object)).join(','),
+    List<Object?> values => values.map(_defaultText).join(','),
     _ => value.toString(),
   };
 
-  static RegistryPositional _positionalRecord(Positional input, bool required) {
+  static RegistryPositional _positionalRecord(
+    Positional<Object?> input,
+    bool required,
+  ) {
     final choices = input is ChoiceValidated
         ? (input as ChoiceValidated).choices.cast<Enum>()
         : null;
@@ -670,14 +672,14 @@ final class CommandRegistry {
   static void _validate(
     String name,
     String description, {
-    List<Flag>? flags,
-    List<Option>? options,
+    List<Flag<Object?>>? flags,
+    List<Option<Object?>>? options,
     List<PairedOptionsDefinition>? paired,
     List<SelectedOptions>? selected,
     Map<String, List<String>>? conflicts,
     List<AccessorListOption>? accessors,
-    List<Positional>? mandatory,
-    List<Positional>? discretionary,
+    List<Positional<Object?>>? mandatory,
+    List<Positional<Object?>>? discretionary,
     List<Command>? commands,
   }) {
     if (!_name.hasMatch(name) || description.isEmpty)
@@ -701,8 +703,8 @@ final class CommandRegistry {
         ...group.options,
     ];
     final requiredByName = <String, bool>{
-      for (final flag in flags ?? const <Flag>[]) flag.name: false,
-      for (final option in options ?? const <Option>[])
+      for (final flag in flags ?? const <Flag<Object?>>[]) flag.name: false,
+      for (final option in options ?? const <Option<Object?>>[])
         option.name: option.isRequired,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
         for (final option in group.options) option.name: group.required,
@@ -787,7 +789,7 @@ final class CommandRegistry {
         }
       }
     }
-    final leaves = <AccessorPrimitiveOption>{};
+    final leaves = <AccessorPrimitiveOption<Object?>>{};
     void visit(AccessorOption input) {
       if (input is AccessorPrimitiveOption && !leaves.add(input))
         throw MambaRegistryError(

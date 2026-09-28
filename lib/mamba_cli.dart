@@ -54,7 +54,19 @@ const _claudeInstructionsPointer = '@AGENTS.md\n';
 ///
 /// Without it `dart analyze` reports nothing, because a package with no
 /// configuration has no lints to apply.
-const _analysisOptions = 'include: package:lints/recommended.yaml\n';
+const _analysisOptions = '''
+include: package:lints/recommended.yaml
+
+analyzer:
+  language:
+    strict-inference: true
+
+linter:
+  rules:
+    - no_dynamic_casts
+    - no_raw_types
+    - strict_top_level_inference
+''';
 
 /// A single-quoted Dart string literal for [value].
 String _dartString(String value) {

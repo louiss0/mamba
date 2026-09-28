@@ -863,7 +863,13 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
 
       expect(
         File('${directory.path}/demo/analysis_options.yaml').readAsStringSync(),
-        contains('include: package:lints/recommended.yaml'),
+        allOf(
+          contains('include: package:lints/recommended.yaml'),
+          contains('strict-inference: true'),
+          contains('- no_dynamic_casts'),
+          contains('- no_raw_types'),
+          contains('- strict_top_level_inference'),
+        ),
       );
       expect(
         File('${directory.path}/demo/pubspec.yaml').readAsStringSync(),

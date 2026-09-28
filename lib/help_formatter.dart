@@ -223,10 +223,10 @@ final class MambaHelpFormatter extends HelpFormatter {
       '${_variadic(variadic).string} '
       '${formatIntoEntryDescription(description).string}';
 
-  RequiredString _requiredPositional(Positional positional) =>
+  RequiredString _requiredPositional(Positional<Object?> positional) =>
       formatIntoRequiredString(_positionalExpression(positional));
 
-  OptionalString _optionalPositional(Positional positional) =>
+  OptionalString _optionalPositional(Positional<Object?> positional) =>
       formatIntoOptionalString(_positionalExpression(positional));
 
   FormattedString _variadic(Variadic variadic) {
@@ -237,7 +237,7 @@ final class MambaHelpFormatter extends HelpFormatter {
     return FormattedString('-- $expression'.dimGray);
   }
 
-  String _positionalExpression(Positional positional) {
+  String _positionalExpression(Positional<Object?> positional) {
     final expression = positional is ChoiceValidated
         ? _choiceExpression(
             (positional as ChoiceValidated).choices.cast<Enum>(),
@@ -254,7 +254,7 @@ final class MambaHelpFormatter extends HelpFormatter {
   String _choiceExpression(Iterable<Enum> choices) =>
       choices.map((choice) => choice.name).join('|');
 
-  String _flag(Flag flag) => _entry(
+  String _flag(Flag<Object?> flag) => _entry(
     name: flag.name,
     short: flag.short,
     description: flag.description,
@@ -262,7 +262,7 @@ final class MambaHelpFormatter extends HelpFormatter {
     negatable: flag is BooleanFlag && flag.negatable,
   );
 
-  String _option(Option option) => _entry(
+  String _option(Option<Object?> option) => _entry(
     name: option.name,
     short: option.short,
     description: option.description,
@@ -301,7 +301,7 @@ final class MambaHelpFormatter extends HelpFormatter {
     FormattedString expression,
     bool required,
     String? description,
-    List<PairOption> members,
+    List<PairOption<Object?>> members,
   ) {
     final grammar = required
         ? formatIntoRequiredString(expression.string)
@@ -316,7 +316,7 @@ final class MambaHelpFormatter extends HelpFormatter {
         '${formatIntoEntryDescription(resolvedDescription).string}';
   }
 
-  String _groupMember(PairOption option) {
+  String _groupMember(PairOption<Object?> option) {
     final choices = option is ChoiceValidated
         ? (option as ChoiceValidated).choices.cast<Enum>()
         : null;
@@ -353,15 +353,16 @@ final class MambaHelpFormatter extends HelpFormatter {
     }
   }
 
-  String _accessorEntry(String name, AccessorPrimitiveOption option) => _entry(
-    name: name,
-    description: option.description,
-    required: option is RequiredInput,
-    takesValue: true,
-    choices: option is ChoiceValidated
-        ? (option as ChoiceValidated).choices.cast<Enum>()
-        : null,
-  );
+  String _accessorEntry(String name, AccessorPrimitiveOption<Object?> option) =>
+      _entry(
+        name: name,
+        description: option.description,
+        required: option is RequiredInput,
+        takesValue: true,
+        choices: option is ChoiceValidated
+            ? (option as ChoiceValidated).choices.cast<Enum>()
+            : null,
+      );
 
   String _entry({
     required String name,

@@ -70,7 +70,7 @@ abstract interface class MambaExecutor<T> {
 }
 
 final class Executor {
-  static final List<Flag> _defaultFlags = [
+  static final List<Flag<Object?>> _defaultFlags = [
     MambaBuiltInFlags.verbose,
     MambaBuiltInFlags.version,
   ];
@@ -82,8 +82,8 @@ final class Executor {
     List<Command> commands, {
     this.longDescription,
     List<AccessorListOption>? accessors,
-    List<Flag>? flags,
-    List<Option>? options,
+    List<Flag<Object?>>? flags,
+    List<Option<Object?>>? options,
     List<String>? defaultCommandPath,
     this.context,
     this.helpFormatter,
@@ -100,8 +100,8 @@ final class Executor {
   final String _version;
   final String? longDescription;
   final List<AccessorListOption> accessors;
-  final List<Flag> flags;
-  final List<Option> options;
+  final List<Flag<Object?>> flags;
+  final List<Option<Object?>> options;
   final List<String>? defaultCommandPath;
   final List<Command> commands;
   final MambaContext? context;

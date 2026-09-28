@@ -4,10 +4,10 @@ import 'package:test/test.dart';
 enum Format { text, json }
 
 Parser parser({
-  List<Flag>? flags,
-  List<Option>? options,
-  List<MandatoryPositional>? mandatory,
-  List<DiscretionaryPositional>? discretionary,
+  List<Flag<Object?>>? flags,
+  List<Option<Object?>>? options,
+  List<MandatoryPositional<Object?>>? mandatory,
+  List<DiscretionaryPositional<Object?>>? discretionary,
   List<AccessorListOption>? accessors,
   List<PairedOptionsDefinition>? paired,
   List<SelectedOptions>? selectedOptions,

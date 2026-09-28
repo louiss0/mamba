@@ -520,7 +520,7 @@ final class Parser {
       );
   }
 
-  Object _positionalValue(Positional input, String value) =>
+  Object _positionalValue(Positional<Object?> input, String value) =>
       input is ChoiceValidated
       ? _choice(input as ChoiceValidated, value)
       : _regex(input, value);
@@ -543,7 +543,7 @@ final class Parser {
     }
   }
 
-  AccessorPrimitiveOption? _accessorFor(
+  AccessorPrimitiveOption<Object?>? _accessorFor(
     String path,
     List<AccessorListOption> roots,
   ) {

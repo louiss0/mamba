@@ -386,8 +386,8 @@ void main() {
       group('rejects required inputs as keys or members', () {
         final cases = [
           (
-            flags: <Flag>[BooleanFlag('enabled')],
-            options: <Option>[StringOption.required('output')],
+            flags: <Flag<Object?>>[BooleanFlag('enabled')],
+            options: <Option<Object?>>[StringOption.required('output')],
             conflicts: <String, List<String>>{
               'output': ['enabled'],
             },
@@ -395,8 +395,8 @@ void main() {
             optionalName: 'enabled',
           ),
           (
-            flags: <Flag>[BooleanFlag('enabled')],
-            options: <Option>[StringOption.required('output')],
+            flags: <Flag<Object?>>[BooleanFlag('enabled')],
+            options: <Option<Object?>>[StringOption.required('output')],
             conflicts: <String, List<String>>{
               'enabled': ['output'],
             },
@@ -2528,7 +2528,7 @@ void main() {
     });
 
     test('rejects invalid defaults, numeric ranges, and steps', () {
-      final invalidDefinitions = <Option>[
+      final invalidDefinitions = <Option<Object?>>[
         IntOption('count', min: 2, max: 1),
         DoubleOption('ratio', step: 0),
         StringOption.withDefault(
@@ -2688,7 +2688,7 @@ void main() {
   group('framework consistency fixes', () {
     test('direct registry creation snapshots caller-owned collections', () {
       final commands = <Command>[TestCommand('initial', 'Initial.')];
-      final flags = <Flag>[BooleanFlag('visible')];
+      final flags = <Flag<Object?>>[BooleanFlag('visible')];
       final registry = CommandRegistry.create(
         'tool',
         'Tool command.',
