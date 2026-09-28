@@ -82,12 +82,7 @@ to replace help rendering.
 ## Commands
 
 Use `Command` for an executable action and `GroupCommand` for a named branch
-that owns child commands. Start a command in its own file with:
-
-```sh
-mamba command deploy
-```
-
+that owns child commands. Start a command in its own file:
 Declare each input once, register it through `super`, and retain that same
 declaration for `run`. Keep declarations private, then give the parsed value a domain name inside `run`:
 
@@ -122,13 +117,7 @@ required unnamed values in `mandatoryPositionals`, optional unnamed values in
 `discretionaryPositionals`, switches in `flags`, named values in `options`,
 and dotted trees in `accessors`. Use `args` only for values after `--`.
 
-Create a group and append related commands to the same source file with:
-
-```sh
-mamba command workspace --group
-mamba command deploy lib/workspace.dart --append
-```
-
+Create a group and append related commands to the same source file:
 A group receives its children through `super` and may register inputs for
 itself or propagate inputs to descendants:
 
