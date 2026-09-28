@@ -141,6 +141,42 @@ void main() {
     );
   });
 
+  test('project scaffolder writes a Dart gitignore', () {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = DirectoryProjectScaffolder(
+      directory,
+      processRunner: FakeProjectProcessRunner(),
+      sourceFormatter: _sourceFormatter,
+    );
+
+    projectScaffolder.scaffold(
+      'demo',
+      'A demonstration CLI.',
+      installDependencies: true,
+      initializeGitRepository: false,
+    );
+
+    final gitignore = File(
+      '${directory.path}${Platform.pathSeparator}demo${Platform.pathSeparator}.gitignore',
+    ).readAsStringSync();
+    expect(
+      gitignore,
+      allOf(
+        contains('https://www.toptal.com/developers/gitignore/api/dart'),
+        contains('.dart_tool/'),
+        contains('doc/api/'),
+        contains('.env*'),
+        contains('*.dart.js'),
+        contains('.flutter-plugins'),
+        isNot(matches(RegExp(r'^pubspec\.lock$', multiLine: true))),
+      ),
+      reason:
+          'a scaffolded CLI commits its lockfile, so the template entry '
+          'is dropped',
+    );
+  });
+
   test('project scaffolder writes into an empty current directory', () {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));

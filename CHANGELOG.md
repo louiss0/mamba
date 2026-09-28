@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Wrote a Dart `.gitignore` into every scaffolded project, taken from the
+  Toptal gitignore template for Dart, except for its `pubspec.lock` entry so
+  a scaffolded application commits its resolved dependency versions.
+
 ## 0.13.0
 
 - Started scaffolded application executables at version `0.0.0`.
