@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.13.0
+
 - Started scaffolded application executables at version `0.0.0`.
 - Wrote the `mamba create` short description into the generated
   `pubspec.yaml` `description` field.
