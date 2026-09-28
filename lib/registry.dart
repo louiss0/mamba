@@ -400,16 +400,18 @@ final class CommandRegistry {
     if (token.startsWith('--')) {
       final name = token.substring(2).split('=').first;
       if (_allValueInputs.any((input) => input.name == name) ||
-          _accessorFor(name) != null)
+          _accessorFor(name) != null) {
         return token.contains('=') ? 1 : 2;
+      }
       if (applicableFlags.any(
         (flag) =>
             flag.name == name ||
             (flag is BooleanFlag &&
                 flag.negatable &&
                 name == 'no-${flag.name}'),
-      ))
+      )) {
         return 1;
+      }
     }
     if (token.startsWith('-') && token.length > 1) {
       final short = token.substring(1);
@@ -418,16 +420,21 @@ final class CommandRegistry {
           .split('')
           .every(
             (letter) => applicableFlags.any((flag) => _shortOf(flag) == letter),
-          ))
+          )) {
         return 1;
+      }
     }
     return null;
   }
 
   Iterable<InputDefinition> get _allValueInputs sync* {
     yield* applicableOptions;
-    for (final group in pairedOptionGroups) yield* group.options;
-    for (final group in selectedOptions) yield* group.options;
+    for (final group in pairedOptionGroups) {
+      yield* group.options;
+    }
+    for (final group in selectedOptions) {
+      yield* group.options;
+    }
   }
 
   AccessorPrimitiveOption<Object?>? _accessorFor(String path) {
@@ -682,8 +689,9 @@ final class CommandRegistry {
     List<Positional<Object?>>? discretionary,
     List<Command>? commands,
   }) {
-    if (!_name.hasMatch(name) || description.isEmpty)
+    if (!_name.hasMatch(name) || description.isEmpty) {
       throw MambaRegistryError('Invalid command definition');
+    }
     if ((paired ?? const <PairedOptionsDefinition>[]).any(
           (group) => group.options.isEmpty,
         ) ||
@@ -791,15 +799,17 @@ final class CommandRegistry {
     }
     final leaves = <AccessorPrimitiveOption<Object?>>{};
     void visit(AccessorOption input) {
-      if (input is AccessorPrimitiveOption && !leaves.add(input))
+      if (input is AccessorPrimitiveOption && !leaves.add(input)) {
         throw MambaRegistryError(
           'Accessor leaf ${input.name} is reused in multiple paths.',
         );
+      }
       if (input is AccessorListOption) {
         final level = <String>{};
         for (final child in input.options) {
-          if (!level.add(child.name))
+          if (!level.add(child.name)) {
             throw MambaRegistryError('Duplicate accessor ${child.name}');
+          }
           visit(child);
         }
       }
@@ -815,10 +825,11 @@ final class CommandRegistry {
     void validateChoices(InputDefinition input) {
       if (input is ChoiceValidated) {
         final choices = (input as ChoiceValidated).choices.cast<Enum>();
-        if (choices.isEmpty)
+        if (choices.isEmpty) {
           throw MambaRegistryError(
             'Choices for ${input.name} must not be empty.',
           );
+        }
         final defaultValue = switch (input) {
           DefaultValue(:final defaultValue) => defaultValue,
           _ => null,
@@ -835,8 +846,11 @@ final class CommandRegistry {
           );
         }
       }
-      if (input is AccessorListOption)
-        for (final child in input.options) validateChoices(child);
+      if (input is AccessorListOption) {
+        for (final child in input.options) {
+          validateChoices(child);
+        }
+      }
     }
 
     for (final input in [
@@ -892,7 +906,9 @@ final class CommandRegistry {
         }
       }
       if (input is AccessorListOption) {
-        for (final child in input.options) validateNumeric(child);
+        for (final child in input.options) {
+          validateNumeric(child);
+        }
       }
     }
 

@@ -181,6 +181,7 @@ sealed class RepeatedPositional<T> extends MandatoryPositional<List<T>>
   new(super.name, {super.description, super.regex, this.times = 1}) {
     _validateRepeatedTimes(times);
   }
+  @override
   final int times;
   @override
   List<T> freezeValues(List<Object> values) =>
@@ -310,6 +311,7 @@ sealed class Variadic {
 final class NormalVariadic extends Variadic with RegExpValidated {
   new({super.description, RegExp? regExp})
     : regex = regExp ?? RegExpValidated.anyToken;
+  @override
   final RegExp regex;
 }
 
@@ -1576,10 +1578,11 @@ abstract class GroupCommand extends Command {
        defaultSubCommandPath = _copyPath(defaultSubCommandPath);
   static List<String>? _copyPath(List<String>? path) {
     if (path == null) return null;
-    if (path.isEmpty || path.any((part) => part.isEmpty))
+    if (path.isEmpty || path.any((part) => part.isEmpty)) {
       throw MambaRegistryError(
         'defaultSubCommandPath must contain command names',
       );
+    }
     return List.unmodifiable(path);
   }
 
@@ -1588,8 +1591,9 @@ abstract class GroupCommand extends Command {
     ParsedInputs inputs,
     List<String> args,
   ) async {
-    if (path.isEmpty || path.contains(name))
+    if (path.isEmpty || path.contains(name)) {
       throw ArgumentError.value(path, 'path');
+    }
     Command? current;
     List<Command>? children = commands;
     for (final part in path) {
@@ -1600,8 +1604,9 @@ abstract class GroupCommand extends Command {
                 candidate.aliases?.contains(part) == true,
           )
           .firstOrNull;
-      if (current == null)
+      if (current == null) {
         throw MambaException('command not found in $name ${path.join(' ')}');
+      }
       children = current is GroupCommand ? current.commands : null;
     }
     return current!.run(inputs, args);
@@ -1650,10 +1655,11 @@ class CompletionCommand extends Command {
     final shell = inputs.valueOf(shellInput);
     final path = inputs.valueOf(pathInput) ?? '';
     final extension = _extensionFor(shell);
-    if (path.isNotEmpty && !_isValidPath(path, extension))
+    if (path.isNotEmpty && !_isValidPath(path, extension)) {
       throw MambaException(
         'When shell is ${shell.name} the path must end in $extension and must have ${registryRecord.name} in the file name',
       );
+    }
     if (_usesDefaultGenerator) {
       File(path).writeAsStringSync(_completionFor(shell));
     } else {

@@ -36,8 +36,9 @@ final class Parser {
       for (final group in registry.selectedOptions) ...group.options,
     ];
     for (var index = 0; index < tokens.length; index++) {
-      if (consumed.contains(index) || resolution.tokenIndices.contains(index))
+      if (consumed.contains(index) || resolution.tokenIndices.contains(index)) {
         continue;
+      }
       final token = tokens[index];
       if (token == '--') {
         trailing.addAll(tokens.skip(index + 1));
@@ -87,14 +88,17 @@ final class Parser {
                       name == 'no-${item.name}'),
             )
             .firstOrNull;
-        if (flag == null)
+        if (flag == null) {
           throw MambaParseException('Unknown flag or option --$name.');
-        if (inline != null)
+        }
+        if (inline != null) {
           throw MambaParseException('Flag --$name does not accept a value');
-        if (flag is BooleanFlag)
+        }
+        if (flag is BooleanFlag) {
           values[flag] = !name.startsWith('no-');
-        else if (flag is CountFlag)
+        } else if (flag is CountFlag) {
           values[flag] = ((values[flag] as int?) ?? 0) + 1;
+        }
         continue;
       }
       if (token.startsWith('-') && token.length > 1) {
@@ -121,14 +125,16 @@ final class Parser {
           final flag = registry.applicableFlags
               .where((item) => item.short == letter)
               .firstOrNull;
-          if (flag == null)
+          if (flag == null) {
             throw MambaParseException(
               "This isn't a registered short flag or option",
             );
+          }
           if (identical(flag, MambaBuiltInFlags.version)) version = true;
           if (flag is BooleanFlag) values[flag] = true;
-          if (flag is CountFlag)
+          if (flag is CountFlag) {
             values[flag] = ((values[flag] as int?) ?? 0) + 1;
+          }
         }
         continue;
       }
@@ -143,8 +149,9 @@ final class Parser {
       _validateVariadic(registry.variadic, trailing);
     }
     for (final flag in registry.applicableFlags) {
-      if (flag is BooleanFlag && flag.name != 'help')
+      if (flag is BooleanFlag && flag.name != 'help') {
         values.putIfAbsent(flag, () => flag.defaultValue);
+      }
       if (flag is CountFlag) values.putIfAbsent(flag, () => 0);
     }
     _addAccessorMaps(registry, values);
@@ -173,11 +180,14 @@ final class Parser {
     InputDefinition input,
   ) {
     if (inline != null) return inline;
-    if (index + 1 >= tokens.length)
+    if (index + 1 >= tokens.length) {
       throw MambaParseException('Option --$name requires a value');
+    }
     final value = tokens[index + 1];
-    if (value == '--' || (value.startsWith('-') && !_allowsDash(input, value)))
+    if (value == '--' ||
+        (value.startsWith('-') && !_allowsDash(input, value))) {
       throw MambaParseException('Option --$name requires a value');
+    }
     consumed.add(index + 1);
     return value;
   }
@@ -233,29 +243,32 @@ final class Parser {
   }
 
   String _regex(RegExpValidated input, String value) {
-    if (!_matches(input.regex, value))
+    if (!_matches(input.regex, value)) {
       throw MambaParseException(
         "Option --${(input as InputDefinition).name} does not accept '$value'.",
       );
+    }
     return value;
   }
 
   int _integer(InputDefinition input, String value) {
     final parsed = int.tryParse(value);
-    if (parsed == null)
+    if (parsed == null) {
       throw MambaParseException(
         'Invalid int value: $value must be a signed decimal integer',
       );
+    }
     _range(input, parsed);
     return parsed;
   }
 
   double _double(InputDefinition input, String value) {
     final parsed = double.tryParse(value);
-    if (parsed == null || !_matches(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value))
+    if (parsed == null || !_matches(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
       throw MambaParseException(
         'Invalid double value: $value must be a signed decimal number',
       );
+    }
     _range(input, parsed);
     if (input is NumericStepValidated && input is NumericRangeValidated) {
       final stepped = input as NumericStepValidated;
@@ -278,10 +291,11 @@ final class Parser {
       final range = input as NumericRangeValidated;
       final min = range.min;
       final max = range.max;
-      if ((min != null && value < min) || (max != null && value > max))
+      if ((min != null && value < min) || (max != null && value > max)) {
         throw MambaParseException(
           'Option --${input.name} is outside its accepted range.',
         );
+      }
     }
   }
 
@@ -302,17 +316,24 @@ final class Parser {
 
   void _addDefaults(CommandRegistry registry, Map<Object, Object?> values) {
     for (final option in registry.applicableOptions) {
-      if (option case DefaultValue(defaultValue: final value))
+      if (option case DefaultValue(defaultValue: final value)) {
         values.putIfAbsent(option, () => value);
+      }
     }
     void access(AccessorOption input) {
-      if (input case DefaultValue(defaultValue: final value))
+      if (input case DefaultValue(defaultValue: final value)) {
         values.putIfAbsent(input, () => value);
-      if (input is AccessorListOption)
-        for (final child in input.options) access(child);
+      }
+      if (input is AccessorListOption) {
+        for (final child in input.options) {
+          access(child);
+        }
+      }
     }
 
-    for (final accessor in registry.applicableAccessors) access(accessor);
+    for (final accessor in registry.applicableAccessors) {
+      access(accessor);
+    }
   }
 
   void _validateRequired(
@@ -354,10 +375,11 @@ final class Parser {
           'Required paired options are missing: $missing',
         );
       }
-      if (present.isNotEmpty && present.length != group.options.length)
+      if (present.isNotEmpty && present.length != group.options.length) {
         throw MambaParseException(
           'Paired options ${group.options.map((item) => '--${item.name}').join(', ')} must be passed together',
         );
+      }
       _addPairedValuesFor(group, values);
       for (final option in group.options) {
         values.remove(option);
@@ -492,14 +514,16 @@ final class Parser {
             break;
           }
         }
-        if (collected.isEmpty && positional is DefaultValue)
+        if (collected.isEmpty && positional is DefaultValue) {
           collected.addAll(
             (positional as DefaultValue<List>).defaultValue.cast<Object>(),
           );
-        if (collected.isEmpty && required)
+        }
+        if (collected.isEmpty && required) {
           throw MambaParseException(
             'The ${positional.name} is required at $index after this command',
           );
+        }
         if (collected.isNotEmpty) {
           values[positional] = (positional as RepeatedPositionalDefinition)
               .freezeValues(collected);
@@ -514,10 +538,11 @@ final class Parser {
         );
       }
     }
-    if (index != source.length)
+    if (index != source.length) {
       throw MambaParseException(
         "This term isn't a registered command positional",
       );
+    }
   }
 
   Object _positionalValue(Positional<Object?> input, String value) =>
@@ -526,20 +551,23 @@ final class Parser {
       : _regex(input, value);
   void _validateVariadic(Variadic? variadic, List<String> values) {
     if (values.isEmpty || variadic == null) return;
-    if (variadic is ChoiceVariadic && values.length > 1)
+    if (variadic is ChoiceVariadic && values.length > 1) {
       throw MambaParseException(
         'The registered variadic accepts only one value.',
       );
+    }
     for (final value in values) {
-      if (variadic is NormalVariadic && !_matches(variadic.regex, value))
+      if (variadic is NormalVariadic && !_matches(variadic.regex, value)) {
         throw MambaParseException(
           "The term isn't accepted by the registered variadic",
         );
+      }
       if (variadic is ChoiceVariadic &&
-          !variadic.choices.any((choice) => choice.name == value))
+          !variadic.choices.any((choice) => choice.name == value)) {
         throw MambaParseException(
           "The term isn't accepted by the registered variadic",
         );
+      }
     }
   }
 

@@ -10,10 +10,6 @@ include: package:lints/recommended.yaml
 analyzer:
   language:
     strict-inference: true
-  errors:
-    # This project writes single-line `if` bodies deliberately.
-    curly_braces_in_flow_control_structures: ignore
-    annotate_overrides: ignore
 
 linter:
   rules:

@@ -28,10 +28,12 @@ final class MambaFailureResult extends MambaExecutionResult {
     required List<MambaExecutionError> errors,
     this.output,
   }) : errors = List.unmodifiable(errors) {
-    if (exitCode == 0)
+    if (exitCode == 0) {
       throw ArgumentError.value(exitCode, 'exitCode', 'must be non-zero');
-    if (errors.isEmpty)
+    }
+    if (errors.isEmpty) {
       throw ArgumentError.value(errors, 'errors', 'must not be empty');
+    }
   }
   @override
   final int exitCode;
@@ -107,8 +109,9 @@ final class Executor {
   final MambaContext? context;
   final HelpFormatter? helpFormatter;
   static String _validateVersion(String version) {
-    if (RegExp(r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$').hasMatch(version))
+    if (RegExp(r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$').hasMatch(version)) {
       return version;
+    }
     throw MambaRegistryError('version must be a Semantic Version 2.0.0 value');
   }
 
@@ -216,16 +219,18 @@ final class _Execution {
     final errorPath = args.isEmpty && _defaultCommandPath != null
         ? path
         : registry.fullPath;
-    if (parsed.version)
+    if (parsed.version) {
       return MambaSuccessResult(
         parsed.help
             ? '${_registry.name} $_version\n\n${_help.format(registry)}'
             : '${_registry.name} $_version',
       );
+    }
     final commandPath = _commandsForPath(path);
     final command = commandPath.lastOrNull;
-    if (parsed.help || command == null)
+    if (parsed.help || command == null) {
       return MambaSuccessResult(_help.format(registry));
+    }
     final inputs = parsed.$2;
     final readContext = MambaReadContext(_context);
     final errors = <MambaExecutionError>[];
