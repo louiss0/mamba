@@ -177,140 +177,65 @@ void main() {
     );
   });
 
-  test('project scaffolder writes into an empty current directory', () {
+  test('project scaffolder claims a new child directory', () {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
-    final workspace = Directory('${directory.path}/workspace')..createSync();
     final processRunner = FakeProjectProcessRunner();
     final projectScaffolder = DirectoryProjectScaffolder(
-      workspace,
+      directory,
       processRunner: processRunner,
       sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
-      '.',
+      'demo',
       'A demonstration CLI.',
       installDependencies: true,
       initializeGitRepository: false,
     );
 
+    final projectRoot = '${directory.path}/demo';
     expect(
-      File('${workspace.path}/pubspec.yaml').readAsStringSync(),
-      contains('name: workspace'),
+      File('$projectRoot/pubspec.yaml').readAsStringSync(),
+      contains('name: demo'),
     );
-    expect(File('${workspace.path}/bin/workspace.dart').existsSync(), isTrue);
-    expect(File('${workspace.path}/AGENTS.md').existsSync(), isTrue);
+    expect(File('$projectRoot/bin/demo.dart').existsSync(), isTrue);
+    expect(File('$projectRoot/AGENTS.md').existsSync(), isTrue);
   });
 
-  test('project scaffolder refuses a current directory holding anything', () {
+  test('project command rejects a dot as a package name', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final workspace = Directory('${directory.path}/workspace')..createSync();
-    File('${workspace.path}/notes.txt').writeAsStringSync('mine');
-    Directory('${workspace.path}/.git').createSync();
-    final projectScaffolder = DirectoryProjectScaffolder(
-      workspace,
-      processRunner: FakeProjectProcessRunner(),
-      sourceFormatter: _sourceFormatter,
-    );
-
-    expect(
-      () => projectScaffolder.scaffold(
-        '.',
-        'A demonstration CLI.',
-        installDependencies: true,
-        initializeGitRepository: false,
-      ),
-      throwsA(
-        isA<MambaException>().having(
-          (error) => error.message,
-          'message',
-          allOf(
-            contains('Cannot scaffold into the current directory'),
-            contains('notes.txt'),
-            contains('.git'),
-          ),
-        ),
-      ),
-    );
-    expect(File('${workspace.path}/pubspec.yaml').existsSync(), isFalse);
-  });
-
-  test(
-    'project scaffolder refuses a directory it cannot name a package after',
-    () {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final workspace = Directory('${directory.path}/My Project')..createSync();
-      final projectScaffolder = DirectoryProjectScaffolder(
-        workspace,
-        processRunner: FakeProjectProcessRunner(),
-        sourceFormatter: _sourceFormatter,
-      );
-
-      expect(
-        () => projectScaffolder.scaffold(
-          '.',
-          'A demonstration CLI.',
-          installDependencies: true,
-          initializeGitRepository: false,
-        ),
-        throwsA(
-          isA<MambaException>().having(
-            (error) => error.message,
-            'message',
-            allOf(
-              contains('"My Project" is not a valid Dart package name'),
-              contains('Pass a name instead of .'),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-
-  test('project command reports the current directory it scaffolded', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final workspace = Directory('${directory.path}/workspace')..createSync();
+    final projectScaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         workspace,
-        projectScaffolder: DirectoryProjectScaffolder(
-          workspace,
-          processRunner: FakeProjectProcessRunner(),
-          sourceFormatter: _sourceFormatter,
-        ),
+        projectScaffolder: projectScaffolder,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: true),
       ),
     ]).fake().execute(['create', '.', 'A demonstration CLI.']);
 
-    expect(result.exitCode, 0);
-    expect(
-      (result as MambaSuccessResult).output,
-      'Created Mamba command-line application in ${workspace.path}.',
-    );
+    expect(result, isA<MambaFailureResult>());
+    expect(projectScaffolder.projects, isEmpty);
+    expect(workspace.listSync(), isEmpty);
   });
 
-  test(
-    'project command rejects a package name that is neither a name nor a dot',
-    () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final result = await Executor('tool', 'Tool.', '1.0.0', [
-        CreateProjectCommand(
-          directory,
-          projectScaffolder: FakeProjectScaffolder(),
-          installPrompt: FakeInstallPrompt(shouldInstall: true),
-          gitPrompt: FakeGitPrompt(shouldInitialize: true),
-        ),
-      ]).fake().execute(['create', 'My Project', 'A demonstration CLI.']);
+  test('project command rejects a package name that is not a name', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      CreateProjectCommand(
+        directory,
+        projectScaffolder: FakeProjectScaffolder(),
+        installPrompt: FakeInstallPrompt(shouldInstall: true),
+        gitPrompt: FakeGitPrompt(shouldInitialize: true),
+      ),
+    ]).fake().execute(['create', 'My Project', 'A demonstration CLI.']);
 
-      expect(result, isA<MambaFailureResult>());
-    },
-  );
+    expect(result, isA<MambaFailureResult>());
+  });
 
   test('project scaffolder installs agent skills without dependencies', () {
     final directory = Directory.systemTemp.createTempSync('mamba_');

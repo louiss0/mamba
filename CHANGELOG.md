@@ -9,6 +9,9 @@
 - Replaced `interact` with `terminice` for the `mamba create` prompts.
 - Made the `mamba create` short description an optional second positional, and
   asked for it when it is left off.
+- Removed the `.` `mamba create` package name. `mamba create .` is now
+  rejected as an invalid package name; `mamba create my_app` still creates
+  `my_app` in the current directory.
 
 ## 0.13.1
 

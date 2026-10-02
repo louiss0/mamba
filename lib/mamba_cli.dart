@@ -45,10 +45,6 @@ abstract interface class GitPrompt {
   bool confirmsInitialization();
 }
 
-/// The `mamba create` package name that targets the current directory instead
-/// of a new child of it.
-const _currentDirectoryToken = '.';
-
 /// The Dart package name a scaffolded project is published under.
 const _packageNamePattern = r'[a-z][a-z0-9_]*';
 
@@ -191,19 +187,6 @@ outside `lib/`.
   files.
 ''';
 
-/// The final path segment of [uri], skipping the empty segment a directory's
-/// trailing separator leaves behind.
-String? _lastPathSegment(Uri uri) =>
-    uri.pathSegments.where((segment) => segment.isNotEmpty).lastOrNull;
-
-/// Where a scaffolded project lands and the package name it is published under.
-final class ProjectTarget {
-  new(this.directory, this.packageName);
-
-  final Directory directory;
-  final String packageName;
-}
-
 final class DirectoryProjectScaffolder implements ProjectScaffolder {
   new(
     this._parentDirectory, {
@@ -225,75 +208,44 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
   }) {
     final target = _createTarget(packageName);
 
-    _createProjectFiles(target, shortDescription);
+    _createProjectFiles(target, packageName, shortDescription);
 
     if (installDependencies) {
-      _installDependencies(target.directory);
+      _installDependencies(target);
     }
 
     // Agent skills are installed for whoever reads the project next, so they
     // follow the project rather than its Dart dependency graph.
-    _installMambaSkills(target.directory);
+    _installMambaSkills(target);
 
     if (initializeGitRepository) {
-      _initializeGitRepository(target.directory);
+      _initializeGitRepository(target);
     }
   }
 
-  /// Claims the directory a [packageName] names, creating it when the name is
-  /// a new child and checking it when the name is the current directory.
-  ProjectTarget _createTarget(String packageName) {
-    if (packageName != _currentDirectoryToken) {
-      final directory = Directory(
-        '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
-      );
+  /// Claims the new child directory a [packageName] names.
+  Directory _createTarget(String packageName) {
+    final directory = Directory(
+      '${_parentDirectory.path}${Platform.pathSeparator}$packageName',
+    );
 
-      if (directory.existsSync()) {
-        throw MambaException(
-          'Cannot create $packageName: the directory already exists.',
-        );
-      }
-
-      directory.createSync();
-
-      return ProjectTarget(directory, packageName);
-    }
-
-    // The current directory is claimed rather than created, so scaffolding into
-    // it has to prove nothing already lives there.
-    final occupied = _parentDirectory
-        .listSync()
-        .map((entry) => _lastPathSegment(entry.uri) ?? '')
-        .toList();
-
-    if (occupied.isNotEmpty) {
+    if (directory.existsSync()) {
       throw MambaException(
-        'Cannot scaffold into the current directory: it already contains '
-        '${occupied.join(', ')}.',
+        'Cannot create $packageName: the directory already exists.',
       );
     }
 
-    return ProjectTarget(_parentDirectory, _currentDirectoryPackageName());
+    directory.createSync();
+
+    return directory;
   }
 
-  /// Reads the package name off the current directory, which has to be one the
-  /// generated `pubspec.yaml` and executable can be named after.
-  String _currentDirectoryPackageName() {
-    final name = _lastPathSegment(_parentDirectory.absolute.uri) ?? '';
-
-    if (!RegExp('^$_packageNamePattern\$').hasMatch(name)) {
-      throw MambaException(
-        'Cannot scaffold into the current directory: "$name" is not a valid '
-        'Dart package name. Pass a name instead of $_currentDirectoryToken.',
-      );
-    }
-
-    return name;
-  }
-
-  void _createProjectFiles(ProjectTarget target, String shortDescription) {
-    final projectRoot = target.directory.path;
-    final packageName = target.packageName;
+  void _createProjectFiles(
+    Directory target,
+    String packageName,
+    String shortDescription,
+  ) {
+    final projectRoot = target.path;
 
     Directory('$projectRoot${Platform.pathSeparator}bin').createSync();
 
@@ -424,10 +376,8 @@ final class CreateProjectCommand extends Command {
 
   static final packageName = NormalPositional(
     'package-name',
-    regExp: RegExp('\\.|$_packageNamePattern'),
-    description:
-        'Name for the new package, or $_currentDirectoryToken to use the '
-        'current directory.',
+    regExp: RegExp(_packageNamePattern),
+    description: 'Name for the new package.',
   );
   static final projectDescription = NormalPositional.optional(
     'short-description',
@@ -479,9 +429,8 @@ final class CreateProjectCommand extends Command {
       initializeGitRepository: initializesGitRepository,
     );
 
-    final projectPath = name == _currentDirectoryToken
-        ? _parentDirectory.path
-        : '${_parentDirectory.path}${Platform.pathSeparator}$name';
+    final projectPath =
+        '${_parentDirectory.path}${Platform.pathSeparator}$name';
 
     return [
       'Created Mamba command-line application in $projectPath.',
