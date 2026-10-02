@@ -171,7 +171,7 @@ Four commands write files. Run `mamba --help` for the full surface.
 | `mamba component indicator <name>` | `lib/components/<name>.dart` | Wrap a terminice indicator. |
 
 A component is a plain class that owns one question or one piece of progress,
-and exposes one async function, so a command awaits it instead of blocking on
+and exposes one async `call`, so a command awaits it instead of blocking on
 a synchronous prompt.
 
 `<file>` and `--append` require each other, so pass both or neither. `mamba
@@ -784,9 +784,10 @@ final class ScaffoldCommand extends Command {
 
 /// One component a scaffolded `mamba component` can encapsulate.
 ///
-/// Each wraps a single terminice call behind an async function, so a command
-/// awaits the reader instead of blocking on a synchronous prompt. An enum is
-/// avoided here because its constructor trips the analyzer's
+/// Each wraps a single terminice call behind an async `call` method, so every
+/// component is used the same way and a command awaits the reader instead of
+/// blocking on a synchronous prompt. An enum is avoided here because its
+/// constructor trips the analyzer's
 /// `unnecessary_type_name_in_constructor` rule with no alternative spelling.
 final class _ComponentKind {
   new(this.name, this.shortDescription, this.label, this.body);
@@ -800,7 +801,7 @@ final class _ComponentKind {
   /// The label the generated component asks with.
   final String label;
 
-  /// The async function the generated component exposes.
+  /// The async `call` the generated component exposes.
   final String body;
 
   /// Whether the component needs somewhere to read its choices from.
@@ -813,7 +814,7 @@ final class _ComponentKind {
     '/// Shows the prompt and returns what the reader typed.\n'
         '  ///\n'
         "  /// Returns `null` when the reader cancels the prompt.\n"
-        '  Future<String?> ask() async => terminice.text(label);',
+        '  Future<String?> call() async => terminice.text(label);',
   );
 
   static final selector = _ComponentKind(
@@ -823,7 +824,7 @@ final class _ComponentKind {
     '/// Shows a filterable selector and returns the chosen option.\n'
         '  ///\n'
         "  /// Returns `null` when the reader cancels without choosing.\n"
-        '  Future<String?> choose() async {\n'
+        '  Future<String?> call() async {\n'
         '    final chosen = terminice.searchSelector(\n'
         '      prompt: label,\n'
         '      options: options,\n'
@@ -840,7 +841,7 @@ final class _ComponentKind {
     '/// Lets the reader browse for a path and returns what they chose.\n'
         '  ///\n'
         "  /// Returns `null` when the reader cancels.\n"
-        '  Future<String?> pick() async => terminice.pathPicker(label);',
+        '  Future<String?> call() async => terminice.pathPicker(label);',
   );
 
   static final indicator = _ComponentKind(
@@ -852,9 +853,9 @@ final class _ComponentKind {
         '  /// A failure is cleaned up before it is rethrown, so the reader is\n'
         "  /// never left looking at a spinner that stopped moving.\n"
         '  ///\n'
-        '  /// Pass `SpinnerStyle.bars` to [ReportComponent.spinner] for a\n'
-        '  /// rising and falling bar instead of the default dotted frames.\n'
-        '  Future<T> report<T>(Future<T> Function() work) =>\n'
+        '  /// Pass `SpinnerStyle.bars` to [spinner] for a rising and falling\n'
+        '  /// bar instead of the default dotted frames.\n'
+        '  Future<T> call<T>(Future<T> Function() work) =>\n'
         '      spinner().whileRunning(work);\n'
         '\n'
         '  /// The spinner this component reports through.\n'
@@ -946,7 +947,7 @@ final class _ScaffoldComponentKindCommand extends Command {
     file.writeAsStringSync(
       "import 'package:mamba/mamba.dart';\n"
       '\n'
-      '/// Encapsulates a terminice ${kind.name} behind one async function.\n'
+      '/// Encapsulates a terminice ${kind.name} behind one async `call`.\n'
       'final class $className {\n'
       '$constructor'
       '\n'

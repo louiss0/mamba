@@ -17,9 +17,10 @@
   single letters and a suggestion would be noise.
 - Added `mamba component <prompt|selector|picker|indicator> <name>`, which
   writes `lib/components/<name>.dart`: a plain class that encapsulates one
-  terminice call behind an async function, so a command awaits it rather than
-  blocking on a synchronous prompt. The generated indicator reports through
-  terminice's loading spinner directly rather than through the task helper.
+  terminice call behind one async `call` method, so every component is used the
+  same way and a command awaits it rather than blocking on a synchronous
+  prompt. The indicator reports through terminice's loading spinner directly
+  rather than through the task helper.
 
 ## 0.14.0
 

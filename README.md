@@ -90,9 +90,10 @@ command's help path, so the starter test works for both `Command` and
 --help` for all scaffolding options.
 
 `mamba component <kind> <name>` writes `lib/components/<name>.dart`: a plain
-class that encapsulates one terminice call behind an async function, so a
-command awaits it instead of blocking on a synchronous prompt. The kinds are
-`prompt`, `selector`, `picker`, and `indicator`:
+class that encapsulates one terminice call behind one async `call` method, so
+every component is used the same way and a command awaits it instead of
+blocking on a synchronous prompt. The kinds are `prompt`, `selector`, `picker`,
+and `indicator`:
 
 ```sh
 mamba component prompt ask
@@ -107,15 +108,17 @@ final class AskComponent {
 
   final String label;
 
-  Future<String?> ask() async => terminice.text(label);
+  Future<String?> call() async => terminice.text(label);
 }
+
+// await ask();  is the same as  await ask.call();
 ```
 
-A selector takes the choices it filters through an `options` field, and an
-indicator exposes `Future<T> report<T>(Future<T> Function() work)` so the work
-it describes is awaited inside the component. It reports through terminice's
-loading spinner directly rather than through the task helper, and the spinner
-is built by a separate method so its style can be changed in one place.
+A selector takes the choices it filters through an `options` field. The
+indicator is generic, because it reports on work it cannot know ahead of time:
+`Future<T> call<T>(Future<T> Function() work)` awaits the work behind the
+spinner. Passing the instance where a function type is expected needs the
+explicit `component.call` tear-off.
 
 ## Quick start
 
