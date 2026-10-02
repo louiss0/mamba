@@ -1,4 +1,4 @@
-## Unreleased
+## 0.14.0
 
 - Let a group command render its own help. The executor hands a selected
   `GroupCommand` the application `HelpFormatter` and the registry the command
