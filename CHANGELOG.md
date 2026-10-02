@@ -9,8 +9,10 @@
   or alias and which of the two it was.
 - Named the rejected input in the unknown flag or option message and offered
   the nearest registered flag, option, accessor, or paired or selected group
-  member, which includes a repeatable option. An unknown short flag is now
-  named letter by letter.
+  member, which includes a repeatable option.
+- Named the rejected letter for an unknown short flag and listed the shorts it
+  could have used, because the clustered short parser splits its input into
+  single letters and a suggestion would be noise.
 
 ## 0.14.0
 

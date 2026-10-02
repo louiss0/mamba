@@ -3,8 +3,7 @@ enum SuggestionKind {
   command,
   alias,
   flag,
-  option,
-  shortFlag;
+  option;
 
   /// How strongly this kind is preferred when two candidates tie.
   int get rank => index;
@@ -27,7 +26,6 @@ final class Suggestion {
     SuggestionKind.command => "the command '$name'",
     SuggestionKind.alias => "the alias '$name'",
     SuggestionKind.flag || SuggestionKind.option => '--$name',
-    SuggestionKind.shortFlag => '-$name',
   };
 
   @override

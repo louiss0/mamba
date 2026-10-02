@@ -129,7 +129,7 @@ final class Parser {
           if (flag == null) {
             throw MambaParseException(
               '"-$letter" isn\'t a registered short flag or option.'
-              '${suggestion.adviceFor(letter, _shortCandidates(registry))}',
+              '${_shortInventory(registry)}',
             );
           }
           if (identical(flag, MambaBuiltInFlags.version)) version = true;
@@ -629,15 +629,39 @@ final class Parser {
   }
 
   /// Every registered short flag a mistyped letter could have meant.
-  Iterable<suggestion.Suggestion> _shortCandidates(
-    CommandRegistry registry,
-  ) sync* {
-    for (final flag in registry.applicableFlags) {
-      final short = flag.short;
-      if (short != null && short.length == 1) {
-        yield suggestion.Suggestion(suggestion.SuggestionKind.shortFlag, short);
-      }
+  /// Lists the short tokens the reader could have typed instead.
+  ///
+  /// A mistyped letter has nothing worth guessing at, because every other
+  /// single letter sits one edit away. The whole inventory is short enough to
+  /// read and is what a reader who cannot recall the letter actually wants, so
+  /// it is offered in place of a suggestion.
+  String _shortInventory(CommandRegistry registry) =>
+      ' Registered shorts: ${_shorts(registry).join(', ')}.';
+
+  /// Every short token the clustered short parser would accept.
+  ///
+  /// The built-in help short leads because the same loop accepts it whether or
+  /// not a registry declares it, and it is the letter a reader reaches for
+  /// first, so the inventory is never empty. Hidden inputs are withheld
+  /// because a hidden input is not meant to be advertised.
+  List<String> _shorts(CommandRegistry registry) {
+    final shorts = <String>[];
+    final seen = <String>{};
+
+    void add(String? short, bool hidden) {
+      if (short == null || short.isEmpty || hidden) return;
+      if (seen.add(short)) shorts.add('-$short');
     }
+
+    add(MambaBuiltInFlags.help.short, MambaBuiltInFlags.help.hidden);
+    for (final flag in registry.applicableFlags) {
+      add(flag.short, flag.hidden);
+    }
+    for (final option in registry.applicableOptions) {
+      add(option.short, option.hidden);
+    }
+
+    return shorts;
   }
 
   Object _positionalValue(Positional<Object?> input, String value) =>

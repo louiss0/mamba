@@ -35,7 +35,10 @@ final _buildFile = NormalPositional('file');
 
 final _trace = BooleanFlag('trace', short: 't');
 final _force = BooleanFlag('force', short: 'f');
+final _quiet = BooleanFlag('quiet', short: 'q', hidden: true);
+final _level = CountFlag('level', short: 'l');
 final _output = StringOption('output', short: 'o');
+final _plain = StringOption('plain');
 final _tags = RepeatableStringOption('tag');
 final _pair = PairedOptions<String>([
   PairStringOption('host'),
@@ -616,7 +619,8 @@ void main() {
           isA<MambaParseException>().having(
             (error) => error.message,
             'message',
-            '"-x" isn\'t a registered short flag or option.',
+            '"-x" isn\'t a registered short flag or option. '
+                'Registered shorts: -h.',
           ),
         ),
       );
@@ -1368,8 +1372,8 @@ void main() {
     String rejectionOf(List<String> args) {
       try {
         parser(
-          flags: [_trace, _force],
-          options: [_output, _tags],
+          flags: [_trace, _force, _quiet, _level],
+          options: [_output, _tags, _plain],
           paired: [_pair],
           selectedOptions: [_selected],
           accessors: [_database],
@@ -1411,15 +1415,31 @@ void main() {
       expect(rejectionOf(['--qqqqqqqqqq']), isNot(contains('Did you mean')));
     });
 
-    test('names the rejected letter for a short flag', () {
-      expect(
-        rejectionOf(['-z']),
-        '"-z" isn\'t a registered short flag or option.',
-      );
+    test(
+      'names the rejected letter and lists the shorts it could have used',
+      () {
+        expect(
+          rejectionOf(['-z']),
+          '"-z" isn\'t a registered short flag or option. '
+          'Registered shorts: -h, -t, -f, -l, -o.',
+        );
+      },
+    );
+
+    test('leads the inventory with the built-in help short', () {
+      expect(rejectionOf(['-z']), contains('Registered shorts: -h,'));
     });
 
-    test('offers no short flag for a one-letter word', () {
+    test('lists shorts in the message instead of guessing at a letter', () {
       expect(rejectionOf(['-z']), isNot(contains('Did you mean')));
+    });
+
+    test('withholds a hidden short from the inventory', () {
+      expect(rejectionOf(['-z']), isNot(contains('-q')));
+    });
+
+    test('withholds an input that declares no short', () {
+      expect(rejectionOf(['-z']), isNot(contains('--plain')));
     });
   });
 }

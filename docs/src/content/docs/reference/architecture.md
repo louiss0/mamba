@@ -152,15 +152,27 @@ offering one would point a reader at a word they never typed.
 An unknown `--` input is rejected the same way, measured against every
 registered flag, option, accessor, and the members of the paired and selected
 groups. A repeatable option is covered because it is an ordinary option that
-may be written more than once. Suggestions are written as the token itself,
-since the message already names flags and options together, and an unknown
-short flag is named letter by letter.
+may be written more than once. Suggestions for an input are written as the
+token itself, since the message already names flags and options together.
 
 ```
 Unknown flag or option --trce. Did you mean --trace or --force?
 Unknown flag or option --hots. Did you mean --host?
-"-z" isn't a registered short flag or option.
 ```
+
+An unknown short flag is named letter by letter and gets an inventory of the
+shorts it could have used rather than a suggestion. The clustered short parser
+splits its input into single letters, so every other letter sits one edit away
+and a guess would be noise. Listing what is available is short enough to read
+and is what a reader who cannot recall the letter actually wants.
+
+```
+"-z" isn't a registered short flag or option. Registered shorts: -h, -v, -V, -t, -f, -o.
+```
+
+The inventory leads with the built-in help short, because the same loop accepts
+it whether or not a registry declares it, and it withholds hidden inputs,
+because a hidden input is not meant to be advertised.
 
 Suggestions are the nearest registered terms by edit distance, capped at half
 the mistyped word's length so a short word is matched strictly and a
