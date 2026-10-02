@@ -89,6 +89,32 @@ command's help path, so the starter test works for both `Command` and
 `GroupCommand`. Run `mamba --help`, `mamba command --help`, or `mamba test
 --help` for all scaffolding options.
 
+`mamba component <kind> <name>` writes `lib/components/<name>.dart`: a plain
+class that encapsulates one terminice call behind an async function, so a
+command awaits it instead of blocking on a synchronous prompt. The kinds are
+`prompt`, `selector`, `picker`, and `indicator`:
+
+```sh
+mamba component prompt ask
+mamba component selector choose
+mamba component picker target
+mamba component indicator report
+```
+
+```dart
+final class AskComponent {
+  const AskComponent({this.label = 'Project name'});
+
+  final String label;
+
+  Future<String?> ask() async => terminice.text(label);
+}
+```
+
+A selector takes the choices it filters through an `options` field, and an
+indicator exposes `Future<T> report<T>(Future<T> Function() work)` so the work
+it describes is awaited inside the component.
+
 ## Quick start
 
 Create an executable such as `bin/hello.dart`:

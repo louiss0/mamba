@@ -14,5 +14,6 @@ Future<void> main(List<String> arguments) => Executor(
     ScaffoldBinaryCommand(Directory.current),
     ScaffoldCommand(Directory.current),
     ScaffoldTestCommand(Directory.current),
+    ScaffoldComponentCommand(Directory.current),
   ],
 ).create().execute(arguments);

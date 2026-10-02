@@ -15,6 +15,10 @@
 - Named the rejected letter for an unknown short flag and listed the shorts it
   could have used, because the clustered short parser splits its input into
   single letters and a suggestion would be noise.
+- Added `mamba component <prompt|selector|picker|indicator> <name>`, which
+  writes `lib/components/<name>.dart`: a plain class that encapsulates one
+  terminice call behind an async function, so a command awaits it rather than
+  blocking on a synchronous prompt.
 
 ## 0.14.0
 

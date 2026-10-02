@@ -657,6 +657,105 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     );
   });
 
+  test(
+    'scaffolding component creates a prompt that awaits terminice',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final result = await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+      ]).fake().execute(['component', 'prompt', 'ask']);
+
+      expect(result.exitCode, 0);
+      expect(
+        File('${directory.path}/lib/components/ask.dart').readAsStringSync(),
+        allOf(
+          contains('final class AskComponent'),
+          contains('Future<String?> ask() async'),
+          contains('terminice.text(label)'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'scaffolding component reads its selector choices from a field',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+      ]).fake().execute(['component', 'selector', 'choose']);
+
+      expect(
+        File('${directory.path}/lib/components/choose.dart').readAsStringSync(),
+        allOf(
+          contains('required this.options'),
+          contains('Future<String?> choose() async'),
+          contains('terminice.searchSelector('),
+        ),
+      );
+    },
+  );
+
+  test(
+    'scaffolding component awaits the work an indicator reports on',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final result = await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+      ]).fake().execute(['component', 'indicator', 'report']);
+
+      expect(result.exitCode, 0);
+      expect(
+        File('${directory.path}/lib/components/report.dart').readAsStringSync(),
+        allOf(
+          contains('Future<T> report<T>(Future<T> Function() work) async'),
+          contains('terminice.task(label, run: work)'),
+        ),
+      );
+    },
+  );
+
+  test('scaffolding component offers every kind as a subcommand', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+    ]).fake().execute(['component', '--help']);
+
+    expect(
+      _withoutAnsi((result as MambaSuccessResult).output!),
+      allOf(
+        contains('prompt'),
+        contains('selector'),
+        contains('picker'),
+        contains('indicator'),
+      ),
+    );
+  });
+
+  test(
+    'scaffolding component leaves no command when the file exists',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final componentDirectory = Directory('${directory.path}/lib/components')
+        ..createSync(recursive: true);
+      File('${componentDirectory.path}/ask.dart').writeAsStringSync('mine');
+      final result = await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+      ]).fake().execute(['component', 'prompt', 'ask']);
+
+      expect(result, isA<MambaFailureResult>());
+      expect(
+        File('${componentDirectory.path}/ask.dart').readAsStringSync(),
+        'mine',
+      );
+    },
+  );
+
   test('scaffolding group command creates a compatible test suite', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
@@ -966,6 +1065,9 @@ final class FakeSourceFormatter implements SourceFormatter {
 }
 
 final _sourceFormatter = FakeSourceFormatter();
+
+String _withoutAnsi(String value) =>
+    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
 
 final class FakeProjectScaffolder implements ProjectScaffolder {
   final projects =

@@ -165,6 +165,14 @@ Four commands write files. Run `mamba --help` for the full surface.
 | `mamba command <name> --append <file>` | appends to `<file>` | Add a command to an existing file. |
 | `mamba test <name>` | `test/<name>_test.dart` | Add a suite for an existing command. |
 | `mamba binary <name>` | `bin/<name>.dart` | Add a second executable. |
+| `mamba component prompt <name>` | `lib/components/<name>.dart` | Wrap a terminice prompt. |
+| `mamba component selector <name>` | `lib/components/<name>.dart` | Wrap a terminice selector. |
+| `mamba component picker <name>` | `lib/components/<name>.dart` | Wrap a terminice picker. |
+| `mamba component indicator <name>` | `lib/components/<name>.dart` | Wrap a terminice indicator. |
+
+A component is a plain class that owns one question or one piece of progress,
+and exposes one async function, so a command awaits it instead of blocking on
+a synchronous prompt.
 
 `<file>` and `--append` require each other, so pass both or neither. `mamba
 test` mirrors `lib/a/b.dart` to `test/a/b_test.dart` and rejects a source file
@@ -771,5 +779,175 @@ final class ScaffoldCommand extends Command {
     return shouldAppend
         ? 'Appended command to ${file.path}.'
         : 'Created command in ${file.path}.';
+  }
+}
+
+/// One component a scaffolded `mamba component` can encapsulate.
+///
+/// Each wraps a single terminice call behind an async function, so a command
+/// awaits the reader instead of blocking on a synchronous prompt. An enum is
+/// avoided here because its constructor trips the analyzer's
+/// `unnecessary_type_name_in_constructor` rule with no alternative spelling.
+final class _ComponentKind {
+  new(this.name, this.shortDescription, this.label, this.body);
+
+  /// The subcommand that scaffolds this component.
+  final String name;
+
+  /// The description shown in help for that subcommand.
+  final String shortDescription;
+
+  /// The label the generated component asks with.
+  final String label;
+
+  /// The async function the generated component exposes.
+  final String body;
+
+  /// Whether the component needs somewhere to read its choices from.
+  bool get takesOptions => this == selector;
+
+  static final prompt = _ComponentKind(
+    'prompt',
+    'Ask the reader one question.',
+    'Project name',
+    '/// Shows the prompt and returns what the reader typed.\n'
+        '  ///\n'
+        "  /// Returns `null` when the reader cancels the prompt.\n"
+        '  Future<String?> ask() async => terminice.text(label);',
+  );
+
+  static final selector = _ComponentKind(
+    'selector',
+    'Let the reader pick from known options.',
+    'Choose an option',
+    '/// Shows a filterable selector and returns the chosen option.\n'
+        '  ///\n'
+        "  /// Returns `null` when the reader cancels without choosing.\n"
+        '  Future<String?> choose() async {\n'
+        '    final chosen = terminice.searchSelector(\n'
+        '      prompt: label,\n'
+        '      options: options,\n'
+        '      showSearch: true,\n'
+        '    );\n'
+        '    return chosen.isEmpty ? null : chosen.first;\n'
+        '  }',
+  );
+
+  static final picker = _ComponentKind(
+    'picker',
+    'Let the reader browse the filesystem.',
+    'Choose a directory',
+    '/// Lets the reader browse for a path and returns what they chose.\n'
+        '  ///\n'
+        "  /// Returns `null` when the reader cancels.\n"
+        '  Future<String?> pick() async => terminice.pathPicker(label);',
+  );
+
+  static final indicator = _ComponentKind(
+    'indicator',
+    'Report progress while work runs.',
+    'Working',
+    '/// Runs [work] behind a progress indicator and returns its result.\n'
+        '  ///\n'
+        '  /// A failure is rendered before it is rethrown, so the reader is\n'
+        '  /// never left looking at an indicator that stopped moving.\n'
+        '  Future<T> report<T>(Future<T> Function() work) async =>\n'
+        '      terminice.task(label, run: work);',
+  );
+
+  static final values = [prompt, selector, picker, indicator];
+}
+
+/// Creates a component that encapsulates one terminice call.
+///
+/// The component is a plain class rather than a command: it owns one question
+/// or one piece of progress, and a command awaits it.
+final class ScaffoldComponentCommand extends GroupCommand {
+  new(Directory parentDirectory, {SourceFormatter? sourceFormatter})
+    : super([
+        for (final kind in _ComponentKind.values)
+          _ScaffoldComponentKindCommand(
+            parentDirectory,
+            kind,
+            sourceFormatter: sourceFormatter,
+          ),
+      ]);
+
+  @override
+  String get name => 'component';
+
+  @override
+  String get shortDescription => 'Create a component around a terminice call.';
+}
+
+final class _ScaffoldComponentKindCommand extends Command {
+  new(this._parentDirectory, this.kind, {SourceFormatter? sourceFormatter})
+    : _sourceFormatter = sourceFormatter ?? SystemSourceFormatter(),
+      super(mandatoryPositionals: [componentName]);
+
+  static final componentName = NormalPositional(
+    'name',
+    regExp: RegExp(r'[a-z][a-z0-9_]*'),
+  );
+
+  final Directory _parentDirectory;
+  final _ComponentKind kind;
+  final SourceFormatter _sourceFormatter;
+
+  @override
+  String get name => kind.name;
+
+  @override
+  String get shortDescription => kind.shortDescription;
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    final name = inputs.valueOf(componentName);
+    final file = File(
+      '${_parentDirectory.path}${Platform.pathSeparator}lib'
+      '${Platform.pathSeparator}components${Platform.pathSeparator}'
+      '$name.dart',
+    );
+
+    if (file.existsSync()) {
+      throw MambaException('Cannot create $name: the file already exists.');
+    }
+
+    final className = '${name[0].toUpperCase()}${name.substring(1)}Component';
+    final labelDoc = kind.takesOptions
+        ? 'The question shown above the choices.'
+        : kind == _ComponentKind.indicator
+        ? 'The status shown while the work runs.'
+        : 'The question shown to the reader.';
+    final constructor = kind.takesOptions
+        ? 'const $className({\n'
+              '  required this.options,\n'
+              "  this.label = '${kind.label}',\n"
+              '});\n'
+              '\n'
+              '  /// The choices the reader picks between.\n'
+              '  final List<String> options;\n'
+              '\n'
+              '  /// $labelDoc\n'
+              '  final String label;\n'
+        : "const $className({this.label = '${kind.label}'});\n"
+              '\n'
+              '  /// $labelDoc\n'
+              '  final String label;\n';
+
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(
+      "import 'package:mamba/mamba.dart';\n"
+      '\n'
+      '/// Encapsulates a terminice ${kind.name} behind one async function.\n'
+      'final class $className {\n'
+      '$constructor'
+      '\n'
+      '  ${kind.body}\n'
+      '}\n',
+    );
+    _sourceFormatter.formatSource(file.path);
+
+    return 'Created ${kind.name} component in ${file.path}.';
   }
 }
