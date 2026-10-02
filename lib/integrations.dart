@@ -497,10 +497,10 @@ _mamba_filter_option() {
       var index = 0;
       for (final positional in positionals) {
         final choices = _stringList(positional.choices);
-        final times = positional.repeatable == true ? positional.times! : 0;
+        final slots = positional.slots;
         if (choices.isNotEmpty) {
           final indexes = [
-            for (var slot = 0; slot <= times; slot++) index + slot,
+            for (var slot = 0; slot < slots; slot++) index + slot,
           ].join('|');
           lines.addAll([
             '    $indexes)',
@@ -508,7 +508,7 @@ _mamba_filter_option() {
             '      ;;',
           ]);
         }
-        index += times + 1;
+        index += slots;
       }
       lines.addAll(['  esac']);
     }
@@ -726,10 +726,7 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
     var index = 1;
     for (final entry in positionals) {
       final positional = entry;
-      final repetitions = positional.repeatable == true
-          ? positional.times ?? 0
-          : 0;
-      for (var count = 0; count <= repetitions; count++) {
+      for (var count = 0; count < positional.slots; count++) {
         final optional = positional.required == true && count == 0 ? ':' : '::';
         specs.add(
           "'$index$optional${_escape(entry.name)}:${_choiceAction(positional.choices)}'",
@@ -1191,10 +1188,11 @@ end''';
     for (final value in positionals) {
       final positional = value;
       final choices = _stringList(positional.choices);
-      final times = positional.repeatable == true
-          ? (positional.times as int)
-          : 0;
-      for (var occurrence = 0; occurrence <= times; occurrence++, slot++) {
+      for (
+        var occurrence = 0;
+        occurrence < positional.slots;
+        occurrence++, slot++
+      ) {
         if (choices.isEmpty) continue;
         final positionalCondition = _joinConditions([
           condition,
@@ -1529,8 +1527,7 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
       for (final positionalValue in positionals) {
         final positional = positionalValue;
         final values = _stringList(positional.choices);
-        final times = positional.repeatable == true ? positional.times ?? 0 : 0;
-        for (var slot = 0; slot <= times; slot++) {
+        for (var slot = 0; slot < positional.slots; slot++) {
           positionalChoices.add(values);
         }
       }
@@ -1897,8 +1894,11 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
     for (final entry in positionals) {
       final positional = entry;
       final choices = _stringList(positional.choices);
-      final times = positional.repeatable == true ? positional.times ?? 0 : 0;
-      for (var occurrence = 0; occurrence <= times; occurrence++, slot++) {
+      for (
+        var occurrence = 0;
+        occurrence < positional.slots;
+        occurrence++, slot++
+      ) {
         if (choices.isEmpty) continue;
         lines.add(
           '    $slot = [PSCustomObject]@{'

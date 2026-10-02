@@ -50,6 +50,11 @@ typedef RegistryPositional = ({
   int? times,
   String? pattern,
 });
+
+extension RegistryPositionalCardinality on RegistryPositional {
+  int get slots => repeatable == true ? times! : 1;
+}
+
 typedef RegistryVariadic = ({
   String? description,
   List<String>? choices,

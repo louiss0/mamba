@@ -335,6 +335,24 @@ void main() {
       expect(powerShell, contains("'0.5'"));
     });
 
+    test('respects repeated positional maximum in every shell', () {
+      final record = _complexRecord();
+      final bash = ToBashCompletionConverter(record).convert();
+      final zsh = ToZshCompletionConverter(record).convert();
+      final fish = ToFishCompletionConverter(record).convert();
+      final powerShell = ToPowerShellCompletionConverter(record).convert();
+      final carapace = CarapaceSpecConverter(record).convert();
+      expect(bash, contains('    0)'));
+      expect(bash, isNot(contains('    0|1)')));
+      expect(zsh, contains("'1:target:"));
+      expect(zsh, isNot(contains("'2:target:")));
+      expect(fish, contains('__mamba_positional_slot 0'));
+      expect(fish, isNot(contains('__mamba_positional_slot 1')));
+      expect(powerShell, contains('    0 = [PSCustomObject]@{'));
+      expect(powerShell, isNot(contains('    1 = [PSCustomObject]@{')));
+      expect(RegExp(r'- - "stage"').allMatches(carapace), hasLength(1));
+    });
+
     test('render empty command records', () {
       final record = _emptyRecord();
 
@@ -358,6 +376,11 @@ void main() {
   });
 
   group('Carapace conversion', () {
+    test('uses times as the maximum number of positional slots', () {
+      final completion = CarapaceSpecConverter(_complexRecord()).convert();
+      expect(RegExp(r'- - "stage"').allMatches(completion), hasLength(1));
+      expect(completion, contains('        - []'));
+    });
     test('maps paired, grouped, persistent, and accessor inputs', () {
       final completion = CarapaceSpecConverter(_complexRecord()).convert();
 
