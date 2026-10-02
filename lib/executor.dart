@@ -108,10 +108,16 @@ final class Executor {
   final List<Command> commands;
   final MambaContext? context;
   final HelpFormatter? helpFormatter;
+  static final RegExp _semanticVersion = RegExp(
+    r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)'
+    r'(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)'
+    r'(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?'
+    r'(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$',
+  );
+
   static String _validateVersion(String version) {
-    if (RegExp(r'^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$').hasMatch(version)) {
-      return version;
-    }
+    final match = _semanticVersion.firstMatch(version);
+    if (match != null && match.end == version.length) return version;
     throw MambaRegistryError('version must be a Semantic Version 2.0.0 value');
   }
 

@@ -519,6 +519,24 @@ void main() {
     );
   });
 
+  test('accepts complete SemVer and rejects malformed identifiers', () {
+    expect(
+      () => Executor('tool', 'Tool.', '1.0.0-beta+build.2', const []),
+      returnsNormally,
+    );
+    for (final version in [
+      '01.0.0',
+      '1.0.0-alpha..beta',
+      '1.0.0-01',
+      '1.0.0+',
+    ]) {
+      expect(
+        () => Executor('tool', 'Tool.', version, const []),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    }
+  });
+
   test('uses its default command when no arguments are supplied', () async {
     final events = <String>[];
     final result = await Executor(
