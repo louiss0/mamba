@@ -1,4 +1,4 @@
-## Unreleased
+## 0.15.0
 
 - Rewrote the unregistered term message to name the rejected word and the
   categories that could have matched it. A word typed at the root is reported
