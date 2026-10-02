@@ -2,6 +2,7 @@ import 'package:mamba/built_in_flags.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
+import 'package:mamba/src/suggestion.dart' as suggestion;
 
 class MambaParseException extends MambaException {
   new(super.message, {super.exitCode});
@@ -539,8 +540,47 @@ final class Parser {
       }
     }
     if (index != source.length) {
-      throw MambaParseException(
-        "This term isn't a registered command positional",
+      throw _unregisteredTerm(registry, source[index]);
+    }
+  }
+
+  /// Rejects [term] with the context a reader needs to correct it.
+  ///
+  /// The word is named so the reader knows which token was rejected, and the
+  /// registry decides whether a command or a subcommand was the right word for
+  /// where they typed it. Nearby commands, aliases, and arguments are offered
+  /// by name and by kind, so a near miss reads as the kind of thing it almost
+  /// was rather than as a bare rejection.
+  MambaParseException _unregisteredTerm(CommandRegistry registry, String term) {
+    final kind = registry.parent == null ? 'command' : 'subcommand';
+    final matches = suggestion.nearestMatches(term, _candidates(registry));
+    final advice = matches.isEmpty
+        ? ''
+        : ' Did you mean ${suggestion.renderSuggestions(matches)}?';
+
+    return MambaParseException(
+      '"$term" isn\'t a registered $kind, alias, or argument.$advice',
+    );
+  }
+
+  /// Every registered term [term] could plausibly have meant.
+  Iterable<suggestion.Suggestion> _candidates(CommandRegistry registry) sync* {
+    for (final child in registry.commandRegistries) {
+      yield suggestion.Suggestion(
+        suggestion.SuggestionKind.command,
+        child.name,
+      );
+      for (final alias in child.commandAliases ?? const <String>[]) {
+        yield suggestion.Suggestion(suggestion.SuggestionKind.alias, alias);
+      }
+    }
+    for (final positional in [
+      ...registry.mandatoryPositionals,
+      ...registry.discretionaryPositionals,
+    ]) {
+      yield suggestion.Suggestion(
+        suggestion.SuggestionKind.argument,
+        positional.name,
       );
     }
   }

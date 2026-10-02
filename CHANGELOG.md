@@ -1,3 +1,12 @@
+## Unreleased
+
+- Rewrote the unregistered term message to name the rejected word and the
+  categories that could have matched it. A word typed at the root is reported
+  against commands, aliases, and arguments; once a group owns the registry the
+  message says `subcommand` in place of `command`.
+- Added near-miss suggestions for a mistyped word, naming the closest command,
+  alias, or argument and which of the three it was.
+
 ## 0.14.0
 
 - Let a group command render its own help. The executor hands a selected

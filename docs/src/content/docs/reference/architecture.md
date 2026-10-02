@@ -134,6 +134,23 @@ Mamba distinguishes failures by where they occur:
 - `MambaIntegrationException` reports failures while producing an external artifact.
 - `MambaException` is the common recoverable framework failure used by selection, parsing, integrations, and command behavior.
 
+An unregistered term is rejected with the word the reader typed and the
+categories that could have matched it. A word typed at the root is measured
+against commands, their aliases, and the executor's own positionals; once a
+group owns the registry the same word is measured against subcommands, so the
+message says `subcommand` in place of `command`.
+
+```
+"biuld" isn't a registered command, alias, or argument. Did you mean the command 'build' or the alias 'bld'?
+"remtoe" isn't a registered subcommand, alias, or argument. Did you mean the command 'remote'?
+```
+
+Suggestions are the nearest registered terms by edit distance, capped at half
+the mistyped word's length so a short word is matched strictly. A swapped pair
+of letters counts as one edit, because transposition is the commonest way to
+misspell, and ties prefer a command over an alias over an argument. A word with
+nothing close enough is rejected without a suggestion rather than with a guess.
+
 The production executor is the process boundary for invocation failures. It
 catches thrown `Exception` values, records their execution phase and command
 path, writes their messages to standard error, and uses the first failure's

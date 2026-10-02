@@ -13,6 +13,7 @@ Parser parser({
   List<SelectedOptions>? selectedOptions,
   Map<String, List<String>>? conflicts,
   Variadic? variadic,
+  List<Command>? commands,
 }) => Parser(
   CommandRegistry.create(
     'tool',
@@ -26,8 +27,65 @@ Parser parser({
     selectedOptions: selectedOptions,
     conflicts: conflicts,
     variadic: variadic,
+    commands: commands,
   ),
 );
+
+final _buildFile = NormalPositional('file');
+
+final class _BuildCommand extends Command {
+  new() : super(aliases: ['bld', 'co'], mandatoryPositionals: [_buildFile]);
+
+  @override
+  String get name => 'build';
+
+  @override
+  String get shortDescription => 'Build the project.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => '';
+}
+
+final class _AddCommand extends Command {
+  @override
+  String get name => 'add';
+
+  @override
+  String get shortDescription => 'Add a remote.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => '';
+}
+
+final class _RemoteGroup extends GroupCommand {
+  new() : super([_AddCommand()]);
+
+  @override
+  String get name => 'remote';
+
+  @override
+  String get shortDescription => 'Manage remotes.';
+}
+
+final class _GitGroup extends GroupCommand {
+  new() : super([_RemoteGroup()]);
+
+  @override
+  String get name => 'git';
+
+  @override
+  String get shortDescription => 'Manage source changes.';
+}
+
+/// Reads the message a parse of [args] is rejected with.
+String rejectionOf(List<String> args) {
+  try {
+    parser(commands: [_BuildCommand(), _GitGroup()]).parse(args);
+  } on MambaParseException catch (error) {
+    return error.message;
+  }
+  fail('${args.join(' ')} was accepted but should have been rejected.');
+}
 
 void main() {
   group('typed parsed inputs', () {
@@ -1205,7 +1263,7 @@ void main() {
           isA<MambaParseException>().having(
             (error) => error.message,
             'message',
-            "This term isn't a registered command positional",
+            '"extra" isn\'t a registered command, alias, or argument.',
           ),
         ),
       );
@@ -1238,6 +1296,56 @@ void main() {
         throwsA(isA<MambaParseException>()),
       );
       expect(parser(variadic: choices).parse(['--', 'json']).$3, ['json']);
+    });
+  });
+
+  group('rejects unregistered terms', () {
+    test('names the term and the categories available at the root', () {
+      expect(
+        rejectionOf(['extra']),
+        '"extra" isn\'t a registered command, alias, or argument.',
+      );
+    });
+
+    test('says subcommand once a group owns the registry', () {
+      expect(
+        rejectionOf(['git', 'extra']),
+        '"extra" isn\'t a registered subcommand, alias, or argument.',
+      );
+    });
+
+    test('withholds suggestions when nothing is close enough', () {
+      expect(rejectionOf(['zzzzzzzz']), isNot(contains('Did you mean')));
+    });
+
+    test('offers the closest command and names its kind', () {
+      expect(rejectionOf(['biuld']), contains("the command 'build'"));
+    });
+
+    test('offers a close alias and says it is an alias', () {
+      expect(rejectionOf(['bd']), contains("the alias 'bld'"));
+    });
+
+    test('offers a close argument and says it is an argument', () {
+      expect(
+        rejectionOf(['build', 'one', 'flie']),
+        contains("the argument 'file'"),
+      );
+    });
+
+    test('counts a swapped pair as one edit, so the command wins', () {
+      expect(
+        rejectionOf(['biuld']),
+        contains("the command 'build' or the alias 'bld'"),
+      );
+    });
+
+    test('stays silent about an unrelated word of a similar short length', () {
+      expect(rejectionOf(['bd']), isNot(contains("'co'")));
+    });
+
+    test('produces the same message for the same mistyping', () {
+      expect(rejectionOf(['remtoe']), rejectionOf(['remtoe']));
     });
   });
 }
