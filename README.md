@@ -304,7 +304,12 @@ Use `GroupCommand` for nested command paths such as `remote add`. Selecting a
 group without a child prints that group's help, which lists its children:
 `GroupCommand.run` formats the registry the executor handed it. Groups can
 publish inherited flags and options, and can select a child by setting
-`defaultSubCommandPath`.
+`defaultSubCommandPath`. Defaults are resolved before parsing, so the selected
+child receives its own typed inputs and hooks. A nested default can select
+another group with a default; invalid paths fail when building the executor.
+Calling `GroupCommand.run` directly is a low-level operation and does not
+parse inputs or run child hooks. `--help` describes the explicitly named group,
+not its default child.
 
 ```dart
 final class RemoteCommand extends GroupCommand {
@@ -368,7 +373,8 @@ name, description, version, and commands, it can receive:
 
 - `longDescription` for detailed help;
 - root `flags`, `options`, and `accessors` available to every command;
-- `defaultCommandPath` for a command to run when no command is selected;
+- `defaultCommandPath` for a command to run when no command is selected,
+  even when root flags or default-command options are supplied;
 - a custom `MambaContext`; and
 - a custom `HelpFormatter`.
 

@@ -96,7 +96,18 @@ final class Executor {
        options = List.unmodifiable(options ?? const []),
        defaultCommandPath = defaultCommandPath == null
            ? null
-           : List.unmodifiable(defaultCommandPath);
+           : List.unmodifiable(defaultCommandPath) {
+    // Default paths are declaration errors, not invocation errors.
+    if (this.defaultCommandPath != null ||
+        this.commands.any(_hasGroupDefault)) {
+      _Execution(this);
+    }
+  }
+
+  static bool _hasGroupDefault(Command command) =>
+      command is GroupCommand &&
+      (command.defaultSubCommandPath != null ||
+          command.commands.any(_hasGroupDefault));
   final String name;
   final String shortDescription;
   final String _version;
@@ -196,7 +207,12 @@ final class _Execution {
               executor.name,
               executor.shortDescription,
               commands: executor.commands,
-            ).canonicalCommandPath(executor.defaultCommandPath!) {
+            ).canonicalCommandPath(
+              executor.defaultCommandPath!,
+              allowGroup: true,
+            ) {
+    _validateGroupDefaults(commands);
+    if (_defaultCommandPath != null) _effectivePath([_registry.name]);
     _assignCompletion(commands, _registry.toMap());
   }
   final HelpFormatter _help;
@@ -207,10 +223,22 @@ final class _Execution {
   final CommandRegistry _registry;
   final List<String>? _defaultCommandPath;
   Future<MambaExecutionResult> execute(List<String> args) async {
-    final registry = _registry.registryForArguments(args);
+    final explicit = _registry.resolveCommandPath(
+      args,
+      defaultTarget: _defaultTarget,
+    );
+    final helpOrVersion = _requestsControlFlag(args, explicit);
+    final selectedPath = helpOrVersion
+        ? explicit.path
+        : _effectivePath(explicit.path);
+    final registry = helpOrVersion
+        ? explicit.registry
+        : _registry.registryForPath(selectedPath);
     ParsedArguments parsed;
     try {
-      parsed = Parser(_registry).parse(args);
+      parsed = Parser(
+        _registry,
+      ).parse(args, defaultPath: selectedPath, defaultTarget: _defaultTarget);
     } on Exception catch (error, trace) {
       return _failure(
         MambaExecutionPhase.parse,
@@ -219,12 +247,8 @@ final class _Execution {
         registry.fullPath,
       );
     }
-    final path = args.isEmpty && _defaultCommandPath != null
-        ? [_registry.name, ..._defaultCommandPath]
-        : parsed.$1;
-    final errorPath = args.isEmpty && _defaultCommandPath != null
-        ? path
-        : registry.fullPath;
+    final path = parsed.$1;
+    final errorPath = registry.fullPath;
     if (parsed.version) {
       return MambaSuccessResult(
         parsed.help
@@ -235,7 +259,8 @@ final class _Execution {
     final commandPath = _commandsForPath(path);
     final command = commandPath.lastOrNull;
     if (parsed.help || command == null) {
-      return MambaSuccessResult(_help.format(registry));
+      final helpRegistry = parsed.help ? explicit.registry : registry;
+      return MambaSuccessResult(_help.format(helpRegistry));
     }
     // Only a group can be left without anything to run, so only a group is
     // handed the formatter and the registry it resolved to.
@@ -336,6 +361,111 @@ final class _Execution {
     stackTrace: trace,
     commandPath: path,
   );
+  bool _requestsControlFlag(List<String> args, CommandResolution explicit) {
+    var scope = _registry;
+    for (var index = 0; index < args.length; index++) {
+      final token = args[index];
+      if (token == '--') break;
+      if (explicit.tokenIndices.contains(index)) {
+        scope =
+            scope.commandRegistries
+                .where(
+                  (child) =>
+                      child.name == token ||
+                      child.commandAliases?.contains(token) == true,
+                )
+                .firstOrNull ??
+            scope;
+        continue;
+      }
+      if (token == '--help' ||
+          token == '--version' ||
+          (token.startsWith('-') &&
+              !token.startsWith('--') &&
+              (token.substring(1).contains('h') ||
+                  token.substring(1).contains('V')))) {
+        return true;
+      }
+      final length =
+          scope.registeredInputTokenLength(token) ??
+          _defaultTarget(scope).registeredInputTokenLength(token);
+      if (length != null) index += length - 1;
+    }
+    return false;
+  }
+
+  CommandRegistry _defaultTarget(CommandRegistry scope) =>
+      _registry.registryForPath(_effectivePath(scope.fullPath));
+
+  List<String> _effectivePath(List<String> explicit) {
+    final path = [...explicit];
+    var followedDefault = false;
+    while (true) {
+      final selected = _commandsForPath(path).lastOrNull;
+      final next = selected is GroupCommand
+          ? selected.defaultSubCommandPath
+          : selected == null
+          ? _defaultCommandPath
+          : null;
+      if (next == null) {
+        if (followedDefault && selected is GroupCommand) {
+          throw MambaRegistryError(
+            'Default command path must end at an executable command.',
+          );
+        }
+        return path;
+      }
+      followedDefault = true;
+      final parent = _registry.registryForPath(path);
+      final canonical = <String>[];
+      var current = parent;
+      for (final segment in next) {
+        final child = current.commandRegistries
+            .where(
+              (candidate) =>
+                  candidate.name == segment ||
+                  candidate.commandAliases?.contains(segment) == true,
+            )
+            .firstOrNull;
+        if (child == null) {
+          throw MambaRegistryError(
+            'Unknown default command segment $segment under ${current.fullPath.join(' ')}.',
+          );
+        }
+        canonical.add(child.name);
+        current = child;
+      }
+      path.addAll(canonical);
+    }
+  }
+
+  void _validateGroupDefaults(Iterable<Command> candidates) {
+    for (final candidate in candidates) {
+      if (candidate is GroupCommand) {
+        if (candidate.defaultSubCommandPath != null) {
+          _effectivePath(_pathOf(candidate));
+        }
+        _validateGroupDefaults(candidate.commands);
+      }
+    }
+  }
+
+  List<String> _pathOf(Command target) {
+    List<String>? visit(List<Command> children, List<String> prefix) {
+      for (final child in children) {
+        final path = [...prefix, child.name];
+        if (identical(child, target)) return path;
+        if (child is GroupCommand) {
+          final found = visit(child.commands, path);
+          if (found != null) return found;
+        }
+      }
+      return null;
+    }
+
+    return visit(commands, [_registry.name])!;
+  }
+
   List<Command> _commandsForPath(List<String> path) {
     var children = commands;
     final selected = <Command>[];

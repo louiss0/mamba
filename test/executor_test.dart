@@ -173,6 +173,46 @@ final class DefaultPostHookCommand extends Command with HookRunner {
   String run(ParsedInputs inputs, List<String> args) => 'complete';
 }
 
+final class LabelCommand extends Command {
+  new() : super(options: [label]);
+  static final label = StringOption('label');
+  @override
+  String get name => 'label-command';
+  @override
+  String get shortDescription => 'Reads a label.';
+  @override
+  String? run(ParsedInputs inputs, List<String> args) => inputs.valueOf(label);
+}
+
+final class CountCommand extends Command with HookRunner {
+  new(this.events) : super(options: [count]);
+  static final count = IntOption.withDefault('count', defaultValue: 3);
+  final List<String> events;
+  @override
+  String get name => 'count-command';
+  @override
+  String get shortDescription => 'Counts.';
+  @override
+  void preRun(
+    ParsedInputs inputs,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
+  ) {
+    events.add('pre:${inputs.valueOf(count)}');
+  }
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    events.add('run:${inputs.valueOf(count)}');
+    return 'counted';
+  }
+
+  @override
+  void postRun(ParsedInputs inputs, MambaReadContext context) {
+    events.add('post');
+  }
+}
+
 final class DefaultCommand extends Command {
   new(this.events);
   final List<String> events;
@@ -551,6 +591,137 @@ void main() {
     expect(events, ['run']);
   });
 
+  test('root and group defaults parse the leaf and run its hooks', () async {
+    for (final (executor, arguments) in [
+      (
+        Executor(
+          'tool',
+          'Tool.',
+          '1.0.0',
+          [CountCommand(<String>[])],
+          defaultCommandPath: ['count-command'],
+        ),
+        <String>[],
+      ),
+      (
+        Executor('tool', 'Tool.', '1.0.0', [
+          DefaultingGroup(
+            [CountCommand(<String>[])],
+            defaultSubCommandPath: ['count-command'],
+          ),
+        ]),
+        <String>['git'],
+      ),
+    ]) {
+      final events = (executor.commands.first is CountCommand
+          ? (executor.commands.first as CountCommand).events
+          : ((executor.commands.first as GroupCommand).commands.first
+                    as CountCommand)
+                .events);
+      expect(
+        await executor.fake().execute(arguments),
+        isA<MambaSuccessResult>(),
+      );
+      expect(events, ['pre:3', 'run:3', 'post']);
+    }
+  });
+
+  test(
+    'chains root and group defaults while respecting typed-path help',
+    () async {
+      final events = <String>[];
+      final executor = Executor(
+        'tool',
+        'Tool.',
+        '1.0.0',
+        [
+          DefaultingGroup(
+            [CountCommand(events)],
+            defaultSubCommandPath: ['count-command'],
+          ),
+        ],
+        defaultCommandPath: ['git'],
+      ).fake();
+      expect(
+        await executor.execute(['--count', '9']),
+        isA<MambaSuccessResult>(),
+      );
+      expect(events, ['pre:9', 'run:9', 'post']);
+      events.clear();
+      expect(
+        await executor.execute(['--count', '-2']),
+        isA<MambaSuccessResult>(),
+      );
+      expect(events, ['pre:-2', 'run:-2', 'post']);
+      events.clear();
+      expect(
+        await executor.execute(['git', '--count', '7']),
+        isA<MambaSuccessResult>(),
+      );
+      expect(events, ['pre:7', 'run:7', 'post']);
+      events.clear();
+      final rootHelp = await executor.execute(['--help']) as MambaSuccessResult;
+      final groupHelp =
+          await executor.execute(['git', '--help']) as MambaSuccessResult;
+      expect(_withoutAnsi(rootHelp.output!), contains('tool'));
+      expect(_withoutAnsi(groupHelp.output!), contains('tool git'));
+      expect(events, isEmpty);
+    },
+  );
+
+  test('does not treat a default input value as an explicit command', () async {
+    final executor = Executor(
+      'tool',
+      'Tool.',
+      '1.0.0',
+      [LabelCommand(), DefaultCommand(<String>[])],
+      defaultCommandPath: ['label-command'],
+    ).fake();
+    final result = await executor.execute(['--label', 'default']);
+    expect(
+      result,
+      isA<MambaSuccessResult>().having(
+        (value) => value.output,
+        'output',
+        'default',
+      ),
+    );
+  });
+
+  test(
+    'does not confuse a default command option value with a version flag',
+    () async {
+      final executor = Executor(
+        'tool',
+        'Tool.',
+        '1.0.0',
+        [LabelCommand()],
+        defaultCommandPath: ['label-command'],
+      ).fake();
+      final result = await executor.execute(['--label', '-V']);
+      expect(
+        result,
+        isA<MambaSuccessResult>().having(
+          (value) => value.output,
+          'output',
+          '-V',
+        ),
+      );
+    },
+  );
+
+  test('rejects invalid group default paths when building the executor', () {
+    expect(
+      () => Executor('tool', 'Tool.', '1.0.0', [
+        DefaultingGroup(
+          [CountCommand(<String>[])],
+          defaultSubCommandPath: ['missing'],
+        ),
+      ]),
+      throwsA(isA<MambaRegistryError>()),
+    );
+  });
+
   test('renders help when no command is selected', () async {
     final result = await Executor(
       'tool',
@@ -588,7 +759,7 @@ void main() {
       DefaultingGroup([ResultCommand(events)], defaultSubCommandPath: ['run']),
     ]).fake().execute(['git']);
 
-    expect(events, ['run']);
+    expect(events, ['pre', 'run', 'post']);
     expect((result as MambaSuccessResult).output, 'output');
   });
 

@@ -406,14 +406,19 @@ final class CommandRegistry {
   CommandRegistry withInheritedInputs() => this;
 
   /// Resolves command tokens while skipping values owned by applicable inputs.
-  CommandResolution resolveCommandPath(List<String> args) {
+  CommandResolution resolveCommandPath(
+    List<String> args, {
+    CommandRegistry Function(CommandRegistry)? defaultTarget,
+  }) {
     var registry = this;
     final path = <CommandRegistry>[];
     final indices = <int>{};
     for (var index = 0; index < args.length; index++) {
       final token = args[index];
       if (token == '--') break;
-      final ownedLength = registry.registeredInputTokenLength(token);
+      final ownedLength =
+          registry.registeredInputTokenLength(token) ??
+          defaultTarget?.call(registry).registeredInputTokenLength(token);
       if (ownedLength != null) {
         index += ownedLength - 1;
         continue;
@@ -445,7 +450,23 @@ final class CommandRegistry {
   CommandRegistry registryForArguments(List<String> args) =>
       resolveCommandPath(args).registry;
 
-  List<String> canonicalCommandPath(List<String> path) {
+  CommandRegistry registryForPath(List<String> path) {
+    if (path.isEmpty || path.first != name) {
+      throw ArgumentError.value(path, 'path', 'must start with $name');
+    }
+    var registry = this;
+    for (final segment in path.skip(1)) {
+      registry = registry.commandRegistries.singleWhere(
+        (child) => child.name == segment,
+      );
+    }
+    return registry;
+  }
+
+  List<String> canonicalCommandPath(
+    List<String> path, {
+    bool allowGroup = false,
+  }) {
     if (path.isEmpty) {
       throw MambaRegistryError('defaultCommandPath must not be empty.');
     }
@@ -467,7 +488,7 @@ final class CommandRegistry {
       canonical.add(child.name);
       registry = child;
     }
-    if (registry.commandRegistries.isNotEmpty) {
+    if (!allowGroup && registry.commandRegistries.isNotEmpty) {
       throw MambaRegistryError(
         'defaultCommandPath must end at an executable command.',
       );

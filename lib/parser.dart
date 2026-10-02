@@ -22,10 +22,19 @@ final class Parser {
   new(this._registry);
   final CommandRegistry _registry;
 
-  ParsedArguments parse(List<String> tokens) {
-    final resolution = _registry.resolveCommandPath(tokens);
-    final commandPath = resolution.path;
-    final registry = resolution.registry;
+  ParsedArguments parse(
+    List<String> tokens, {
+    List<String>? defaultPath,
+    CommandRegistry Function(CommandRegistry)? defaultTarget,
+  }) {
+    final resolution = _registry.resolveCommandPath(
+      tokens,
+      defaultTarget: defaultTarget,
+    );
+    final commandPath = defaultPath ?? resolution.path;
+    final registry = defaultPath == null
+        ? resolution.registry
+        : _registry.registryForPath(defaultPath);
     final values = <Object, Object?>{};
     final positionals = <String>[];
     final trailing = <String>[];
