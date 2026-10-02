@@ -17,13 +17,13 @@ List<RegistryFlag> _mergeFlags(List<RegistryFlag> flags) =>
 List<RegistryOption> _mergeOptions(List<RegistryOption> options) =>
     _mergeNamed(options, (option) => option.name);
 
-RegistryOption _accessorOption(RegistryAccessor accessor, String name) => (
+RegistryOption _accessorOption(RegistryAccessorValue accessor, String name) => (
   name: name,
   short: null,
   required: false,
   hidden: false,
   description: accessor.description,
-  valueType: accessor.valueType!,
+  valueType: accessor.valueType,
   repeatable: null,
   unique: null,
   choices: accessor.choices,
@@ -573,10 +573,11 @@ _mamba_filter_option() {
           ? entry.name
           : '$parentPath.${entry.name}';
       final value = entry;
-      if (value.kind == 'group') {
-        yield* _accessorLeaves(value.options, parentPath: path);
-      } else {
-        yield (path: path, value: _accessorOption(value, path));
+      switch (value) {
+        case RegistryAccessorGroup(:final options):
+          yield* _accessorLeaves(options, parentPath: path);
+        case RegistryAccessorValue():
+          yield (path: path, value: _accessorOption(value, path));
       }
     }
   }
@@ -810,15 +811,19 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
           ? entry.name
           : '$parentPath.${entry.name}';
       final value = entry;
-      final hidden = ancestorHidden || value.hidden == true;
-      if (value.kind == 'group') {
-        yield* _accessorLeaves(
-          value.options,
-          parentPath: path,
-          ancestorHidden: hidden,
-        );
-      } else {
-        yield (path: path, value: _accessorOption(value, path), hidden: hidden);
+      switch (value) {
+        case RegistryAccessorGroup(:final options, :final hidden):
+          yield* _accessorLeaves(
+            options,
+            parentPath: path,
+            ancestorHidden: ancestorHidden || hidden,
+          );
+        case RegistryAccessorValue():
+          yield (
+            path: path,
+            value: _accessorOption(value, path),
+            hidden: ancestorHidden,
+          );
       }
     }
   }
@@ -1289,15 +1294,16 @@ end''';
     for (final entry in accessors) {
       final path = parent == null ? entry.name : '$parent.${entry.name}';
       final value = entry;
-      if (value.kind == 'group') {
-        if (!includeHidden && value.hidden == true) continue;
-        yield* _accessorLeaves(
-          value.options,
-          parent: path,
-          includeHidden: includeHidden,
-        );
-      } else {
-        yield (path: path, value: _accessorOption(value, path));
+      switch (value) {
+        case RegistryAccessorGroup(:final options, :final hidden):
+          if (!includeHidden && hidden) continue;
+          yield* _accessorLeaves(
+            options,
+            parent: path,
+            includeHidden: includeHidden,
+          );
+        case RegistryAccessorValue():
+          yield (path: path, value: _accessorOption(value, path));
       }
     }
   }
@@ -1611,16 +1617,20 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
           ? entry.name
           : '$parentPath.${entry.name}';
       final value = entry;
-      final hidden = ancestorHidden || value.hidden == true;
-      if (value.kind == 'group') {
-        yield* _accessorLeaves(
-          value.options,
-          parentPath: path,
-          ancestorHidden: hidden,
-        );
-        continue;
+      switch (value) {
+        case RegistryAccessorGroup(:final options, :final hidden):
+          yield* _accessorLeaves(
+            options,
+            parentPath: path,
+            ancestorHidden: ancestorHidden || hidden,
+          );
+        case RegistryAccessorValue():
+          yield (
+            path: path,
+            value: _accessorOption(value, path),
+            hidden: ancestorHidden,
+          );
       }
-      yield (path: path, value: _accessorOption(value, path), hidden: hidden);
     }
   }
 
@@ -2315,23 +2325,19 @@ function Write-MambaCompletionResult {
     for (final entry in accessors) {
       final value = entry;
       final path = parent.isEmpty ? entry.name : '$parent.${entry.name}';
-      if (value.kind == 'group') {
-        final hidden = ancestorHidden || value.hidden == true;
-        if (hidden) continue;
-        yield* _accessorLeaves(
-          value.options,
-          parent: path,
-          ancestorHidden: hidden,
-        );
-        continue;
+      switch (value) {
+        case RegistryAccessorGroup(:final options, :final hidden):
+          if (ancestorHidden || hidden) continue;
+          yield* _accessorLeaves(options, parent: path);
+        case RegistryAccessorValue():
+          yield _AccessorLeaf(
+            path: path,
+            description: value.description,
+            choices: value.valueKind == RegistryValueKind.choice
+                ? _stringList(value.choices)
+                : const <String>[],
+          );
       }
-      yield _AccessorLeaf(
-        path: path,
-        description: value.description,
-        choices: value.valueType == 'choice'
-            ? _stringList(value.choices)
-            : const <String>[],
-      );
     }
   }
 }
