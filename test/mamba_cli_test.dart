@@ -671,7 +671,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         File('${directory.path}/lib/components/ask.dart').readAsStringSync(),
         allOf(
           contains('final class AskComponent'),
-          contains('Future<String?> call() async'),
+          contains('Future<String?> render() async'),
           contains('terminice.text(label)'),
         ),
       );
@@ -691,29 +691,32 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         File('${directory.path}/lib/components/choose.dart').readAsStringSync(),
         allOf(
           contains('required this.options'),
-          contains('Future<String?> call() async'),
+          contains('Future<String?> render() async'),
           contains('terminice.searchSelector('),
         ),
       );
     },
   );
 
-  test('scaffolding component browses the filesystem through a call', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
-    ]).fake().execute(['component', 'picker', 'target']);
+  test(
+    'scaffolding component browses the filesystem through a render',
+    () async {
+      final directory = Directory.systemTemp.createTempSync('mamba_');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final result = await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+      ]).fake().execute(['component', 'picker', 'target']);
 
-    expect(result.exitCode, 0);
-    expect(
-      File('${directory.path}/lib/components/target.dart').readAsStringSync(),
-      allOf(
-        contains('Future<String?> call() async'),
-        contains('terminice.pathPicker(label)'),
-      ),
-    );
-  });
+      expect(result.exitCode, 0);
+      expect(
+        File('${directory.path}/lib/components/target.dart').readAsStringSync(),
+        allOf(
+          contains('Future<String?> render() async'),
+          contains('terminice.pathPicker(label)'),
+        ),
+      );
+    },
+  );
 
   test(
     'scaffolding component awaits the work an indicator reports on',
@@ -728,7 +731,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       expect(
         File('${directory.path}/lib/components/report.dart').readAsStringSync(),
         allOf(
-          contains('Future<T> call<T>(Future<T> Function() work)'),
+          contains('Future<T> render<T>(Future<T> Function() work)'),
           contains('terminice.loadingSpinner(label'),
           contains('spinner().whileRunning(work)'),
         ),
