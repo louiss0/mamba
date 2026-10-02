@@ -2527,10 +2527,59 @@ void main() {
       );
     });
 
+    test('exposes accessor groups and values as typed variants', () {
+      final group = RegistryAccessor.group(
+        name: 'config',
+        hidden: false,
+        options: [RegistryAccessor.value(name: 'host', valueType: 'string')],
+      );
+      expect(group, isA<RegistryAccessorGroup>());
+      expect(
+        (group as RegistryAccessorGroup).options.single,
+        isA<RegistryAccessorValue>(),
+      );
+      expect(
+        (group.options.single as RegistryAccessorValue).valueKind,
+        RegistryValueKind.string,
+      );
+    });
+
+    test('classifies required and defaulted accessor primitives', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool.',
+        accessors: [
+          AccessorListOption('config', [
+            AccessorStringOption.required('host'),
+            AccessorIntOption.withDefault('port', defaultValue: 80),
+            AccessorDoubleOption.required('scale'),
+          ]),
+        ],
+      );
+      expect(
+        registry.toMap().accessors!.single.options!.map(
+          (child) => child.valueType,
+        ),
+        ['string', 'int', 'double'],
+      );
+    });
+
     test('rejects invalid defaults, numeric ranges, and steps', () {
       final invalidDefinitions = <Option<Object?>>[
         IntOption('count', min: 2, max: 1),
         DoubleOption('ratio', step: 0),
+        DoubleOption.withDefault(
+          'ratio',
+          defaultValue: 0.3,
+          min: 0,
+          max: 1,
+          step: 0.25,
+        ),
+        StringOption.withDefault(
+          'label',
+          defaultValue: '123abc',
+          regex: RegExp(r'[a-z]+'),
+        ),
         StringOption.withDefault(
           'label',
           defaultValue: 'letters',

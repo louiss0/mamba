@@ -1118,6 +1118,7 @@ abstract interface class PairedOptionsDefinition {
   List<PairOption<Object?>> get options;
   String? get description;
   bool get required;
+  Map<String, Object?> valuesFrom(Map<Object, Object?> parsed);
 }
 
 /// A group whose members must either all be supplied or all be omitted.
@@ -1137,6 +1138,13 @@ final class PairedOptions<T extends Object>
   final String? description;
   @override
   final bool required;
+
+  @override
+  Map<String, T> valuesFrom(Map<Object, Object?> parsed) =>
+      Map<String, T>.unmodifiable({
+        for (final option in options)
+          if (parsed.containsKey(option)) option.name: parsed[option] as T,
+      });
 }
 
 sealed class PairOption<T> implements InputDefinition {
@@ -1247,6 +1255,12 @@ final class SelectedOptions<T extends Object>
   final bool single;
   final bool required;
   final List<PairOption<T>> options;
+
+  Map<String, T> valuesFrom(Map<Object, Object?> parsed) =>
+      Map<String, T>.unmodifiable({
+        for (final option in options)
+          if (parsed.containsKey(option)) option.name: parsed[option] as T,
+      });
 }
 
 sealed class AccessorOption implements InputDefinition {

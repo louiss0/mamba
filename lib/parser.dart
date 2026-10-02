@@ -2,6 +2,7 @@ import 'package:mamba/built_in_flags.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
+import 'package:mamba/src/input_validation.dart' as validation;
 import 'package:mamba/src/suggestion.dart' as suggestion;
 
 class MambaParseException extends MambaException {
@@ -80,15 +81,18 @@ final class Parser {
           );
           continue;
         }
-        final flag = registry.applicableFlags
-            .where(
-              (item) =>
-                  item.name == name ||
-                  (item is BooleanFlag &&
+        final flag =
+            registry.applicableFlags
+                .where((item) => item.name == name)
+                .firstOrNull ??
+            registry.applicableFlags
+                .where(
+                  (item) =>
+                      item is BooleanFlag &&
                       item.negatable &&
-                      name == 'no-${item.name}'),
-            )
-            .firstOrNull;
+                      name == 'no-${item.name}',
+                )
+                .firstOrNull;
         if (flag == null) {
           throw _unknownInput(registry, name);
         }
@@ -96,7 +100,7 @@ final class Parser {
           throw MambaParseException('Flag --$name does not accept a value');
         }
         if (flag is BooleanFlag) {
-          values[flag] = !name.startsWith('no-');
+          values[flag] = name == 'no-${flag.name}' ? false : true;
         } else if (flag is CountFlag) {
           values[flag] = ((values[flag] as int?) ?? 0) + 1;
         }
@@ -195,8 +199,13 @@ final class Parser {
   }
 
   bool _allowsDash(InputDefinition input, String value) =>
-      input is RegExpValidated &&
-      _matches((input as RegExpValidated).regex, value);
+      (input is RegExpValidated &&
+          _matches((input as RegExpValidated).regex, value)) ||
+      ((input is NumericRangeValidated<int> || input is AccessorIntOption) &&
+          _matches(RegExp(r'[+-]?\d+'), value)) ||
+      ((input is NumericRangeValidated<double> ||
+              input is AccessorDoubleOption) &&
+          _matches(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value));
   void _put(Map<Object, Object?> values, InputDefinition input, Object value) {
     void appendPairValue<T>(RepeatablePairOption<T> option) {
       final existing = values[option] as List<T>?;
@@ -228,21 +237,13 @@ final class Parser {
     }
   }
 
-  Object _parseValue(InputDefinition input, String value) {
-    if (input is RegExpValidated &&
-        input is! AccessorIntOption &&
-        input is! AccessorDoubleOption) {
-      return _regex(input as RegExpValidated, value);
-    }
-    if (input is NumericRangeValidated<int> || input is AccessorIntOption) {
-      return _integer(input, value);
-    }
-    if (input is NumericRangeValidated<double> ||
-        input is AccessorDoubleOption) {
-      return _double(input, value);
-    }
-    return _choice(input as ChoiceValidated, value);
-  }
+  Object _parseValue(InputDefinition input, String value) =>
+      switch (valueKindOf(input)) {
+        RegistryValueKind.string => _regex(input as RegExpValidated, value),
+        RegistryValueKind.integer => _integer(input, value),
+        RegistryValueKind.decimal => _double(input, value),
+        RegistryValueKind.choice => _choice(input as ChoiceValidated, value),
+      };
 
   String _regex(RegExpValidated input, String value) {
     if (!_matches(input.regex, value)) {
@@ -276,9 +277,11 @@ final class Parser {
       final stepped = input as NumericStepValidated;
       final range = input as NumericRangeValidated;
       if (stepped.step != null && range.min != null) {
-        final increments =
-            (parsed - (range.min as num).toDouble()) / stepped.step!;
-        if ((increments - increments.round()).abs() > 1e-12) {
+        if (!validation.followsNumericStep(
+          parsed,
+          range.min as num,
+          stepped.step!,
+        )) {
           throw MambaParseException(
             'Option --${input.name} must increment by ${stepped.step} from ${range.min} to ${range.max} (received $parsed).',
           );
@@ -311,10 +314,8 @@ final class Parser {
         ));
   }
 
-  bool _matches(RegExp regex, String value) {
-    final match = regex.firstMatch(value);
-    return match != null && match.start == 0 && match.end == value.length;
-  }
+  bool _matches(RegExp regex, String value) =>
+      validation.matchesEntireValue(regex, value);
 
   void _addDefaults(CommandRegistry registry, Map<Object, Object?> values) {
     for (final option in registry.applicableOptions) {
@@ -441,56 +442,18 @@ final class Parser {
     }
   }
 
-  void _addSelectedValues<T extends Object>(
-    SelectedOptions<T> group,
-    Map<Object, Object?> values,
-  ) {
-    values[group] = Map<String, T>.unmodifiable({
-      for (final option in group.options)
-        if (values.containsKey(option)) option.name: values[option] as T,
-    });
-  }
-
-  void _addPairedValues<T extends Object>(
-    PairedOptionsDefinition group,
-    Map<Object, Object?> values,
-  ) {
-    values[group] = Map<String, T>.unmodifiable({
-      for (final option in group.options)
-        if (values.containsKey(option)) option.name: values[option] as T,
-    });
-  }
-
   void _addPairedValuesFor(
     PairedOptionsDefinition group,
     Map<Object, Object?> values,
   ) {
-    switch (group) {
-      case PairedOptions<String> stringOptions:
-        _addPairedValues<String>(stringOptions, values);
-      case PairedOptions<int> intOptions:
-        _addPairedValues<int>(intOptions, values);
-      case PairedOptions<double> doubleOptions:
-        _addPairedValues<double>(doubleOptions, values);
-      default:
-        _addPairedValues<Object>(group, values);
-    }
+    values[group] = group.valuesFrom(values);
   }
 
   void _addSelectedValuesFor(
     SelectedOptions group,
     Map<Object, Object?> values,
   ) {
-    switch (group) {
-      case SelectedOptions<String> stringOptions:
-        _addSelectedValues(stringOptions, values);
-      case SelectedOptions<int> intOptions:
-        _addSelectedValues(intOptions, values);
-      case SelectedOptions<double> doubleOptions:
-        _addSelectedValues(doubleOptions, values);
-      default:
-        _addSelectedValues(group, values);
-    }
+    values[group] = group.valuesFrom(values);
   }
 
   void _parsePositionals(

@@ -1,6 +1,7 @@
 import 'package:mamba/built_in_flags.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/src/input_validation.dart' as validation;
 
 typedef RegistryRecord = ({
   String name,
@@ -93,37 +94,110 @@ final class RegistryCommand {
   final List<RegistryAccessor>? accessors;
 }
 
-final class RegistryAccessor {
-  new group({
-    required this.name,
-    required this.hidden,
-    this.description,
+enum RegistryValueKind {
+  string('string'),
+  integer('int'),
+  decimal('double'),
+  choice('choice');
+
+  const new(this.wireName);
+  final String wireName;
+}
+
+/// One interpretation of an input's value across parsing and registry output.
+RegistryValueKind valueKindOf(InputDefinition input) {
+  if (input is ChoiceValidated) return RegistryValueKind.choice;
+  if (input is AccessorIntOption || input is NumericRangeValidated<int>) {
+    return RegistryValueKind.integer;
+  }
+  if (input is AccessorDoubleOption || input is NumericRangeValidated<double>) {
+    return RegistryValueKind.decimal;
+  }
+  return RegistryValueKind.string;
+}
+
+sealed class RegistryAccessor {
+  const new(this.name, this.description);
+  factory group({
+    required String name,
+    required bool hidden,
+    String? description,
     required List<RegistryAccessor> options,
-  }) : kind = 'group',
-       valueType = null,
-       choices = null,
-       defaultValue = null,
-       pattern = null,
-       options = List.unmodifiable(options);
-  new value({
-    required this.name,
-    required this.valueType,
-    this.description,
-    this.choices,
+  }) => RegistryAccessorGroup(
+    name: name,
+    hidden: hidden,
+    description: description,
+    options: options,
+  );
+  factory value({
+    required String name,
+    required String valueType,
+    String? description,
+    List<String>? choices,
+    String? defaultValue,
+    String? pattern,
+  }) => RegistryAccessorValue(
+    name: name,
+    valueKind: switch (valueType) {
+      'string' => RegistryValueKind.string,
+      'int' => RegistryValueKind.integer,
+      'double' => RegistryValueKind.decimal,
+      'choice' => RegistryValueKind.choice,
+      _ => throw ArgumentError.value(valueType, 'valueType'),
+    },
+    description: description,
+    choices: choices,
+    defaultValue: defaultValue,
+    pattern: pattern,
+  );
+  final String name;
+  final String? description;
+  String get kind;
+  bool? get hidden => null;
+  String? get valueType => null;
+  List<String>? get choices => null;
+  String? get defaultValue => null;
+  String? get pattern => null;
+  List<RegistryAccessor>? get options => null;
+}
+
+final class RegistryAccessorGroup extends RegistryAccessor {
+  new({
+    required String name,
+    required this.hidden,
+    String? description,
+    required List<RegistryAccessor> options,
+  }) : options = List.unmodifiable(options),
+       super(name, description);
+  @override
+  String get kind => 'group';
+  @override
+  final bool hidden;
+  @override
+  final List<RegistryAccessor> options;
+}
+
+final class RegistryAccessorValue extends RegistryAccessor {
+  new({
+    required String name,
+    required this.valueKind,
+    String? description,
+    List<String>? choices,
     this.defaultValue,
     this.pattern,
-  }) : kind = 'value',
-       hidden = null,
-       options = null;
-  final String name;
-  final String kind;
-  final bool? hidden;
-  final String? description;
-  final String? valueType;
+  }) : choices = choices == null ? null : List.unmodifiable(choices),
+       super(name, description);
+  @override
+  String get kind => 'value';
+  final RegistryValueKind valueKind;
+  @override
+  String get valueType => valueKind.wireName;
+  @override
   final List<String>? choices;
+  @override
   final String? defaultValue;
+  @override
   final String? pattern;
-  final List<RegistryAccessor>? options;
 }
 
 final class CommandResolution {
@@ -562,13 +636,7 @@ final class CommandRegistry {
       required: input is Option ? input.isRequired : false,
       hidden: input is Option ? input.hidden : false,
       description: input.description,
-      valueType: input is NumericRangeValidated<int>
-          ? 'int'
-          : input is NumericRangeValidated<double>
-          ? 'double'
-          : input is RegExpValidated
-          ? 'string'
-          : 'choice',
+      valueType: valueKindOf(input).wireName,
       repeatable:
           input is RepeatableOptionDefinition || input is RepeatablePairOption
           ? true
@@ -657,13 +725,7 @@ final class CommandRegistry {
           ),
         AccessorPrimitiveOption() => RegistryAccessor.value(
           name: input.name,
-          valueType: input is AccessorStringOption
-              ? 'string'
-              : input is AccessorIntOption
-              ? 'int'
-              : input is AccessorDoubleOption
-              ? 'double'
-              : 'choice',
+          valueType: valueKindOf(input).wireName,
           description: input.description,
           choices: input is ChoiceValidated
               ? List.unmodifiable(
@@ -893,10 +955,30 @@ final class CommandRegistry {
         for (final value in defaults) {
           if (input is RegExpValidated &&
               (value is! String ||
-                  !(input as RegExpValidated).regex.hasMatch(value))) {
+                  !validation.matchesEntireValue(
+                    (input as RegExpValidated).regex,
+                    value,
+                  ))) {
             throw MambaRegistryError(
               'Default value is invalid for ${input.name}.',
             );
+          }
+          if (input is NumericStepValidated &&
+              input is NumericRangeValidated &&
+              value is num) {
+            final stepped = input as NumericStepValidated;
+            final range = input as NumericRangeValidated;
+            if (stepped.step != null &&
+                range.min != null &&
+                !validation.followsNumericStep(
+                  value,
+                  range.min!,
+                  stepped.step!,
+                )) {
+              throw MambaRegistryError(
+                'Default value does not follow the step for ${input.name}.',
+              );
+            }
           }
           if (input is NumericRangeValidated && value is num) {
             final range = input as NumericRangeValidated;

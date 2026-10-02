@@ -497,7 +497,41 @@ void main() {
     });
   });
 
+  test('preserves enum value types in selected option maps', () {
+    final format = PairChoiceOption<Format>('format', choices: Format.values);
+    final selected = SelectedOptions<Format>([format]);
+    expect(
+      parser(selectedOptions: [selected])
+          .parse(['--format', 'json'])
+          .$2
+          .valueOf(selected),
+      {'format': Format.json},
+    );
+  });
+
   group('paired options', () {
+    test('preserves enum and list group value types', () {
+      final format = PairChoiceOption<Format>('format', choices: Format.values);
+      final formats = PairedOptions<Format>([format]);
+      final tags = RepeatablePairStringOption('tag');
+      final tagGroup = PairedOptions<List<String>>([tags]);
+      expect(
+        parser(paired: [formats])
+            .parse(['--format', 'json'])
+            .$2
+            .valueOf(formats),
+        {'format': Format.json},
+      );
+      expect(
+        parser(paired: [tagGroup])
+            .parse(['--tag', 'one', '--tag', 'two'])
+            .$2
+            .valueOf(tagGroup),
+        {
+          'tag': ['one', 'two'],
+        },
+      );
+    });
     test('returns an empty map when the optional group is omitted', () {
       final host = PairStringOption('host');
       final password = PairStringOption('password');
@@ -598,6 +632,16 @@ void main() {
       expect(result.$2.valueOf(count), 3);
     });
 
+    test(
+      'does not negate a flag merely because its declared name starts with no-',
+      () {
+        final noCache = BooleanFlag('no-cache');
+        final cache = BooleanFlag('cache', negatable: true);
+        final result = parser(flags: [noCache, cache]).parse(['--no-cache']);
+        expect(result.$2.valueOf(noCache), isTrue);
+      },
+    );
+
     test('rejects unknown and valued long flags', () {
       final verbose = BooleanFlag('verbose', short: 'v');
       final subject = parser(flags: [verbose]);
@@ -675,6 +719,15 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('accepts signed numeric values in separate tokens', () {
+      final count = IntOption('count');
+      final ratio = DoubleOption('ratio');
+      final subject = parser(options: [count, ratio]);
+      final inputs = subject.parse(['--count', '-2', '--ratio', '-0.25']).$2;
+      expect(inputs.valueOf(count), -2);
+      expect(inputs.valueOf(ratio), -0.25);
     });
 
     test('rejects malformed integer and double values', () {
