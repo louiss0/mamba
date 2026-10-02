@@ -1,5 +1,12 @@
 ## Unreleased
 
+- Let a group command render its own help. The executor hands a selected
+  `GroupCommand` the application `HelpFormatter` and the registry the command
+  line resolved to, and `GroupCommand.run` formats that registry when it has no
+  `defaultSubCommandPath` to run, so `my-tool remote` lists `remote add` and
+  `remote remove`. A group that names a `defaultSubCommandPath` keeps invoking
+  that path instead. An ordinary `Command` is never handed the formatter.
+
 ## 0.13.1
 
 - Wrote a Dart `.gitignore` into every scaffolded project, taken from the

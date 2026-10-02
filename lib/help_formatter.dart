@@ -138,6 +138,24 @@ abstract class HelpFormatter {
   String format(CommandRegistry registry);
 }
 
+/// The formatter and the registry an [Executor] resolved an invocation to.
+///
+/// It is how a group answers a question it has no inputs for. A group
+/// selected without a child under it has nothing of its own to run, so it
+/// renders [registry] and lets the reader see the children they can pick.
+final class CommandHelp {
+  new(this.formatter, this.registry);
+
+  /// Renders help the way the application configured it.
+  final HelpFormatter formatter;
+
+  /// The registry the command line resolved to.
+  final CommandRegistry registry;
+
+  /// Renders all visible help for [registry].
+  String format() => formatter.format(registry);
+}
+
 /// Renders a [CommandRegistry] as ANSI-styled command-line help text.
 ///
 /// The output contains usage, an optional long description, and non-empty

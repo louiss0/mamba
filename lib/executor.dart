@@ -231,6 +231,9 @@ final class _Execution {
     if (parsed.help || command == null) {
       return MambaSuccessResult(_help.format(registry));
     }
+    // Only a group can be left without anything to run, so only a group is
+    // handed the formatter and the registry it resolved to.
+    if (command is GroupCommand) command.help = CommandHelp(_help, registry);
     final inputs = parsed.$2;
     final readContext = MambaReadContext(_context);
     final errors = <MambaExecutionError>[];

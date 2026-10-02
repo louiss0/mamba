@@ -135,6 +135,26 @@ final class RetainingContextWriter extends GroupCommand
   }
 }
 
+final class BareGroup extends GroupCommand {
+  new(super.commands);
+
+  @override
+  String get name => 'git';
+
+  @override
+  String get shortDescription => 'Groups commands.';
+}
+
+final class DefaultingGroup extends GroupCommand {
+  new(super.commands, {required super.defaultSubCommandPath});
+
+  @override
+  String get name => 'git';
+
+  @override
+  String get shortDescription => 'Groups commands.';
+}
+
 final class DefaultPostHookCommand extends Command with HookRunner {
   @override
   String get name => 'default-post';
@@ -529,6 +549,29 @@ void main() {
         startsWith('tool'),
       ),
     );
+  });
+
+  test('renders a group help when no child command is selected', () async {
+    final events = <String>[];
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      BareGroup([ResultCommand(events)]),
+    ]).fake().execute(['git']);
+
+    expect(
+      _withoutAnsi((result as MambaSuccessResult).output!),
+      allOf(contains('tool git'), contains('Runs.')),
+    );
+    expect(events, isEmpty);
+  });
+
+  test('runs a group that names a default sub command path', () async {
+    final events = <String>[];
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      DefaultingGroup([ResultCommand(events)], defaultSubCommandPath: ['run']),
+    ]).fake().execute(['git']);
+
+    expect(events, ['run']);
+    expect((result as MambaSuccessResult).output, 'output');
   });
 
   test('records non-Mamba hook errors', () async {

@@ -98,8 +98,17 @@ This produces the command path `git commit`. A group's own `flags`, `options`,
 positionals, and accessors apply to the group itself. `propagatedFlags` and
 `propagatedOptions` are inherited by descendants.
 
+Selecting a group with no child command under it prints that group's help
+rather than running anything, because the invocation is a question about the
+group's children. The executor hands a selected group the application
+`HelpFormatter` and the resolved registry as `GroupCommand.help`, and
+`GroupCommand.run` calls `help?.format()`. An ordinary `Command` is never given
+it, because a command with inputs to run never needs it. Override `run` on a
+group to answer with something else.
+
 `defaultSubCommandPath` can name a relative child path for `GroupCommand.run`
-to invoke when the group itself is selected. `Executor.defaultCommandPath` is
+to invoke when the group itself is selected. A group that sets it runs that
+path instead of formatting help. `Executor.defaultCommandPath` is
 the separate application-level default used when the entire argument list is
 empty.
 

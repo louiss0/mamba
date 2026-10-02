@@ -82,7 +82,9 @@ to replace help rendering.
 ## Commands
 
 Use `Command` for an executable action and `GroupCommand` for a named branch
-that owns child commands. Start a command in its own file:
+that owns child commands. A selected group with no child under it renders
+`GroupCommand.help`, which the executor fills with the `HelpFormatter` and the
+resolved registry. Start a command in its own file:
 Declare each input once, register it through `super`, and retain that same
 declaration for `run`. Keep declarations private, then give the parsed value a domain name inside `run`:
 

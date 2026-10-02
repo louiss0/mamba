@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/help_formatter.dart';
 import 'package:mamba/integrations.dart' as integrations;
 import 'package:mamba/registry.dart';
 
@@ -1525,6 +1526,7 @@ abstract class Command {
   final List<SelectedOptions>? selectedOptions;
   final List<AccessorListOption>? accessors;
   final Map<String, List<String>>? conflicts;
+
   new({
     this.longDescription,
     List<String>? aliases,
@@ -1556,6 +1558,16 @@ abstract class GroupCommand extends Command {
   final List<Flag<Object?>>? inheritedFlags;
   final List<Option<Object?>>? inheritedOptions;
   final List<Command> commands;
+
+  /// The help machinery the executor assigns before it runs this group.
+  ///
+  /// Only a group needs it: a command that owns children is asked which child
+  /// was meant, and rendering its own registry is how it answers. An ordinary
+  /// command has inputs to run and never looks here. It is null when a group is
+  /// invoked directly instead of through an executor, which is what lets [run]
+  /// answer with no output rather than reaching for a registry it was never
+  /// given.
+  CommandHelp? help;
   new(
     List<Command> commands, {
     List<String>? defaultSubCommandPath,
@@ -1615,7 +1627,12 @@ abstract class GroupCommand extends Command {
   @override
   FutureOr<String?> run(ParsedInputs inputs, List<String> args) {
     final path = defaultSubCommandPath;
-    return path == null ? '' : runChildCommand(path, inputs, args);
+    if (path != null) return runChildCommand(path, inputs, args);
+
+    // Nothing was selected below this group, so the invocation is a question
+    // about the children it owns. Rendering the resolved registry is the
+    // answer, and it is the group's own rather than the executor's.
+    return help?.format() ?? '';
   }
 }
 

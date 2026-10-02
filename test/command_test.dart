@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:mamba/help_formatter.dart';
 import 'package:mamba/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
@@ -63,6 +64,37 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
 }
 
 final inputsWithoutValues = ParsedInputs({}, []);
+
+String _withoutAnsi(String value) =>
+    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
+
+/// A child command that renders under its own name in help.
+final class _NamedCommand extends Command {
+  new(this.name, this.shortDescription);
+
+  @override
+  final String name;
+
+  @override
+  final String shortDescription;
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => '';
+}
+
+/// Records which registry it was asked to render.
+final class _RecordingHelpFormatter extends HelpFormatter {
+  final formatted = <CommandRegistry>[];
+
+  @override
+  String format(CommandRegistry registry) {
+    formatted.add(registry);
+    return 'recorded help';
+  }
+
+  @override
+  void formatLongDescription(StringBuffer buffer, String longDescription) {}
+}
 
 ParsedInputs createCompletionInputs(ShellCompletion shell, {String? path}) {
   final values = <InputDefinition, Object?>{
@@ -374,6 +406,70 @@ void main() {
 
     test('returns empty output when no default child is configured', () async {
       expect(await groupCommand.run(inputsWithoutValues, const []), isEmpty);
+    });
+
+    test(
+      'renders help that lists its children when a registry is given',
+      () async {
+        final stash = _NamedCommand('stash', 'Stash changes.');
+        final git = TestGroupCommand('git', [stash]);
+
+        git.help = CommandHelp(
+          MambaHelpFormatter(),
+          CommandRegistry.create('git', 'Manage changes.', commands: [stash]),
+        );
+        final output = await git.run(inputsWithoutValues, const []);
+
+        expect(
+          _withoutAnsi(output!),
+          allOf(
+            contains('Commands'),
+            contains('stash'),
+            contains('Stash changes.'),
+          ),
+        );
+      },
+    );
+
+    test(
+      'renders help for a nested group with the formatter it is given',
+      () async {
+        final stash = _NamedCommand('stash', 'Stash changes.');
+        final remote = TestGroupCommand('remote', []);
+        final git = TestGroupCommand('git', [stash, remote]);
+        final formatter = _RecordingHelpFormatter();
+        final registry = CommandRegistry.create(
+          'git',
+          'Manage changes.',
+          commands: [stash, remote],
+        );
+
+        git.help = CommandHelp(formatter, registry);
+        await git.run(inputsWithoutValues, const []);
+
+        expect(formatter.formatted, [registry]);
+      },
+    );
+
+    test('prefers a default subcommand path over rendering help', () async {
+      final stash = _NamedCommand('stash', 'Stash changes.');
+      final git = TestGroupCommand(
+        'git',
+        [stash],
+        defaultSubCommandPath: ['stash'],
+      );
+      final formatter = _RecordingHelpFormatter();
+      final registry = CommandRegistry.create(
+        'git',
+        'Manage changes.',
+        commands: [stash],
+      );
+
+      git.help = CommandHelp(formatter, registry);
+      final output = await git.run(inputsWithoutValues, const []);
+
+      expect(output, isEmpty);
+      expect(formatter.formatted, isEmpty);
     });
 
     test('rejects empty segments in default paths', () {

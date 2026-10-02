@@ -269,7 +269,9 @@ be used together.
 
 ### Group commands
 
-Use `GroupCommand` for nested command paths such as `remote add`. Groups can
+Use `GroupCommand` for nested command paths such as `remote add`. Selecting a
+group without a child prints that group's help, which lists its children:
+`GroupCommand.run` formats the registry the executor handed it. Groups can
 publish inherited flags and options, and can select a child by setting
 `defaultSubCommandPath`.
 
