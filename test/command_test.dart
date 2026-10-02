@@ -404,8 +404,8 @@ void main() {
       );
     });
 
-    test('returns empty output when no default child is configured', () async {
-      expect(await groupCommand.run(inputsWithoutValues, const []), isEmpty);
+    test('returns no output when no default child is configured', () async {
+      expect(await groupCommand.run(inputsWithoutValues, const []), isNull);
     });
 
     test(

@@ -1632,7 +1632,7 @@ abstract class GroupCommand extends Command {
     // Nothing was selected below this group, so the invocation is a question
     // about the children it owns. Rendering the resolved registry is the
     // answer, and it is the group's own rather than the executor's.
-    return help?.format() ?? '';
+    return help?.format();
   }
 }
 
