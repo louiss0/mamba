@@ -712,7 +712,8 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         File('${directory.path}/lib/components/report.dart').readAsStringSync(),
         allOf(
           contains('Future<T> report<T>(Future<T> Function() work) async'),
-          contains('terminice.task(label, run: work)'),
+          contains('run: work'),
+          contains('indicator: TaskRunningIndicator.spinner'),
         ),
       );
     },

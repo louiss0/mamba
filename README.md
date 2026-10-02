@@ -113,7 +113,9 @@ final class AskComponent {
 
 A selector takes the choices it filters through an `options` field, and an
 indicator exposes `Future<T> report<T>(Future<T> Function() work)` so the work
-it describes is awaited inside the component.
+it describes is awaited inside the component. The indicator runs on a spinner;
+swap `TaskRunningIndicator.spinner` for `TaskRunningIndicator.dots` in the
+generated file to cycle a growing dot sequence instead.
 
 ## Quick start
 

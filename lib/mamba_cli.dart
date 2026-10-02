@@ -851,8 +851,15 @@ final class _ComponentKind {
         '  ///\n'
         '  /// A failure is rendered before it is rethrown, so the reader is\n'
         '  /// never left looking at an indicator that stopped moving.\n'
+        '  ///\n'
+        '  /// Swap the spinner for `TaskRunningIndicator.dots` to cycle a\n'
+        '  /// growing dot sequence instead.\n'
         '  Future<T> report<T>(Future<T> Function() work) async =>\n'
-        '      terminice.task(label, run: work);',
+        '      terminice.task(\n'
+        '        label,\n'
+        '        run: work,\n'
+        '        indicator: TaskRunningIndicator.spinner,\n'
+        '      );',
   );
 
   static final values = [prompt, selector, picker, indicator];
