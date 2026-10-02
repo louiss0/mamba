@@ -298,12 +298,17 @@ final class RemoteCommand extends GroupCommand {
 
 Mix `HookRunner` into a command for pre- and post-execution work. Mix
 `PersistentHookRunner` into a group to run hooks around descendant commands.
-`MambaContext` is a typed, executor-scoped scalar state bag that persistent
-hooks can share and mutate. Keys use `String`, `bool`, `int`, or `double`; write
-with the matching sealed wrapper (such as `MambaContextString`) and read the
-primitive directly. Context is hook state, not a dependency container, so
-collections and domain objects are unsupported. Environment variables and
-configuration files remain application responsibilities.
+Every group on the resolved command path participates, nested child groups
+included, with pre-hooks running outermost-first and post-hooks unwinding in
+reverse. `MambaContext` is a typed, executor-scoped scalar state bag that
+persistent hooks can share and mutate. Keys use `String`, `bool`, `int`, or
+`double`; write with the matching sealed wrapper (such as `MambaContextString`)
+and read the primitive directly. Context is hook state, not a dependency
+container, so collections and domain objects are unsupported.
+`MambaReadContext` is the read-only view a command receives: it exposes `get`
+and nothing else, so a subclass of `MambaContext` adds members no command can
+reach. Environment variables and configuration files remain application
+responsibilities.
 
 ### Shell completions
 

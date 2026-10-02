@@ -75,9 +75,13 @@ final class WorkspaceCommand extends GroupCommand
 }
 ```
 
-Persistent hooks receive the mutable `MambaContext`. Persistent pre-hooks run
-from the outermost group inward. Their matching post-hooks run in reverse
-order, so nested groups behave like wrappers.
+Persistent hooks receive the mutable `MambaContext`. Every
+`PersistentHookRunner` on the resolved command path participates, nested child
+groups included, so `tool a b c` runs the hooks of both `a` and `b`. Persistent
+pre-hooks run from the outermost group inward. Their matching post-hooks run in
+reverse order, so nested groups behave like wrappers. A group that is not on
+the resolved path contributes nothing, so a sibling group is never set up for
+an unrelated command.
 
 ## Context
 
@@ -99,14 +103,24 @@ final bool? verbose = context.get(verboseKey);
 final int? retries = context.get(retryKey);
 ```
 
-`MambaContextDouble` stores a `double` in the same way. Only the four built-in
-variants (`String`, `bool`, `int`, and `double`) are supported; applications
-cannot define additional variants. An unset key returns `null`, but `null`
-cannot be stored. Collections and domain objects are not supported, because
-context is not a dependency container. A reused executor retains its context
-between executions. Create a separate executor when state must be isolated.
-Applications remain responsible for reading environment variables or
-configuration files.
+`MambaContextDouble` stores a `double` in the same way. A key's type argument
+selects the variant, so only the four built-in types (`String`, `bool`, `int`,
+and `double`) can be stored. `MambaContextValue` is sealed, so an application
+cannot define a further variant and cannot store a domain object: context is
+not a dependency container. A key typed `Object` matches none of the four and
+therefore stores nothing. An unset key returns `null`, but `null` cannot be
+stored.
+
+`MambaReadContext` is the read-only view an ordinary `HookRunner` receives. It
+exposes `get` and nothing else, and does not expose the instance it wraps, so a
+subclass of `MambaContext` adds members that no command can reach. Subclassing
+is otherwise transparent: the subclass inherits `set` and `get`, and an
+overridden `get` is dispatched normally through the base-typed parameters that
+hooks receive.
+
+A reused executor retains its context between executions. Create a separate
+executor when state must be isolated. Applications remain responsible for
+reading environment variables or configuration files.
 
 ## Failures
 

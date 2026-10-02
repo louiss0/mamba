@@ -51,8 +51,11 @@ final class MambaContextDouble extends MambaContextValue<double> {
 ///
 /// Reusing an executor intentionally retains values between calls to
 /// `execute`; create another executor when an isolated context is required.
-/// Context is a scalar hook-state bag, not a dependency container. Environment
-/// variables and configuration files remain application responsibilities.
+/// Context is a scalar hook-state bag, not a dependency container: the value
+/// hierarchy is sealed to [MambaContextString], [MambaContextBool],
+/// [MambaContextInt], and [MambaContextDouble], so no application can store a
+/// domain object here. Environment variables and configuration files remain
+/// application responsibilities.
 class MambaContext {
   final Map<MambaContextKey<Object>, MambaContextValue<Object>> _values = {};
 
@@ -80,6 +83,10 @@ class MambaContext {
 }
 
 /// A read-only view of a [MambaContext] supplied to ordinary command hooks.
+///
+/// It exposes [get] and nothing else, and deliberately does not expose the
+/// instance it wraps. A subclass of [MambaContext] therefore adds members no
+/// command can reach, because hooks receive this view rather than the context.
 class MambaReadContext(final MambaContext _context) {
   /// Returns the unwrapped primitive associated with [key], if one has been
   /// set.
