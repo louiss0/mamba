@@ -14,6 +14,7 @@
 library;
 
 export 'package:chalkdart/chalk.dart';
+export 'package:terminice/terminice.dart';
 export 'package:yaml_writer/yaml_writer.dart';
 
 export 'built_in_flags.dart';

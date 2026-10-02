@@ -6,7 +6,10 @@
   `defaultSubCommandPath` to run, so `my-tool remote` lists `remote add` and
   `remote remove`. A group that names a `defaultSubCommandPath` keeps invoking
   that path instead. An ordinary `Command` is never handed the formatter.
-- Replaced `interact` with `terminice` for the `mamba create` prompts.
+- Replaced `interact` with `terminice` for the `mamba create` prompts, and
+  re-exported it from `package:mamba/mamba.dart` beside `chalkdart` and
+  `yaml_writer`, so an application imports one package and still reaches the
+  toolkit Mamba itself prompts with.
 - Made the `mamba create` short description an optional second positional, and
   asked for it when it is left off.
 - Removed the `.` `mamba create` package name. `mamba create .` is now
