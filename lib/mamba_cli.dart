@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:interact/interact.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
+import 'package:terminice/terminice.dart';
 
 /// Versions a newly scaffolded application executor.
 const _applicationVersion = '0.0.0';
@@ -375,24 +375,20 @@ final class SystemSourceFormatter implements SourceFormatter {
   }
 }
 
-final class InteractInstallPrompt implements InstallPrompt {
+final class TerminiceInstallPrompt implements InstallPrompt {
   /// Installing is the answer that leaves a runnable project, so it is the
   /// answer a bare Enter produces.
   @override
-  bool confirmsInstallation() => Confirm(
-    prompt: 'Install dependencies?',
-    defaultValue: true,
-    waitForNewLine: true,
-  ).interact();
+  bool confirmsInstallation() =>
+      terminice.confirm(message: 'Install dependencies?', defaultYes: true);
 }
 
-final class InteractGitPrompt implements GitPrompt {
+final class TerminiceGitPrompt implements GitPrompt {
   @override
-  bool confirmsInitialization() => Confirm(
-    prompt: 'Initialize a Git repository?',
-    defaultValue: false,
-    waitForNewLine: true,
-  ).interact();
+  bool confirmsInitialization() => terminice.confirm(
+    message: 'Initialize a Git repository?',
+    defaultYes: false,
+  );
 }
 
 /// Creates a small Dart package using the current typed command API.
@@ -405,8 +401,8 @@ final class CreateProjectCommand extends Command {
   }) : _parentDirectory = parentDirectory,
        _projectScaffolder =
            projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
-       _installPrompt = installPrompt ?? InteractInstallPrompt(),
-       _gitPrompt = gitPrompt ?? InteractGitPrompt(),
+       _installPrompt = installPrompt ?? TerminiceInstallPrompt(),
+       _gitPrompt = gitPrompt ?? TerminiceGitPrompt(),
        super(
          mandatoryPositionals: [packageName, projectDescription],
          flags: [install, initializeGit],

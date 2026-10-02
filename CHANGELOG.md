@@ -6,6 +6,7 @@
   `defaultSubCommandPath` to run, so `my-tool remote` lists `remote add` and
   `remote remove`. A group that names a `defaultSubCommandPath` keeps invoking
   that path instead. An ordinary `Command` is never handed the formatter.
+- Replaced `interact` with `terminice` for the `mamba create` prompts.
 
 ## 0.13.1
 
