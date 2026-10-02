@@ -847,19 +847,19 @@ final class _ComponentKind {
     'indicator',
     'Report progress while work runs.',
     'Working',
-    '/// Runs [work] behind a progress indicator and returns its result.\n'
+    '/// Runs [work] behind a spinner and returns its result.\n'
         '  ///\n'
-        '  /// A failure is rendered before it is rethrown, so the reader is\n'
-        '  /// never left looking at an indicator that stopped moving.\n'
+        '  /// A failure is cleaned up before it is rethrown, so the reader is\n'
+        "  /// never left looking at a spinner that stopped moving.\n"
         '  ///\n'
-        '  /// Swap the spinner for `TaskRunningIndicator.dots` to cycle a\n'
-        '  /// growing dot sequence instead.\n'
-        '  Future<T> report<T>(Future<T> Function() work) async =>\n'
-        '      terminice.task(\n'
-        '        label,\n'
-        '        run: work,\n'
-        '        indicator: TaskRunningIndicator.spinner,\n'
-        '      );',
+        '  /// Pass `SpinnerStyle.bars` to [ReportComponent.spinner] for a\n'
+        '  /// rising and falling bar instead of the default dotted frames.\n'
+        '  Future<T> report<T>(Future<T> Function() work) =>\n'
+        '      spinner().whileRunning(work);\n'
+        '\n'
+        '  /// The spinner this component reports through.\n'
+        '  LoadingSpinner spinner() =>\n'
+        "      terminice.loadingSpinner(label, style: SpinnerStyle.dots);",
   );
 
   static final values = [prompt, selector, picker, indicator];

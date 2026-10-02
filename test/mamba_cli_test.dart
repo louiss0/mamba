@@ -711,9 +711,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       expect(
         File('${directory.path}/lib/components/report.dart').readAsStringSync(),
         allOf(
-          contains('Future<T> report<T>(Future<T> Function() work) async'),
-          contains('run: work'),
-          contains('indicator: TaskRunningIndicator.spinner'),
+          contains('Future<T> report<T>(Future<T> Function() work)'),
+          contains('terminice.loadingSpinner(label'),
+          contains('spinner().whileRunning(work)'),
         ),
       );
     },

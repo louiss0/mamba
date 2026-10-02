@@ -113,9 +113,9 @@ final class AskComponent {
 
 A selector takes the choices it filters through an `options` field, and an
 indicator exposes `Future<T> report<T>(Future<T> Function() work)` so the work
-it describes is awaited inside the component. The indicator runs on a spinner;
-swap `TaskRunningIndicator.spinner` for `TaskRunningIndicator.dots` in the
-generated file to cycle a growing dot sequence instead.
+it describes is awaited inside the component. It reports through terminice's
+loading spinner directly rather than through the task helper, and the spinner
+is built by a separate method so its style can be changed in one place.
 
 ## Quick start
 
