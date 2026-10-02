@@ -7,6 +7,8 @@
   `remote remove`. A group that names a `defaultSubCommandPath` keeps invoking
   that path instead. An ordinary `Command` is never handed the formatter.
 - Replaced `interact` with `terminice` for the `mamba create` prompts.
+- Made the `mamba create` short description an optional second positional, and
+  asked for it when it is left off.
 
 ## 0.13.1
 

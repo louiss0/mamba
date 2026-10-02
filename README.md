@@ -68,7 +68,8 @@ mamba command status --test
 package-provided skills for generic agents and Claude with `dart run skills@
 get --all -p mamba --agent generic` and `dart run skills@ get --all -p mamba
 --agent claude`. It then prompts you whether to initialize the project as a Git
-repository. The generated command file still needs to be registered in the
+repository. The short description is optional: leave it off and the command
+asks for one. The generated command file still needs to be registered in the
 application's command list. `--group` generates an empty `GroupCommand` for
 nesting child commands. `mamba binary <name>` creates another executable in
 `bin/`, while `mamba test <name>` creates a grouped test suite for the matching

@@ -30,6 +30,11 @@ abstract interface class SourceFormatter {
   void formatSource(String path);
 }
 
+/// Asks for the one-line description a project is published under.
+abstract interface class DescriptionPrompt {
+  String asksForDescription();
+}
+
 /// Asks whether a new project should have its dependencies installed.
 abstract interface class InstallPrompt {
   bool confirmsInstallation();
@@ -391,20 +396,29 @@ final class TerminiceGitPrompt implements GitPrompt {
   );
 }
 
+final class TerminiceDescriptionPrompt implements DescriptionPrompt {
+  @override
+  String asksForDescription() =>
+      terminice.text('Short description', required: true) ?? '';
+}
+
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
   new(
     Directory parentDirectory, {
     ProjectScaffolder? projectScaffolder,
+    DescriptionPrompt? descriptionPrompt,
     InstallPrompt? installPrompt,
     GitPrompt? gitPrompt,
   }) : _parentDirectory = parentDirectory,
        _projectScaffolder =
            projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
+       _descriptionPrompt = descriptionPrompt ?? TerminiceDescriptionPrompt(),
        _installPrompt = installPrompt ?? TerminiceInstallPrompt(),
        _gitPrompt = gitPrompt ?? TerminiceGitPrompt(),
        super(
-         mandatoryPositionals: [packageName, projectDescription],
+         mandatoryPositionals: [packageName],
+         discretionaryPositionals: [projectDescription],
          flags: [install, initializeGit],
        );
 
@@ -415,7 +429,7 @@ final class CreateProjectCommand extends Command {
         'Name for the new package, or $_currentDirectoryToken to use the '
         'current directory.',
   );
-  static final projectDescription = NormalPositional(
+  static final projectDescription = NormalPositional.optional(
     'short-description',
     regExp: RegExp(r'.+'),
   );
@@ -430,6 +444,7 @@ final class CreateProjectCommand extends Command {
 
   final Directory _parentDirectory;
   final ProjectScaffolder _projectScaffolder;
+  final DescriptionPrompt _descriptionPrompt;
   final InstallPrompt _installPrompt;
   final GitPrompt _gitPrompt;
 
@@ -443,7 +458,12 @@ final class CreateProjectCommand extends Command {
   @override
   String run(ParsedInputs inputs, List<String> args) {
     final name = inputs.valueOf(packageName);
-    final description = inputs.valueOf(projectDescription);
+
+    // The description is the one step nothing else answers, so the prompt is
+    // only reached when the argument was left off.
+    final description =
+        inputs.valueOf(projectDescription) ??
+        _descriptionPrompt.asksForDescription();
 
     // A flag answers its own step, so the prompt is only reached when the
     // answer is still open.

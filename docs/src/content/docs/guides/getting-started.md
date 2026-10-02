@@ -34,8 +34,8 @@ mamba --help
 ## Create a project
 
 Run `mamba create` from the directory that should contain your new project.
-The command takes a package name and short description, then creates a
-directory with that package name:
+The command takes a package name and an optional short description, then
+creates a directory with that package name:
 
 ```sh
 cd ~/code
@@ -47,6 +47,19 @@ cd my_app
 The package name must start with a lowercase letter and may contain lowercase
 letters, numbers, and underscores. For example, `my_app` is valid, while
 `MyApp` is not.
+
+The short description is optional. When it is left off, the command asks for
+one before it writes anything:
+
+```sh
+cd ~/code
+mamba create my_app
+# Short description: Manage my application.
+```
+
+Both setup questions have a default: installing dependencies is preselected,
+and initializing a Git repository is not. `--install` and `--git` answer them
+without prompting.
 
 If the `mamba` executable is not on your `PATH`, replace
 `mamba create my_app "Manage my application."` with

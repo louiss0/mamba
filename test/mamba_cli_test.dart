@@ -483,25 +483,50 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     );
   });
 
-  test('project command requires a short description', () async {
+  test('project command asks for a description when none is passed', () async {
     final directory = Directory.systemTemp.createTempSync('mamba_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final projectScaffolder = FakeProjectScaffolder();
+    final descriptionPrompt = FakeDescriptionPrompt('A prompted description.');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         directory,
         projectScaffolder: projectScaffolder,
+        descriptionPrompt: descriptionPrompt,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: false),
       ),
     ]).fake().execute(['create', 'demo']);
 
-    expect(result, isA<MambaFailureResult>());
+    expect(result.exitCode, 0);
+    expect(descriptionPrompt.questions, 1);
     expect(
-      (result as MambaFailureResult).message,
-      'The short-description is required at 1 after this command',
+      projectScaffolder.projects.single.shortDescription,
+      'A prompted description.',
     );
-    expect(projectScaffolder.projects, isEmpty);
+  });
+
+  test('project command keeps a description it was given', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final projectScaffolder = FakeProjectScaffolder();
+    final descriptionPrompt = FakeDescriptionPrompt('A prompted description.');
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      CreateProjectCommand(
+        directory,
+        projectScaffolder: projectScaffolder,
+        descriptionPrompt: descriptionPrompt,
+        installPrompt: FakeInstallPrompt(shouldInstall: true),
+        gitPrompt: FakeGitPrompt(shouldInitialize: false),
+      ),
+    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
+
+    expect(result.exitCode, 0);
+    expect(descriptionPrompt.questions, 0);
+    expect(
+      projectScaffolder.projects.single.shortDescription,
+      'A demonstration CLI.',
+    );
   });
 
   test('binary command scaffolds a process-facing executor', () async {
@@ -1076,5 +1101,18 @@ final class FakeGitPrompt implements GitPrompt {
   bool confirmsInitialization() {
     questions++;
     return shouldInitialize;
+  }
+}
+
+final class FakeDescriptionPrompt implements DescriptionPrompt {
+  new(this.description);
+
+  final String description;
+  var questions = 0;
+
+  @override
+  String asksForDescription() {
+    questions++;
+    return description;
   }
 }
