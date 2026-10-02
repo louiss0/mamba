@@ -33,6 +33,20 @@ Parser parser({
 
 final _buildFile = NormalPositional('file');
 
+final _trace = BooleanFlag('trace', short: 't');
+final _force = BooleanFlag('force', short: 'f');
+final _output = StringOption('output', short: 'o');
+final _tags = RepeatableStringOption('tag');
+final _pair = PairedOptions<String>([
+  PairStringOption('host'),
+  PairStringOption('port'),
+]);
+final _selected = SelectedOptions<String>([
+  PairStringOption('format'),
+  PairStringOption('output-file'),
+]);
+final _database = AccessorListOption('database', [AccessorStringOption('dsn')]);
+
 final class _BuildCommand extends Command {
   new() : super(aliases: ['bld', 'co'], mandatoryPositionals: [_buildFile]);
 
@@ -602,7 +616,7 @@ void main() {
           isA<MambaParseException>().having(
             (error) => error.message,
             'message',
-            "This isn't a registered short flag or option",
+            '"-x" isn\'t a registered short flag or option.',
           ),
         ),
       );
@@ -1326,11 +1340,11 @@ void main() {
       expect(rejectionOf(['bd']), contains("the alias 'bld'"));
     });
 
-    test('offers a close argument and says it is an argument', () {
-      expect(
-        rejectionOf(['build', 'one', 'flie']),
-        contains("the argument 'file'"),
-      );
+    test('never offers a positional by its parser-only name', () {
+      final message = rejectionOf(['build', 'one', 'flie']);
+
+      expect(message, isNot(contains('file')));
+      expect(message, isNot(contains('Did you mean')));
     });
 
     test('counts a swapped pair as one edit, so the command wins', () {
@@ -1346,6 +1360,66 @@ void main() {
 
     test('produces the same message for the same mistyping', () {
       expect(rejectionOf(['remtoe']), rejectionOf(['remtoe']));
+    });
+  });
+
+  group('rejects unknown inputs', () {
+    /// Reads the message a parse of [args] is rejected with.
+    String rejectionOf(List<String> args) {
+      try {
+        parser(
+          flags: [_trace, _force],
+          options: [_output, _tags],
+          paired: [_pair],
+          selectedOptions: [_selected],
+          accessors: [_database],
+        ).parse(args);
+      } on MambaParseException catch (error) {
+        return error.message;
+      }
+      fail('${args.join(' ')} was accepted but should have been rejected.');
+    }
+
+    test('names the input and offers the nearest flag or option', () {
+      expect(
+        rejectionOf(['--trce']),
+        allOf(
+          startsWith('Unknown flag or option --trce.'),
+          contains('--trace'),
+        ),
+      );
+    });
+
+    test('offers a repeatable option, which may be written more than once', () {
+      expect(rejectionOf(['--ta']), contains('--tag'));
+    });
+
+    test('offers a member of a paired group', () {
+      expect(rejectionOf(['--hots']), contains('--host'));
+    });
+
+    test('offers a member of a selected group', () {
+      expect(rejectionOf(['--outpt-file']), contains('--output-file'));
+    });
+
+    test('offers an accessor by its root name', () {
+      final message = rejectionOf(['--databse']);
+      expect(message, contains('--database'));
+    });
+
+    test('stays silent when nothing is close enough', () {
+      expect(rejectionOf(['--qqqqqqqqqq']), isNot(contains('Did you mean')));
+    });
+
+    test('names the rejected letter for a short flag', () {
+      expect(
+        rejectionOf(['-z']),
+        '"-z" isn\'t a registered short flag or option.',
+      );
+    });
+
+    test('offers no short flag for a one-letter word', () {
+      expect(rejectionOf(['-z']), isNot(contains('Did you mean')));
     });
   });
 }

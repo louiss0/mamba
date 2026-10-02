@@ -2,10 +2,15 @@
 
 - Rewrote the unregistered term message to name the rejected word and the
   categories that could have matched it. A word typed at the root is reported
-  against commands, aliases, and arguments; once a group owns the registry the
-  message says `subcommand` in place of `command`.
-- Added near-miss suggestions for a mistyped word, naming the closest command,
-  alias, or argument and which of the three it was.
+  against commands and aliases; once a group owns the registry the message
+  says `subcommand` in place of `command`. Positionals are never offered,
+  because their names are known only to the parser.
+- Added near-miss suggestions for a mistyped word, naming the closest command
+  or alias and which of the two it was.
+- Named the rejected input in the unknown flag or option message and offered
+  the nearest registered flag, option, accessor, or paired or selected group
+  member, which includes a repeatable option. An unknown short flag is now
+  named letter by letter.
 
 ## 0.14.0
 

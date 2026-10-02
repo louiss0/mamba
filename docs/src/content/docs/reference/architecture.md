@@ -136,20 +136,38 @@ Mamba distinguishes failures by where they occur:
 
 An unregistered term is rejected with the word the reader typed and the
 categories that could have matched it. A word typed at the root is measured
-against commands, their aliases, and the executor's own positionals; once a
-group owns the registry the same word is measured against subcommands, so the
-message says `subcommand` in place of `command`.
+against commands and their aliases; once a group owns the registry the same
+word is measured against subcommands, so the message says `subcommand` in
+place of `command`.
 
 ```
 "biuld" isn't a registered command, alias, or argument. Did you mean the command 'build' or the alias 'bld'?
 "remtoe" isn't a registered subcommand, alias, or argument. Did you mean the command 'remote'?
 ```
 
+Positionals are deliberately absent from the candidate set. A positional's name
+belongs to whoever declared it and only the parser matches against it, so
+offering one would point a reader at a word they never typed.
+
+An unknown `--` input is rejected the same way, measured against every
+registered flag, option, accessor, and the members of the paired and selected
+groups. A repeatable option is covered because it is an ordinary option that
+may be written more than once. Suggestions are written as the token itself,
+since the message already names flags and options together, and an unknown
+short flag is named letter by letter.
+
+```
+Unknown flag or option --trce. Did you mean --trace or --force?
+Unknown flag or option --hots. Did you mean --host?
+"-z" isn't a registered short flag or option.
+```
+
 Suggestions are the nearest registered terms by edit distance, capped at half
-the mistyped word's length so a short word is matched strictly. A swapped pair
-of letters counts as one edit, because transposition is the commonest way to
-misspell, and ties prefer a command over an alias over an argument. A word with
-nothing close enough is rejected without a suggestion rather than with a guess.
+the mistyped word's length so a short word is matched strictly and a
+one-letter word reaches nothing at all. A swapped pair of letters counts as one
+edit, because transposition is the commonest way to misspell, and ties prefer a
+command over an alias. A word with nothing close enough is rejected without a
+suggestion rather than with a guess.
 
 The production executor is the process boundary for invocation failures. It
 catches thrown `Exception` values, records their execution phase and command

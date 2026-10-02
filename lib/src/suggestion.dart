@@ -2,21 +2,12 @@
 enum SuggestionKind {
   command,
   alias,
-  argument;
-
-  /// The word this kind uses when it is named in an error message.
-  String get label => switch (this) {
-    SuggestionKind.command => 'command',
-    SuggestionKind.alias => 'alias',
-    SuggestionKind.argument => 'argument',
-  };
+  flag,
+  option,
+  shortFlag;
 
   /// How strongly this kind is preferred when two candidates tie.
-  int get rank => switch (this) {
-    SuggestionKind.command => 0,
-    SuggestionKind.alias => 1,
-    SuggestionKind.argument => 2,
-  };
+  int get rank => index;
 }
 
 /// A registered [SuggestionKind] term offered as a possible intent.
@@ -26,6 +17,19 @@ final class Suggestion {
   final SuggestionKind kind;
   final String name;
 
+  /// How the term is written inside an error message.
+  ///
+  /// A command is named as a kind because a reader has to know whether the word
+  /// they half-remembered was a command, an alias, or neither. An option is
+  /// written as the token it is typed as, because the message carrying the
+  /// suggestion already names flags and options together.
+  String get display => switch (kind) {
+    SuggestionKind.command => "the command '$name'",
+    SuggestionKind.alias => "the alias '$name'",
+    SuggestionKind.flag || SuggestionKind.option => '--$name',
+    SuggestionKind.shortFlag => '-$name',
+  };
+
   @override
   bool operator ==(Object other) =>
       other is Suggestion && other.kind == kind && other.name == name;
@@ -34,7 +38,7 @@ final class Suggestion {
   int get hashCode => Object.hash(kind, name);
 
   @override
-  String toString() => "the ${kind.label} '$name'";
+  String toString() => display;
 }
 
 /// The nearest candidates to [term], closest first.
@@ -68,23 +72,27 @@ List<Suggestion> nearestMatches(
 
 /// Renders [suggestions] as the tail of a "did you mean" sentence.
 String renderSuggestions(List<Suggestion> suggestions) {
-  final rendered = suggestions
-      .map((suggestion) => suggestion.toString())
-      .toList();
+  final rendered = suggestions.map((suggestion) => suggestion.display).toList();
   if (rendered.length == 1) return rendered.single;
   if (rendered.length == 2) return '${rendered.first} or ${rendered.last}';
   return '${rendered.take(rendered.length - 1).join(', ')}, '
       'or ${rendered.last}';
 }
 
+/// Builds the trailing advice for a rejection, or nothing when no candidate
+/// sits close enough to be worth guessing.
+String adviceFor(String term, Iterable<Suggestion> candidates) {
+  final matches = nearestMatches(term, candidates);
+  return matches.isEmpty ? '' : ' Did you mean ${renderSuggestions(matches)}?';
+}
+
 /// How far a candidate may sit from the term and still count as a typo.
 ///
-/// The share keeps a long word forgiving and a short one strict, where
-/// allowing two edits on a two-letter term would match nearly anything.
-int _reach(String term) {
-  final share = term.length ~/ 2;
-  return share < 1 ? 1 : share;
-}
+/// Half the term's own length keeps a long word forgiving and a short one
+/// strict. A one-letter word therefore reaches no candidate at all, because
+/// every other single letter is one edit away and offering all of them says
+/// nothing.
+int _reach(String term) => term.length ~/ 2;
 
 /// The number of edits that turn [from] into [to].
 ///

@@ -90,7 +90,7 @@ final class Parser {
             )
             .firstOrNull;
         if (flag == null) {
-          throw MambaParseException('Unknown flag or option --$name.');
+          throw _unknownInput(registry, name);
         }
         if (inline != null) {
           throw MambaParseException('Flag --$name does not accept a value');
@@ -128,7 +128,8 @@ final class Parser {
               .firstOrNull;
           if (flag == null) {
             throw MambaParseException(
-              "This isn't a registered short flag or option",
+              '"-$letter" isn\'t a registered short flag or option.'
+              '${suggestion.adviceFor(letter, _shortCandidates(registry))}',
             );
           }
           if (identical(flag, MambaBuiltInFlags.version)) version = true;
@@ -548,22 +549,23 @@ final class Parser {
   ///
   /// The word is named so the reader knows which token was rejected, and the
   /// registry decides whether a command or a subcommand was the right word for
-  /// where they typed it. Nearby commands, aliases, and arguments are offered
-  /// by name and by kind, so a near miss reads as the kind of thing it almost
-  /// was rather than as a bare rejection.
+  /// where they typed it. Nearby commands and aliases are offered by name and
+  /// by kind, so a near miss reads as the kind of thing it almost was rather
+  /// than as a bare rejection.
   MambaParseException _unregisteredTerm(CommandRegistry registry, String term) {
     final kind = registry.parent == null ? 'command' : 'subcommand';
-    final matches = suggestion.nearestMatches(term, _candidates(registry));
-    final advice = matches.isEmpty
-        ? ''
-        : ' Did you mean ${suggestion.renderSuggestions(matches)}?';
 
     return MambaParseException(
-      '"$term" isn\'t a registered $kind, alias, or argument.$advice',
+      '"$term" isn\'t a registered $kind, alias, or argument.'
+      '${suggestion.adviceFor(term, _candidates(registry))}',
     );
   }
 
-  /// Every registered term [term] could plausibly have meant.
+  /// Every child command [term] could plausibly have meant.
+  ///
+  /// A positional is left out on purpose: its name belongs to whoever declared
+  /// it and only the parser matches against it, so offering one would point a
+  /// reader at a word they never typed and cannot act on.
   Iterable<suggestion.Suggestion> _candidates(CommandRegistry registry) sync* {
     for (final child in registry.commandRegistries) {
       yield suggestion.Suggestion(
@@ -574,14 +576,67 @@ final class Parser {
         yield suggestion.Suggestion(suggestion.SuggestionKind.alias, alias);
       }
     }
-    for (final positional in [
-      ...registry.mandatoryPositionals,
-      ...registry.discretionaryPositionals,
-    ]) {
-      yield suggestion.Suggestion(
-        suggestion.SuggestionKind.argument,
-        positional.name,
+  }
+
+  /// Rejects a `--` input that matches no registered flag or option.
+  MambaParseException _unknownInput(CommandRegistry registry, String name) =>
+      MambaParseException(
+        'Unknown flag or option --$name.'
+        '${suggestion.adviceFor(name, _inputCandidates(registry))}',
       );
+
+  /// Every registered flag, option, and accessor a mistyped `--` input could
+  /// have meant.
+  ///
+  /// Repeatable options are ordinary options that may be written more than
+  /// once, so they are covered by [CommandRegistry.applicableOptions]. The
+  /// paired and selected groups are walked too, because their members are
+  /// accepted wherever an option is.
+  Iterable<suggestion.Suggestion> _inputCandidates(
+    CommandRegistry registry,
+  ) sync* {
+    for (final flag in registry.applicableFlags) {
+      yield suggestion.Suggestion(suggestion.SuggestionKind.flag, flag.name);
+    }
+    for (final group in registry.pairedOptionGroups) {
+      for (final option in group.options) {
+        yield suggestion.Suggestion(
+          suggestion.SuggestionKind.option,
+          option.name,
+        );
+      }
+    }
+    for (final group in registry.selectedOptions) {
+      for (final option in group.options) {
+        yield suggestion.Suggestion(
+          suggestion.SuggestionKind.option,
+          option.name,
+        );
+      }
+    }
+    for (final option in registry.applicableOptions) {
+      yield suggestion.Suggestion(
+        suggestion.SuggestionKind.option,
+        option.name,
+      );
+    }
+    for (final accessor in registry.applicableAccessors) {
+      yield suggestion.Suggestion(
+        suggestion.SuggestionKind.option,
+        accessor.name,
+      );
+    }
+  }
+
+  /// Every registered short flag a mistyped letter could have meant.
+  Iterable<suggestion.Suggestion> _shortCandidates(
+    CommandRegistry registry,
+  ) sync* {
+    for (final flag in registry.applicableFlags) {
+      final short = flag.short;
+      if (short != null && short.length == 1) {
+        yield suggestion.Suggestion(suggestion.SuggestionKind.shortFlag, short);
+      }
     }
   }
 
