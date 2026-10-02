@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
-import 'package:mamba/help_formatter.dart';
-import 'package:mamba/integrations.dart' as integrations;
-import 'package:mamba/registry.dart';
+import 'package:mamba/processed_standard_input.dart';
+
+export 'completion_command.dart' show CompletionCommand, ShellCompletion;
+export 'processed_standard_input.dart' show ProcessedStandardInput;
 
 /// Metadata used by the parser, registry, help, and completion integrations.
 abstract interface class InputDefinition {
@@ -1567,6 +1566,11 @@ abstract class Command {
   FutureOr<String?> run(ParsedInputs inputs, List<String> args);
 }
 
+/// A resolved help page supplied to a group that has no selected child.
+abstract interface class GroupHelp {
+  String format();
+}
+
 abstract class GroupCommand extends Command {
   final List<String>? defaultSubCommandPath;
   final List<Flag<Object?>>? inheritedFlags;
@@ -1581,7 +1585,7 @@ abstract class GroupCommand extends Command {
   /// invoked directly instead of through an executor, which is what lets [run]
   /// answer with no output rather than reaching for a registry it was never
   /// given.
-  CommandHelp? help;
+  GroupHelp? help;
   new(
     List<Command> commands, {
     List<String>? defaultSubCommandPath,
@@ -1648,107 +1652,6 @@ abstract class GroupCommand extends Command {
     // answer, and it is the group's own rather than the executor's.
     return help?.format();
   }
-}
-
-enum ShellCompletion { bash, zsh, fish, powershell, carapace }
-
-class CompletionCommand extends Command {
-  late RegistryRecord registryRecord;
-  final void Function(String path) createFile;
-  final bool _usesDefaultGenerator;
-  @override
-  String get name => 'completion';
-  @override
-  String get shortDescription => 'Generate completion for various shells';
-  new({
-    void Function(String)? createFile,
-    super.longDescription,
-    super.aliases,
-    super.mandatoryPositionals,
-    super.discretionaryPositionals,
-    super.options,
-  }) : createFile = createFile ?? _createFileSynchronously,
-       _usesDefaultGenerator = createFile == null;
-  new preset({
-    required void Function(String path)? createFile,
-    String? longDescription,
-  }) : this(
-         createFile: createFile,
-         longDescription:
-             longDescription ??
-             'Generate completions for Bash ZSH Fish or Powershell',
-         aliases: ['cmp', 'cpt'],
-         mandatoryPositionals: [shellInput],
-         discretionaryPositionals: [pathInput],
-       );
-  @override
-  String? run(ParsedInputs inputs, List<String> args) {
-    final shell = inputs.valueOf(shellInput);
-    final path = inputs.valueOf(pathInput) ?? '';
-    final extension = _extensionFor(shell);
-    if (path.isNotEmpty && !_isValidPath(path, extension)) {
-      throw MambaException(
-        'When shell is ${shell.name} the path must end in $extension and must have ${registryRecord.name} in the file name',
-      );
-    }
-    if (_usesDefaultGenerator) {
-      File(path).writeAsStringSync(_completionFor(shell));
-    } else {
-      createFile(path);
-    }
-    return 'Created completion ${shell.name} in $path';
-  }
-
-  String _completionFor(ShellCompletion shell) => switch (shell) {
-    ShellCompletion.bash => integrations.ToBashCompletionConverter(
-      registryRecord,
-    ).convert(),
-    ShellCompletion.zsh => integrations.ToZshCompletionConverter(
-      registryRecord,
-    ).convert(),
-    ShellCompletion.fish => integrations.ToFishCompletionConverter(
-      registryRecord,
-    ).convert(),
-    ShellCompletion.powershell => integrations.ToPowerShellCompletionConverter(
-      registryRecord,
-    ).convert(),
-    ShellCompletion.carapace => integrations.CarapaceSpecConverter(
-      registryRecord,
-    ).convert(),
-  };
-
-  static final ChoicePositional<ShellCompletion> shellInput = ChoicePositional(
-    'shell',
-    choices: ShellCompletion.values,
-  );
-  static final DiscretionaryPositional<String?> pathInput =
-      NormalPositional.optional('path');
-  String _extensionFor(ShellCompletion shell) => switch (shell) {
-    ShellCompletion.bash => '.bash',
-    ShellCompletion.zsh => '.zsh',
-    ShellCompletion.fish => '.fish',
-    ShellCompletion.powershell => '.ps1',
-    ShellCompletion.carapace => '.yaml',
-  };
-  bool _isValidPath(String path, String extension) {
-    if (!path.endsWith(extension)) return false;
-    final name = path.split(RegExp(r'[/\\]')).last;
-    return name
-        .substring(0, name.length - extension.length)
-        .contains(registryRecord.name);
-  }
-
-  static void _createFileSynchronously(String path) {
-    File(path).createSync(exclusive: true);
-  }
-}
-
-final class ProcessedStandardInput {
-  const new(this.bytes);
-  final List<int> bytes;
-  String get text => String.fromCharCodes(bytes);
-  String get utf8Text => utf8.decode(bytes);
-  dynamic get json => jsonDecode(utf8Text);
 }
 
 mixin HookRunner on Command {

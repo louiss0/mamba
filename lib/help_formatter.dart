@@ -143,7 +143,7 @@ abstract class HelpFormatter {
 /// It is how a group answers a question it has no inputs for. A group
 /// selected without a child under it has nothing of its own to run, so it
 /// renders [registry] and lets the reader see the children they can pick.
-final class CommandHelp {
+final class CommandHelp implements GroupHelp {
   new(this.formatter, this.registry);
 
   /// Renders help the way the application configured it.
@@ -153,6 +153,7 @@ final class CommandHelp {
   final CommandRegistry registry;
 
   /// Renders all visible help for [registry].
+  @override
   String format() => formatter.format(registry);
 }
 
