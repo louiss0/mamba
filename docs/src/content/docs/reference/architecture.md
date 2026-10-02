@@ -141,8 +141,7 @@ word is measured against subcommands, so the message says `subcommand` in
 place of `command`.
 
 ```
-"biuld" isn't a registered command, alias, or argument. Did you mean the command 'build' or the alias 'bld'?
-"remtoe" isn't a registered subcommand, alias, or argument. Did you mean the command 'remote'?
+"bui" isn't a registered command, alias, or argument. Did you mean the command 'build' or the command 'build-all'?
 ```
 
 Positionals are deliberately absent from the candidate set. A positional's name
@@ -156,8 +155,8 @@ may be written more than once. Suggestions for an input are written as the
 token itself, since the message already names flags and options together.
 
 ```
-Unknown flag or option --trce. Did you mean --trace or --force?
-Unknown flag or option --hots. Did you mean --host?
+Unknown flag or option --tra. Did you mean --trace?
+Unknown flag or option --out. Did you mean --output or --output-file?
 ```
 
 An unknown short flag is named letter by letter and gets an inventory of the
@@ -174,11 +173,12 @@ The inventory leads with the built-in help short, because the same loop accepts
 it whether or not a registry declares it, and it withholds hidden inputs,
 because a hidden input is not meant to be advertised.
 
-Suggestions are the nearest registered terms by edit distance, capped at half
-the mistyped word's length so a short word is matched strictly and a
-one-letter word reaches nothing at all. A swapped pair of letters counts as one
-edit, because transposition is the commonest way to misspell, and ties prefer a
-command over an alias. A word with nothing close enough is rejected without a
+Suggestions are the registered terms that begin with what was typed, which
+makes them predictable: the same input always means the same completion. A
+shorter name is the more specific completion of the same prefix, so it leads,
+and a command is offered ahead of an alias of the same length. A word of one
+letter is not a suggestion, because a single letter is a prefix of most of any
+registry, and a word that begins no registered name is rejected without a
 suggestion rather than with a guess.
 
 The production executor is the process boundary for invocation failures. It

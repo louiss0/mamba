@@ -5,11 +5,13 @@
   against commands and aliases; once a group owns the registry the message
   says `subcommand` in place of `command`. Positionals are never offered,
   because their names are known only to the parser.
-- Added near-miss suggestions for a mistyped word, naming the closest command
-  or alias and which of the two it was.
+- Added suggestions for an unknown input, naming the closest command or alias
+  and which of the two it was. Suggestions match on the prefix that was typed,
+  so `--verb` resolves to `--verbose` and the same input always means the same
+  completion.
 - Named the rejected input in the unknown flag or option message and offered
-  the nearest registered flag, option, accessor, or paired or selected group
-  member, which includes a repeatable option.
+  the registered flag, option, accessor, or paired or selected group member
+  whose name begins with it, which includes a repeatable option.
 - Named the rejected letter for an unknown short flag and listed the shorts it
   could have used, because the clustered short parser splits its input into
   single letters and a suggestion would be noise.

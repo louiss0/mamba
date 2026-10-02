@@ -63,6 +63,17 @@ final class _BuildCommand extends Command {
   String run(ParsedInputs inputs, List<String> args) => '';
 }
 
+final class _BuildAllCommand extends Command {
+  @override
+  String get name => 'build-all';
+
+  @override
+  String get shortDescription => 'Build every package.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => '';
+}
+
 final class _AddCommand extends Command {
   @override
   String get name => 'add';
@@ -97,7 +108,8 @@ final class _GitGroup extends GroupCommand {
 /// Reads the message a parse of [args] is rejected with.
 String rejectionOf(List<String> args) {
   try {
-    parser(commands: [_BuildCommand(), _GitGroup()]).parse(args);
+    parser(commands: [_BuildCommand(), _BuildAllCommand(), _GitGroup()])
+        .parse(args);
   } on MambaParseException catch (error) {
     return error.message;
   }
@@ -1332,16 +1344,27 @@ void main() {
       );
     });
 
-    test('withholds suggestions when nothing is close enough', () {
+    test('withholds a suggestion when no registered name begins with it', () {
       expect(rejectionOf(['zzzzzzzz']), isNot(contains('Did you mean')));
     });
 
-    test('offers the closest command and names its kind', () {
-      expect(rejectionOf(['biuld']), contains("the command 'build'"));
+    test('offers a command the typed word is a prefix of', () {
+      expect(rejectionOf(['gi']), contains("the command 'git'"));
     });
 
-    test('offers a close alias and says it is an alias', () {
-      expect(rejectionOf(['bd']), contains("the alias 'bld'"));
+    test('offers an alias the typed word is a prefix of', () {
+      expect(rejectionOf(['bl']), contains("the alias 'bld'"));
+    });
+
+    test('leads with the shorter name when a prefix matches twice', () {
+      expect(
+        rejectionOf(['bui']),
+        contains("the command 'build' or the command 'build-all'"),
+      );
+    });
+
+    test('offers a subcommand the typed word is a prefix of', () {
+      expect(rejectionOf(['git', 'rem']), contains("the command 'remote'"));
     });
 
     test('never offers a positional by its parser-only name', () {
@@ -1351,19 +1374,16 @@ void main() {
       expect(message, isNot(contains('Did you mean')));
     });
 
-    test('counts a swapped pair as one edit, so the command wins', () {
-      expect(
-        rejectionOf(['biuld']),
-        contains("the command 'build' or the alias 'bld'"),
-      );
+    test('stays silent about a word no name begins with', () {
+      expect(rejectionOf(['bd']), isNot(contains('Did you mean')));
     });
 
-    test('stays silent about an unrelated word of a similar short length', () {
-      expect(rejectionOf(['bd']), isNot(contains("'co'")));
+    test('stays silent about a single letter', () {
+      expect(rejectionOf(['b']), isNot(contains('Did you mean')));
     });
 
-    test('produces the same message for the same mistyping', () {
-      expect(rejectionOf(['remtoe']), rejectionOf(['remtoe']));
+    test('produces the same message for the same input', () {
+      expect(rejectionOf(['bui']), rejectionOf(['bui']));
     });
   });
 
@@ -1384,13 +1404,10 @@ void main() {
       fail('${args.join(' ')} was accepted but should have been rejected.');
     }
 
-    test('names the input and offers the nearest flag or option', () {
+    test('names the input and offers the flag it is a prefix of', () {
       expect(
-        rejectionOf(['--trce']),
-        allOf(
-          startsWith('Unknown flag or option --trce.'),
-          contains('--trace'),
-        ),
+        rejectionOf(['--tra']),
+        allOf(startsWith('Unknown flag or option --tra.'), contains('--trace')),
       );
     });
 
@@ -1399,20 +1416,27 @@ void main() {
     });
 
     test('offers a member of a paired group', () {
-      expect(rejectionOf(['--hots']), contains('--host'));
+      expect(rejectionOf(['--hos']), contains('--host'));
     });
 
     test('offers a member of a selected group', () {
-      expect(rejectionOf(['--outpt-file']), contains('--output-file'));
+      expect(rejectionOf(['--output-f']), contains('--output-file'));
     });
 
     test('offers an accessor by its root name', () {
-      final message = rejectionOf(['--databse']);
-      expect(message, contains('--database'));
+      expect(rejectionOf(['--datab']), contains('--database'));
     });
 
-    test('stays silent when nothing is close enough', () {
+    test('leads with the shorter name when a prefix matches twice', () {
+      expect(rejectionOf(['--out']), contains('--output or --output-file'));
+    });
+
+    test('stays silent when nothing begins with the input', () {
       expect(rejectionOf(['--qqqqqqqqqq']), isNot(contains('Did you mean')));
+    });
+
+    test('stays silent when nothing follows the dashes', () {
+      expect(rejectionOf(['--otuput']), isNot(contains('Did you mean')));
     });
 
     test(
