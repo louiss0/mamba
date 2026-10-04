@@ -7,25 +7,35 @@ import 'package:mamba/registry.dart';
 
 enum ShellCompletion { bash, zsh, fish, powershell, carapace }
 
+/// Receives a validated destination and the completion script generated for
+/// it.
+///
+/// The command hands both to one callback rather than writing the file itself,
+/// which is what lets an application route the artifact to storage the
+/// filesystem boundary does not reach. A callback that creates the file is still
+/// responsible for writing [contents] into it.
+typedef CompletionFileWriter = void Function(String path, String contents);
+
 class CompletionCommand extends Command {
   late RegistryRecord registryRecord;
-  final void Function(String path) createFile;
-  final bool _usesDefaultGenerator;
+  final CompletionFileWriter createFile;
   @override
   String get name => 'completion';
   @override
   String get shortDescription => 'Generate completion for various shells';
-  new({
-    void Function(String)? createFile,
-    super.longDescription,
-    super.aliases,
-    super.mandatoryPositionals,
-    super.discretionaryPositionals,
-    super.options,
-  }) : createFile = createFile ?? _createFileSynchronously,
-       _usesDefaultGenerator = createFile == null;
+
+  /// The command's inputs are intrinsic to what it does, so they are declared
+  /// here rather than accepted from a caller: a `CompletionCommand` that could
+  /// be built without them would have a [run] that reads handles the parser
+  /// never registered.
+  new({CompletionFileWriter? createFile, super.longDescription, super.aliases})
+    : createFile = createFile ?? _writeToFile,
+      super(
+        mandatoryPositionals: [shellInput],
+        discretionaryPositionals: [pathInput],
+      );
   new preset({
-    required void Function(String path)? createFile,
+    required CompletionFileWriter? createFile,
     String? longDescription,
   }) : this(
          createFile: createFile,
@@ -33,8 +43,6 @@ class CompletionCommand extends Command {
              longDescription ??
              'Generate completions for Bash ZSH Fish or Powershell',
          aliases: ['cmp', 'cpt'],
-         mandatoryPositionals: [shellInput],
-         discretionaryPositionals: [pathInput],
        );
   @override
   String? run(ParsedInputs inputs, List<String> args) {
@@ -46,11 +54,15 @@ class CompletionCommand extends Command {
         'When shell is ${shell.name} the path must end in $extension and must have ${registryRecord.name} in the file name',
       );
     }
-    if (_usesDefaultGenerator) {
-      File(path).writeAsStringSync(_completionFor(shell));
-    } else {
-      createFile(path);
+    // The generated script is built before the destination is touched, so a
+    // rejected invocation never leaves a half-written artifact behind.
+    final contents = _completionFor(shell);
+    if (path.isEmpty && identical(createFile, _writeToFile)) {
+      throw MambaException(
+        'A destination path is required to write ${shell.name} completions.',
+      );
     }
+    createFile(path, contents);
     return 'Created completion ${shell.name} in $path';
   }
 
@@ -93,7 +105,7 @@ class CompletionCommand extends Command {
         .contains(registryRecord.name);
   }
 
-  static void _createFileSynchronously(String path) {
-    File(path).createSync(exclusive: true);
+  static void _writeToFile(String path, String contents) {
+    File(path).writeAsStringSync(contents);
   }
 }

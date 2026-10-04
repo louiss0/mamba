@@ -108,18 +108,29 @@ ParsedInputs createCompletionInputs(ShellCompletion shell, {String? path}) {
   ]);
 }
 
+/// Records where a completion command was told to write and what it generated.
+final class _RecordingWriter {
+  new(this.paths, this.contents);
+
+  final List<String> paths;
+  final List<String>? contents;
+
+  void write(String path, String script) {
+    paths.add(path);
+    contents?.add(script);
+  }
+}
+
 class TestCompletionCommand extends CompletionCommand {
   static const commandName = 'rig';
 
   final List<String> createdPaths;
+  final List<String> createdContents;
 
-  new(this.createdPaths)
-    : super.preset(
-        createFile: (path) {
-          // Keep the test isolated from the real filesystem.
-          createdPaths.add(path);
-        },
-      ) {
+  new(this.createdPaths, [List<String>? contents])
+    : createdContents = contents ?? <String>[],
+      // Keep the test isolated from the real filesystem.
+      super.preset(createFile: _RecordingWriter(createdPaths, contents).write) {
     registryRecord = CommandRegistry.create(
       commandName,
       'A test command.',
@@ -140,6 +151,43 @@ void main() {
           command.shortDescription,
           'Generate completion for various shells',
         );
+      });
+
+      test('declares the shell and path inputs it reads', () {
+        final command = CompletionCommand();
+
+        expect(command.mandatoryPositionals, [CompletionCommand.shellInput]);
+        expect(command.discretionaryPositionals, [
+          CompletionCommand.pathInput,
+        ]);
+      });
+    });
+
+    group('a caller-supplied destination', () {
+      test('receives the generated script for the selected shell', () {
+        final createdPaths = <String>[];
+        final createdContents = <String>[];
+        final command = TestCompletionCommand(createdPaths, createdContents);
+
+        command.run(
+          createCompletionInputs(ShellCompletion.bash, path: './rig.bash'),
+          const [],
+        );
+
+        expect(createdPaths, ['./rig.bash']);
+        expect(
+          createdContents.single,
+          contains('complete -F _rig_completion rig'),
+        );
+      });
+
+      test('receives an empty path when no destination is supplied', () {
+        final createdPaths = <String>[];
+        final command = TestCompletionCommand(createdPaths);
+
+        command.run(createCompletionInputs(ShellCompletion.fish), const []);
+
+        expect(createdPaths, ['']);
       });
     });
 

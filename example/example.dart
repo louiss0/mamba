@@ -388,26 +388,20 @@ final class ReopenTaskCommand extends TaskIdCommand {
 }
 
 final class CompletionTaskCommand extends CompletionCommand {
-  new() : super(options: [output]);
+  new() : super.preset(createFile: _writeToPath);
 
-  static final output = StringOption.required(
-    'output',
-    description: 'Write the Carapace spec to this path.',
-  );
+  /// Receives the validated destination and the generated script.
+  ///
+  /// The command converts the registry; the callback decides where the result
+  /// goes. [CarapaceSpecWriter] is the equivalent for callers that want the
+  /// document placed on Carapace's own spec path.
+  static void _writeToPath(String path, String contents) {
+    File(path).writeAsStringSync(contents);
+  }
 
   @override
   String get name => 'completion';
 
   @override
-  String get shortDescription => 'Generate the Carapace completion spec.';
-
-  @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final path = inputs.valueOf(output);
-    CarapaceSpecWriter(
-      CarapaceSpecConverter(registryRecord),
-      outputPath: path,
-    ).write();
-    return 'Wrote Carapace spec to $path.';
-  }
+  String get shortDescription => 'Generate a completion script for this app.';
 }

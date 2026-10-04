@@ -4,7 +4,11 @@ import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/processed_standard_input.dart';
 
-export 'completion_command.dart' show CompletionCommand, ShellCompletion;
+export 'completion_command.dart'
+    show
+        CompletionCommand,
+        CompletionFileWriter,
+        ShellCompletion;
 export 'processed_standard_input.dart' show ProcessedStandardInput;
 
 /// Metadata used by the parser, registry, help, and completion integrations.

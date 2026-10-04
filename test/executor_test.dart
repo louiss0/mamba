@@ -820,7 +820,7 @@ void main() {
   });
 
   test('assigns completion commands their root registry', () {
-    final completion = CompletionCommand(createFile: (_) {});
+    final completion = CompletionCommand(createFile: (_, _) {});
 
     Executor('tool', 'Tool.', '1.0.0', [completion]).fake();
 
