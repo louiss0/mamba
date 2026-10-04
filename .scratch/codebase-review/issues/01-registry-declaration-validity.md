@@ -46,7 +46,11 @@ Shipped in `b405342 fix(registry): validate the effective declaration set`.
 
 - `_validateRepeatedTimes` rejects zero as well as negative counts, and the
   registry rejects a repeated positional whose default is longer than its
-  capacity. `test/registry_test.dart`, group `declaration validity`.
+  capacity. Counts are checked where they are declared, which is the same place
+  a negative count was already refused and means every repeated positional shape
+  is covered by one constructor; the registry check catches the default, which
+  only the registry can see. `test/registry_test.dart`, group
+  `declaration validity`.
 - Propagated flags and options go through the same name, short, choice, and
   numeric checks as local ones; accessor node names are checked at every level,
   which is what makes `bad.name` a declaration error instead of an
@@ -54,8 +58,11 @@ Shipped in `b405342 fix(registry): validate the effective declaration set`.
 - `CommandRegistry._` validates the effective spellings it will answer for, so
   an inherited and a local input can no longer both claim `x`, while a local
   declaration still deliberately shadows a propagated one by name.
-- Help and version spellings are reserved; Mamba's own declarations are exempt
-  by identity.
+- Reserved spellings are checked in two places on purpose: a declaration and
+  what it propagates arrive through `_validate`, while the set that answers for
+  a command arrives through `_validateEffectiveSpellings`, and an ancestor can
+  publish an input only its descendants ever see. Mamba's own declarations are
+  exempt by identity.
 - `_integer` accepts only signed decimal in every shape — single, repeatable,
   paired, and accessor — and a dash-led token that starts with a digit is read as
   a value so `--count -0x10` reports the syntax rather than a missing value.
