@@ -187,7 +187,7 @@ is its parse position.
 | `choices` | Allowed enum names when the positional is choice-backed. |
 | `defaultValue` | Default rendered as text; repeated defaults are comma-separated. |
 | `repeatable` | `true` for a repeated positional and `null` otherwise. |
-| `times` | Exact repetition count for a repeated positional. |
+| `times` | Maximum number of values a repeated positional accepts. |
 | `pattern` | Regular-expression source used to validate non-choice values. |
 
 Use `choices` for finite completion candidates. `pattern` describes

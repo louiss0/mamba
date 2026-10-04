@@ -5,9 +5,12 @@ description: Make flags in Mamba
 
 Flags are named inputs that do not take values. Register them in
 `Command.flags` for one command, in `Executor.flags` for the entire command
-tree, or in `GroupCommand.propagatedFlags` for a group and its descendants.
-The executor registers `--verbose` / `-v` and `--version` / `-V` globally;
-`--help` / `-h` is built into every command registry. Register
+tree, or in `GroupCommand.propagatedFlags` for a group's descendants. A
+propagated input is not one of the declaring group's own inputs; declare it
+locally too when the group needs it. The executor registers `--verbose` / `-v`
+and `--version` / `-V` globally; `--help` / `-h` is built into every command
+registry, and the help and version spellings are reserved, so no declaration
+may claim `--help`, `-h`, `--version`, or `-V`. Register
 `MambaBuiltInFlags.dryRun` explicitly when an application supports
 `--dry-run`.
 
@@ -58,14 +61,19 @@ With `short: 'f'` and `description: 'Replace the existing deployment.'`, the
 Flags section contains:
 
 ```text
-Flags:
-  -f, --force    Replace the existing deployment.
+[ -f|--force|--no-force ] Replace the existing deployment.
 ```
 
-Without a short alias, the entry starts with `--force`. Neither
-`negatable: true` nor `defaultValue` adds another help entry, so
-`--no-force` and the default are not shown. Setting `hidden: true` removes the
-entry from help without disabling parsing.
+The example above is the formatter's current output for a negatable flag:
+every spelling the parser accepts appears in the entry, and no separate line
+reports the default. `test/help_formatter_test.dart` asserts this rendering,
+so the example cannot drift from it.
+
+Without a short alias, the entry starts with `--force` and reads
+`[ --force ] Replace the existing deployment.`. A negatable flag lists its
+`--no-force` spelling in the same entry; `defaultValue` never adds a separate
+entry. Setting `hidden: true` removes the entry from help without disabling
+parsing.
 
 :::
 

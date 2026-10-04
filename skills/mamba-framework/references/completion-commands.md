@@ -15,7 +15,7 @@ Future<void> main(List<String> args) => Executor(
   'my-cli',
   'Manage application resources.',
   '1.0.0',
-  [CompletionCommand.preset()],
+  [CompletionCommand.preset(createFile: null)],
 ).create().execute(args);
 ```
 
@@ -46,18 +46,20 @@ same retained declarations used by the preset. Use them with
 ## Replace destination handling
 
 Pass a callback through the required named `createFile` parameter when another
-system should handle the validated path:
+system should handle the validated destination:
 
 ```dart
 final completion = CompletionCommand.preset(
-  createFile: (path) => print('Handle completion output at $path'),
+  createFile: (path, contents) => print('Write ${contents.length} bytes to $path'),
 );
 ```
 
-The callback replaces built-in artifact generation; it does not receive
-generated content. It receives an empty string when the optional path is
-omitted. Extend `CompletionCommand` when custom handling also needs access to
-the registry or different input declarations.
+The command always generates the script and hands the callback both the
+validated `path` and the generated `contents`; the callback owns the write.
+`path` is an empty string when the optional path positional was omitted, and
+the default writer rejects that case rather than inventing a destination.
+Extend `CompletionCommand` when custom handling also needs access to the
+registry or different input declarations.
 
 ## Build a custom completion command
 
@@ -97,7 +99,7 @@ A `RegistryCommand` is one command-tree node. Use:
   carry into descendants.
 
 Build the command path while recursing through `commands`. Records produced by
-`CommandRegistry.toMap()` already place effective inherited inputs in each
+`CommandRegistry.toRecord()` already place effective inherited inputs in each
 command's `flags`, `options`, and `accessors`; their `persistentFlags` and
 `persistentOptions` are left `null`, so a manually built record is the only way
 to state them. `optionGroups` carries paired groups; a selected group is
@@ -109,7 +111,7 @@ List order determines the parse position. `name` and `description` provide
 display text, while `required` distinguishes mandatory from discretionary
 values. Offer `choices` directly when present. `defaultValue` is textual,
 `pattern` contains the validation expression, and `repeatable == true` pairs
-with `times` to describe an exact repeated count.
+with `times` to describe the maximum number of values the positional accepts.
 
 ### `RegistryFlag`
 

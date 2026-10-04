@@ -150,7 +150,7 @@ Optional named parameters configure the root command surface:
 | `flags` | Flags available throughout the command tree. |
 | `options` | Options available throughout the command tree. |
 | `accessors` | Root dotted accessor trees available to every command. |
-| `defaultCommandPath` | Root command path selected when `execute` receives an empty list. |
+| `defaultCommandPath` | Root command path selected when the invocation does not name a child at the root. |
 | `context` | Executor-scoped hook state. |
 | `helpFormatter` | Custom help rendering policy. |
 

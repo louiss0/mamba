@@ -91,8 +91,8 @@ Generic factories infer their type from `choices` and `defaultValue`.
 ## Repeated positionals
 
 `RepeatedStringPositional` and `RepeatedChoicePositional<T>` greedily parse at
-most `times + 1` values in registration order. `times` defaults to `1`.
-Mandatory declarations produce non-null lists:
+most `times` values in registration order. `times` defaults to `1` and must be
+positive. Mandatory declarations produce non-null lists:
 
 ```dart
 final files = RepeatedStringPositional('files', times: 2);

@@ -184,10 +184,12 @@ final format = AccessorChoiceOption.withDefault(
 final server = AccessorListOption('server', [host, format]);
 ```
 
-Accessor leaves remain omittable. Ordinary leaves are omitted from the map;
-defaulted leaves are always present. `AccessorListOption` is the typed,
-value-producing handle for its complete accessor tree. Read it from
-`ParsedInputs` using the top-level declaration:
+Accessor leaves are omittable only when the declaration says so. An
+`AccessorStringOption` leaf is omitted when it is not supplied; a
+`.required` leaf must be supplied or the invocation is rejected; a
+`.withDefault` leaf is always present. `AccessorListOption` is the typed,
+value-producing handle for its complete accessor tree. Nested leaf handles are
+readable directly as well as through the top-level declaration:
 
 ```dart
 final values = inputs.valueOf(server);

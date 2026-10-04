@@ -106,7 +106,8 @@ Use `GroupCommand` for nested command paths. Propagated flags and options are
 available to descendants.
 
 Paired options map an all-or-nothing set into one output. Selected options map
-one mutually exclusive member into one output. Use each group's `.required`
+the members that were chosen into one output; several members may be chosen
+unless the group declares `single: true`. Use each group's `.required`
 factory when its output must be present.
 
 Accessor lists group dotted paths such as `--database.host`. Read the value

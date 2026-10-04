@@ -109,8 +109,9 @@ group to answer with something else.
 `defaultSubCommandPath` can name a relative child path for `GroupCommand.run`
 to invoke when the group itself is selected. A group that sets it runs that
 path instead of formatting help. `Executor.defaultCommandPath` is
-the separate application-level default used when the entire argument list is
-empty.
+the separate application-level default, selected when an invocation does not
+name a child command at the root. A command path never begins with the
+application name.
 
 ## Register commands
 
