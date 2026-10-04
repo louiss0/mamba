@@ -363,8 +363,9 @@ dart run bin/hello.dart completion carapace ./hello.yaml
 ```
 
 Pass a callback through the required `createFile` parameter instead of `null`
-to customize destination handling. See the completions guide for direct
-converter and Carapace platform-writer usage.
+to route the generated script somewhere else. The callback receives the
+validated destination and the script itself. See the completions guide for
+direct converter and Carapace platform-writer usage.
 
 ## Configuration
 

@@ -92,23 +92,25 @@ metadata:
 - shell-specific path validation.
 
 Its required named `createFile` parameter accepts a callback or `null`. The
-callback receives the validated path. Passing `null` uses the selected
-converter and writes the generated artifact synchronously to the destination.
+callback receives the validated path **and the generated script**, so it decides
+what to do with both. Passing `null` uses the default destination handling and
+writes the script synchronously to the path.
 
 ```dart
 final completion = CompletionCommand.preset(createFile: null);
 ```
 
-Pass a callback to replace the default destination handling:
+Pass a callback to route the artifact somewhere else:
 
 ```dart
 final completion = CompletionCommand.preset(
-  createFile: (path) =>
-    print('Write completion through custom storage at $path'),
+  createFile: (path, contents) => store.put(path, contents),
 );
 ```
 
-When the optional path is omitted, the callback receives an empty string.
+When the optional path is omitted, the callback receives an empty string. The
+default writer has nowhere to put an empty path and rejects the invocation
+instead.
 
 ## `RegistryRecord` shape
 

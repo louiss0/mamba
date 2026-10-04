@@ -99,7 +99,9 @@ A `RegistryCommand` is one command-tree node. Use:
 Build the command path while recursing through `commands`. Records produced by
 `CommandRegistry.toMap()` already place effective inherited inputs in each
 command's `flags`, `options`, and `accessors`; their `persistentFlags` and
-`persistentOptions` are currently `null`.
+`persistentOptions` are left `null`, so a manually built record is the only way
+to state them. `optionGroups` carries paired groups; a selected group is
+exported as its members being independent options.
 
 ### `RegistryPositional`
 

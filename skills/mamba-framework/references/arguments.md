@@ -45,7 +45,7 @@ strings are passed to `run` through `args`, not through `ParsedInputs`.
 ## Positional API
 
 All positionals accept `name` and optional `description`. Normal string
-positionals also accept `regExp`; the default pattern is `\S+`.
+positionals also accept `regex`; the default pattern is `\S+`.
 
 | Declaration | Registration | Parsed type |
 | --- | --- | --- |
@@ -73,7 +73,7 @@ final format = ChoicePositional.withDefault(
 );
 ```
 
-Repeated string positionals accept `regExp`. Repeated choice positionals accept
+Repeated string positionals accept `regex`. Repeated choice positionals accept
 `choices`; their default is a `List<T>`. Both accept `times`, which defaults to
 `1` and is the maximum number of values that declaration consumes. `times`
 must be zero or greater. A mandatory repeated positional must still consume at
@@ -110,7 +110,7 @@ final class BuildCommand extends Command {
 ## Variadic API
 
 `NormalVariadic` validates every token after the first `--`. It accepts an
-optional `description` and `regExp`; the default pattern is `\S+`.
+optional `description` and `regex`; the default pattern is `\S+`.
 
 ```dart
 final class ForwardCommand extends Command {
