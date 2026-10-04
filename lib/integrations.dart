@@ -84,9 +84,8 @@ List<String> _steppedDoubleValues(double min, double max, double step) {
   return [
     for (var index = 0; index <= count; index++)
       if (min + step * index <= max + step * 1e-9)
-        double.parse(
-          (min + step * index).toStringAsFixed(decimalPlaces),
-        ).toString(),
+        double.parse((min + step * index).toStringAsFixed(decimalPlaces))
+            .toString(),
   ];
 }
 
@@ -145,7 +144,9 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
     }
     _writeRootHandler(lines, root, [rootName], rootOptions);
     _writeDispatcher(lines, rootName);
-    lines.add('complete -F _${_generatedIdentifier(rootName)}_completion $rootName');
+    lines.add(
+      'complete -F _${_generatedIdentifier(rootName)}_completion $rootName',
+    );
     return '${lines.join('\n')}\n';
   }
 
