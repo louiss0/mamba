@@ -1140,11 +1140,20 @@ final class PairedOptions<T extends Object>
 
   @override
   Map<String, T> valuesFrom(Map<Object, Object?> parsed) =>
-      Map<String, T>.unmodifiable({
-        for (final option in options)
-          if (parsed.containsKey(option)) option.name: parsed[option] as T,
-      });
+      _valuesFrom(options, parsed);
 }
+
+/// The supplied members of a group, keyed by the name they were declared under.
+///
+/// Shared by [PairedOptions] and [SelectedOptions]: both resolve a group to the
+/// same map, and only their validation rules differ.
+Map<String, T> _valuesFrom<T extends Object>(
+  List<PairOption<T>> options,
+  Map<Object, Object?> parsed,
+) => Map<String, T>.unmodifiable({
+  for (final option in options)
+    if (parsed.containsKey(option)) option.name: parsed[option] as T,
+});
 
 sealed class PairOption<T> implements InputDefinition {
   const new(this.name, {required this.short, this.description});
@@ -1238,7 +1247,7 @@ final class RepeatablePairDoubleOption extends RepeatablePairOption<double>
 
 /// A named collection of pair options that resolves to a map of supplied values.
 final class SelectedOptions<T extends Object>
-    implements ParsedValue<Map<String, T>> {
+    implements PairedOptionsDefinition, ParsedValue<Map<String, T>> {
   new(List<PairOption<T>> options, {this.description, this.single = false})
     : options = List.unmodifiable(options),
       required = false;
@@ -1250,16 +1259,17 @@ final class SelectedOptions<T extends Object>
   }) : options = List.unmodifiable(options),
        required = true;
 
+  @override
   final String? description;
   final bool single;
+  @override
   final bool required;
+  @override
   final List<PairOption<T>> options;
 
+  @override
   Map<String, T> valuesFrom(Map<Object, Object?> parsed) =>
-      Map<String, T>.unmodifiable({
-        for (final option in options)
-          if (parsed.containsKey(option)) option.name: parsed[option] as T,
-      });
+      _valuesFrom(options, parsed);
 }
 
 sealed class AccessorOption implements InputDefinition {

@@ -397,7 +397,7 @@ final class Parser {
           'Paired options ${group.options.map((item) => '--${item.name}').join(', ')} must be passed together',
         );
       }
-      _addPairedValuesFor(group, values);
+      _addGroupValuesFor(group, values);
       for (final option in group.options) {
         values.remove(option);
       }
@@ -412,7 +412,7 @@ final class Parser {
       if (group.single && selected.length > 1) {
         throw MambaParseException('Selected options accept only one option.');
       }
-      _addSelectedValuesFor(group, values);
+      _addGroupValuesFor(group, values);
       for (final option in group.options) {
         values.remove(option);
       }
@@ -455,15 +455,8 @@ final class Parser {
     }
   }
 
-  void _addPairedValuesFor(
+  void _addGroupValuesFor(
     PairedOptionsDefinition group,
-    Map<Object, Object?> values,
-  ) {
-    values[group] = group.valuesFrom(values);
-  }
-
-  void _addSelectedValuesFor(
-    SelectedOptions group,
     Map<Object, Object?> values,
   ) {
     values[group] = group.valuesFrom(values);
