@@ -45,11 +45,11 @@ starting and drop anything already fixed.
 | `dart test` | 402 passed, 2 skipped (the CI-only shell tier) |
 | `pnpm --dir docs test` | 20 passed |
 | `dart format --output=none --set-exit-if-changed .` | Clean |
+| `Verify` workflow on `main` | 6/6 jobs green (run 37239905075) |
 
-Not verifiable on this machine: no `bash`, `zsh`, or `fish`, so the CI-only
-runtime completion tier and the zsh and fish parse steps are written but
-unobserved. PowerShell 5.1 is present, and the PowerShell parse check ran and
-reproduced F2 before the fix.
+Not verifiable on this machine: no `bash`, `zsh`, or `fish`, so the runtime
+completion tier was verified on CI rather than locally. PowerShell 5.1 is
+present, and the PowerShell parse check reproduced F2 before the fix.
 
 ## Out of scope
 

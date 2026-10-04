@@ -51,8 +51,24 @@ present, so a developer machine skips it rather than passing it vacuously. It
 asks `complete` for the handler name, so it does not encode the generator's
 identifier scheme a second time.
 
-**Unverified locally:** the CI-only tier and the zsh and fish parse steps cannot
-run on this machine — there is no bash, zsh, or fish here. They are written to
-run on the runners and have not yet been observed passing.
+**Observed in CI:** run `37239905075` on `c02ea75` is green across all six
+jobs, and the logs show what actually ran rather than what merely passed. The
+bash completion tier drove a real completion on the Linux runner (2 tests), the
+three parse checks ran on Linux and macOS, and the PowerShell parse ran on
+Linux, macOS, and Windows. The bash tier skips on macOS with `needs bash 4 or
+newer, found 3`.
+
+**Bugs this found in the workflow itself**, each fixed in its own commit: the
+matrix declared three operating systems while `runs-on` was pinned to
+`ubuntu-latest`, so every leg ran on Linux and the Windows runner was never
+reached; shell detection shelled out to `where.exe`, which does not exist on
+Linux, so both tiers skipped everywhere; and the macOS runner had no fish.
+
+**Bugs it found in the framework's reach:** the generated Bash completion uses
+associative arrays, so it does not run on the bash 3.2 that macOS ships as
+`/bin/bash`. The guide now states the bash 4 requirement and the suite checks
+the version instead of assuming a shell that exists is a shell that can run
+the artifact. Supporting bash 3 would mean rewriting the Bash converter's
+lookup tables, which is a decision of its own rather than a fix.
 
 ## Comments
