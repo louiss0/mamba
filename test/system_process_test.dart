@@ -65,4 +65,19 @@ void main() {
     expect(result.output, isEmpty);
     expect(result.errors, 'error text');
   });
+
+  test('production execution writes every byte of UTF-8 output', () async {
+    final result = await _execute(['unicode']);
+
+    expect(result.exitCode, 0);
+    expect(result.output, 'héllo — ünïcode ☃');
+  });
+
+  test('production execution writes one error per failure', () async {
+    final result = await _execute(['fails-twice']);
+
+    expect(result.exitCode, 7);
+    expect(result.output, isEmpty);
+    expect(result.errors, 'run failedcleanup failed');
+  });
 }

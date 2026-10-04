@@ -75,6 +75,42 @@ final class ErrorTextCommand extends Command {
   }
 }
 
+final class UnicodeCommand extends Command {
+  @override
+  String get name => 'unicode';
+
+  @override
+  String get shortDescription => 'Return non-ASCII text.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'héllo — ünïcode ☃';
+}
+
+final class TwiceFailingCommand extends Command with HookRunner {
+  @override
+  String get name => 'fails-twice';
+
+  @override
+  String get shortDescription => 'Fail in run and in the post hook.';
+
+  @override
+  void preRun(
+    ParsedInputs inputs,
+    MambaReadContext context,
+    ProcessedStandardInput? input,
+  ) {}
+
+  @override
+  void postRun(ParsedInputs inputs, MambaReadContext context) {
+    throw MambaException('cleanup failed', exitCode: 5);
+  }
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    throw MambaException('run failed', exitCode: 7);
+  }
+}
+
 Future<void> main(List<String> args) =>
     Executor('process-cli', 'Exercise process execution.', '1.0.0', [
       InputCommand(),
@@ -82,4 +118,6 @@ Future<void> main(List<String> args) =>
       SilentCommand(),
       EchoCommand(),
       ErrorTextCommand(),
+      UnicodeCommand(),
+      TwiceFailingCommand(),
     ]).create().execute(args);

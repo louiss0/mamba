@@ -56,9 +56,9 @@ Shipped in `b405342 fix(registry): validate the effective declaration set`.
   declaration still deliberately shadows a propagated one by name.
 - Help and version spellings are reserved; Mamba's own declarations are exempt
   by identity.
-- `_integer` accepts only signed decimal, and a dash-led token that starts with
-  a digit is read as a value so `--count -0x10` reports the syntax rather than a
-  missing value.
+- `_integer` accepts only signed decimal in every shape — single, repeatable,
+  paired, and accessor — and a dash-led token that starts with a digit is read as
+  a value so `--count -0x10` reports the syntax rather than a missing value.
 - `CommandRegistry.toMap()` is `toRecord()` everywhere, including
   `tool/regenerate_fixtures.dart` and the reference docs.
 

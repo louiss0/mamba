@@ -50,8 +50,12 @@ Shipped in `d766249 fix(executor): keep the application name out of command path
 - `MambaBuiltInFlags.isHelp`, `isVersion`, and `isControl` are the only places
   the spellings are written down; the parser and the executor both read them.
 - `SystemMambaProcess` writes and reports with `write`, and the process tests
-  assert the exact bytes the fake returns, including multi-line output and an
-  error carrying only a message.
+  assert the exact bytes the fake returns, including multi-line output, UTF-8
+  output, an error carrying only a message, and one error per failure.
+
+Exact bytes on stderr means consecutive failures are written back to back with
+no separator, which is what the fake's `errors` list holds. The test asserts
+that literally rather than papering over it.
 
 Two existing tests encoded the old convention — a resolved path of
 `['tool', 'config']` and an invocation that repeated the application name — and

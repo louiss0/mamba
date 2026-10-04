@@ -4,25 +4,10 @@ import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
 import 'fixtures.dart';
+import 'shell_support.dart';
 
-/// Where a generated completion is run for real.
-///
-/// Every test here needs a shell that exists on this machine and would need a
-/// different one on another, so they run in CI, where the runners are known. A
-/// developer's machine runs the parse checks in `integrations_test.dart`
-/// instead, and this suite skips rather than pretending.
-final bool _inCi =
-    Platform.environment['CI'] == 'true' || Platform.environment['CI'] == '1';
-
-bool _hasShell(String candidate) {
-  try {
-    return Process.runSync('where.exe', [candidate]).exitCode == 0;
-  } on ProcessException {
-    return false;
-  }
-}
-
-final _bash = _inCi && _hasShell('bash');
+/// Whether a generated completion can be driven for real here.
+final bool _canDriveBash = runningInCi && shellOnPath('bash') != null;
 
 final _first = BooleanFlag('first');
 final _second = BooleanFlag('second');
@@ -88,7 +73,7 @@ void main() {
           reason: "completing $command offered another command's flags",
         );
       }
-    }, skip: _bash ? false : 'needs CI and a bash shell');
+    }, skip: _canDriveBash ? false : 'needs CI and a bash shell');
 
     test('offers stepped numbers the parser accepts', () {
       final registry = CommandRegistry.create(
@@ -110,6 +95,6 @@ void main() {
         isNot(contains('1.0')),
         reason: 'the parser rejects 1.0 for this step',
       );
-    }, skip: _bash ? false : 'needs CI and a bash shell');
+    }, skip: _canDriveBash ? false : 'needs CI and a bash shell');
   });
 }

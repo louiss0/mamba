@@ -42,7 +42,7 @@ starting and drop anything already fixed.
 | Check | Result |
 | --- | --- |
 | `dart analyze --fatal-infos` | No issues found |
-| `dart test` | 398 passed, 2 skipped (the CI-only shell tier) |
+| `dart test` | 402 passed, 2 skipped (the CI-only shell tier) |
 | `pnpm --dir docs test` | 20 passed |
 | `dart format --output=none --set-exit-if-changed .` | Clean |
 
@@ -61,3 +61,10 @@ more, and no ticket here is justified by a coverage percentage.
 The domain model moved with these decisions: `CONTEXT.md` gained *declaration validity*,
 *reserved spelling*, *propagated input*, *accessor option*, and *completion candidate*, and
 *command path* now excludes the application name. ADR-0001 carries the amendment.
+
+A two-axis review of the branch (`05cef54...HEAD`) found no standards violations and five
+unasserted regression cases. All five are now covered: UTF-8 output and multiple errors in the
+process suite, aliases reused across scopes, nested identifier collisions, and a
+precision-boundary step in the completion suite, and the integer syntax across repeatable,
+paired, and accessor inputs. Shell detection moved into `test/shell_support.dart` so the two
+suites cannot disagree about what is installed.

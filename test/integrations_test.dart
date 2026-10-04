@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 
 import '../fixtures/rig/rig.dart';
 import 'fixtures.dart';
+import 'shell_support.dart';
 
 enum Mode { json, text }
 
@@ -60,19 +61,7 @@ List<String>? _parseErrorsInPowerShell(String script) {
   }
 }
 
-String? _powershellShell() {
-  for (final candidate in ['pwsh', 'powershell.exe']) {
-    try {
-      final result = Process.runSync('where.exe', [candidate]);
-      if (result.exitCode == 0 && '${result.stdout}'.trim().isNotEmpty) {
-        return candidate;
-      }
-    } on ProcessException {
-      continue;
-    }
-  }
-  return null;
-}
+String? _powershellShell() => firstShellOnPath(['pwsh', 'powershell.exe']);
 
 final class _TestDirectory extends Mock implements Directory;
 
@@ -401,10 +390,10 @@ void main() {
         'Scoped names.',
         commands: [
           TestGroupCommand('admin', [
-            TestCommand('status', 'Show admin status.'),
+            TestCommand('status', 'Show admin status.', aliases: ['st']),
           ], 'Admin.'),
           TestGroupCommand('server', [
-            TestCommand('status', 'Show server status.'),
+            TestCommand('status', 'Show server status.', aliases: ['st']),
           ], 'Server.'),
         ],
       ).toRecord();
@@ -415,25 +404,117 @@ void main() {
       if (errors != null) expect(errors, isEmpty);
     }, skip: _powershellShell() == null ? 'PowerShell is not installed' : null);
 
+    test('keep nested paths whose flattened identifiers could collide', () {
+      final record = CommandRegistry.create(
+        'probe',
+        'Nested collisions.',
+        commands: [
+          TestGroupCommand('a-b', [
+            TestCommand('c', 'Leaf of a-b.'),
+          ], 'Group a-b.'),
+          TestGroupCommand('a', [TestCommand('b-c', 'Leaf of a.')], 'Group a.'),
+        ],
+      ).toRecord();
+
+      final bash = ToBashCompletionConverter(record).convert();
+
+      expect(
+        bash,
+        allOf(
+          contains('_probe_a_2Db_c_completion'),
+          contains('_probe_a_b_2Dc_completion'),
+        ),
+      );
+    });
+
     test('offer only stepped numbers the declaration accepts', () {
-      final ratio = DoubleOption('ratio', min: 0, max: 1, step: 0.3);
+      final uneven = DoubleOption('ratio', min: 0, max: 1, step: 0.3);
+      final precise = DoubleOption('fine', min: 0, max: 0.3, step: 0.1);
+      for (final option in [uneven, precise]) {
+        final registry = CommandRegistry.create(
+          'probe',
+          'Stepped numbers.',
+          options: [option],
+        );
+        final candidates = _bashCandidatesFor(
+          ToBashCompletionConverter(registry.toRecord()).convert(),
+          '--${option.name}',
+        );
+
+        expect(candidates, isNotEmpty, reason: option.name);
+        for (final candidate in candidates) {
+          expect(
+            () => Parser(registry).parse(['--${option.name}', candidate]),
+            returnsNormally,
+            reason: 'candidate $candidate for ${option.name}',
+          );
+        }
+      }
+
+      // The bound the step does not reach is not offered; the one it does is,
+      // including where floating point puts the sum just past the bound.
+      expect(
+        _bashCandidatesFor(
+          ToBashCompletionConverter(
+            CommandRegistry.create(
+              'probe',
+              'Stepped numbers.',
+              options: [uneven],
+            ).toRecord(),
+          ).convert(),
+          '--ratio',
+        ),
+        allOf(contains('0.9'), isNot(contains('1.0'))),
+      );
+      expect(
+        _bashCandidatesFor(
+          ToBashCompletionConverter(
+            CommandRegistry.create(
+              'probe',
+              'Stepped numbers.',
+              options: [precise],
+            ).toRecord(),
+          ).convert(),
+          '--fine',
+        ),
+        allOf(contains('0.3'), isNot(contains('0.4'))),
+      );
+    });
+
+    test('read one integer syntax in every input shape', () {
+      final pair = PairedOptions<int>([
+        PairIntOption('host'),
+        PairIntOption('port'),
+      ]);
       final registry = CommandRegistry.create(
         'probe',
-        'Stepped numbers.',
-        options: [ratio],
+        'Integer shapes.',
+        options: [RepeatableIntOption('retries'), IntOption('count')],
+        pairedOptions: [pair],
+        accessors: [
+          AccessorListOption('limits', [AccessorIntOption.required('max')]),
+        ],
       );
-      final bash = ToBashCompletionConverter(registry.toRecord()).convert();
 
-      final candidates = _bashCandidatesFor(bash, '--ratio');
-      expect(candidates, isNotEmpty);
-      for (final candidate in candidates) {
+      for (final args in [
+        ['--retries', '0x10'],
+        ['--retries=0x10'],
+        ['--count', '0x10'],
+        ['--host', '0x10', '--port', '80'],
+        ['--limits.max', '0x10'],
+      ]) {
         expect(
-          () => Parser(registry).parse(['--ratio', candidate]),
-          returnsNormally,
-          reason: 'candidate $candidate',
+          () => Parser(registry).parse(args),
+          throwsA(
+            isA<MambaParseException>().having(
+              (error) => error.message,
+              'message',
+              contains('must be a signed decimal integer'),
+            ),
+          ),
+          reason: 'accepted $args',
         );
       }
-      expect(candidates, contains('0.9'));
     });
 
     test('render rich command metadata for every shell', () {

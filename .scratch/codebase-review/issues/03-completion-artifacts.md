@@ -54,4 +54,10 @@ generated script and of the checked-in `rig.ps1`, and a Bash candidate list that
 is fed back through `Parser` so every offered value must validate. Both skip
 where no PowerShell exists. `fixtures/rig/completions/*` were regenerated.
 
+The scope cases are all asserted: two groups owning `status`, the same alias
+under both, `foo-bar` beside `foo_bar`, and nested paths (`a-b/c` beside
+`a/b-c`) that flatten to the same words. Stepped candidates are checked against
+the parser for an uneven step over `0..1` and for a precision-boundary step over
+`0..0.3`, where the sum lands just past the bound and must still be offered.
+
 ## Comments
