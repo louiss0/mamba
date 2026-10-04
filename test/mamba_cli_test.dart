@@ -4,10 +4,11 @@ import 'package:mamba/mamba.dart';
 import 'package:mamba/mamba_cli.dart';
 import 'package:test/test.dart';
 
+import 'fixtures.dart';
+
 void main() {
   test('project command scaffolds the requested application', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
     final installPrompt = FakeInstallPrompt(shouldInstall: true);
     final gitPrompt = FakeGitPrompt(shouldInitialize: false);
@@ -39,13 +40,11 @@ void main() {
   });
 
   test('project scaffolder installs dependencies, Mamba skills, and Git', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final processRunner = FakeProjectProcessRunner();
-    final projectScaffolder = DirectoryProjectScaffolder(
+    final projectScaffolder = realScaffolding(
       directory,
       processRunner: processRunner,
-      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -102,13 +101,8 @@ void main() {
   });
 
   test('project scaffolder points Claude Code at the agent instructions', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final projectScaffolder = DirectoryProjectScaffolder(
-      directory,
-      processRunner: FakeProjectProcessRunner(),
-      sourceFormatter: _sourceFormatter,
-    );
+    final directory = tempDirectory();
+    final projectScaffolder = realScaffolding(directory);
 
     projectScaffolder.scaffold(
       'demo',
@@ -135,20 +129,15 @@ void main() {
       '@AGENTS.md\n',
     );
     expect(
-      _sourceFormatter.formatted,
+      sourceFormatter.formatted,
       contains(allOf(endsWith('demo.dart'), isNot(contains('.md')))),
       reason: 'the generated executable is formatted, the documents are not',
     );
   });
 
   test('project scaffolder writes a Dart gitignore', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final projectScaffolder = DirectoryProjectScaffolder(
-      directory,
-      processRunner: FakeProjectProcessRunner(),
-      sourceFormatter: _sourceFormatter,
-    );
+    final directory = tempDirectory();
+    final projectScaffolder = realScaffolding(directory);
 
     projectScaffolder.scaffold(
       'demo',
@@ -178,13 +167,11 @@ void main() {
   });
 
   test('project scaffolder claims a new child directory', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final processRunner = FakeProjectProcessRunner();
-    final projectScaffolder = DirectoryProjectScaffolder(
+    final projectScaffolder = realScaffolding(
       directory,
       processRunner: processRunner,
-      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -204,8 +191,7 @@ void main() {
   });
 
   test('project command rejects a dot as a package name', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final workspace = Directory('${directory.path}/workspace')..createSync();
     final projectScaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
@@ -223,8 +209,7 @@ void main() {
   });
 
   test('project command rejects a package name that is not a name', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         directory,
@@ -238,13 +223,11 @@ void main() {
   });
 
   test('project scaffolder installs agent skills without dependencies', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final processRunner = FakeProjectProcessRunner();
-    final projectScaffolder = DirectoryProjectScaffolder(
+    final projectScaffolder = realScaffolding(
       directory,
       processRunner: processRunner,
-      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -266,13 +249,11 @@ void main() {
   });
 
   test('project scaffolder skips Git when the user declines', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final processRunner = FakeProjectProcessRunner();
-    final projectScaffolder = DirectoryProjectScaffolder(
+    final projectScaffolder = realScaffolding(
       directory,
       processRunner: processRunner,
-      sourceFormatter: _sourceFormatter,
     );
 
     projectScaffolder.scaffold(
@@ -309,13 +290,8 @@ void main() {
   });
 
   test('project scaffolder quotes a YAML-unsafe package description', () {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final projectScaffolder = DirectoryProjectScaffolder(
-      directory,
-      processRunner: FakeProjectProcessRunner(),
-      sourceFormatter: _sourceFormatter,
-    );
+    final directory = tempDirectory();
+    final projectScaffolder = realScaffolding(directory);
 
     projectScaffolder.scaffold(
       'demo',
@@ -338,8 +314,7 @@ void main() {
   });
 
   test('project command answers both setup steps from flags alone', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
     final installPrompt = FakeInstallPrompt(shouldInstall: false);
     final gitPrompt = FakeGitPrompt(shouldInitialize: false);
@@ -371,8 +346,7 @@ void main() {
   });
 
   test('project command reports what finishes a declined install', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
@@ -390,8 +364,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('project command rejects an existing directory', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     Directory('${directory.path}/demo').createSync();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
@@ -409,8 +382,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('project command asks for a description when none is passed', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
     final descriptionPrompt = FakeDescriptionPrompt('A prompted description.');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
@@ -432,8 +404,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('project command keeps a description it was given', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
     final descriptionPrompt = FakeDescriptionPrompt('A prompted description.');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
@@ -455,10 +426,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('binary command scaffolds a process-facing executor', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldBinaryCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldBinaryCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['binary', 'demo']);
 
     expect(result.exitCode, 0);
@@ -473,13 +443,12 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('binary command rejects an existing executable', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final file = File('${directory.path}/bin/demo.dart')
       ..createSync(recursive: true)
       ..writeAsStringSync('existing');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldBinaryCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldBinaryCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['binary', 'demo']);
 
     expect(result, isA<MambaFailureResult>());
@@ -488,14 +457,13 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('test command scaffolds a grouped command suite', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     File('${directory.path}/lib/greet.dart')
       ..createSync(recursive: true)
       ..writeAsStringSync('final class GreetCommand {}\n');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldTestCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['test', 'greet']);
 
     expect(result.exitCode, 0);
@@ -512,8 +480,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('test command rejects an existing suite', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     File('${directory.path}/lib/greet.dart')
       ..createSync(recursive: true)
@@ -522,7 +489,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       ..createSync(recursive: true)
       ..writeAsStringSync('existing');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldTestCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['test', 'greet']);
 
     expect(result, isA<MambaFailureResult>());
@@ -533,8 +500,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'test command appends a suite for a command in an existing file',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
       final sourceFile = File('${directory.path}/lib/admin.dart')
         ..createSync(recursive: true)
@@ -542,7 +508,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
           'final class AdminCommand {}\nfinal class UserCommand {}\n',
         );
       final executor = Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldTestCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake();
       await executor.execute(['test', 'admin']);
 
@@ -567,11 +533,10 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   );
 
   test('test command validates append arguments', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final sourcePath = '${directory.path}/lib/admin.dart';
     final executor = Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldTestCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldTestCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake();
     final cases = [
       (
@@ -593,10 +558,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('scaffolding command uses typed positional handle', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'demo']);
     expect(result.exitCode, 0);
     expect(
@@ -606,11 +570,10 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('scaffolding command creates its test suite with --test', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'greet', '--test']);
 
     expect(result.exitCode, 0);
@@ -627,14 +590,13 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'scaffolding command leaves no command when its test cannot be created',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
       final testFile = File('${directory.path}/test/greet_test.dart')
         ..createSync(recursive: true)
         ..writeAsStringSync('existing');
       final result = await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake().execute(['command', 'greet', '--test']);
 
       expect(result, isA<MambaFailureResult>());
@@ -644,10 +606,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   );
 
   test('scaffolding command creates a group command when requested', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'demo', '--group']);
 
     expect(result.exitCode, 0);
@@ -660,10 +621,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'scaffolding component creates a prompt that awaits terminice',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       final result = await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldComponentCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake().execute(['component', 'prompt', 'ask']);
 
       expect(result.exitCode, 0);
@@ -681,10 +641,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'scaffolding component reads its selector choices from a field',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldComponentCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake().execute(['component', 'selector', 'choose']);
 
       expect(
@@ -701,10 +660,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'scaffolding component browses the filesystem through a render',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       final result = await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldComponentCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake().execute(['component', 'picker', 'target']);
 
       expect(result.exitCode, 0);
@@ -721,10 +679,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'scaffolding component awaits the work an indicator reports on',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       final result = await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldComponentCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake().execute(['component', 'indicator', 'report']);
 
       expect(result.exitCode, 0);
@@ -740,14 +697,13 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   );
 
   test('scaffolding component offers every kind as a subcommand', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldComponentCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['component', '--help']);
 
     expect(
-      _withoutAnsi((result as MambaSuccessResult).output!),
+      stripAnsi((result as MambaSuccessResult).output!),
       allOf(
         contains('prompt'),
         contains('selector'),
@@ -760,13 +716,12 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'scaffolding component leaves no command when the file exists',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       final componentDirectory = Directory('${directory.path}/lib/components')
         ..createSync(recursive: true);
       File('${componentDirectory.path}/ask.dart').writeAsStringSync('mine');
       final result = await Executor('tool', 'Tool.', '1.0.0', [
-        ScaffoldComponentCommand(directory, sourceFormatter: _sourceFormatter),
+        ScaffoldComponentCommand(directory, sourceFormatter: sourceFormatter),
       ]).fake().execute(['component', 'prompt', 'ask']);
 
       expect(result, isA<MambaFailureResult>());
@@ -778,11 +733,10 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   );
 
   test('scaffolding group command creates a compatible test suite', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'admin', '--group', '--test']);
 
     expect(result.exitCode, 0);
@@ -800,12 +754,11 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('scaffolding command rejects an existing file', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final file = File('${directory.path}/lib/demo.dart')
       ..createSync(recursive: true);
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'demo']);
 
     expect(result.exitCode, 1);
@@ -817,8 +770,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('scaffolding command appends a command to an existing file', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final file = File('${directory.path}/lib/admin.dart')
       ..createSync(recursive: true)
       ..writeAsStringSync(
@@ -831,7 +783,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       );
 
     final result = await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'user', file.path, '--append']);
 
     expect(result.exitCode, 0);
@@ -846,8 +798,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('scaffolding command appends a command and its test suite', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     File('${directory.path}/pubspec.yaml').writeAsStringSync('name: demo\n');
     final file = File('${directory.path}/lib/admin.dart')
       ..createSync(recursive: true)
@@ -862,7 +813,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
 
     final result =
         await Executor('tool', 'Tool.', '1.0.0', [
-          ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+          ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
         ]).fake().execute([
           'command',
           'user',
@@ -887,11 +838,10 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('scaffolding command validates append arguments', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final missingFile = '${directory.path}/lib/admin.dart';
     final executor = Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(directory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
     ]).fake();
     final cases = [
       (
@@ -917,13 +867,8 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test('generated test suite orders imports around the package name', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
-    final projectScaffolder = DirectoryProjectScaffolder(
-      directory,
-      processRunner: FakeProjectProcessRunner(),
-      sourceFormatter: _sourceFormatter,
-    );
+    final directory = tempDirectory();
+    final projectScaffolder = realScaffolding(directory);
 
     // A name sorting after both Mamba and test proves the order follows the
     // package name instead of a fixed sequence.
@@ -936,7 +881,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
 
     final projectDirectory = Directory('${directory.path}/zzztool');
     await Executor('tool', 'Tool.', '1.0.0', [
-      ScaffoldCommand(projectDirectory, sourceFormatter: _sourceFormatter),
+      ScaffoldCommand(projectDirectory, sourceFormatter: sourceFormatter),
     ]).fake().execute(['command', 'greet', '--test']);
 
     expect(
@@ -952,13 +897,8 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'project scaffolder writes analysis options and the lints dependency',
     () {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
-      final projectScaffolder = DirectoryProjectScaffolder(
-        directory,
-        processRunner: FakeProjectProcessRunner(),
-        sourceFormatter: _sourceFormatter,
-      );
+      final directory = tempDirectory();
+      final projectScaffolder = realScaffolding(directory);
 
       projectScaffolder.scaffold(
         'demo',
@@ -985,8 +925,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   );
 
   test('generated sources are already dart-format clean', () async {
-    final directory = Directory.systemTemp.createTempSync('mamba_');
-    addTearDown(() => directory.deleteSync(recursive: true));
+    final directory = tempDirectory();
     final projectScaffolder = DirectoryProjectScaffolder(
       directory,
       processRunner: FakeProjectProcessRunner(),
@@ -1024,8 +963,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test(
     'generated sources stay format clean at the edges of the line limit',
     () async {
-      final directory = Directory.systemTemp.createTempSync('mamba_');
-      addTearDown(() => directory.deleteSync(recursive: true));
+      final directory = tempDirectory();
       final projectScaffolder = DirectoryProjectScaffolder(
         directory,
         processRunner: FakeProjectProcessRunner(),
@@ -1076,91 +1014,4 @@ List<String> _unformattedPaths(Directory projectDirectory) {
       .allMatches(result.stdout.toString())
       .map((match) => match.group(1)!.replaceAll(r'\', '/'))
       .toList();
-}
-
-final class FakeSourceFormatter implements SourceFormatter {
-  final formatted = <String>[];
-
-  @override
-  void formatSource(String path) => formatted.add(path);
-}
-
-final _sourceFormatter = FakeSourceFormatter();
-
-String _withoutAnsi(String value) =>
-    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
-
-final class FakeProjectScaffolder implements ProjectScaffolder {
-  final projects =
-      <
-        ({
-          String packageName,
-          String shortDescription,
-          bool installDependencies,
-          bool initializeGitRepository,
-        })
-      >[];
-
-  @override
-  void scaffold(
-    String packageName,
-    String shortDescription, {
-    required bool installDependencies,
-    required bool initializeGitRepository,
-  }) {
-    projects.add((
-      packageName: packageName,
-      shortDescription: shortDescription,
-      installDependencies: installDependencies,
-      initializeGitRepository: initializeGitRepository,
-    ));
-  }
-}
-
-final class FakeProjectProcessRunner implements ProjectProcessRunner {
-  final invocations = <(String, List<String>, String)>[];
-
-  @override
-  void run(String executable, List<String> arguments, String workingDirectory) {
-    invocations.add((executable, arguments, workingDirectory));
-  }
-}
-
-final class FakeInstallPrompt implements InstallPrompt {
-  new({required this.shouldInstall});
-
-  final bool shouldInstall;
-  var questions = 0;
-
-  @override
-  bool confirmsInstallation() {
-    questions++;
-    return shouldInstall;
-  }
-}
-
-final class FakeGitPrompt implements GitPrompt {
-  new({required this.shouldInitialize});
-
-  final bool shouldInitialize;
-  var questions = 0;
-
-  @override
-  bool confirmsInitialization() {
-    questions++;
-    return shouldInitialize;
-  }
-}
-
-final class FakeDescriptionPrompt implements DescriptionPrompt {
-  new(this.description);
-
-  final String description;
-  var questions = 0;
-
-  @override
-  String asksForDescription() {
-    questions++;
-    return description;
-  }
 }

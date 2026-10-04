@@ -4,8 +4,7 @@ import 'package:mamba/help_formatter.dart';
 import 'package:mamba/registry.dart';
 import 'package:test/test.dart';
 
-String _withoutAnsi(String value) =>
-    value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
+import 'fixtures.dart';
 
 void main() {
   test('restores styled command and long-description output', () {
@@ -22,7 +21,7 @@ void main() {
     expect(lines[2], MambaColors.mid('-' * 10));
     expect(lines[3], MambaColors.primary('A longer description.'));
     expect(lines[4], MambaColors.mid('-' * 10));
-    expect(_withoutAnsi(lines.join('\n')), contains('Flags'));
+    expect(stripAnsi(lines.join('\n')), contains('Flags'));
     expect('styled'.red, isNot('styled'));
   });
 
@@ -75,7 +74,7 @@ void main() {
       ],
     );
 
-    final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+    final help = stripAnsi(MambaHelpFormatter().format(registry));
 
     expect(help, contains('[ -c|--color|--no-color ]'));
     expect(help, contains('[ -v|--verbose ]'));
@@ -104,7 +103,7 @@ void main() {
       ),
     );
 
-    final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+    final help = stripAnsi(MambaHelpFormatter().format(registry));
 
     expect(
       help,
@@ -126,7 +125,7 @@ void main() {
       variadic: ChoiceVariadic<_OutputFormat>(choices: _OutputFormat.values),
     );
 
-    final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+    final help = stripAnsi(MambaHelpFormatter().format(registry));
 
     expect(help, startsWith('tool -- (json|yaml)'));
     expect(help, isNot(contains('Arguments')));
@@ -161,7 +160,7 @@ void main() {
       ],
     );
 
-    final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+    final help = stripAnsi(MambaHelpFormatter().format(registry));
 
     expect(help, contains('< --user USER & --password PASSWORD >'));
     expect(help, contains('Login credentials.'));
@@ -190,7 +189,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+      final help = stripAnsi(MambaHelpFormatter().format(registry));
 
       expect(help, contains('Accessor flags'));
       expect(help, contains('< --server.host SERVER_HOST >'));
@@ -214,7 +213,7 @@ void main() {
         ],
       );
 
-      final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+      final help = stripAnsi(MambaHelpFormatter().format(registry));
 
       expect(help, contains('--public.value PUBLIC_VALUE'));
       expect(help, isNot(contains('internal')));
@@ -237,7 +236,7 @@ void main() {
       ],
     );
 
-    final help = _withoutAnsi(MambaHelpFormatter().format(registry));
+    final help = stripAnsi(MambaHelpFormatter().format(registry));
 
     expect(help, isNot(contains('debug')));
     expect(help, isNot(contains('secret')));
@@ -245,23 +244,22 @@ void main() {
   });
 
   test('separates every visible section', () {
-      final help = _withoutAnsi(
-        MambaHelpFormatter()
-            .format(
-              CommandRegistry.create(
-                'tool',
-                'A tool.',
-                options: [StringOption('name')],
-                commands: [_LeafCommand()],
-              ),
-            ),
-      );
+    final help = stripAnsi(
+      MambaHelpFormatter().format(
+        CommandRegistry.create(
+          'tool',
+          'A tool.',
+          options: [StringOption('name')],
+          commands: [_LeafCommand()],
+        ),
+      ),
+    );
 
-      expect(help, contains('Options\n\n[ --name NAME ]'));
-      expect(help, isNot(contains('Options\nCommands')));
-    });
+    expect(help, contains('Options\n\n[ --name NAME ]'));
+    expect(help, isNot(contains('Options\nCommands')));
+  });
 
-    test('renders child commands and separates every visible entry', () {
+  test('renders child commands and separates every visible entry', () {
     final registry = CommandRegistry.create(
       'tool',
       'Tool command.',
@@ -273,20 +271,17 @@ void main() {
     );
     final lines = MambaHelpFormatter().format(registry).split('\n');
     final verboseIndex = lines.indexWhere(
-      (line) => _withoutAnsi(line).contains('--verbose'),
+      (line) => stripAnsi(line).contains('--verbose'),
     );
 
     expect(verboseIndex, isNonNegative);
     expect(
       lines[verboseIndex + 1],
-      MambaColors.black('_' * _withoutAnsi(lines[verboseIndex]).length),
+      MambaColors.black('_' * stripAnsi(lines[verboseIndex]).length),
     );
-    expect(_withoutAnsi(lines.join('\n')), contains('Commands'));
-    expect(
-      _withoutAnsi(lines.join('\n')),
-      contains('config Configure the tool.'),
-    );
-    expect(_withoutAnsi(lines.join('\n')), contains('run Run the tool.'));
+    expect(stripAnsi(lines.join('\n')), contains('Commands'));
+    expect(stripAnsi(lines.join('\n')), contains('config Configure the tool.'));
+    expect(stripAnsi(lines.join('\n')), contains('run Run the tool.'));
   });
 }
 

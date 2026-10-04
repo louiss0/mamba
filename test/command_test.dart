@@ -8,6 +8,8 @@ import 'package:mamba/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
+import 'fixtures.dart';
+
 class TestGroupCommand extends GroupCommand {
   @override
   final String name;
@@ -65,7 +67,7 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
 
 final inputsWithoutValues = ParsedInputs({}, []);
 
-String _withoutAnsi(String value) =>
+String stripAnsi(String value) =>
     value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
 
 /// A child command that renders under its own name in help.
@@ -176,9 +178,7 @@ void main() {
         final command = CompletionCommand();
 
         expect(command.mandatoryPositionals, [CompletionCommand.shellInput]);
-        expect(command.discretionaryPositionals, [
-          CompletionCommand.pathInput,
-        ]);
+        expect(command.discretionaryPositionals, [CompletionCommand.pathInput]);
       });
     });
 
@@ -509,7 +509,7 @@ void main() {
         final output = await git.run(inputsWithoutValues, const []);
 
         expect(
-          _withoutAnsi(output!),
+          stripAnsi(output!),
           allOf(
             contains('Commands'),
             contains('stash'),
@@ -947,8 +947,8 @@ void main() {
     test(
       'rejects nullable output and positional presence mismatches',
       () async {
-        final source = File('test/invalid_input_types_temp.dart');
-        source.writeAsStringSync(r'''
+        await expectAnalysis(
+          r'''
 import 'package:mamba/mamba.dart';
 
 void invalid(ParsedInputs inputs) {
@@ -961,21 +961,13 @@ void invalid(ParsedInputs inputs) {
   );
   print(value);
 }
-''');
-
-        try {
-          final result = await Process.run(Platform.resolvedExecutable, [
-            'analyze',
-            source.path,
-          ]);
-          final diagnostics = '${result.stdout}\n${result.stderr}';
-
-          expect(result.exitCode, isNot(0));
-          expect(diagnostics, contains('argument_type_not_assignable'));
-          expect(diagnostics, contains('list_element_type_not_assignable'));
-        } finally {
-          if (source.existsSync()) source.deleteSync();
-        }
+''',
+          expectedDiagnostics: const [
+            'argument_type_not_assignable',
+            'list_element_type_not_assignable',
+          ],
+          fileName: 'invalid_input_types_temp.dart',
+        );
       },
     );
   });

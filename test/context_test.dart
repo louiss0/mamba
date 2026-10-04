@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
-Future<ProcessResult> _analyze(File source) =>
-    Process.run(Platform.resolvedExecutable, ['analyze', source.path]);
+import 'fixtures.dart';
 
 void main() {
   group('Runtime values', () {
@@ -97,8 +94,7 @@ void main() {
 
   group('Analyzer contracts', () {
     test('accepts all supported context value bindings', () async {
-      final source = File('test/context_values_valid_temp.dart')
-        ..writeAsStringSync(r'''
+      await expectAnalysis(r'''
 import 'package:mamba/mamba.dart';
 
 void main() {
@@ -119,23 +115,12 @@ void main() {
   final String? readString = readContext.get(stringKey);
   print('$stringValue $boolValue $intValue $doubleValue $readString');
 }
-''');
-
-      try {
-        final result = await _analyze(source);
-        expect(
-          result.exitCode,
-          0,
-          reason: '${result.stdout}\n${result.stderr}',
-        );
-      } finally {
-        if (source.existsSync()) source.deleteSync();
-      }
+''', fileName: 'context_values_valid_temp.dart');
     });
 
     test('rejects unsupported context values and variants', () async {
-      final source = File('test/context_values_invalid_temp.dart')
-        ..writeAsStringSync(r'''
+      await expectAnalysis(
+        r'''
 import 'package:mamba/mamba.dart';
 
 enum Mode { local }
@@ -161,17 +146,13 @@ void invalid() {
   context.set(dateKey, const MambaContextString('date'));
   const MambaContextValue<DateTime>(DateTime(2020));
 }
-''');
-
-      try {
-        final result = await _analyze(source);
-        final diagnostics = '${result.stdout}\n${result.stderr}';
-        expect(result.exitCode, isNot(0));
-        expect(diagnostics, contains('invalid_use_of_type_outside_library'));
-        expect(diagnostics, contains('argument_type_not_assignable'));
-      } finally {
-        if (source.existsSync()) source.deleteSync();
-      }
+''',
+        expectedDiagnostics: const [
+          'invalid_use_of_type_outside_library',
+          'argument_type_not_assignable',
+        ],
+        fileName: 'context_values_invalid_temp.dart',
+      );
     });
   });
 }

@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 
 import 'fixtures.dart';
 
-String _withoutAnsi(String value) =>
+String stripAnsi(String value) =>
     value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
 
 enum VariantChoice { one }
@@ -255,7 +255,7 @@ Matcher matchRegistry(
 void main() {
   group('MambaHelpFormatter', () {
     test('renders commands, usage, flags, and options', () {
-      final help = _withoutAnsi(
+      final help = stripAnsi(
         MambaHelpFormatter().format(
           CommandRegistry.create(
             'tool',
@@ -294,7 +294,7 @@ void main() {
       final host = PairStringOption('host');
       final port = PairStringOption('port');
       final pair = PairedOptions<String>([host, port]);
-      final help = _withoutAnsi(
+      final help = stripAnsi(
         MambaHelpFormatter().format(
           CommandRegistry.create('tool', 'Tool.', pairedOptions: [pair]),
         ),
@@ -307,7 +307,7 @@ void main() {
       final json = PairStringOption('json');
       final text = PairStringOption('text');
       final output = SelectedOptions<String>([json, text]);
-      final help = _withoutAnsi(
+      final help = stripAnsi(
         MambaHelpFormatter().format(
           CommandRegistry.create('tool', 'Tool.', selectedOptions: [output]),
         ),
@@ -2679,9 +2679,7 @@ void main() {
           isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
-            contains(
-              'Alias checkout for checkout is registered twice.',
-            ),
+            contains('Alias checkout for checkout is registered twice.'),
           ),
         ),
       );

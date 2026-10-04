@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:mamba/mamba.dart';
 import 'package:test/test.dart';
 
-String _withoutAnsi(String value) =>
+import 'fixtures.dart';
+
+String stripAnsi(String value) =>
     value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
 
 final class ResultCommand extends Command with HookRunner {
@@ -232,33 +234,6 @@ final class DefaultCommand extends Command {
   }
 }
 
-final class InputCommand extends Command with HookRunner {
-  ProcessedStandardInput? _input;
-
-  @override
-  String get name => 'input';
-
-  @override
-  String get shortDescription => 'Reads standard input.';
-
-  @override
-  void preRun(
-    ParsedInputs inputs,
-    MambaReadContext context,
-    ProcessedStandardInput? input,
-  ) {
-    _input = input;
-  }
-
-  @override
-  String? run(ParsedInputs inputs, List<String> args) => _input?.utf8Text;
-
-  @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
-    _input = null;
-  }
-}
-
 final class InvalidContextWriter extends GroupCommand
     with PersistentHookRunner {
   new() : super([ResultCommand(<String>[])]);
@@ -470,7 +445,7 @@ void main() {
     expect(
       result,
       isA<MambaSuccessResult>().having(
-        (value) => _withoutAnsi(value.output!),
+        (value) => stripAnsi(value.output!),
         'output',
         allOf(isNot(contains('--dry-run')), contains('--version')),
       ),
@@ -525,7 +500,7 @@ void main() {
     expect(
       result,
       isA<MambaSuccessResult>().having(
-        (value) => _withoutAnsi(value.output!),
+        (value) => stripAnsi(value.output!),
         'output',
         startsWith('tool 1.2.3\n\ntool'),
       ),
@@ -663,8 +638,8 @@ void main() {
       final rootHelp = await executor.execute(['--help']) as MambaSuccessResult;
       final groupHelp =
           await executor.execute(['git', '--help']) as MambaSuccessResult;
-      expect(_withoutAnsi(rootHelp.output!), contains('tool'));
-      expect(_withoutAnsi(groupHelp.output!), contains('tool git'));
+      expect(stripAnsi(rootHelp.output!), contains('tool'));
+      expect(stripAnsi(groupHelp.output!), contains('tool git'));
       expect(events, isEmpty);
     },
   );
@@ -733,7 +708,7 @@ void main() {
     expect(
       result,
       isA<MambaSuccessResult>().having(
-        (value) => _withoutAnsi(value.output!),
+        (value) => stripAnsi(value.output!),
         'output',
         startsWith('tool'),
       ),
@@ -747,7 +722,7 @@ void main() {
     ]).fake().execute(['git']);
 
     expect(
-      _withoutAnsi((result as MambaSuccessResult).output!),
+      stripAnsi((result as MambaSuccessResult).output!),
       allOf(contains('tool git'), contains('Runs.')),
     );
     expect(events, isEmpty);
