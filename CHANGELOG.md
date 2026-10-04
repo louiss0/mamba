@@ -1,3 +1,81 @@
+## 0.16.0
+
+Fixes from a review of the 0.15.0 surface. The first three entries are
+breaking.
+
+### Breaking
+
+- `CompletionCommand`'s `createFile` callback now receives the generated
+  script: `void Function(String path, String contents)` instead of
+  `void Function(String path)`. A caller-supplied callback used to be handed
+  the path and nothing else, so the command reported success while writing a
+  zero-byte file. The generated document is now also built before the
+  destination is touched, and the default writer rejects an omitted path
+  instead of failing on an empty filename.
+- Names may now carry digits inside a word. `max-workers2` and a command named
+  `rig2` are legal; `dry__run`, `2fast`, and `verbose!` still are not. Short
+  aliases already allowed digits.
+- `ChoiceVariadic.defaultValue` is gone. Nothing read it — trailing values reach
+  a command through the untyped argument list — so `RegistryVariadic` no longer
+  carries a `defaultValue` either.
+- Every `RegExp` parameter is spelled `regex`. `NormalPositional`,
+  `RepeatedStringPositional`, and `NormalVariadic` took `regExp` while options,
+  accessors, and pair options took `regex`; one spelling now covers all of them.
+
+### Fixed
+
+- `CompletionCommand()` declares the shell and path inputs its `run` reads. The
+  bare constructor registered neither, so it failed at run time with
+  `"bash" isn't a registered subcommand`.
+- A nested accessor leaf answers `ParsedInputs.valueOf` through its own
+  declaration as well as through the map its root builds. The parser removed
+  the leaf from the value set and only registered the root, so a legal
+  declaration threw `StateError`.
+- A clustered short flag containing `h` records the built-in help handle. `-h`
+  and `-xh` now behave the same instead of the latter throwing `StateError`.
+- A repeated positional decides whether a word is one of its values before
+  reading it, so a malformed value names the declaration that rejected it
+  (`'oops' is not an accepted value for files.`) instead of being reported as
+  an unregistered command.
+- `GroupCommand.runChildCommand` rejects an empty path with a `MambaException`
+  and an unknown child with `MambaCommandNotFoundException`, which previously
+  nothing threw. It no longer refuses a legal child that shares its group's
+  name, and it never returns an `ArgumentError` — an `Error`, which the
+  executor's `on Exception` would not have caught.
+- The help formatter separates the `Options` and `Commands` sections like every
+  other pair.
+- `ProcessedStandardInput.text` decodes UTF-8 like `utf8Text`. It applied
+  Latin-1 decoding, so a byte above 127 came out wrong.
+
+### Changed
+
+- `SelectedOptions` implements `PairedOptionsDefinition`, so one resolver builds
+  the supplied-member map for both group kinds.
+- Registry errors name what was wrong: an invalid command name, an empty
+  description, a duplicated input, and a duplicated alias each report
+  themselves instead of sharing one message that named neither.
+- `Parser.parse` documents that `--help` and `--version` end validation for the
+  tokens after them.
+- `AccessorIntOption.syntax` and `AccessorDoubleOption.syntax` hold the numeric
+  patterns the parser matches, so reading an accessor no longer allocates a
+  `RegExp` per access.
+
+### Removed
+
+- `CommandRegistry.withInheritedInputs`, which returned `this`.
+- `CommandRegistry.helpFlag`, an instance getter that ignored its instance.
+
+### Tests
+
+- `test/fixtures.dart` grew the helpers that had been copied per file: ANSI
+  stripping, a temporary project root, one `dart analyze` harness, the
+  scaffolding fakes, and the standard-input command.
+- The `rig` fixture is now a real command tree — group, children, positionals,
+  variadic, flags, option groups, and a nested accessor — so the five
+  checked-in completion artifacts pin the converters rather than a root with
+  one option. Regenerate with `dart run tool/regenerate_fixtures.dart`.
+- Deleted the orphaned `test/fixtures/input_types.dart` and two unused enums.
+
 ## 0.15.0
 
 - Rewrote the unregistered term message to name the rejected word and the
