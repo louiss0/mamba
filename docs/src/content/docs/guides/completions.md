@@ -8,8 +8,19 @@ completion artifacts for Bash, Zsh, Fish, PowerShell, and Carapace.
 
 The Bash artifact needs **bash 4 or newer**: it uses associative arrays to keep
 command names scoped to their parent. macOS still ships bash 3.2 as
-`/bin/bash`, so a macOS user should install a current bash and source the
-artifact from it. Every other target runs on the shell its name suggests.
+`/bin/bash`, and sourcing the artifact with it prints a one-line explanation
+instead of loading. Every other target runs on the shell its name suggests.
+
+| Shell | Requires | Verified against |
+| --- | --- | --- |
+| Bash | 4 or newer | 5.2 on Linux, and bash 3.2 refused on macOS |
+| Zsh | 5.9 or newer | 5.9 on Linux and macOS |
+| Fish | 3.7 or newer | 3.7 on Linux, 4.9 on macOS |
+| PowerShell | 5.1 or newer | 7.6 on Windows |
+| Carapace | any Carapace that reads YAML specs | generated as a spec file, not run by a shell |
+
+CI parses every generated artifact with these shells on each push and prints the
+versions it used, so the verified column is a record rather than a claim.
 
 ## Completion converters
 

@@ -357,7 +357,21 @@ final completion = CompletionCommand.preset(createFile: null);
 The Bash artifact requires **bash 4 or newer**; it uses associative arrays to
 keep command names scoped to their parent. macOS still ships bash 3.2 as
 `/bin/bash`, and sourcing the artifact with it prints a one-line explanation
-instead of loading.
+instead of loading. The full support table is in the [completions
+guide](https://mamba.automation/docs/guides/completions/).
+
+Mamba supports these shells:
+
+| Shell | Requires | Verified against |
+| --- | --- | --- |
+| Bash | 4 or newer | 5.2 on Linux, and bash 3.2 refused on macOS |
+| Zsh | 5.9 or newer | 5.9 on Linux and macOS |
+| Fish | 3.7 or newer | 3.7 on Linux, 4.9 on macOS |
+| PowerShell | 5.1 or newer | 7.6 on Windows |
+| Carapace | any Carapace that reads YAML specs | generated as a spec file, not run by a shell |
+
+The verified column is what CI parses the artifacts with on every push, so a
+claim here is backed by a run rather than by memory.
 
 After adding `completion` to the executor's command list, select the shell and
 a shell-appropriate output path:
