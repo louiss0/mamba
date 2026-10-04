@@ -27,14 +27,15 @@ abstract final class MambaBuiltInFlags {
   /// Help and version are the only reserved inputs, and a declaration may not
   /// claim either spelling. Opt-in built-ins such as [dryRun] are ordinary
   /// declarations and are not control tokens.
-  static bool isHelp(String token) =>
-      token == '--${help.name}' || token == '-${help.short}';
+  static bool isHelp(String token) => _isToken(help, token);
 
-  static bool isVersion(String token) =>
-      token == '--${version.name}' || token == '-${version.short}';
+  static bool isVersion(String token) => _isToken(version, token);
 
   static bool isControl(String token) =>
       isHelp(token) || isVersion(token) || _clusteredControl(token);
+
+  static bool _isToken(Flag<Object?> declaration, String token) =>
+      token == '--${declaration.name}' || token == '-${declaration.short}';
 
   /// Whether a clustered short group such as `-xh` carries a control letter.
   static bool _clusteredControl(String token) {

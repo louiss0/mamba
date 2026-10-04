@@ -395,11 +395,7 @@ final class _Execution {
   }
 
   CommandRegistry _defaultTarget(CommandRegistry scope) =>
-      _registry.descendant(_effectivePath(_relativePath(scope)));
-
-  /// [scope]'s path as an invocation names it: without the application name.
-  static List<String> _relativePath(CommandRegistry scope) =>
-      scope.parent == null ? const [] : scope.fullPath.skip(1).toList();
+      _registry.descendant(_effectivePath(scope.relativePath));
 
   List<String> _effectivePath(List<String> explicit) {
     final path = [...explicit];

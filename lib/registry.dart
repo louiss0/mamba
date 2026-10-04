@@ -289,6 +289,14 @@ final class CommandRegistry {
     for (final command in commands) _fromCommand(command, this),
   ];
   List<String> get fullPath => [...?parent?.fullPath, name];
+
+  /// [fullPath] as an invocation names it: without the application name.
+  ///
+  /// A command path never begins with the application name, so this is the
+  /// shape resolution and default-command lookup work in. Keeping it beside
+  /// [fullPath] is what stops the two spellings drifting apart.
+  List<String> get relativePath =>
+      parent == null ? const [] : fullPath.skip(1).toList();
   List<Flag<Object?>> get applicableFlags {
     final resolved = <String, Flag<Object?>>{
       for (final flag in [...?parent?._publishedFlagsToHere, ...flags])
@@ -584,12 +592,7 @@ final class CommandRegistry {
       for (final group in selectedOptions) ...group.options,
     ];
     for (final input in inputs) {
-      final reserved = _reservedSpelling(input);
-      if (reserved != null) {
-        throw MambaRegistryError(
-          'Input $reserved for ${input.name} is reserved for Mamba.',
-        );
-      }
+      _rejectReservedSpelling(input);
       final short = _shortOf(input);
       if (short == null) continue;
       final previous = shorts[short];
@@ -600,6 +603,21 @@ final class CommandRegistry {
       }
       shorts[short] = input.name;
     }
+  }
+
+  /// Rejects [input] when it claims a spelling Mamba always reads itself.
+  ///
+  /// Checked in two places on purpose, because they see different sets: a
+  /// declaration and the inputs it propagates arrive here through [_validate],
+  /// while the set that actually answers for a command — inherited plus local
+  /// — arrives through [_validateEffectiveSpellings]. An ancestor can publish a
+  /// flag only its descendants ever see, so neither check covers the other.
+  static void _rejectReservedSpelling(InputDefinition input) {
+    final reserved = _reservedSpelling(input);
+    if (reserved == null) return;
+    throw MambaRegistryError(
+      'Input $reserved for ${input.name} is reserved for Mamba.',
+    );
   }
 
   /// The reserved spelling [input] claims, or null when it claims none.
@@ -941,12 +959,7 @@ final class CommandRegistry {
       if (!_name.hasMatch(input.name)) {
         throw MambaRegistryError(_invalidName(input.name, 'Input name'));
       }
-      final reserved = _reservedSpelling(input);
-      if (reserved != null) {
-        throw MambaRegistryError(
-          'Input $reserved for ${input.name} is reserved for Mamba.',
-        );
-      }
+      _rejectReservedSpelling(input);
       if (!names.add(input.name)) {
         throw MambaRegistryError('Input --${input.name} is registered twice.');
       }

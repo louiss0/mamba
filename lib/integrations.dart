@@ -38,19 +38,13 @@ RegistryOption _accessorOption(RegistryAccessorValue accessor, String name) => (
 /// Encodes a name for use inside a generated identifier.
 ///
 /// `_` separates path segments, so every character a name may legally carry
-/// other than letters and digits is escaped. `foo-bar` and `foo_bar` are two
-/// names and must not share an identifier, and neither must two paths that
-/// flatten to the same words.
-String _generatedIdentifier(String value) {
-  final escaped = StringBuffer();
-  for (final rune in value.runes) {
-    final character = String.fromCharCode(rune);
-    escaped.write(_generatedEscapes[character] ?? character);
-  }
-  return escaped.toString();
-}
-
-final _generatedEscapes = {'_': '_5F', '-': '_2D', '.': '_2E'};
+/// other than letters and digits is escaped. Names are validated against the
+/// registry's letter-led word form, which admits no other characters, so the
+/// three escapes below cover every name that can reach here. `foo-bar` and
+/// `foo_bar` are two names and must not share an identifier, and neither must
+/// two paths that flatten to the same words.
+String _generatedIdentifier(String value) =>
+    value.replaceAll('_', '_5F').replaceAll('-', '_2D').replaceAll('.', '_2E');
 
 String _generatedPathIdentifier(Iterable<String> path) =>
     path.map(_generatedIdentifier).join('_');
