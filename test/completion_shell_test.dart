@@ -28,15 +28,24 @@ String _bashCompletionOutput(
   final harness =
       'source "$scriptFile"\n'
       'handler=\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\')\n'
+      'echo "handler=[\$handler]" >&2\n'
       'COMP_WORDS=(${words.map((word) => "'$word'").join(' ')})\n'
       'COMP_CWORD=${words.length - 1}\n'
       '"\$handler"\n'
+      'echo "reply=[\${COMPREPLY[*]}]" >&2\n'
       'printf \'%s\\n\' "\${COMPREPLY[@]}"\n';
   final harnessFile = File('${directory.path}/harness.sh')
     ..writeAsStringSync(harness);
   try {
     final result = Process.runSync('bash', [harnessFile.path]);
-    expect(result.exitCode, 0, reason: '${result.stderr}');
+    // The shell is the only oracle for this, so its diagnostics travel with
+    // the failure rather than disappearing into a captured stream.
+    printOnFailure('harness stderr:\n${result.stderr}');
+    expect(
+      result.exitCode,
+      0,
+      reason: 'harness failed:\n$harness\n${result.stderr}',
+    );
     return '${result.stdout}';
   } finally {
     directory.deleteSync(recursive: true);
