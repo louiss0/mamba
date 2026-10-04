@@ -23,29 +23,24 @@ String _bashCompletionOutput(
   required String command,
 }) {
   final directory = Directory.systemTemp.createTempSync('mamba_completion_');
-  final scriptFile = File('${directory.path}/completion.sh')
-    ..writeAsStringSync(script);
+  // One file: the generated script registers its handler, and the harness that
+  // follows drives it. Two files would make a missing write look like a shell
+  // that cannot find its completion.
   final harness =
-      'source "$scriptFile"\n'
-      'handler=\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\')\n'
-      'echo "handler=[\$handler]" >&2\n'
+      'echo "handler=[\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\')]" >&2\n'
       'COMP_WORDS=(${words.map((word) => "'$word'").join(' ')})\n'
       'COMP_CWORD=${words.length - 1}\n'
-      '"\$handler"\n'
+      '"\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\'| head -1)"\n'
       'echo "reply=[\${COMPREPLY[*]}]" >&2\n'
       'printf \'%s\\n\' "\${COMPREPLY[@]}"\n';
-  final harnessFile = File('${directory.path}/harness.sh')
-    ..writeAsStringSync(harness);
+  final harnessFile = File('${directory.path}/completion.sh')
+    ..writeAsStringSync('$script\n$harness');
   try {
     final result = Process.runSync('bash', [harnessFile.path]);
     // The shell is the only oracle for this, so its diagnostics travel with
     // the failure rather than disappearing into a captured stream.
     printOnFailure('harness stderr:\n${result.stderr}');
-    expect(
-      result.exitCode,
-      0,
-      reason: 'harness failed:\n$harness\n${result.stderr}',
-    );
+    expect(result.exitCode, 0, reason: 'harness failed:\n${result.stderr}');
     return '${result.stdout}';
   } finally {
     directory.deleteSync(recursive: true);
