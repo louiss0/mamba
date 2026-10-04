@@ -321,11 +321,10 @@ final class NormalVariadic extends Variadic with RegExpValidated {
 }
 
 class ChoiceVariadic<T extends Enum> extends Variadic with ChoiceValidated<T> {
-  new({super.description, required List<T> choices, this.defaultValue})
+  new({super.description, required List<T> choices})
     : choices = List.unmodifiable(choices);
   @override
   final List<T> choices;
-  final T? defaultValue;
 }
 
 sealed class Flag<T> extends Input<T> {

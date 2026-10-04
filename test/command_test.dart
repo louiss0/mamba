@@ -1004,7 +1004,6 @@ void invalid(ParsedInputs inputs) {
     test('registers a ChoiceVariadic under variadic', () {
       final formats = ChoiceVariadic<OutputFormat>(
         choices: OutputFormat.values,
-        defaultValue: OutputFormat.yaml,
       );
 
       final command = _VariadicCommand(variadic: formats);

@@ -59,7 +59,6 @@ extension RegistryPositionalCardinality on RegistryPositional {
 typedef RegistryVariadic = ({
   String? description,
   List<String>? choices,
-  String? defaultValue,
   String? pattern,
 });
 
@@ -280,7 +279,6 @@ final class CommandRegistry {
   late final List<CommandRegistry> commandRegistries = [
     for (final command in commands) _fromCommand(command, this),
   ];
-  BooleanFlag get helpFlag => MambaBuiltInFlags.help;
   List<String> get fullPath => [...?parent?.fullPath, name];
   List<Flag<Object?>> get applicableFlags {
     final resolved = <String, Flag<Object?>>{
@@ -402,8 +400,6 @@ final class CommandRegistry {
       publishedOptions: group?.inheritedOptions,
     );
   }
-
-  CommandRegistry withInheritedInputs() => this;
 
   /// Resolves command tokens while skipping values owned by applicable inputs.
   CommandResolution resolveCommandPath(
@@ -729,8 +725,6 @@ final class CommandRegistry {
       choices: choices == null
           ? null
           : List.unmodifiable(choices.map((choice) => choice.name)),
-      defaultValue: input is ChoiceVariadic ? input.defaultValue?.name : null,
-
       pattern: input is NormalVariadic ? input.regex.pattern : null,
     );
   }

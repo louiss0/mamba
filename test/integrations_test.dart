@@ -141,7 +141,6 @@ RegistryRecord _complexRecord() {
     variadic: (
       description: 'Files to deploy.',
       choices: ['one.dart', 'two.dart'],
-      defaultValue: null,
       pattern: null,
     ),
     accessors: [
@@ -187,7 +186,6 @@ RegistryRecord _complexRecord() {
     variadic: (
       description: 'Root files.',
       choices: const <String>[],
-      defaultValue: null,
       pattern: null,
     ),
     positionals: [

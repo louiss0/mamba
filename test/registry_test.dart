@@ -1,3 +1,4 @@
+import 'package:mamba/built_in_flags.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/help_formatter.dart';
@@ -1855,7 +1856,7 @@ void main() {
       );
 
       expect(registry.flags, [color, verbose]);
-      expect(registry.helpFlag.short, 'h');
+      expect(MambaBuiltInFlags.help.short, 'h');
       expect(registry.options, [name, tag]);
       expect(registry.mandatoryPositionals, [source]);
       expect(registry.discretionaryPositionals, [target]);
@@ -1892,7 +1893,6 @@ void main() {
       test('holds a nested command variadic under its registry', () {
         final formats = ChoiceVariadic<DeploymentFormat>(
           choices: DeploymentFormat.values,
-          defaultValue: DeploymentFormat.yaml,
         );
 
         final registry = CommandRegistry.create(
@@ -1921,7 +1921,6 @@ void main() {
         final formats = ChoiceVariadic<DeploymentFormat>(
           description: 'Output formats.',
           choices: DeploymentFormat.values,
-          defaultValue: DeploymentFormat.yaml,
         );
 
         final registry = CommandRegistry.create(
@@ -2774,7 +2773,7 @@ void main() {
           ),
         ],
       );
-      final run = registry.commandRegistries.single.withInheritedInputs();
+      final run = registry.commandRegistries.single;
 
       expect(run.applicableOptions, hasLength(1));
       expect(run.applicableOptions.single, isA<StringOption>());
