@@ -22,6 +22,13 @@ final class Parser {
   new(this._registry);
   final CommandRegistry _registry;
 
+  /// Reads [tokens] against the resolved registry and returns typed values.
+  ///
+  /// A `--help` or `--version` token ends validation for everything after it:
+  /// the remaining tokens are skipped rather than rejected, so
+  /// `--typo --help` fails while `--help --typo` succeeds. This is deliberate —
+  /// an invocation that is only asking for help is answered, not corrected —
+  /// but it does mean validation depends on argument order.
   ParsedArguments parse(
     List<String> tokens, {
     List<String>? defaultPath,
