@@ -20,9 +20,14 @@ the workstation. Generated completion files belong in each fixture's
 
 `test/integrations_test.dart` constructs the fixture's `RegistryRecord`, runs
 each completion converter, and compares the result with the checked-in Bash,
-Zsh, Fish, PowerShell, and Carapace artifacts. After changing `rig`, refresh
-those files from the corresponding converters and verify them with:
+Zsh, Fish, PowerShell, and Carapace artifacts. After changing `rig`, regenerate
+those files and verify them:
 
 ```sh
+dart run tool/regenerate_fixtures.dart
 dart test test/integrations_test.dart --name "checked-in rig completions"
 ```
+
+Those artifacts are marked not-text in `.gitattributes`, because the test
+compares them byte for byte and `core.autocrlf=true` would otherwise rewrite
+them to CRLF on Windows.

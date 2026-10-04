@@ -9,6 +9,10 @@
 #>
 $script:MambaRigNativeCommands = @{
     'root' = 'root'
+    'rig' = 'rig'
+    'deploy' = 'deploy'
+    'ship' = 'deploy'
+    'status' = 'status'
 }
 
 $script:MambaRigInputs = @{}
@@ -20,12 +24,62 @@ $script:MambaRigVariadicHandlers = @{}
 $script:MambaRigInputs['root'] = @(
     [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
-    [PSCustomObject]@{ Spelling = '--format'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
     )
 $script:MambaRigChildren['root'] = @(
+    [PSCustomObject]@{ Name = 'rig'; Description = 'Completion fixture.' }
     )
 $script:MambaRigPositionalSlots['root'] = @{}
-$script:MambaRigValueHandlers['root.--format'] = @('text', 'json')
+$script:MambaRigInputs['root.rig'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    )
+$script:MambaRigChildren['root.rig'] = @(
+    [PSCustomObject]@{ Name = 'deploy'; Description = 'Deploy a build.' }
+    [PSCustomObject]@{ Name = 'ship'; Description = 'Alias for deploy. Deploy a build.' }
+    [PSCustomObject]@{ Name = 'status'; Description = 'Report status.' }
+    )
+$script:MambaRigPositionalSlots['root.rig'] = @{}
+$script:MambaRigInputs['root.rig.deploy'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '--dry-run'; Description = 'Report without deploying.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--no-dry-run'; Description = 'Report without deploying.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--retries'; Description = 'Retry a failed deploy.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '-r'; Description = 'Retry a failed deploy.'; IsFlag = $true; IsCount = $true; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--format'; Description = 'Output format.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--tag'; Description = 'Tag to apply.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '-t'; Description = 'Tag to apply.'; IsFlag = $false; IsCount = $false; IsRepeatable = $true; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--replicas'; Description = 'Replica count.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--level'; Description = 'Log level.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--token'; Description = 'Deploy token.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '-k'; Description = 'Deploy token.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--host'; Description = 'Deploy host.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--port'; Description = 'Deploy port.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--log'; Description = 'Write a log.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--report'; Description = 'Write a report.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--database.dsn'; Description = 'Connection string.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--database.pool.size'; Description = 'Pool size.'; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '--database.pool.mode'; Description = $null; IsFlag = $false; IsCount = $false; IsRepeatable = $false; IsAccessor = $true; IsHelp = $false }
+    )
+$script:MambaRigChildren['root.rig.deploy'] = @(
+    )
+$script:MambaRigPositionalSlots['root.rig.deploy'] = @{
+    }
+$script:MambaRigValueHandlers['root.rig.deploy.--format'] = @('text', 'json', 'yaml')
+$script:MambaRigValueHandlers['root.rig.deploy.--replicas'] = @('1', '2', '3', '4')
+$script:MambaRigValueHandlers['root.rig.deploy.--level'] = @('debug', 'info', 'warn')
+$script:MambaRigValueHandlers['root.rig.deploy.--database.pool.mode'] = @('text', 'json', 'yaml')
+$script:MambaRigVariadicHandlers['root.rig.deploy'] = [PSCustomObject]@{ Choices = @(); }
+$script:MambaRigInputs['root.rig.status'] = @(
+    [PSCustomObject]@{ Spelling = '--help'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
+    [PSCustomObject]@{ Spelling = '--watch'; Description = 'Keep watching.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    [PSCustomObject]@{ Spelling = '-w'; Description = 'Keep watching.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $false }
+    )
+$script:MambaRigChildren['root.rig.status'] = @(
+    )
+$script:MambaRigPositionalSlots['root.rig.status'] = @{
+    }
 function Update-MambaRigStateObject {
     param(
         [Parameter(Mandatory)][int]$CursorPosition,

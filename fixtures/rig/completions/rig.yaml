@@ -2,9 +2,64 @@ name: "rig"
 description: "Completion fixture."
 persistentflags:
   -h, --help: "Show this help message."
-  --format!=: ""
-completion:
-  flag:
-    format:
-      - "text"
-      - "json"
+commands:
+  - name: "rig"
+    description: "Completion fixture."
+    commands:
+      - name: "deploy"
+        description: |-
+          Deploy a build.
+          
+          Ship a build to an environment.
+        aliases:
+          - "ship"
+        flags:
+          -q, --quiet&: "Suppress progress output."
+          --dry-run: "Report without deploying."
+          --no-dry-run: "Report without deploying."
+          -r, --retries*: "Retry a failed deploy."
+          --format!=: "Output format."
+          -t, --tag*?=: "Tag to apply."
+          --replicas?=:
+            description: "Replica count."
+            default: "2"
+          --level?=:
+            description: "Log level."
+            default: "info"
+          -k, --token!=: "Deploy token."
+          --log?=: "Write a log."
+          --report?=: "Write a report."
+          --host!=: "Deploy host."
+          --port!=: "Deploy port."
+          --database.dsn?=: "Connection string."
+          --database.pool.size?=: "Pool size."
+          --database.pool.mode?=: ""
+        completion:
+          positional:
+            - []
+            - []
+          flag:
+            format:
+              - "text"
+              - "json"
+              - "yaml"
+            replicas:
+              - "$carapace.number.Range({start: 1, end: 4})"
+            level:
+              - "debug"
+              - "info"
+              - "warn"
+            database.pool.mode:
+              - "text"
+              - "json"
+              - "yaml"
+      - name: "status"
+        description: "Report status."
+        flags:
+          -q, --quiet&: "Suppress progress output."
+          -w, --watch: "Keep watching."
+        completion:
+          positional:
+            - []
+            - []
+            - []

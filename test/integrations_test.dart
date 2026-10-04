@@ -468,13 +468,56 @@ void main() {
 
   group('completion fixtures', () {
     test('checked-in rig completions match generated artifacts', () {
-      expect(RigCommand.format.isRequired, isTrue);
       final record = CommandRegistry.create(
         'rig',
         'Completion fixture.',
-        options: [RigCommand.format],
+        commands: [RigCommand()],
       ).toMap();
-      expect(record.options?.first.required, isTrue);
+
+      // The fixtures only earn their keep if the record is a real one, so the
+      // shapes every converter has to render are asserted before comparing.
+      final root = record.commands!.single;
+      expect(root.name, 'rig');
+      final deploy = root.commands!.singleWhere((c) => c.name == 'deploy');
+      expect(root.commands!.map((command) => command.name), [
+        'deploy',
+        'status',
+      ]);
+      expect(
+        deploy.options!.where((option) => option.required).map((o) => o.name),
+        containsAll(['format', 'token']),
+      );
+      expect(
+        deploy.options!
+            .where((option) => option.repeatable == true)
+            .map((o) => o.name),
+        ['tag'],
+      );
+      expect(
+        deploy.flags!.where((flag) => flag.hidden).map((flag) => flag.name),
+        ['quiet'],
+      );
+      // Only paired groups reach `optionGroups`; a selected group is exported
+      // as its members being independent options. That asymmetry is recorded
+      // in the fixtures rather than papered over here.
+      expect(deploy.optionGroups!.map((group) => group.members), [
+        ['host', 'port'],
+      ]);
+      expect(
+        deploy.options!.map((option) => option.name),
+        containsAll(['log', 'report']),
+      );
+      expect(deploy.accessors!.map((accessor) => accessor.name), ['database']);
+      expect(deploy.variadic, isNotNull);
+      expect(
+        root.commands!
+            .singleWhere((c) => c.name == 'status')
+            .positionals!
+            .single
+            .times,
+        3,
+      );
+
       final completions = <String, String>{
         'rig.bash': ToBashCompletionConverter(record).convert(),
         '_rig': ToZshCompletionConverter(record).convert(),
@@ -486,7 +529,9 @@ void main() {
         expect(
           File('fixtures/rig/completions/${entry.key}').readAsStringSync(),
           entry.value,
-          reason: 'Regenerate fixtures/rig/completions/${entry.key}.',
+          reason:
+              'Run `dart run tool/regenerate_fixtures.dart` to refresh '
+              'fixtures/rig/completions/${entry.key}.',
         );
       }
     });

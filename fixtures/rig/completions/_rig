@@ -1,6 +1,9 @@
 #compdef rig
 
-_rig() {
+_rig_rig_deploy() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
   local context state state_descr line
   typeset -A opt_args
   if (( ${words[(I:--)]} )); then
@@ -9,9 +12,111 @@ _rig() {
   fi
   _arguments -S \
     '{-h,--help}[Show this help message.]' \
-    '--format[]:format:(text json)' \
+    '--dry-run[Report without deploying.]' \
+    '--no-dry-run[Report without deploying.]' \
+    '*{-r,--retries}[Retry a failed deploy.]' \
+    '--format[Output format.]:format:(text json yaml)' \
+    '*{-t,--tag}[Tag to apply.]:tag:' \
+    '--replicas[Replica count.]:replicas:_numbers -l 1 -m 4' \
+    '--level[Log level.]:level:(debug info warn)' \
+    '{-k,--token}[Deploy token.]:token:' \
+    '--host[Deploy host.]:host:' \
+    '--port[Deploy port.]:port:' \
+    '--log[Write a log.]:log:' \
+    '--report[Write a report.]:report:' \
+    '--database.dsn[Connection string.]:database.dsn:' \
+    '--database.pool.size[Pool size.]:database.pool.size:_numbers' \
+    '--database.pool.mode[]:database.pool.mode:(text json yaml)' \
+    '1:target:' \
+    '2::profile:' \
     '*::argument:'
   case $state in
+  esac
+}
+
+_rig_rig_status() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '{-w,--watch}[Keep watching.]' \
+    '1:files:' \
+    '2::files:' \
+    '3::files:' \
+    '*::argument:'
+  case $state in
+  esac
+}
+
+_rig_rig() {
+  local -a words
+  words=("${words[@]:2}")
+  (( CURRENT -= 1 ))
+  case "$words[2]" in
+    deploy|ship)
+      _rig_rig_deploy
+      return
+      ;;
+    status)
+      _rig_rig_status
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'deploy:Deploy a build.'
+        'ship:Alias for deploy'
+        'status:Report status.'
+      )
+      _describe 'command' commands
+      ;;
+  esac
+}
+
+_rig() {
+  case "$words[2]" in
+    rig)
+      _rig_rig
+      return
+      ;;
+  esac
+  local context state state_descr line
+  typeset -A opt_args
+  if (( ${words[(I:--)]} )); then
+    :
+    return
+  fi
+  _arguments -S \
+    '{-h,--help}[Show this help message.]' \
+    '1:command:->command' \
+    '*::argument:'
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'rig:Completion fixture.'
+      )
+      _describe 'command' commands
+      ;;
   esac
 }
 
