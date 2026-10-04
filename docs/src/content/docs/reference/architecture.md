@@ -118,7 +118,7 @@ Because help consumes the same validated registry as the parser, its command nam
 
 ## Registry records and integrations
 
-`CommandRegistry.toMap()` projects the live registry into a typed `RegistryRecord`. Despite the method name, this is a recursive Dart record and class structure rather than an untyped serialized map. It preserves the command hierarchy and the metadata needed by external integrations while removing execution behavior.
+`CommandRegistry.toRecord()` projects the live registry into a typed `RegistryRecord`. Despite the method name, this is a recursive Dart record and class structure rather than an untyped serialized map. It preserves the command hierarchy and the metadata needed by external integrations while removing execution behavior.
 
 The completion converters consume this record to produce Bash, Zsh, Fish, PowerShell, or Carapace artifacts. They do not inspect command implementations and do not parse a real invocation. Instead, they translate the already validated command model into each target shell's routing and completion rules. The Carapace writer can then place its generated specification in the platform's configuration directory.
 

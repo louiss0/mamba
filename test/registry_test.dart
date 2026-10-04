@@ -478,7 +478,7 @@ void main() {
       });
     });
 
-    group("toMap", () {
+    group("toRecord", () {
       test(
         'preserves paired groups and choice metadata in immutable records',
         () {
@@ -515,14 +515,14 @@ void main() {
               ),
             ],
           );
-          final record = registry.toMap();
+          final record = registry.toRecord();
           final group = record.optionGroups!.single;
           expect(group.required, isTrue);
           expect(group.members, ['username', 'port']);
           expect(record.options!.first.pairedOptions, ['username', 'port']);
           expect(() => group.members.clear(), throwsUnsupportedError);
           final child = record.commands!.single;
-          final direct = registry.commandRegistries.single.toMap();
+          final direct = registry.commandRegistries.single.toRecord();
           expect(child.aliases, ['r']);
           expect(child.options!.single.name, direct.options!.single.name);
           expect(child.options!.single.choices, ['yaml', 'json']);
@@ -587,7 +587,7 @@ void main() {
               propagatedOptions: [StringOption('shared-path')],
             ),
           ],
-        ).toMap();
+        ).toRecord();
         final group = record.commands!.single;
         final run = group.commands!.single;
         expect(group.flags!.map((flag) => flag.name), ['local']);
@@ -616,7 +616,7 @@ void main() {
               ],
             ),
           ],
-        ).toMap();
+        ).toRecord();
 
         final accessor = record.commands!.single.accessors!.single;
         expect(accessor.name, 'config');
@@ -646,7 +646,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'tool',
             'Tool command.',
@@ -717,7 +717,7 @@ void main() {
           );
 
           expect(
-            registry.toMap(),
+            registry.toRecord(),
             matchRegistry(
               'tool',
 
@@ -763,7 +763,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'git',
 
@@ -859,7 +859,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'tool',
             'Tool command.',
@@ -990,7 +990,7 @@ void main() {
           ],
         );
 
-        final record = registry.toMap();
+        final record = registry.toRecord();
 
         expect(
           record,
@@ -1099,7 +1099,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'curl',
             'Do HTTP Requests',
@@ -1193,7 +1193,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'rsync',
             'Synchronize files and directories.',
@@ -1330,7 +1330,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'docker',
             'Manage containers.',
@@ -1573,7 +1573,7 @@ void main() {
         );
 
         expect(
-          registry.toMap(),
+          registry.toRecord(),
           matchRegistry(
             'git',
             'Track and manage source code.',
@@ -1799,7 +1799,7 @@ void main() {
             ],
           );
 
-          final exported = registry.toMap();
+          final exported = registry.toRecord();
 
           expect(exported.commands!.single.aliases, ['push']);
           expect(
@@ -1886,7 +1886,7 @@ void main() {
 
         expect(registry.mandatoryPositionals, isEmpty);
         expect(registry.discretionaryPositionals, isEmpty);
-        expect(registry.toMap().variadic, isNotNull);
+        expect(registry.toRecord().variadic, isNotNull);
       });
 
       test('holds a nested command variadic under its registry', () {
@@ -1904,7 +1904,7 @@ void main() {
         expect(registry.commandRegistries.single.variadic, same(formats));
       });
 
-      test('exports the variadic input as variadic in toMap', () {
+      test('exports the variadic input as variadic in toRecord', () {
         final extra = NormalVariadic(description: 'Everything that follows.');
 
         final registry = CommandRegistry.create(
@@ -1913,10 +1913,10 @@ void main() {
           variadic: extra,
         );
 
-        expect(registry.toMap().variadic, isNotNull);
+        expect(registry.toRecord().variadic, isNotNull);
       });
 
-      test('exports choice variadic members and defaults in toMap', () {
+      test('exports choice variadic members and defaults in toRecord', () {
         final formats = ChoiceVariadic<DeploymentFormat>(
           description: 'Output formats.',
           choices: DeploymentFormat.values,
@@ -1928,7 +1928,7 @@ void main() {
           variadic: formats,
         );
 
-        expect(registry.toMap().variadic, isNotNull);
+        expect(registry.toRecord().variadic, isNotNull);
       });
 
       test('keeps dash variadics separate from ordinary positionals', () {
@@ -2507,7 +2507,7 @@ void main() {
             ],
           ),
         ],
-      ).toMap();
+      ).toRecord();
 
       expect(record.options!.map((option) => option.defaultValue), [
         'stable',
@@ -2557,7 +2557,7 @@ void main() {
         ],
       );
       expect(
-        registry.toMap().accessors!.single.options!.map(
+        registry.toRecord().accessors!.single.options!.map(
           (child) => child.valueType,
         ),
         ['string', 'int', 'double'],
@@ -2724,7 +2724,7 @@ void main() {
               'tool',
               'Tool command.',
               commands: [invalidCommand],
-            ).toMap(),
+            ).toRecord(),
             throwsA(isA<MambaRegistryError>()),
           );
         });
@@ -2752,7 +2752,7 @@ void main() {
         isNot(contains('later-flag')),
       );
       expect(
-        registry.toMap().commands?.map((command) => command.name),
+        registry.toRecord().commands?.map((command) => command.name),
         isNot(contains('later')),
       );
     });
@@ -2774,6 +2774,196 @@ void main() {
 
       expect(run.applicableOptions, hasLength(1));
       expect(run.applicableOptions.single, isA<StringOption>());
+    });
+  });
+
+  group('declaration validity', () {
+    test('rejects a repeated positional that can hold no values', () {
+      expect(
+        () => RepeatedStringPositional('tags', times: 0),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => RepeatedStringPositional.optional('tags', times: 0),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => RepeatedChoicePositional.withDefault(
+          'formats',
+          choices: DeploymentFormat.values,
+          defaultValue: const <DeploymentFormat>[],
+          times: 0,
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects a repeated positional default longer than its capacity', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          discretionaryPositionals: [
+            RepeatedChoicePositional.withDefault(
+              'formats',
+              choices: DeploymentFormat.values,
+              defaultValue: DeploymentFormat.values,
+              times: 1,
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects an accessor leaf name outside the shared name form', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          accessors: [
+            AccessorListOption('config', [
+              AccessorListOption('bad.name', [AccessorStringOption('value')]),
+            ]),
+          ],
+        ).applicableAccessors,
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('rejects a declaration claiming a reserved spelling', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag('help')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [BooleanFlag('force', short: 'h')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [IntOption('version')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [StringOption('output', short: 'V')],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('accepts Mamba\'s own built-in declarations', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          flags: [MambaBuiltInFlags.verbose, MambaBuiltInFlags.version],
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('rejects two applicable inputs answering to the same short spelling', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestGroupCommand(
+              'group',
+              [
+                TestCommand(
+                  'run',
+                  'Run command.',
+                  flags: [BooleanFlag('local', short: 'x')],
+                ),
+              ],
+              'Group command.',
+              propagatedFlags: [BooleanFlag('inherited', short: 'x')],
+            ),
+          ],
+        ).commandRegistries.single.commandRegistries,
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+
+    test('keeps a local declaration that overrides a propagated one by name', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestGroupCommand(
+            'group',
+            [
+              TestCommand(
+                'run',
+                'Run command.',
+                flags: [BooleanFlag('inherited', short: 'l')],
+              ),
+            ],
+            'Group command.',
+            propagatedFlags: [BooleanFlag('inherited', short: 'i')],
+          ),
+        ],
+      ).commandRegistries.single.commandRegistries.single;
+
+      expect(
+        registry.applicableFlags.where((flag) => flag.name == 'inherited'),
+        hasLength(1),
+      );
+      expect(
+        registry.applicableFlags
+            .singleWhere((flag) => flag.name == 'inherited')
+            .short,
+        'l',
+      );
+    });
+
+    test('rejects invalid propagated input declarations', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestGroupCommand(
+              'group',
+              [TestCommand('run', 'Run command.')],
+              'Group command.',
+              propagatedFlags: [BooleanFlag('bad!')],
+            ),
+          ],
+        ).commandRegistries,
+        throwsA(isA<MambaRegistryError>()),
+      );
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [
+            TestGroupCommand(
+              'group',
+              [TestCommand('run', 'Run command.')],
+              'Group command.',
+              propagatedOptions: [IntOption('count', min: 10, max: 1)],
+            ),
+          ],
+        ).commandRegistries,
+        throwsA(isA<MambaRegistryError>()),
+      );
     });
   });
 }

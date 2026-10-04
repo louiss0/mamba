@@ -491,7 +491,7 @@ void main() {
         'tool',
         'Tool.',
         options: [enabled, disabled],
-      ).toMap();
+      ).toRecord();
       expect(record.options!.first.unique, true);
       expect(record.options!.last.unique, isNull);
     });
@@ -730,6 +730,29 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('reads one integer syntax in every spelling', () {
+      final count = IntOption('count');
+
+      for (final args in [
+        ['--count', '0x10'],
+        ['--count=0x10'],
+        ['--count', '-0x10'],
+        ['--count=-0x10'],
+      ]) {
+        expect(
+          () => parser(options: [count]).parse(args),
+          throwsA(
+            isA<MambaParseException>().having(
+              (error) => error.message,
+              'message',
+              contains('must be a signed decimal integer'),
+            ),
+          ),
+          reason: 'accepted $args',
+        );
+      }
     });
 
     test('accepts signed numeric values in separate tokens', () {

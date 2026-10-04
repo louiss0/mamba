@@ -213,7 +213,7 @@ final class _Execution {
             ) {
     _validateGroupDefaults(commands);
     if (_defaultCommandPath != null) _effectivePath([_registry.name]);
-    _assignCompletion(commands, _registry.toMap());
+    _assignCompletion(commands, _registry.toRecord());
   }
   final HelpFormatter _help;
   final Future<ProcessedStandardInput?> Function()? readStandardInput;

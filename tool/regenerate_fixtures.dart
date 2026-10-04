@@ -10,7 +10,7 @@ void main() {
     'rig',
     'Completion fixture.',
     commands: [RigCommand()],
-  ).toMap();
+  ).toRecord();
   final artifacts = <String, String>{
     'rig.bash': ToBashCompletionConverter(record).convert(),
     '_rig': ToZshCompletionConverter(record).convert(),

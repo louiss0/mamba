@@ -300,7 +300,7 @@ void main() {
         options: [
           RepeatableChoiceOption<Mode>('format', Mode.values, unique: true),
         ],
-      ).toMap();
+      ).toRecord();
       expect(
         ToFishCompletionConverter(record).convert(),
         contains('__mamba_unique_choices format _ json text'),
@@ -472,7 +472,7 @@ void main() {
         'rig',
         'Completion fixture.',
         commands: [RigCommand()],
-      ).toMap();
+      ).toRecord();
 
       // The fixtures only earn their keep if the record is a real one, so the
       // shapes every converter has to render are asserted before comparing.

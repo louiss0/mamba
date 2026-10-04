@@ -21,6 +21,7 @@ typedef ParsedArguments = (
 final class Parser {
   new(this._registry);
   final CommandRegistry _registry;
+  static final RegExp _leadingNumber = RegExp(r'^-[0-9]');
 
   /// Reads [tokens] against the resolved registry and returns typed values.
   ///
@@ -212,12 +213,21 @@ final class Parser {
     }
     final value = tokens[index + 1];
     if (value == '--' ||
-        (value.startsWith('-') && !_allowsDash(input, value))) {
+        (value.startsWith('-') &&
+            !_allowsDash(input, value) &&
+            !_attemptedNumber(value))) {
       throw MambaParseException('Option --$name requires a value');
     }
     consumed.add(index + 1);
     return value;
   }
+
+  /// Whether a dash-led token is an attempt at a number rather than a value
+  /// that was left out.
+  ///
+  /// A negative value the declaration cannot read is still a value the author
+  /// typed, so the value parser reports the syntax rather than a missing value.
+  static bool _attemptedNumber(String value) => _leadingNumber.hasMatch(value);
 
   bool _allowsDash(InputDefinition input, String value) =>
       (input is RegExpValidated &&
@@ -277,7 +287,7 @@ final class Parser {
 
   int _integer(InputDefinition input, String value) {
     final parsed = int.tryParse(value);
-    if (parsed == null) {
+    if (parsed == null || !_matches(AccessorIntOption.syntax, value)) {
       throw MambaParseException(
         'Invalid int value: $value must be a signed decimal integer',
       );

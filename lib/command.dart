@@ -63,8 +63,8 @@ Map<String, List<String>>? _copyStringLists(
       });
 
 void _validateRepeatedTimes(int times) {
-  if (times < 0) {
-    throw MambaRegistryError.value(times, 'times', 'must not be negative');
+  if (times <= 0) {
+    throw MambaRegistryError.value(times, 'times', 'must be positive');
   }
 }
 

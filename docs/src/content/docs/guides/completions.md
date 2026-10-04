@@ -137,7 +137,7 @@ The root record has these fields:
 | `name` | `String` | Canonical application name used to invoke the executable. |
 | `description` | `String` | Short description followed by the long description, separated by a blank line when both exist. |
 | `commands` | `List<RegistryCommand>?` | Child command records in declaration order. |
-| `positionals` | `List<RegistryPositional>?` | Ordered positional declarations. Records produced by `CommandRegistry.toMap()` leave this `null` on the application root. |
+| `positionals` | `List<RegistryPositional>?` | Ordered positional declarations. Records produced by `CommandRegistry.toRecord()` leave this `null` on the application root. |
 | `variadic` | `RegistryVariadic?` | Validation metadata for trailing values after `--`. |
 | `flags` | `List<RegistryFlag>?` | Flags available at this command. |
 | `persistentFlags` | `List<RegistryFlag>?` | Flags that converters should also make available to descendants. |
@@ -146,7 +146,7 @@ The root record has these fields:
 | `optionGroups` | `List<RegistryOptionGroup>?` | All-or-nothing paired-option groups. |
 | `accessors` | `List<RegistryAccessor>?` | Recursive trees that become dotted option names. |
 
-`CommandRegistry.toMap()` places each command's effective inherited inputs in
+`CommandRegistry.toRecord()` places each command's effective inherited inputs in
 `flags`, `options`, and `accessors`. It currently leaves `persistentFlags` and
 `persistentOptions` `null`; those fields let converters also consume manually
 assembled records that express inheritance separately.

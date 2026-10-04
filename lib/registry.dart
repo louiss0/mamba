@@ -257,7 +257,9 @@ final class CommandRegistry {
        publishedFlags = List.unmodifiable(publishedFlags ?? const []),
        publishedOptions = List.unmodifiable(publishedOptions ?? const []),
        publishedAccessors = List.unmodifiable(publishedAccessors ?? const []),
-       commands = List.unmodifiable(commands ?? const []);
+       commands = List.unmodifiable(commands ?? const []) {
+    _validateEffectiveSpellings();
+  }
   final String name;
   final String shortDescription;
   final String? longDescription;
@@ -379,6 +381,8 @@ final class CommandRegistry {
       mandatory: command.mandatoryPositionals,
       discretionary: command.discretionaryPositionals,
       commands: group?.commands,
+      propagatedFlags: group?.inheritedFlags,
+      propagatedOptions: group?.inheritedOptions,
     );
     return CommandRegistry._(
       name: command.name,
@@ -551,13 +555,67 @@ final class CommandRegistry {
       _allValueInputs.where((input) => input.name == name).firstOrNull ??
       _accessorFor(name);
 
+  /// Checks the spellings that actually answer for this command.
+  ///
+  /// Local declarations shadow propagated ones by name, so the effective set is
+  /// the one the parser reads. A short alias may only answer for one of them,
+  /// and no declaration may claim a spelling Mamba always interprets itself.
+  void _validateEffectiveSpellings() {
+    final shorts = <String, String>{};
+    final inputs = <InputDefinition>[
+      ...applicableFlags,
+      ...applicableOptions,
+      for (final group in pairedOptionGroups) ...group.options,
+      for (final group in selectedOptions) ...group.options,
+    ];
+    for (final input in inputs) {
+      final reserved = _reservedSpelling(input);
+      if (reserved != null) {
+        throw MambaRegistryError(
+          'Input $reserved for ${input.name} is reserved for Mamba.',
+        );
+      }
+      final short = _shortOf(input);
+      if (short == null) continue;
+      final previous = shorts[short];
+      if (previous != null) {
+        throw MambaRegistryError(
+          'Short alias -$short is used by both $previous and ${input.name}.',
+        );
+      }
+      shorts[short] = input.name;
+    }
+  }
+
+  /// The reserved spelling [input] claims, or null when it claims none.
+  ///
+  /// Mamba's own declarations are exempt: the registry supplies help itself
+  /// and an executor may supply version. A user declaration claiming either
+  /// spelling is rejected, because the parser always reads it as the built-in.
+  static String? _reservedSpelling(InputDefinition input) {
+    if (identical(input, MambaBuiltInFlags.help) ||
+        identical(input, MambaBuiltInFlags.version)) {
+      return null;
+    }
+    if (input.name == MambaBuiltInFlags.help.name ||
+        input.name == MambaBuiltInFlags.version.name) {
+      return '--${input.name}';
+    }
+    final short = _shortOf(input);
+    if (short == MambaBuiltInFlags.help.short ||
+        short == MambaBuiltInFlags.version.short) {
+      return '-$short';
+    }
+    return null;
+  }
+
   static String? _shortOf(InputDefinition input) => switch (input) {
     Flag(:final short) ||
     Option(:final short) ||
     PairOption(:final short) => short,
     _ => null,
   };
-  RegistryRecord toMap() => _record(this);
+  RegistryRecord toRecord() => _record(this);
   static RegistryRecord _record(CommandRegistry registry) {
     final options = [
       ...registry.applicableOptions,
@@ -777,6 +835,8 @@ final class CommandRegistry {
     List<Option<Object?>>? options,
     List<PairedOptionsDefinition>? paired,
     List<SelectedOptions>? selected,
+    List<Flag<Object?>>? propagatedFlags,
+    List<Option<Object?>>? propagatedOptions,
     Map<String, List<String>>? conflicts,
     List<AccessorListOption>? accessors,
     List<Positional<Object?>>? mandatory,
@@ -802,6 +862,8 @@ final class CommandRegistry {
     final inputs = [
       ...?flags,
       ...?options,
+      ...?propagatedFlags,
+      ...?propagatedOptions,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
         ...group.options,
       for (final group in selected ?? const <SelectedOptions>[])
@@ -864,6 +926,12 @@ final class CommandRegistry {
       if (!_name.hasMatch(input.name)) {
         throw MambaRegistryError(_invalidName(input.name, 'Input name'));
       }
+      final reserved = _reservedSpelling(input);
+      if (reserved != null) {
+        throw MambaRegistryError(
+          'Input $reserved for ${input.name} is reserved for Mamba.',
+        );
+      }
       if (!names.add(input.name)) {
         throw MambaRegistryError('Input --${input.name} is registered twice.');
       }
@@ -905,6 +973,9 @@ final class CommandRegistry {
     }
     final leaves = <AccessorPrimitiveOption<Object?>>{};
     void visit(AccessorOption input) {
+      if (!_name.hasMatch(input.name)) {
+        throw MambaRegistryError(_invalidName(input.name, 'Accessor name'));
+      }
       if (input is AccessorPrimitiveOption && !leaves.add(input)) {
         throw MambaRegistryError(
           'Accessor leaf ${input.name} is reused in multiple paths.',
@@ -961,6 +1032,7 @@ final class CommandRegistry {
 
     for (final input in [
       ...?options,
+      ...?propagatedOptions,
       ...?mandatory,
       ...?discretionary,
       ...?accessors,
@@ -970,6 +1042,22 @@ final class CommandRegistry {
         ...group.options,
     ]) {
       validateChoices(input);
+    }
+    for (final positional in [
+      ...?mandatory,
+      ...?discretionary,
+    ]) {
+      if (positional is! RepeatedPositionalDefinition ||
+          positional is! DefaultValue) {
+        continue;
+      }
+      final repeated = positional as RepeatedPositionalDefinition;
+      final defaults = (positional as DefaultValue).defaultValue;
+      if (defaults is List && defaults.length > repeated.times) {
+        throw MambaRegistryError(
+          'Default for ${repeated.name} declares ${defaults.length} values but holds at most ${repeated.times}.',
+        );
+      }
     }
     void validateNumeric(InputDefinition input) {
       if (input is NumericRangeValidated) {
@@ -1040,6 +1128,7 @@ final class CommandRegistry {
 
     for (final input in [
       ...?options,
+      ...?propagatedOptions,
       ...?accessors,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
         ...group.options,

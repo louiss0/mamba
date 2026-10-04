@@ -155,7 +155,7 @@ class TestCompletionCommand extends CompletionCommand {
     registryRecord = CommandRegistry.create(
       commandName,
       'A test command.',
-    ).toMap();
+    ).toRecord();
   }
 }
 
@@ -221,7 +221,7 @@ void main() {
         completionCommand.registryRecord = CommandRegistry.create(
           TestCompletionCommand.commandName,
           'A test command.',
-        ).toMap();
+        ).toRecord();
         final cases = [
           (
             shell: ShellCompletion.bash,
