@@ -66,6 +66,17 @@ jobs:
       - name: Install fish on macOS
         if: runner.os == 'macOS'
         run: brew install fish
+      # The versions the artifacts are checked against, printed so a support
+      # claim in the README is backed by a run rather than by memory.
+      - name: Record the shells this run verified
+        if: runner.os != 'Windows'
+        run: |
+          bash --version | head -1
+          zsh --version
+          fish --version
+      - name: Record PowerShell on Windows
+        if: runner.os == 'Windows'
+        run: pwsh --version
       - name: Drive a real bash completion
         if: runner.os != 'Windows'
         run: dart test test/completion_shell_test.dart
