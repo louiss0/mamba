@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:mamba/context.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/processed_standard_input.dart';
+import 'package:mamba/registry.dart' show MambaCommandNotFoundException;
 
 export 'completion_command.dart'
     show
@@ -1635,8 +1636,8 @@ abstract class GroupCommand extends Command {
     ParsedInputs inputs,
     List<String> args,
   ) async {
-    if (path.isEmpty || path.contains(name)) {
-      throw ArgumentError.value(path, 'path');
+    if (path.isEmpty) {
+      throw MambaException('A default path under $name must name a command.');
     }
     Command? current;
     List<Command>? children = commands;
@@ -1649,7 +1650,15 @@ abstract class GroupCommand extends Command {
           )
           .firstOrNull;
       if (current == null) {
-        throw MambaException('command not found in $name ${path.join(' ')}');
+        // A [MambaCommandNotFoundException] rather than a bare
+        // [MambaException]: it is the only rejection in the framework that has
+        // to say which commands were on offer, and the executor reports the
+        // same failure with the same type.
+        throw MambaCommandNotFoundException(
+          part,
+          [name, ...path.take(path.indexOf(part))],
+          children?.map((candidate) => candidate.name).toList() ?? const [],
+        );
       }
       children = current is GroupCommand ? current.commands : null;
     }

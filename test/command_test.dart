@@ -82,6 +82,25 @@ final class _NamedCommand extends Command {
   String run(ParsedInputs inputs, List<String> args) => '';
 }
 
+/// A real command that records having run, for paths that must not be mocks.
+final class _RecordingCommand extends Command {
+  new(this.name);
+
+  @override
+  final String name;
+
+  var ran = false;
+
+  @override
+  String get shortDescription => 'Records having run.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    ran = true;
+    return '';
+  }
+}
+
 /// Records which registry it was asked to render.
 final class _RecordingHelpFormatter extends HelpFormatter {
   final formatted = <CommandRegistry>[];
@@ -430,21 +449,42 @@ void main() {
 
       await expectLater(
         git.run(inputsWithoutValues, const []),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<MambaCommandNotFoundException>()),
       );
     });
 
+    test('runs a child that shares its group name', () async {
+      final same = _RecordingCommand('same');
+      final group = TestGroupCommand(
+        'same',
+        [same],
+        defaultSubCommandPath: ['same'],
+      );
+
+      await group.run(inputsWithoutValues, const []);
+
+      expect(same.ran, isTrue);
+    });
+
     test('requires child paths to be relative to the group', () {
+      when(() => stashCommand.aliases).thenReturn(const <String>[]);
+
       expect(
         () => groupCommand.runChildAtPath(['git']),
-        throwsA(isA<ArgumentError>()),
+        throwsA(
+          isA<MambaCommandNotFoundException>().having(
+            (error) => error.message,
+            'message',
+            'Command git was not found under git. Available commands: stash',
+          ),
+        ),
       );
     });
 
     test('rejects empty runtime paths and unknown child commands', () {
       expect(
         () => groupCommand.runChildAtPath([]),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<MambaException>()),
       );
       expect(
         () => groupCommand.runChildAtPath(['missing']),
