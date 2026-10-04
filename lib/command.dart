@@ -6,10 +6,7 @@ import 'package:mamba/processed_standard_input.dart';
 import 'package:mamba/registry.dart' show MambaCommandNotFoundException;
 
 export 'completion_command.dart'
-    show
-        CompletionCommand,
-        CompletionFileWriter,
-        ShellCompletion;
+    show CompletionCommand, CompletionFileWriter, ShellCompletion;
 export 'processed_standard_input.dart' show ProcessedStandardInput;
 
 /// Metadata used by the parser, registry, help, and completion integrations.
@@ -109,8 +106,7 @@ final class NormalPositional extends MandatoryPositional<String> {
     String name, {
     String? description,
     RegExp? regex,
-  }) =>
-      _OptionalNormalPositional(name, description: description, regex: regex);
+  }) => _OptionalNormalPositional(name, description: description, regex: regex);
 }
 
 final class _OptionalNormalPositional extends OptionalPositional<String> {
@@ -1663,11 +1659,10 @@ abstract class GroupCommand extends Command {
         // [MambaException]: it is the only rejection in the framework that has
         // to say which commands were on offer, and the executor reports the
         // same failure with the same type.
-        throw MambaCommandNotFoundException(
-          part,
-          [name, ...path.take(path.indexOf(part))],
-          children?.map((candidate) => candidate.name).toList() ?? const [],
-        );
+        throw MambaCommandNotFoundException(part, [
+          name,
+          ...path.take(path.indexOf(part)),
+        ], children?.map((candidate) => candidate.name).toList() ?? const []);
       }
       children = current is GroupCommand ? current.commands : null;
     }

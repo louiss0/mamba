@@ -520,13 +520,14 @@ final class Parser {
       // A repeated positional ended because the next word was not one of its
       // values. Naming the declaration that turned it away keeps the reader
       // from hunting for a command typo that was never there.
-      final rejectedBy = [
-          ...registry.mandatoryPositionals,
-          ...registry.discretionaryPositionals,
-        ]
-          .whereType<RepeatedPositionalDefinition>()
-          .where((input) => !_accepts(input, leftover))
-          .firstOrNull;
+      final rejectedBy =
+          [
+                ...registry.mandatoryPositionals,
+                ...registry.discretionaryPositionals,
+              ]
+              .whereType<RepeatedPositionalDefinition>()
+              .where((input) => !_accepts(input, leftover))
+              .firstOrNull;
       if (rejectedBy != null) {
         throw MambaParseException(
           "'$leftover' is not an accepted value for ${rejectedBy.name}.",

@@ -888,7 +888,9 @@ final class CommandRegistry {
         throw MambaRegistryError(_invalidName(command.name, 'Command name'));
       }
       if (!commandNames.add(command.name)) {
-        throw MambaRegistryError('Command ${command.name} is registered twice.');
+        throw MambaRegistryError(
+          'Command ${command.name} is registered twice.',
+        );
       }
       for (final alias in command.aliases ?? const <String>[]) {
         if (!_name.hasMatch(alias)) {
