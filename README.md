@@ -354,6 +354,11 @@ PowerShell, or Carapace artifacts from the application's registry:
 final completion = CompletionCommand.preset(createFile: null);
 ```
 
+The Bash artifact requires **bash 4 or newer**; it uses associative arrays to
+keep command names scoped to their parent. macOS still ships bash 3.2 as
+`/bin/bash`, and sourcing the artifact with it prints a one-line explanation
+instead of loading.
+
 After adding `completion` to the executor's command list, select the shell and
 a shell-appropriate output path:
 

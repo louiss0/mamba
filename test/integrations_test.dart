@@ -517,6 +517,21 @@ void main() {
       }
     });
 
+    test('tell an unsupported bash why the completion cannot load', () {
+      final script = ToBashCompletionConverter(_complexRecord()).convert();
+
+      expect(script, contains(r'((BASH_VERSINFO[0] < 4))'));
+      expect(
+        script,
+        contains('mamba-tool: completion requires bash 4 or newer'),
+      );
+      expect(
+        script.indexOf('BASH_VERSINFO'),
+        lessThan(script.indexOf('declare -A')),
+        reason: 'the guard has to run before anything the old bash rejects',
+      );
+    });
+
     test('render rich command metadata for every shell', () {
       final record = _complexRecord();
       final bash = ToBashCompletionConverter(record).convert();

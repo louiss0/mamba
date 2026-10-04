@@ -1,3 +1,7 @@
+if ((BASH_VERSINFO[0] < 4)); then
+  printf '%s\n' 'rig: completion requires bash 4 or newer' >&2
+  return 0 2>/dev/null || exit 1
+fi
 _mamba_filter() {
   local current="$1"
   shift

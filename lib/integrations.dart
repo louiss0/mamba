@@ -119,11 +119,23 @@ abstract class RegistryRecordConverter {
 final class ToBashCompletionConverter extends RegistryRecordConverter {
   new(super.registry);
 
+  /// The reason this artifact cannot run, when the shell is too old.
+  ///
+  /// The completion keeps its command names scoped to their parent in
+  /// associative arrays, which is a bash 4 feature. Mamba supports bash 4 and
+  /// newer, so an older bash is told why it cannot load the file instead of
+  /// being met by a page of `declare: -A: invalid option`.
+  String _versionGuard(String rootName) =>
+      'if ((BASH_VERSINFO[0] < 4)); then\n'
+      "  printf '%s\\n' '$rootName: completion requires bash 4 or newer' >&2\n"
+      '  return 0 2>/dev/null || exit 1\n'
+      'fi';
+
   @override
   String convert() {
     final root = _root;
     final rootName = root.name;
-    final lines = <String>[_filterFunction()];
+    final lines = <String>[_versionGuard(rootName), _filterFunction()];
     final rootFlags = _flagsFor(root);
     final rootOptions = _optionsFor(root);
 
