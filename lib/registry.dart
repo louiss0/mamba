@@ -763,7 +763,19 @@ final class CommandRegistry {
               : null,
         ),
       };
-  static final _name = RegExp(r'^[A-Za-z]+(?:[-_][A-Za-z]+)*$');
+  static final _name = RegExp(
+    r'^[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z][A-Za-z0-9]*)*$',
+  );
+
+  /// The name shape every command, alias, and input shares.
+  ///
+  /// A word leads with a letter and may carry digits, so `max-workers2` is a
+  /// legal name. Words are separated by exactly one hyphen or underscore,
+  /// which keeps `dry__run` and `2fast` out.
+  static String _invalidName(String name, String kind) =>
+      '$kind "$name" must be letter-led words of letters and digits '
+      'separated by a single hyphen or underscore.';
+
   static void _validate(
     String name,
     String description, {
@@ -777,8 +789,11 @@ final class CommandRegistry {
     List<Positional<Object?>>? discretionary,
     List<Command>? commands,
   }) {
-    if (!_name.hasMatch(name) || description.isEmpty) {
-      throw MambaRegistryError('Invalid command definition');
+    if (!_name.hasMatch(name)) {
+      throw MambaRegistryError(_invalidName(name, 'Command name'));
+    }
+    if (description.isEmpty) {
+      throw MambaRegistryError('Command "$name" must have a description.');
     }
     if ((paired ?? const <PairedOptionsDefinition>[]).any(
           (group) => group.options.isEmpty,
@@ -852,8 +867,11 @@ final class CommandRegistry {
     final names = <String>{};
     final shorts = <String, InputDefinition>{};
     for (final input in inputs) {
-      if (!_name.hasMatch(input.name) || !names.add(input.name)) {
-        throw MambaRegistryError('Duplicate or invalid input ${input.name}');
+      if (!_name.hasMatch(input.name)) {
+        throw MambaRegistryError(_invalidName(input.name, 'Input name'));
+      }
+      if (!names.add(input.name)) {
+        throw MambaRegistryError('Input --${input.name} is registered twice.');
       }
       final short = _shortOf(input);
       if (short == null) continue;
@@ -872,15 +890,19 @@ final class CommandRegistry {
     }
     final commandNames = <String>{};
     for (final command in commands ?? const <Command>[]) {
-      if (!_name.hasMatch(command.name) || !commandNames.add(command.name)) {
-        throw MambaRegistryError(
-          'Duplicate or invalid command ${command.name}.',
-        );
+      if (!_name.hasMatch(command.name)) {
+        throw MambaRegistryError(_invalidName(command.name, 'Command name'));
+      }
+      if (!commandNames.add(command.name)) {
+        throw MambaRegistryError('Command ${command.name} is registered twice.');
       }
       for (final alias in command.aliases ?? const <String>[]) {
-        if (!_name.hasMatch(alias) || !commandNames.add(alias)) {
+        if (!_name.hasMatch(alias)) {
+          throw MambaRegistryError(_invalidName(alias, 'Command alias'));
+        }
+        if (!commandNames.add(alias)) {
           throw MambaRegistryError(
-            'Duplicate or invalid command alias $alias for ${command.name}.',
+            'Alias $alias for ${command.name} is registered twice.',
           );
         }
       }

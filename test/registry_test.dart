@@ -2183,7 +2183,7 @@ void main() {
     });
 
     test('rejects invalid command and description boundaries', () {
-      for (final name in ['', 'tool1', '_', '-', 'tool!']) {
+      for (final name in ['', '_', '-', 'tool!']) {
         expect(
           () => CommandRegistry.create(name, 'Tool command.'),
           throwsA(isA<MambaRegistryError>()),
@@ -2203,6 +2203,7 @@ void main() {
         flags: [
           BooleanFlag('dry_run-candidate', short: 'v'),
           BooleanFlag('dry-run'),
+          BooleanFlag('dry-run2'),
         ],
         options: [
           IntOption('retry_limit', short: 'r'),
@@ -2214,6 +2215,7 @@ void main() {
       expect(registry.flags.map((flag) => flag.name), [
         'dry_run-candidate',
         'dry-run',
+        'dry-run2',
       ]);
       expect(registry.options.map((option) => option.name), [
         'retry_limit',
@@ -2639,7 +2641,7 @@ void main() {
           isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
-            contains('Duplicate or invalid command alias co for checkout'),
+            contains('Alias co for checkout is registered twice.'),
           ),
         ),
       );
@@ -2659,7 +2661,7 @@ void main() {
           isA<MambaRegistryError>().having(
             (error) => error.message,
             'message',
-            contains('Duplicate or invalid command alias co for config'),
+            contains('Alias co for config is registered twice.'),
           ),
         ),
       );
@@ -2679,7 +2681,7 @@ void main() {
             (error) => error.message,
             'message',
             contains(
-              'Duplicate or invalid command alias checkout for checkout',
+              'Alias checkout for checkout is registered twice.',
             ),
           ),
         ),
