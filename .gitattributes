@@ -1,0 +1,7 @@
+# Generated completion fixtures are compared byte for byte by
+# `test/integrations_test.dart`, so their line endings must not follow the
+# checkout platform. `core.autocrlf=true` rewrites them to CRLF on Windows and
+# the comparison then fails at the first line break. They are also shell,
+# PowerShell, and YAML sources, where a carriage return is a defect rather
+# than a preference.
+fixtures/**/completions/** -text
