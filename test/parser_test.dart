@@ -1303,6 +1303,25 @@ void main() {
       expect(inputs.valueOf(destination), 'three');
     });
 
+    test('names the repeated positional that turned a value away', () {
+      final files = RepeatedStringPositional(
+        'files',
+        regExp: RegExp(r'\d+'),
+        times: 3,
+      );
+
+      expect(
+        () => parser(mandatory: [files]).parse(['1', 'oops', '2']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            "'oops' is not an accepted value for files.",
+          ),
+        ),
+      );
+    });
+
     test('reports missing mandatory positional inputs', () {
       final files = RepeatedStringPositional('files');
       final destination = NormalPositional('destination');

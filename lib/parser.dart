@@ -476,17 +476,17 @@ final class Parser {
       ...registry.discretionaryPositionals,
     ]) {
       final required = registry.mandatoryPositionals.contains(positional);
-      if (positional is RepeatedPositionalDefinition) {
+      if (positional case final RepeatedPositionalDefinition definition) {
         final collected = <Object>[];
+        // Membership is decided before the value is read, so a token that is
+        // not one of this input's values stops the run instead of raising. That
+        // leaves the token for the next positional and keeps a genuine
+        // violation from being reported as an unknown command.
         while (index < source.length &&
-            collected.length <
-                (positional as RepeatedPositionalDefinition).times) {
-          try {
-            collected.add(_positionalValue(positional, source[index]));
-            index++;
-          } on MambaParseException {
-            break;
-          }
+            collected.length < definition.times &&
+            _accepts(positional, source[index])) {
+          collected.add(_positionalValue(positional, source[index]));
+          index++;
         }
         if (collected.isEmpty && positional is DefaultValue) {
           collected.addAll(
@@ -499,8 +499,7 @@ final class Parser {
           );
         }
         if (collected.isNotEmpty) {
-          values[positional] = (positional as RepeatedPositionalDefinition)
-              .freezeValues(collected);
+          values[positional] = definition.freezeValues(collected);
         }
       } else if (index < source.length) {
         values[positional] = _positionalValue(positional, source[index++]);
@@ -513,8 +512,36 @@ final class Parser {
       }
     }
     if (index != source.length) {
-      throw _unregisteredTerm(registry, source[index]);
+      final leftover = source[index];
+      // A repeated positional ended because the next word was not one of its
+      // values. Naming the declaration that turned it away keeps the reader
+      // from hunting for a command typo that was never there.
+      final rejectedBy = [
+          ...registry.mandatoryPositionals,
+          ...registry.discretionaryPositionals,
+        ]
+          .whereType<RepeatedPositionalDefinition>()
+          .where((input) => !_accepts(input, leftover))
+          .firstOrNull;
+      if (rejectedBy != null) {
+        throw MambaParseException(
+          "'$leftover' is not an accepted value for ${rejectedBy.name}.",
+        );
+      }
+      throw _unregisteredTerm(registry, leftover);
     }
+  }
+
+  /// Whether [value] is one of the values [input] declares.
+  ///
+  /// Deciding membership before parsing is what lets a repeated positional stop
+  /// at the first word that belongs to the input after it, without treating a
+  /// malformed value as the end of the command line.
+  bool _accepts(InputDefinition input, String value) {
+    if (input case ChoiceValidated(:final choices)) {
+      return choices.cast<Enum>().any((choice) => choice.name == value);
+    }
+    return _matches((input as RegExpValidated).regex, value);
   }
 
   /// Rejects [term] with the context a reader needs to correct it.
