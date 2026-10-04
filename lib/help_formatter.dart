@@ -224,6 +224,7 @@ final class MambaHelpFormatter extends HelpFormatter {
       ...registry.pairedOptionGroups.map(_pairedOptions),
       ...registry.selectedOptions.map(_selectedOptions),
     ]);
+    buffer.writeln();
     _writeSection(
       buffer,
       'Commands',

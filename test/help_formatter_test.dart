@@ -244,7 +244,24 @@ void main() {
     expect(help, isNot(contains('internal-port')));
   });
 
-  test('renders child commands and separates every visible entry', () {
+  test('separates every visible section', () {
+      final help = _withoutAnsi(
+        MambaHelpFormatter()
+            .format(
+              CommandRegistry.create(
+                'tool',
+                'A tool.',
+                options: [StringOption('name')],
+                commands: [_LeafCommand()],
+              ),
+            ),
+      );
+
+      expect(help, contains('Options\n\n[ --name NAME ]'));
+      expect(help, isNot(contains('Options\nCommands')));
+    });
+
+    test('renders child commands and separates every visible entry', () {
     final registry = CommandRegistry.create(
       'tool',
       'Tool command.',
@@ -278,6 +295,17 @@ enum _OutputFormat { json, yaml }
 enum _Tag { release, preview }
 
 enum _Mode { auto, always }
+
+final class _LeafCommand extends Command {
+  @override
+  String get name => 'leaf';
+
+  @override
+  String get shortDescription => 'A leaf.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => '';
+}
 
 final class _HelpCommand extends Command {
   new(this.name, this.shortDescription);
