@@ -1301,9 +1301,9 @@ void main() {
       final files = RepeatedStringPositional(
         'files',
         times: 2,
-        regExp: RegExp(r'[a-z]+'),
+        regex: RegExp(r'[a-z]+'),
       );
-      final count = NormalPositional('count', regExp: RegExp(r'\d+'));
+      final count = NormalPositional('count', regex: RegExp(r'\d+'));
 
       final inputs = parser(mandatory: [files, count])
           .parse(['one', 'two', '3'])
@@ -1328,7 +1328,7 @@ void main() {
     test('names the repeated positional that turned a value away', () {
       final files = RepeatedStringPositional(
         'files',
-        regExp: RegExp(r'\d+'),
+        regex: RegExp(r'\d+'),
         times: 3,
       );
 
@@ -1394,7 +1394,7 @@ void main() {
     });
 
     test('validates normal and choice variadics', () {
-      final normal = NormalVariadic(regExp: RegExp(r'[a-z]+'));
+      final normal = NormalVariadic(regex: RegExp(r'[a-z]+'));
       final choices = ChoiceVariadic<Format>(choices: Format.values);
 
       expect(parser(variadic: normal).parse(['--', 'one', 'two']).$3, [

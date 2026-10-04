@@ -47,12 +47,12 @@ that an input's output type cannot contradict its registration.
 
 ## `NormalPositional`
 
-Parses one complete `String` using `regExp`, which defaults to `\S+`:
+Parses one complete `String` using `regex`, which defaults to `\S+`:
 
 ```dart
 final target = NormalPositional(
   'target',
-  regExp: RegExp(r'.+\.txt'),
+  regex: RegExp(r'.+\.txt'),
 );
 final String targetValue = inputs.valueOf(target);
 ```
@@ -118,10 +118,10 @@ not stored in `ParsedInputs`.
 
 ### `NormalVariadic`
 
-Validates every trailing token against `regExp`, which defaults to `\S+`:
+Validates every trailing token against `regex`, which defaults to `\S+`:
 
 ```dart
-NormalVariadic(regExp: RegExp(r'.+'))
+NormalVariadic(regex: RegExp(r'.+'))
 ```
 
 ### `ChoiceVariadic<T>`

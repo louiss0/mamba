@@ -86,7 +86,7 @@ configured choice/default lists are immutable.
 ```dart
 final sources = RepeatedStringPositional(
   'source',
-  regExp: RegExp(r'.+\.dart'),
+  regex: RegExp(r'.+\.dart'),
   times: 3,
 );
 
@@ -115,7 +115,7 @@ optional `description` and `regExp`; the default pattern is `\S+`.
 ```dart
 final class ForwardCommand extends Command {
   ForwardCommand()
-    : super(variadic: NormalVariadic(regExp: RegExp(r'.+')));
+    : super(variadic: NormalVariadic(regex: RegExp(r'.+')));
 
   @override
   String get name => 'forward';

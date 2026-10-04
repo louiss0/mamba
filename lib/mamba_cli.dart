@@ -384,12 +384,12 @@ final class CreateProjectCommand extends Command {
 
   static final packageName = NormalPositional(
     'package-name',
-    regExp: RegExp(_packageNamePattern),
+    regex: RegExp(_packageNamePattern),
     description: 'Name for the new package.',
   );
   static final projectDescription = NormalPositional.optional(
     'short-description',
-    regExp: RegExp(r'.+'),
+    regex: RegExp(r'.+'),
   );
   static final install = BooleanFlag(
     'install',
@@ -456,7 +456,7 @@ final class ScaffoldBinaryCommand extends Command {
 
   static final binaryName = NormalPositional(
     'name',
-    regExp: RegExp(r'[a-z][a-z0-9_]*'),
+    regex: RegExp(r'[a-z][a-z0-9_]*'),
   );
 
   final Directory _parentDirectory;
@@ -502,12 +502,12 @@ final class ScaffoldTestCommand extends Command {
 
   static final commandName = NormalPositional(
     'name',
-    regExp: RegExp(r'[a-z][a-z0-9_]*'),
+    regex: RegExp(r'[a-z][a-z0-9_]*'),
   );
 
   static final sourcePath = NormalPositional.optional(
     'file',
-    regExp: RegExp(r'.+'),
+    regex: RegExp(r'.+'),
   );
 
   static final append = BooleanFlag(
@@ -666,12 +666,12 @@ final class ScaffoldCommand extends Command {
 
   static final commandName = NormalPositional(
     'name',
-    regExp: RegExp(r'[a-z][a-z0-9_]*'),
+    regex: RegExp(r'[a-z][a-z0-9_]*'),
   );
 
   static final fileName = NormalPositional.optional(
     'file',
-    regExp: RegExp(r'.+'),
+    regex: RegExp(r'.+'),
   );
 
   static final group = BooleanFlag(
@@ -895,7 +895,7 @@ final class _ScaffoldComponentKindCommand extends Command {
 
   static final componentName = NormalPositional(
     'name',
-    regExp: RegExp(r'[a-z][a-z0-9_]*'),
+    regex: RegExp(r'[a-z][a-z0-9_]*'),
   );
 
   final Directory _parentDirectory;

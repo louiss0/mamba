@@ -103,14 +103,14 @@ sealed class DefaultedPositional<T> extends DiscretionaryPositional<T>
 }
 
 final class NormalPositional extends MandatoryPositional<String> {
-  new(super.name, {super.description, RegExp? regExp}) : super(regex: regExp);
+  new(super.name, {super.description, super.regex});
 
   static OptionalPositional<String> optional(
     String name, {
     String? description,
-    RegExp? regExp,
+    RegExp? regex,
   }) =>
-      _OptionalNormalPositional(name, description: description, regex: regExp);
+      _OptionalNormalPositional(name, description: description, regex: regex);
 }
 
 final class _OptionalNormalPositional extends OptionalPositional<String> {
@@ -194,18 +194,17 @@ sealed class RepeatedPositional<T> extends MandatoryPositional<List<T>>
 }
 
 final class RepeatedStringPositional extends RepeatedPositional<String> {
-  new(super.name, {super.description, RegExp? regExp, super.times = 1})
-    : super(regex: regExp);
+  new(super.name, {super.description, super.regex, super.times = 1});
 
   static OptionalPositional<List<String>> optional(
     String name, {
     String? description,
-    RegExp? regExp,
+    RegExp? regex,
     int times = 1,
   }) => _OptionalRepeatedStringPositional(
     name,
     description: description,
-    regex: regExp,
+    regex: regex,
     times: times,
   );
 }
@@ -314,8 +313,8 @@ sealed class Variadic {
 }
 
 final class NormalVariadic extends Variadic with RegExpValidated {
-  new({super.description, RegExp? regExp})
-    : regex = regExp ?? RegExpValidated.anyToken;
+  new({super.description, RegExp? regex})
+    : regex = regex ?? RegExpValidated.anyToken;
   @override
   final RegExp regex;
 }

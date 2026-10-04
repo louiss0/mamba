@@ -233,7 +233,7 @@ final class ListTaskCommand extends Command {
 abstract class TaskIdCommand extends Command {
   new() : super(mandatoryPositionals: [id]);
 
-  static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
+  static final id = NormalPositional('id', regex: RegExp(r'\d+'));
 }
 
 final class ReadTaskCommand extends TaskIdCommand {
@@ -258,7 +258,7 @@ final class ReadTaskCommand extends TaskIdCommand {
 final class UpdateTaskCommand extends Command {
   new(this.store) : super(mandatoryPositionals: [id], pairedOptions: [changes]);
 
-  static final id = NormalPositional('id', regExp: RegExp(r'\d+'));
+  static final id = NormalPositional('id', regex: RegExp(r'\d+'));
   static final title = PairStringOption(
     'title',
     regex: RegExp(r'.+'),
