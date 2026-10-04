@@ -35,6 +35,26 @@ RegistryOption _accessorOption(RegistryAccessorValue accessor, String name) => (
   pairedOptions: null,
 );
 
+/// Encodes a name for use inside a generated identifier.
+///
+/// `_` separates path segments, so every character a name may legally carry
+/// other than letters and digits is escaped. `foo-bar` and `foo_bar` are two
+/// names and must not share an identifier, and neither must two paths that
+/// flatten to the same words.
+String _generatedIdentifier(String value) {
+  final escaped = StringBuffer();
+  for (final rune in value.runes) {
+    final character = String.fromCharCode(rune);
+    escaped.write(_generatedEscapes[character] ?? character);
+  }
+  return escaped.toString();
+}
+
+final _generatedEscapes = {'_': '_5F', '-': '_2D', '.': '_2E'};
+
+String _generatedPathIdentifier(Iterable<String> path) =>
+    path.map(_generatedIdentifier).join('_');
+
 List<String> _steppedDoubleValuesFor(RegistryOption value) {
   final min = value.min;
   final max = value.max;
@@ -48,20 +68,25 @@ List<String> _steppedDoubleValuesFor(RegistryOption value) {
   return _steppedDoubleValues(min.toDouble(), max.toDouble(), step.toDouble());
 }
 
+/// The values a stepped numeric declaration accepts between its bounds.
+///
+/// Every candidate increments from [min] by [step] and stays within [max], so
+/// the parser accepts all of them. An upper bound the step does not reach is
+/// not a candidate: the parser rejects it, and offering it would teach a shell
+/// to complete a value the program refuses.
 List<String> _steppedDoubleValues(double min, double max, double step) {
-  final count = ((max - min) / step).round();
   final decimalPlaces = [min, max, step]
       .map(
         (value) => value.toString().split('.').elementAtOrNull(1)?.length ?? 0,
       )
       .fold(0, (current, value) => current > value ? current : value);
+  final count = ((max - min) / step).round();
   return [
     for (var index = 0; index <= count; index++)
-      double.parse(
-        (index == count ? max : min + step * index).toStringAsFixed(
-          decimalPlaces,
-        ),
-      ).toString(),
+      if (min + step * index <= max + step * 1e-9)
+        double.parse(
+          (min + step * index).toStringAsFixed(decimalPlaces),
+        ).toString(),
   ];
 }
 
@@ -120,7 +145,7 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
     }
     _writeRootHandler(lines, root, [rootName], rootOptions);
     _writeDispatcher(lines, rootName);
-    lines.add('complete -F _${_identifier(rootName)}_completion $rootName');
+    lines.add('complete -F _${_generatedIdentifier(rootName)}_completion $rootName');
     return '${lines.join('\n')}\n';
   }
 
@@ -146,7 +171,7 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
         ...persistentOptions,
         ...localOptions,
       ]);
-      final parentIdentifier = _pathIdentifier(parentPath);
+      final parentIdentifier = _generatedPathIdentifier(parentPath);
       for (final entry in availableOptions) {
         final option = entry;
         valueOptions.add(
@@ -164,7 +189,7 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
           : _mergeOptions([...inheritedOptions, ...persistentOptions]);
       for (final child in children) {
         final childPath = [...parentPath, child.name];
-        final handler = '_${_pathIdentifier(childPath)}_completion';
+        final handler = '_${_generatedPathIdentifier(childPath)}_completion';
         for (final spelling in [child.name, ..._stringList(child.aliases)]) {
           routes.add(
             '  [${_quote('$parentIdentifier|$spelling')}]=${_quote(handler)}',
@@ -176,11 +201,11 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
 
     collect(command, path, const [], isRoot: true);
     lines.addAll([
-      'declare -A _${_identifier(rootName)}_command_routes=(',
+      'declare -A _${_generatedIdentifier(rootName)}_command_routes=(',
       ...routes,
       ')',
       '',
-      'declare -A _${_identifier(rootName)}_value_options=(',
+      'declare -A _${_generatedIdentifier(rootName)}_value_options=(',
       ...valueOptions,
       ')',
       '',
@@ -188,7 +213,7 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
   }
 
   void _writeDispatcher(List<String> lines, String rootName) {
-    final rootIdentifier = _identifier(rootName);
+    final rootIdentifier = _generatedIdentifier(rootName);
     lines.addAll([
       '_${rootIdentifier}_completion() {',
       '  COMPREPLY=()',
@@ -277,14 +302,14 @@ _mamba_filter_option() {
     List<String> path,
     List<RegistryOption> options,
   ) {
-    final function = '_${_pathIdentifier(path)}_root_completion';
+    final function = '_${_generatedPathIdentifier(path)}_root_completion';
     lines.addAll([
       '$function() {',
       r'  local current="${COMP_WORDS[COMP_CWORD]}"',
       r'  local previous="${COMP_WORDS[COMP_CWORD - 1]}"',
       '',
       r'  if [[ "$_mamba_after_separator" == 1 ]]; then',
-      '    _complete_${_pathIdentifier(path)}_variadic "\$current"',
+      '    _complete_${_generatedPathIdentifier(path)}_variadic "\$current"',
       '    return',
       '  fi',
       '',
@@ -302,7 +327,7 @@ _mamba_filter_option() {
       '      ;;',
       '    *)',
       ..._commandCases(root, '      '),
-      '      _complete_${_pathIdentifier(path)}_positional "\$current"',
+      '      _complete_${_generatedPathIdentifier(path)}_positional "\$current"',
       '      ;;',
       '  esac',
       '}',
@@ -348,14 +373,14 @@ _mamba_filter_option() {
       }
     }
 
-    final function = '_${_pathIdentifier(path)}_completion';
+    final function = '_${_generatedPathIdentifier(path)}_completion';
     lines.addAll([
       '$function() {',
       r'  local current="${COMP_WORDS[COMP_CWORD]}"',
       r'  local previous="${COMP_WORDS[COMP_CWORD - 1]}"',
       '',
       r'  if [[ "$_mamba_after_separator" == 1 ]]; then',
-      '    _complete_${_pathIdentifier(path)}_variadic "\$current"',
+      '    _complete_${_generatedPathIdentifier(path)}_variadic "\$current"',
       '    return',
       '  fi',
       '',
@@ -373,7 +398,7 @@ _mamba_filter_option() {
       '      ;;',
       '    *)',
       ..._commandCases(command, '      '),
-      '      _complete_${_pathIdentifier(path)}_positional "\$current"',
+      '      _complete_${_generatedPathIdentifier(path)}_positional "\$current"',
       '      ;;',
       '  esac',
       '}',
@@ -487,7 +512,7 @@ _mamba_filter_option() {
     List<String> path,
   ) {
     final positionals = command.positionals;
-    final function = '_complete_${_pathIdentifier(path)}_positional';
+    final function = '_complete_${_generatedPathIdentifier(path)}_positional';
     lines.addAll(['$function() {', r'  local current="$1"']);
     if (positionals != null) {
       lines.addAll([
@@ -524,7 +549,7 @@ _mamba_filter_option() {
     final choices = variadic == null
         ? const <String>[]
         : _stringList(variadic.choices);
-    final function = '_complete_${_pathIdentifier(path)}_variadic';
+    final function = '_complete_${_generatedPathIdentifier(path)}_variadic';
     lines.addAll(['$function() {', r'  local current="$1"']);
     if (choices.isNotEmpty) {
       lines.addAll([
@@ -553,13 +578,7 @@ _mamba_filter_option() {
   String _arrayKeys(String variable) => r'"${!' + variable + r'[@]}"';
 
   String _variable(List<String> path, String suffix) =>
-      '_${_pathIdentifier(path)}_${_identifier(suffix)}';
-
-  String _pathIdentifier(Iterable<String> path) =>
-      path.map(_identifier).join('_');
-
-  String _identifier(String value) =>
-      value.replaceAll('-', '_').replaceAll('.', '_');
+      '_${_generatedPathIdentifier(path)}_${_generatedIdentifier(suffix)}';
 
   String _quote(String value) => "'${value.replaceAll("'", "'\\\"'\\\"")}'";
 
@@ -605,7 +624,7 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
     final rootName = root.name;
     final lines = <String>['#compdef $rootName', ''];
     _writeCommand(lines, root, [rootName], const [], const []);
-    lines.add('compdef _${_pathIdentifier([rootName])} $rootName');
+    lines.add('compdef _${_generatedPathIdentifier([rootName])} $rootName');
     return '${lines.join('\n')}\n';
   }
 
@@ -635,7 +654,7 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
       }
     }
 
-    final function = '_${_pathIdentifier(path)}';
+    final function = '_${_generatedPathIdentifier(path)}';
     lines.addAll(['$function() {']);
     if (path.length > 1) {
       lines.addAll([
@@ -649,7 +668,7 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
         r'  case "$words[2]" in',
         for (final child in children) ...[
           '    ${_commandPatterns(child)})',
-          '      _${_pathIdentifier([...path, child.name])}',
+          '      _${_generatedPathIdentifier([...path, child.name])}',
           '      return',
           '      ;;',
         ],
@@ -793,12 +812,6 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
       .replaceAll("'", r"'\\''");
 
   String _quote(String value) => "'${_escape(value)}'";
-
-  String _pathIdentifier(Iterable<String> path) =>
-      path.map(_identifier).join('_');
-
-  String _identifier(String value) =>
-      value.replaceAll('-', '_').replaceAll('.', '_');
 
   Iterable<({String path, RegistryOption value, bool hidden})> _accessorLeaves(
     List<RegistryAccessor>? accessors, {
@@ -1690,7 +1703,6 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
     final rootName = root.name;
     final lines = <String>[
       ..._header(rootName, root.description),
-      ..._native(root),
       ..._tableInitializers(),
       ..._recurse(root, ['root'], const [], const [], const [], isRoot: true),
       ..._runtimeHelpers(),
@@ -1718,27 +1730,6 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
   // ---------------------------------------------------------------------
   // Top-level tables
   // ---------------------------------------------------------------------
-
-  /// Global lookup from canonical command name to canonical command name; the
-  /// resolver flattens an alias token into its canonical spelling using this
-  /// map before resolving the rest of the command line.
-  List<String> _native(RegistryCommand root) {
-    final entries = <String>["    'root' = 'root'"];
-    void walk(List<RegistryCommand>? commands) {
-      if (commands == null) return;
-      for (final entry in commands) {
-        final child = entry;
-        entries.add("    ${_psQuote(entry.name)} = ${_psQuote(entry.name)}");
-        for (final alias in _stringList(child.aliases)) {
-          entries.add("    ${_psQuote(alias)} = ${_psQuote(entry.name)}");
-        }
-        walk(child.commands);
-      }
-    }
-
-    walk(root.commands);
-    return ['${_state('NativeCommands')} = @{', ...entries, '}', ''];
-  }
 
   List<String> _tableInitializers() => [
     '${_state('Inputs')} = @{}',
@@ -1864,9 +1855,13 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
       for (final entry in children) {
         final child = entry;
         final description = _summary(child.description);
+        // Each entry carries its canonical name with it: command names are
+        // scoped to their parent, so two groups may both own a `status` and a
+        // global name table would collide on them.
         entries.add(
           '    [PSCustomObject]@{'
           ' Name = ${_psQuote(entry.name)};'
+          ' Canonical = ${_psQuote(entry.name)};'
           ' Description = ${_psQuoteOrNull(description)}'
           ' }',
         );
@@ -1874,6 +1869,7 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
           entries.add(
             '    [PSCustomObject]@{'
             ' Name = ${_psQuote(alias)};'
+            ' Canonical = ${_psQuote(entry.name)};'
             ' Description = ${_psQuoteOrNull('Alias for ${entry.name}. ${description ?? ''}')}'
             ' }',
           );
@@ -2105,7 +2101,7 @@ function Resolve-MambaState {
         $canonical = $null
         foreach ($child in $children) {
             if ($child.Name -ceq $tokenText) {
-                $canonical = $script:MambaNativeCommands[$child.Name]
+                $canonical = $child.Canonical
                 break
             }
         }

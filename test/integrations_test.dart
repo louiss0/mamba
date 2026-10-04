@@ -5,8 +5,74 @@ import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
 import '../fixtures/rig/rig.dart';
+import 'fixtures.dart';
 
 enum Mode { json, text }
+
+final first = BooleanFlag('first');
+final second = BooleanFlag('second');
+
+/// The candidate list a generated Bash script offers after [option].
+List<String> _bashCandidatesFor(String script, String option) {
+  final variable = RegExp("\\['${RegExp.escape(option)}'\\]='([^']+)'")
+      .firstMatch(script);
+  expect(variable, isNotNull, reason: 'no values bound to $option');
+  final block = RegExp(
+    "^${RegExp.escape(variable!.group(1)!)}=\\(\n((?:  '[^']*'\n)*)\\)",
+    multiLine: true,
+  ).firstMatch(script);
+  expect(block, isNotNull, reason: 'no candidate block for $option');
+  return RegExp("'([^']*)'")
+      .allMatches(block!.group(1)!)
+      .map((match) => match.group(1)!)
+      .toList();
+}
+
+/// The parse errors PowerShell's own parser reports for [script].
+///
+/// Returns null when no PowerShell is installed, so the check runs wherever a
+/// shell exists and skips itself elsewhere instead of failing the build.
+List<String>? _parseErrorsInPowerShell(String script) {
+  final shell = _powershellShell();
+  if (shell == null) return null;
+  final file = File(
+    '${Directory.systemTemp.path}/mamba-completion-${DateTime.now().microsecondsSinceEpoch}.ps1',
+  );
+  try {
+    file.writeAsStringSync(script);
+    final escaped = file.path.replaceAll("'", "''");
+    final result = Process.runSync(shell, [
+      '-NoProfile',
+      '-Command',
+      "\$e = \$null; "
+          '[void][System.Management.Automation.Language.Parser]::'
+          "ParseFile('$escaped', [ref]\$null, [ref]\$e); "
+          r'$e | ForEach-Object { $_.Message }',
+    ]);
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+    return '${result.stdout}'
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+  } finally {
+    if (file.existsSync()) file.deleteSync();
+  }
+}
+
+String? _powershellShell() {
+  for (final candidate in ['pwsh', 'powershell.exe']) {
+    try {
+      final result = Process.runSync('where.exe', [candidate]);
+      if (result.exitCode == 0 && '${result.stdout}'.trim().isNotEmpty) {
+        return candidate;
+      }
+    } on ProcessException {
+      continue;
+    }
+  }
+  return null;
+}
 
 final class _TestDirectory extends Mock implements Directory;
 
@@ -308,6 +374,68 @@ void main() {
       expect(CarapaceSpecConverter(record).convert(), contains('format'));
     });
 
+    test('keep distinct names in distinct generated identifiers', () {
+      final record = CommandRegistry.create(
+        'probe',
+        'Collision probe.',
+        commands: [
+          TestCommand('foo-bar', 'Hyphenated.', flags: [first]),
+          TestCommand('foo_bar', 'Underscored.', flags: [second]),
+        ],
+      ).toRecord();
+
+      final bash = ToBashCompletionConverter(record).convert();
+
+      expect(bash, contains('--first'));
+      expect(bash, contains('--second'));
+      final identifiers = RegExp(r'_probe_foo_(2D|5F)bar_completion')
+          .allMatches(bash)
+          .map((match) => match.group(0))
+          .toSet();
+      expect(identifiers, hasLength(2), reason: bash);
+    });
+
+    test('give every generated PowerShell script a parsable syntax', () {
+      final record = CommandRegistry.create(
+        'probe',
+        'Scoped names.',
+        commands: [
+          TestGroupCommand('admin', [
+            TestCommand('status', 'Show admin status.'),
+          ], 'Admin.'),
+          TestGroupCommand('server', [
+            TestCommand('status', 'Show server status.'),
+          ], 'Server.'),
+        ],
+      ).toRecord();
+
+      final script = ToPowerShellCompletionConverter(record).convert();
+
+      final errors = _parseErrorsInPowerShell(script);
+      if (errors != null) expect(errors, isEmpty);
+    }, skip: _powershellShell() == null ? 'PowerShell is not installed' : null);
+
+    test('offer only stepped numbers the declaration accepts', () {
+      final ratio = DoubleOption('ratio', min: 0, max: 1, step: 0.3);
+      final registry = CommandRegistry.create(
+        'probe',
+        'Stepped numbers.',
+        options: [ratio],
+      );
+      final bash = ToBashCompletionConverter(registry.toRecord()).convert();
+
+      final candidates = _bashCandidatesFor(bash, '--ratio');
+      expect(candidates, isNotEmpty);
+      for (final candidate in candidates) {
+        expect(
+          () => Parser(registry).parse(['--ratio', candidate]),
+          returnsNormally,
+          reason: 'candidate $candidate',
+        );
+      }
+      expect(candidates, contains('0.9'));
+    });
+
     test('render rich command metadata for every shell', () {
       final record = _complexRecord();
       final bash = ToBashCompletionConverter(record).convert();
@@ -316,7 +444,7 @@ void main() {
       final powerShell = ToPowerShellCompletionConverter(record).convert();
 
       expect(bash, allOf(contains('--no-colour'), contains("'0.1'")));
-      expect(bash, contains('_mamba_tool_deploy_status_completion'));
+      expect(bash, contains('_mamba_2Dtool_deploy_status_completion'));
       expect(
         zsh,
         allOf(
@@ -328,7 +456,10 @@ void main() {
       expect(fish, contains("complete -c mamba-tool -s C -l colour"));
       expect(fish, contains('__mamba_unique_choices format F json text'));
       expect(fish, isNot(contains('-l internal.token')));
-      expect(powerShell, contains("'ship' = 'deploy'"));
+      expect(
+        powerShell,
+        allOf(contains("Name = 'ship'"), contains("Canonical = 'deploy'")),
+      );
       expect(powerShell, contains("'root.deploy.--ratio'"));
       expect(powerShell, contains("'0.5'"));
     });
@@ -467,6 +598,14 @@ void main() {
   });
 
   group('completion fixtures', () {
+    test('the checked-in PowerShell fixture parses', () {
+      final checkedIn = File('fixtures/rig/completions/rig.ps1')
+          .readAsStringSync();
+      final errors = _parseErrorsInPowerShell(checkedIn);
+
+      if (errors != null) expect(errors, isEmpty);
+    }, skip: _powershellShell() == null ? 'PowerShell is not installed' : null);
+
     test('checked-in rig completions match generated artifacts', () {
       final record = CommandRegistry.create(
         'rig',

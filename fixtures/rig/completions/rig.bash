@@ -83,66 +83,66 @@ _rig_rig_deploy_flags=(
   '--retries'
 )
 
-_rig_rig_deploy_format_values=(
+_rig_rig_deploy_format_5Fvalues=(
   'text'
   'json'
   'yaml'
 )
 
-_rig_rig_deploy_tag_values=(
+_rig_rig_deploy_tag_5Fvalues=(
 )
 
-_rig_rig_deploy_replicas_values=(
+_rig_rig_deploy_replicas_5Fvalues=(
 )
 
-_rig_rig_deploy_level_values=(
+_rig_rig_deploy_level_5Fvalues=(
   'debug'
   'info'
   'warn'
 )
 
-_rig_rig_deploy_token_values=(
+_rig_rig_deploy_token_5Fvalues=(
 )
 
-_rig_rig_deploy_host_values=(
+_rig_rig_deploy_host_5Fvalues=(
 )
 
-_rig_rig_deploy_port_values=(
+_rig_rig_deploy_port_5Fvalues=(
 )
 
-_rig_rig_deploy_log_values=(
+_rig_rig_deploy_log_5Fvalues=(
 )
 
-_rig_rig_deploy_report_values=(
+_rig_rig_deploy_report_5Fvalues=(
 )
 
-_rig_rig_deploy_database_dsn_values=(
+_rig_rig_deploy_database_2Edsn_5Fvalues=(
 )
 
-_rig_rig_deploy_database_pool_size_values=(
+_rig_rig_deploy_database_2Epool_2Esize_5Fvalues=(
 )
 
-_rig_rig_deploy_database_pool_mode_values=(
+_rig_rig_deploy_database_2Epool_2Emode_5Fvalues=(
   'text'
   'json'
   'yaml'
 )
 
 declare -A _rig_rig_deploy_options=(
-  ['--format']='_rig_rig_deploy_format_values'
-  ['--tag']='_rig_rig_deploy_tag_values'
-  ['-t']='_rig_rig_deploy_tag_values'
-  ['--replicas']='_rig_rig_deploy_replicas_values'
-  ['--level']='_rig_rig_deploy_level_values'
-  ['--token']='_rig_rig_deploy_token_values'
-  ['-k']='_rig_rig_deploy_token_values'
-  ['--host']='_rig_rig_deploy_host_values'
-  ['--port']='_rig_rig_deploy_port_values'
-  ['--log']='_rig_rig_deploy_log_values'
-  ['--report']='_rig_rig_deploy_report_values'
-  ['--database.dsn']='_rig_rig_deploy_database_dsn_values'
-  ['--database.pool.size']='_rig_rig_deploy_database_pool_size_values'
-  ['--database.pool.mode']='_rig_rig_deploy_database_pool_mode_values'
+  ['--format']='_rig_rig_deploy_format_5Fvalues'
+  ['--tag']='_rig_rig_deploy_tag_5Fvalues'
+  ['-t']='_rig_rig_deploy_tag_5Fvalues'
+  ['--replicas']='_rig_rig_deploy_replicas_5Fvalues'
+  ['--level']='_rig_rig_deploy_level_5Fvalues'
+  ['--token']='_rig_rig_deploy_token_5Fvalues'
+  ['-k']='_rig_rig_deploy_token_5Fvalues'
+  ['--host']='_rig_rig_deploy_host_5Fvalues'
+  ['--port']='_rig_rig_deploy_port_5Fvalues'
+  ['--log']='_rig_rig_deploy_log_5Fvalues'
+  ['--report']='_rig_rig_deploy_report_5Fvalues'
+  ['--database.dsn']='_rig_rig_deploy_database_2Edsn_5Fvalues'
+  ['--database.pool.size']='_rig_rig_deploy_database_2Epool_2Esize_5Fvalues'
+  ['--database.pool.mode']='_rig_rig_deploy_database_2Epool_2Emode_5Fvalues'
 )
 
 _rig_rig_deploy_completion() {
@@ -156,30 +156,30 @@ _rig_rig_deploy_completion() {
 
   case "$current" in
     --format=*)
-      _mamba_filter_option '--format' "$current" "${_rig_rig_deploy_format_values[@]}"
+      _mamba_filter_option '--format' "$current" "${_rig_rig_deploy_format_5Fvalues[@]}"
       return
       ;;
     --level=*)
-      _mamba_filter_option '--level' "$current" "${_rig_rig_deploy_level_values[@]}"
+      _mamba_filter_option '--level' "$current" "${_rig_rig_deploy_level_5Fvalues[@]}"
       return
       ;;
     --database.pool.mode=*)
-      _mamba_filter_option '--database.pool.mode' "$current" "${_rig_rig_deploy_database_pool_mode_values[@]}"
+      _mamba_filter_option '--database.pool.mode' "$current" "${_rig_rig_deploy_database_2Epool_2Emode_5Fvalues[@]}"
       return
       ;;
   esac
 
   case "$previous" in
     --format)
-      _mamba_filter "$current" "${_rig_rig_deploy_format_values[@]}"
+      _mamba_filter "$current" "${_rig_rig_deploy_format_5Fvalues[@]}"
       return
       ;;
     --level)
-      _mamba_filter "$current" "${_rig_rig_deploy_level_values[@]}"
+      _mamba_filter "$current" "${_rig_rig_deploy_level_5Fvalues[@]}"
       return
       ;;
     --database.pool.mode)
-      _mamba_filter "$current" "${_rig_rig_deploy_database_pool_mode_values[@]}"
+      _mamba_filter "$current" "${_rig_rig_deploy_database_2Epool_2Emode_5Fvalues[@]}"
       return
       ;;
   esac

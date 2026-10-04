@@ -7,14 +7,6 @@
  To show a completion menu instead of cycling candidates:
  Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 #>
-$script:MambaRigNativeCommands = @{
-    'root' = 'root'
-    'rig' = 'rig'
-    'deploy' = 'deploy'
-    'ship' = 'deploy'
-    'status' = 'status'
-}
-
 $script:MambaRigInputs = @{}
 $script:MambaRigChildren = @{}
 $script:MambaRigPositionalSlots = @{}
@@ -26,7 +18,7 @@ $script:MambaRigInputs['root'] = @(
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     )
 $script:MambaRigChildren['root'] = @(
-    [PSCustomObject]@{ Name = 'rig'; Description = 'Completion fixture.' }
+    [PSCustomObject]@{ Name = 'rig'; Canonical = 'rig'; Description = 'Completion fixture.' }
     )
 $script:MambaRigPositionalSlots['root'] = @{}
 $script:MambaRigInputs['root.rig'] = @(
@@ -34,9 +26,9 @@ $script:MambaRigInputs['root.rig'] = @(
     [PSCustomObject]@{ Spelling = '-h'; Description = 'Show this help message.'; IsFlag = $true; IsCount = $false; IsRepeatable = $false; IsAccessor = $false; IsHelp = $true }
     )
 $script:MambaRigChildren['root.rig'] = @(
-    [PSCustomObject]@{ Name = 'deploy'; Description = 'Deploy a build.' }
-    [PSCustomObject]@{ Name = 'ship'; Description = 'Alias for deploy. Deploy a build.' }
-    [PSCustomObject]@{ Name = 'status'; Description = 'Report status.' }
+    [PSCustomObject]@{ Name = 'deploy'; Canonical = 'deploy'; Description = 'Deploy a build.' }
+    [PSCustomObject]@{ Name = 'ship'; Canonical = 'deploy'; Description = 'Alias for deploy. Deploy a build.' }
+    [PSCustomObject]@{ Name = 'status'; Canonical = 'status'; Description = 'Report status.' }
     )
 $script:MambaRigPositionalSlots['root.rig'] = @{}
 $script:MambaRigInputs['root.rig.deploy'] = @(
@@ -152,7 +144,7 @@ function Resolve-MambaRigState {
         $canonical = $null
         foreach ($child in $children) {
             if ($child.Name -ceq $tokenText) {
-                $canonical = $script:MambaRigNativeCommands[$child.Name]
+                $canonical = $child.Canonical
                 break
             }
         }
