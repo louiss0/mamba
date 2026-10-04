@@ -58,11 +58,14 @@ jobs:
       # generator writes. Windows PowerShell's own parser is the strictest of
       # these checks and is the one that caught duplicate command names, so the
       # matrix has to actually reach a Windows runner for it to mean anything.
-      - name: Install the shells this runner lacks
+      - name: Install zsh and fish on Linux
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh fish
+      - name: Install fish on macOS
+        if: runner.os == 'macOS'
+        run: brew install fish
       - name: Drive a real bash completion
         if: runner.os != 'Windows'
         run: dart test test/completion_shell_test.dart
