@@ -6,6 +6,11 @@ description: Generate Bash, Zsh, Fish, PowerShell, and Carapace completions
 Mamba converts the same validated registry used for parsing and help into
 completion artifacts for Bash, Zsh, Fish, PowerShell, and Carapace.
 
+The Bash artifact needs **bash 4 or newer**: it uses associative arrays to keep
+command names scoped to their parent. macOS still ships bash 3.2 as
+`/bin/bash`, so a macOS user should install a current bash and source the
+artifact from it. Every other target runs on the shell its name suggests.
+
 ## Completion converters
 
 Each converter accepts a `RegistryRecord` and returns the generated artifact:

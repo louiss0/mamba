@@ -7,7 +7,18 @@ import 'fixtures.dart';
 import 'shell_support.dart';
 
 /// Whether a generated completion can be driven for real here.
-final bool _canDriveBash = runningInCi && shellOnPath('bash') != null;
+///
+/// The generated Bash completion needs bash 4 for associative arrays, and
+/// macOS still ships bash 3.2 as `/bin/bash`, so the version is checked rather
+/// than assumed from the shell existing.
+final _bashMajor = bashMajorVersion();
+final String? _skipReason = !runningInCi
+    ? 'needs CI'
+    : _bashMajor == null
+    ? 'needs a bash shell'
+    : _bashMajor < 4
+    ? 'needs bash 4 or newer, found $_bashMajor'
+    : null;
 
 final _first = BooleanFlag('first');
 final _second = BooleanFlag('second');
@@ -77,7 +88,7 @@ void main() {
           reason: "completing $command offered another command's flags",
         );
       }
-    }, skip: _canDriveBash ? false : 'needs CI and a bash shell');
+    }, skip: _skipReason);
 
     test('offers stepped numbers the parser accepts', () {
       final registry = CommandRegistry.create(
@@ -99,6 +110,6 @@ void main() {
         isNot(contains('1.0')),
         reason: 'the parser rejects 1.0 for this step',
       );
-    }, skip: _canDriveBash ? false : 'needs CI and a bash shell');
+    }, skip: _skipReason);
   });
 }
