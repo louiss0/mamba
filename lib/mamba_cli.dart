@@ -609,6 +609,10 @@ final class ScaffoldTestCommand extends Command {
     }
 
     final className = '${name[0].toUpperCase()}${name.substring(1)}Command';
+    // Two tests, both of which hold whatever the command does: one that asks
+    // for help, and one that supplies an input the command cannot accept. A
+    // smoke test that only asks for help can pass without the command ever
+    // running, so the generated guidance asks for a real invocation too.
     final suite =
         "  group('$className', () {\n"
         "    test('shows help', () async {\n"
@@ -616,6 +620,13 @@ final class ScaffoldTestCommand extends Command {
         '        $className(),\n'
         "      ]).fake().execute(['$name', '--help']);\n\n"
         '      expect(result, isA<MambaSuccessResult>());\n'
+        '    });\n'
+        '\n'
+        "    test('rejects an input it does not declare', () async {\n"
+        "      final result = await Executor('test', 'Test.', '1.0.0', [\n"
+        '        $className(),\n'
+        "      ]).fake().execute(['$name', '--not-an-input']);\n\n"
+        '      expect(result, isA<MambaFailureResult>());\n'
         '    });\n'
         '  });\n';
 
@@ -643,6 +654,9 @@ final class ScaffoldTestCommand extends Command {
       testFile.writeAsStringSync(
         '${directives.map((directive) => "import '$directive';").join('\n')}'
         '\n\n'
+        '// A floor, not coverage: these two tests hold for any command. Add a\n'
+        '// valid invocation with observable output or effects, and a case for\n'
+        '// each way this command is meant to reject an invocation.\n'
         'void main() {\n'
         '$suite}\n',
       );

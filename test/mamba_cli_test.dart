@@ -583,6 +583,9 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       allOf(
         contains("import 'package:demo/greet.dart';"),
         contains("group('GreetCommand'"),
+        contains('A floor, not coverage'),
+        contains("test('rejects an input it does not declare'"),
+        contains('isA<MambaFailureResult>()'),
       ),
     );
   });
@@ -1000,6 +1003,10 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
 
 /// The generated Dart files `dart format` would rewrite, which is every one of
 /// them when a template's layout does not already match the formatter.
+///
+/// The formatter's exit status is checked first: a `dart format` that fails for
+/// any other reason prints no `Changed` lines, and reading that silence as
+/// "everything is formatted" is a false green.
 List<String> _unformattedPaths(Directory projectDirectory) {
   final result = Process.runSync('dart', [
     'format',
@@ -1009,6 +1016,12 @@ List<String> _unformattedPaths(Directory projectDirectory) {
     'lib',
     'test',
   ], workingDirectory: projectDirectory.path);
+
+  expect(
+    result.exitCode,
+    anyOf(0, 1),
+    reason: 'dart format failed: ${result.stderr}',
+  );
 
   return RegExp(r'Changed (\S+)')
       .allMatches(result.stdout.toString())

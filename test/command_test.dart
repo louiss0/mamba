@@ -266,13 +266,38 @@ void main() {
 
       group('with no path', () {
         for (final shell in ShellCompletion.values) {
-          test('writes ${shell.name} completions to the global path', () {
-            completionCommand.createdPaths.clear();
-            completionCommand.run(createCompletionInputs(shell), const []);
+          test('hands the callback an empty path for ${shell.name}', () {
+            final createdContents = <String>[];
+            final command = TestCompletionCommand([], createdContents);
 
-            expect(completionCommand.createdPaths, ['']);
+            command.run(createCompletionInputs(shell), const []);
+
+            expect(command.createdPaths, ['']);
+            expect(createdContents.single, isNotEmpty);
           });
         }
+
+        test('rejects a missing destination when no writer is supplied', () {
+          final command = CompletionCommand.preset(createFile: null);
+          command.registryRecord = CommandRegistry.create(
+            TestCompletionCommand.commandName,
+            'A test command.',
+          ).toRecord();
+
+          expect(
+            () => command.run(
+              createCompletionInputs(ShellCompletion.bash),
+              const [],
+            ),
+            throwsA(
+              isA<MambaException>().having(
+                (error) => error.message,
+                'message',
+                contains('destination path is required'),
+              ),
+            ),
+          );
+        });
       });
 
       group('with an invalid path', () {
