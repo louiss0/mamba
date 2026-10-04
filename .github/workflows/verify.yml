@@ -45,7 +45,7 @@ jobs:
           fi
 
   shells:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -56,15 +56,18 @@ jobs:
       - run: dart pub get
       # Every shell a generated artifact targets must at least accept what the
       # generator writes. Windows PowerShell's own parser is the strictest of
-      # these checks and is the one that caught duplicate command names.
+      # these checks and is the one that caught duplicate command names, so the
+      # matrix has to actually reach a Windows runner for it to mean anything.
       - name: Install the shells this runner lacks
+        if: runner.os == 'Linux'
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update
-            sudo apt-get install -y zsh fish
-          fi
-      - run: dart test test/completion_shell_test.dart
-      - run: dart test test/integrations_test.dart
+          sudo apt-get update
+          sudo apt-get install -y zsh fish
+      - name: Drive a real bash completion
+        if: runner.os != 'Windows'
+        run: dart test test/completion_shell_test.dart
+      - name: Check every script the local shell can parse
+        run: dart test test/integrations_test.dart
       - name: Parse the checked-in Bash artifact
         if: runner.os != 'Windows'
         run: bash -n fixtures/rig/completions/rig.bash

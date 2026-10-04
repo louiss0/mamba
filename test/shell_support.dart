@@ -7,8 +7,9 @@ import 'dart:io';
 /// where the runner is known. One place decides what is available so two suites
 /// cannot disagree about it.
 String? shellOnPath(String candidate) {
+  final lookup = Platform.isWindows ? 'where.exe' : 'which';
   try {
-    final result = Process.runSync('where.exe', [candidate]);
+    final result = Process.runSync(lookup, [candidate]);
     return result.exitCode == 0 ? candidate : null;
   } on ProcessException {
     return null;
