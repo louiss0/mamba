@@ -12,13 +12,12 @@ import 'shell_support.dart';
 /// macOS still ships bash 3.2 as `/bin/bash`, so the version is checked rather
 /// than assumed from the shell existing.
 final _bashMajor = bashMajorVersion();
-final String? _skipReason = !runningInCi
-    ? 'needs CI'
-    : _bashMajor == null
-    ? 'needs a bash shell'
-    : _bashMajor < 4
-    ? 'needs bash 4 or newer, found $_bashMajor'
-    : null;
+final String? _skipReason = switch ((runningInCi, _bashMajor)) {
+  (false, _) => 'needs CI',
+  (_, null) => 'needs a bash shell',
+  (_, final int major) when major < 4 => 'needs bash 4 or newer, found $major',
+  _ => null,
+};
 
 final _first = BooleanFlag('first');
 final _second = BooleanFlag('second');
