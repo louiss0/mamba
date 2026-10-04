@@ -132,7 +132,12 @@ final class Parser {
           continue;
         }
         for (final letter in short.split('')) {
-          if (letter == 'h') {
+          if (letter == MambaBuiltInFlags.help.short) {
+            // A group does not publish the built-in help flag to its
+            // descendants, so the clustered path cannot find it by lookup. The
+            // handle is recorded here so a clustered `-h` reads the same as a
+            // lone one.
+            values[MambaBuiltInFlags.help] = true;
             help = true;
             continue;
           }

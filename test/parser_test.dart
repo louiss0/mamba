@@ -642,6 +642,17 @@ void main() {
       },
     );
 
+    test('records the help handle for a clustered short flag', () {
+      final xray = BooleanFlag('xray', short: 'x');
+
+      final lone = parser(flags: [xray]).parse(['-h']);
+      final clustered = parser(flags: [xray]).parse(['-xh']);
+
+      expect(lone.$2.valueOf(MambaBuiltInFlags.help), isTrue);
+      expect(clustered.help, isTrue);
+      expect(clustered.$2.valueOf(MambaBuiltInFlags.help), isTrue);
+    });
+
     test('rejects unknown and valued long flags', () {
       final verbose = BooleanFlag('verbose', short: 'v');
       final subject = parser(flags: [verbose]);
