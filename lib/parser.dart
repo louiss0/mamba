@@ -445,7 +445,6 @@ final class Parser {
           map[option.name] = mapAccessor(option);
         } else if (values.containsKey(option)) {
           map[option.name] = values[option];
-          values.remove(option);
         }
       }
       return Map.unmodifiable(map);
@@ -716,7 +715,22 @@ final class Parser {
     yield* registry.discretionaryPositionals;
     yield* registry.pairedOptionGroups;
     yield* registry.selectedOptions;
-    known.addAll(registry.applicableAccessors);
+    void collectAccessors(AccessorListOption root) {
+      known.add(root);
+      for (final option in root.options) {
+        if (option is AccessorListOption) {
+          collectAccessors(option);
+        } else {
+          // A leaf is a declaration the reader holds, so it has to answer
+          // `valueOf` on its own as well as through the map its root builds.
+          known.add(option);
+        }
+      }
+    }
+
+    for (final accessor in registry.applicableAccessors) {
+      collectAccessors(accessor);
+    }
     yield* known;
   }
 

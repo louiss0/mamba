@@ -1021,6 +1021,17 @@ void main() {
       );
     });
 
+    test('answers valueOf for a nested leaf as well as its root', () {
+      final leaf = AccessorStringOption('dsn');
+      final root = AccessorListOption('database', [leaf]);
+      final inputs =
+          parser(accessors: [root]).parse(['--database.dsn', 'pg://x']).$2;
+
+      expect(inputs.valueOf(root), {'dsn': 'pg://x'});
+      expect(inputs.valueOf(leaf), 'pg://x');
+      expect(inputs.contains(leaf), isTrue);
+    });
+
     test('returns defaulted accessor leaves', () {
       final format = AccessorChoiceOption.withDefault(
         'format',
