@@ -223,10 +223,10 @@ final class Parser {
       (input is RegExpValidated &&
           _matches((input as RegExpValidated).regex, value)) ||
       ((input is NumericRangeValidated<int> || input is AccessorIntOption) &&
-          _matches(RegExp(r'[+-]?\d+'), value)) ||
+          _matches(AccessorIntOption.syntax, value)) ||
       ((input is NumericRangeValidated<double> ||
               input is AccessorDoubleOption) &&
-          _matches(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value));
+          _matches(AccessorDoubleOption.syntax, value));
   void _put(Map<Object, Object?> values, InputDefinition input, Object value) {
     void appendPairValue<T>(RepeatablePairOption<T> option) {
       final existing = values[option] as List<T>?;
@@ -288,7 +288,7 @@ final class Parser {
 
   double _double(InputDefinition input, String value) {
     final parsed = double.tryParse(value);
-    if (parsed == null || !_matches(RegExp(r'[+-]?(?:\d+\.\d+|\d+)'), value)) {
+    if (parsed == null || !_matches(AccessorDoubleOption.syntax, value)) {
       throw MambaParseException(
         'Invalid double value: $value must be a signed decimal number',
       );

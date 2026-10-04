@@ -1375,6 +1375,12 @@ final class _DefaultedAccessorStringOption
 final class AccessorIntOption extends AccessorPrimitiveOption<int?>
     implements OptionalInput<int> {
   const new(super.name, {super.description});
+
+  /// The syntax [Parser] accepts for an int accessor, without a range to check
+  /// against. A field rather than a getter: the pattern is fixed, and building
+  /// it per access would allocate on every parse.
+  static final RegExp syntax = RegExp(r'[+-]?\d+');
+
   static RequiredAccessorOption<int> required(
     String name, {
     String? description,
@@ -1388,7 +1394,7 @@ final class AccessorIntOption extends AccessorPrimitiveOption<int?>
     defaultValue: defaultValue,
     description: description,
   );
-  RegExp get regex => RegExp(r'[+-]?\d+');
+  RegExp get regex => AccessorIntOption.syntax;
 }
 
 final class _RequiredAccessorIntOption extends RequiredAccessorOption<int>
@@ -1415,6 +1421,11 @@ final class _DefaultedAccessorIntOption extends DefaultedAccessorOption<int>
 final class AccessorDoubleOption extends AccessorPrimitiveOption<double?>
     implements OptionalInput<double> {
   const new(super.name, {super.description});
+
+  /// The syntax [Parser] accepts for a double accessor, without a range or step
+  /// to check against.
+  static final RegExp syntax = RegExp(r'[+-]?(?:\d+\.\d+|\d+)');
+
   static RequiredAccessorOption<double> required(
     String name, {
     String? description,
@@ -1428,7 +1439,7 @@ final class AccessorDoubleOption extends AccessorPrimitiveOption<double?>
     defaultValue: defaultValue,
     description: description,
   );
-  RegExp get regex => RegExp(r'[+-]?(?:\d+\.\d+|\d+)');
+  RegExp get regex => AccessorDoubleOption.syntax;
 }
 
 final class _RequiredAccessorDoubleOption extends RequiredAccessorOption<double>
