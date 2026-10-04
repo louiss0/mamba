@@ -21,4 +21,27 @@ abstract final class MambaBuiltInFlags {
     short: 'V',
     description: 'Show the application version.',
   );
+
+  /// The spellings Mamba always reads itself rather than as a declaration.
+  ///
+  /// Help and version are the only reserved inputs, and a declaration may not
+  /// claim either spelling. Opt-in built-ins such as [dryRun] are ordinary
+  /// declarations and are not control tokens.
+  static bool isHelp(String token) =>
+      token == '--${help.name}' || token == '-${help.short}';
+
+  static bool isVersion(String token) =>
+      token == '--${version.name}' || token == '-${version.short}';
+
+  static bool isControl(String token) =>
+      isHelp(token) || isVersion(token) || _clusteredControl(token);
+
+  /// Whether a clustered short group such as `-xh` carries a control letter.
+  static bool _clusteredControl(String token) {
+    if (!token.startsWith('-') || token.startsWith('--') || token == '-') {
+      return false;
+    }
+    final letters = token.substring(1);
+    return letters.contains(help.short!) || letters.contains(version.short!);
+  }
 }

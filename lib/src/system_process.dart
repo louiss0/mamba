@@ -15,9 +15,9 @@ final class SystemMambaProcess {
     }
   }
 
-  void writeOutput(String message) => stdout.writeln(message);
+  void writeOutput(String message) => stdout.write(message);
 
-  void writeError(String message) => stderr.writeln(message);
+  void writeError(String message) => stderr.write(message);
 
   set processExitCode(int value) => exitCode = value;
 }

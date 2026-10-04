@@ -147,6 +147,40 @@ final class BareGroup extends GroupCommand {
   String get shortDescription => 'Groups commands.';
 }
 
+/// Records the command path it was reached by, so a test can name the command
+/// that actually ran.
+final class PathRecordingCommand extends Command {
+  new(this.path, this.commandName);
+
+  final List<String> path;
+  final String commandName;
+
+  @override
+  String get name => commandName;
+
+  @override
+  String get shortDescription => 'Records its command path.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    path.add(name);
+    return name;
+  }
+}
+
+final class PathRecordingGroup extends GroupCommand {
+  new(this.path, super.commands, this.groupName);
+
+  final List<String> path;
+  final String groupName;
+
+  @override
+  String get name => groupName;
+
+  @override
+  String get shortDescription => 'Groups commands.';
+}
+
 final class DefaultingGroup extends GroupCommand {
   new(super.commands, {required super.defaultSubCommandPath});
 
@@ -643,6 +677,84 @@ void main() {
       expect(events, isEmpty);
     },
   );
+
+  group('command paths that repeat a name', () {
+    test('runs a child command named after the application', () async {
+      final path = <String>[];
+      final executor = Executor('tool', 'Tool.', '1.0.0', [
+        PathRecordingCommand(path, 'tool'),
+      ]).fake();
+
+      for (final args in [
+        ['tool'],
+      ]) {
+        final result = await executor.execute(List<String>.of(args));
+
+        expect(result, isA<MambaSuccessResult>(), reason: 'invocation $args');
+        expect(path, ['tool'], reason: 'invocation $args');
+        path.clear();
+      }
+    });
+
+    test('rejects a repeated name once the command has been named', () async {
+      final path = <String>[];
+      final executor = Executor('tool', 'Tool.', '1.0.0', [
+        PathRecordingCommand(path, 'tool'),
+      ]).fake();
+
+      final result = await executor.execute(['tool', 'tool']);
+
+      expect(result, isA<MambaFailureResult>());
+      expect(path, isEmpty);
+    });
+
+    test('rejects a token that names nothing after the leaf', () async {
+      final path = <String>[];
+      final executor = Executor('tool', 'Tool.', '1.0.0', [
+        PathRecordingCommand(path, 'tool'),
+      ]).fake();
+
+      final result = await executor.execute(['tool', 'tool', 'tool']);
+
+      expect(result, isA<MambaFailureResult>());
+      expect(path, isEmpty);
+    });
+
+    test('runs a leaf named after an ancestor', () async {
+      final path = <String>[];
+      final executor = Executor('tool', 'Tool.', '1.0.0', [
+        PathRecordingGroup(path, [PathRecordingCommand(path, 'tool')], 'tool'),
+      ]).fake();
+
+      final result = await executor.execute(['tool', 'tool']);
+
+      expect(result, isA<MambaSuccessResult>());
+      expect(path, ['tool']);
+    });
+
+    test(
+      'rejects a leading application name with the rule that explains it',
+      () async {
+        final path = <String>[];
+        final executor = Executor('tool', 'Tool.', '1.0.0', [
+          PathRecordingCommand(path, 'run'),
+        ]).fake();
+
+        final result = await executor.execute(['tool', 'run']);
+
+        expect(result, isA<MambaFailureResult>());
+        expect(path, isEmpty);
+        expect(
+          result,
+          isA<MambaFailureResult>().having(
+            (failure) => failure.errors.single.exception.message,
+            'message',
+            contains('never begins with the application name'),
+          ),
+        );
+      },
+    );
+  });
 
   test('does not treat a default input value as an explicit command', () async {
     final executor = Executor(

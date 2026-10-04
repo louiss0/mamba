@@ -27,7 +27,7 @@ void main() {
     final result = await _execute(['input'], standardInput: 'hello');
 
     expect(result.exitCode, 0);
-    expect(result.output, 'hello\n');
+    expect(result.output, 'hello');
     expect(result.errors, isEmpty);
   });
 
@@ -36,7 +36,7 @@ void main() {
 
     expect(result.exitCode, 7);
     expect(result.output, isEmpty);
-    expect(result.errors, 'process failed\n');
+    expect(result.errors, 'process failed');
   });
 
   test('production execution leaves successful null output silent', () async {
@@ -45,5 +45,24 @@ void main() {
     expect(result.exitCode, 0);
     expect(result.output, isEmpty);
     expect(result.errors, isEmpty);
+  });
+
+  test(
+    'production execution writes the exact bytes the result carries',
+    () async {
+      final result = await _execute(['echo']);
+
+      expect(result.exitCode, 0);
+      expect(result.output, 'line one\nline two');
+      expect(result.errors, isEmpty);
+    },
+  );
+
+  test('production execution writes error bytes without a newline', () async {
+    final result = await _execute(['error-text']);
+
+    expect(result.exitCode, 9);
+    expect(result.output, isEmpty);
+    expect(result.errors, 'error text');
   });
 }

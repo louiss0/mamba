@@ -218,6 +218,13 @@ final class MambaCommandNotFoundException extends MambaException {
       );
 }
 
+final class MambaApplicationNameException extends MambaException {
+  new(String name)
+    : super(
+        'A command path never begins with the application name. "$name" is the application, not a command under it.',
+      );
+}
+
 final class CommandRegistry {
   new _({
     required this.name,
@@ -423,10 +430,6 @@ final class CommandRegistry {
         index += ownedLength - 1;
         continue;
       }
-      if (path.isEmpty && token == name) {
-        indices.add(index);
-        continue;
-      }
       final child = registry.commandRegistries
           .where(
             (candidate) =>
@@ -438,11 +441,15 @@ final class CommandRegistry {
         registry = child;
         path.add(child);
         indices.add(index);
+        continue;
+      }
+      if (path.isEmpty && token == name) {
+        throw MambaApplicationNameException(name);
       }
     }
     return CommandResolution(
       registry: registry,
-      path: List.unmodifiable([name, ...path.map((item) => item.name)]),
+      path: List.unmodifiable(path.map((item) => item.name)),
       tokenIndices: Set.unmodifiable(indices),
     );
   }
@@ -454,8 +461,16 @@ final class CommandRegistry {
     if (path.isEmpty || path.first != name) {
       throw ArgumentError.value(path, 'path', 'must start with $name');
     }
+    return descendant(path.skip(1));
+  }
+
+  /// The registry [path] names below this one, empty path being this registry.
+  ///
+  /// A command path never begins with the application name, so this is the
+  /// shape an invocation resolves to.
+  CommandRegistry descendant(Iterable<String> path) {
     var registry = this;
-    for (final segment in path.skip(1)) {
+    for (final segment in path) {
       registry = registry.commandRegistries.singleWhere(
         (child) => child.name == segment,
       );
@@ -1043,10 +1058,7 @@ final class CommandRegistry {
     ]) {
       validateChoices(input);
     }
-    for (final positional in [
-      ...?mandatory,
-      ...?discretionary,
-    ]) {
+    for (final positional in [...?mandatory, ...?discretionary]) {
       if (positional is! RepeatedPositionalDefinition ||
           positional is! DefaultValue) {
         continue;

@@ -2036,7 +2036,7 @@ void main() {
         );
 
         final commandHelp = Parser(registry).parse(['config', '--help']);
-        expect(commandHelp.$1, ['tool', 'config']);
+        expect(commandHelp.$1, ['config']);
         expect(commandHelp.$2.valueOf(verbose), 0);
         expect(commandHelp.$3, isEmpty);
         expect(commandHelp.help, isTrue);
@@ -2044,7 +2044,7 @@ void main() {
 
         final bundledHelp = Parser(registry)
             .parse(['--verbose', 'config', '-h']);
-        expect(bundledHelp.$1, ['tool', 'config']);
+        expect(bundledHelp.$1, ['config']);
         expect(bundledHelp.$2.valueOf(verbose), 1);
         expect(bundledHelp.$3, isEmpty);
       });
@@ -2125,7 +2125,7 @@ void main() {
       );
 
       final inputs = Parser(registry)
-          .parse(['tool', 'config', '--no-color', 'get', '--retries', '2'])
+          .parse(['config', '--no-color', 'get', '--retries', '2'])
           .$2;
 
       expect(inputs.valueOf(inheritedFlag), isFalse);
@@ -2877,9 +2877,37 @@ void main() {
       );
     });
 
-    test('rejects two applicable inputs answering to the same short spelling', () {
-      expect(
-        () => CommandRegistry.create(
+    test(
+      'rejects two applicable inputs answering to the same short spelling',
+      () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            commands: [
+              TestGroupCommand(
+                'group',
+                [
+                  TestCommand(
+                    'run',
+                    'Run command.',
+                    flags: [BooleanFlag('local', short: 'x')],
+                  ),
+                ],
+                'Group command.',
+                propagatedFlags: [BooleanFlag('inherited', short: 'x')],
+              ),
+            ],
+          ).commandRegistries.single.commandRegistries,
+          throwsA(isA<MambaRegistryError>()),
+        );
+      },
+    );
+
+    test(
+      'keeps a local declaration that overrides a propagated one by name',
+      () {
+        final registry = CommandRegistry.create(
           'tool',
           'Tool command.',
           commands: [
@@ -2889,49 +2917,27 @@ void main() {
                 TestCommand(
                   'run',
                   'Run command.',
-                  flags: [BooleanFlag('local', short: 'x')],
+                  flags: [BooleanFlag('inherited', short: 'l')],
                 ),
               ],
               'Group command.',
-              propagatedFlags: [BooleanFlag('inherited', short: 'x')],
+              propagatedFlags: [BooleanFlag('inherited', short: 'i')],
             ),
           ],
-        ).commandRegistries.single.commandRegistries,
-        throwsA(isA<MambaRegistryError>()),
-      );
-    });
+        ).commandRegistries.single.commandRegistries.single;
 
-    test('keeps a local declaration that overrides a propagated one by name', () {
-      final registry = CommandRegistry.create(
-        'tool',
-        'Tool command.',
-        commands: [
-          TestGroupCommand(
-            'group',
-            [
-              TestCommand(
-                'run',
-                'Run command.',
-                flags: [BooleanFlag('inherited', short: 'l')],
-              ),
-            ],
-            'Group command.',
-            propagatedFlags: [BooleanFlag('inherited', short: 'i')],
-          ),
-        ],
-      ).commandRegistries.single.commandRegistries.single;
-
-      expect(
-        registry.applicableFlags.where((flag) => flag.name == 'inherited'),
-        hasLength(1),
-      );
-      expect(
-        registry.applicableFlags
-            .singleWhere((flag) => flag.name == 'inherited')
-            .short,
-        'l',
-      );
-    });
+        expect(
+          registry.applicableFlags.where((flag) => flag.name == 'inherited'),
+          hasLength(1),
+        );
+        expect(
+          registry.applicableFlags
+              .singleWhere((flag) => flag.name == 'inherited')
+              .short,
+          'l',
+        );
+      },
+    );
 
     test('rejects invalid propagated input declarations', () {
       expect(

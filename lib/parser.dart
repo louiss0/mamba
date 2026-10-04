@@ -42,7 +42,7 @@ final class Parser {
     final commandPath = defaultPath ?? resolution.path;
     final registry = defaultPath == null
         ? resolution.registry
-        : _registry.registryForPath(defaultPath);
+        : _registry.descendant(defaultPath);
     final values = <Object, Object?>{};
     final positionals = <String>[];
     final trailing = <String>[];
@@ -63,12 +63,12 @@ final class Parser {
         trailing.addAll(tokens.skip(index + 1));
         break;
       }
-      if (token == '--help' || token == '-h') {
+      if (MambaBuiltInFlags.isHelp(token)) {
         values[MambaBuiltInFlags.help] = true;
         help = true;
         continue;
       }
-      if (token == '--version') {
+      if (MambaBuiltInFlags.isVersion(token)) {
         values[MambaBuiltInFlags.version] = true;
         version = true;
         continue;

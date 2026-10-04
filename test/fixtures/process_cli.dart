@@ -51,9 +51,35 @@ final class SilentCommand extends Command {
   String? run(ParsedInputs inputs, List<String> args) => null;
 }
 
-Future<void> main(List<String> args) => Executor(
-  'process-cli',
-  'Exercise process execution.',
-  '1.0.0',
-  [InputCommand(), FailureCommand(), SilentCommand()],
-).create().execute(args);
+final class EchoCommand extends Command {
+  @override
+  String get name => 'echo';
+
+  @override
+  String get shortDescription => 'Return two lines without a trailing newline.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'line one\nline two';
+}
+
+final class ErrorTextCommand extends Command {
+  @override
+  String get name => 'error-text';
+
+  @override
+  String get shortDescription => 'Fail with error text.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    throw MambaException('error text', exitCode: 9);
+  }
+}
+
+Future<void> main(List<String> args) =>
+    Executor('process-cli', 'Exercise process execution.', '1.0.0', [
+      InputCommand(),
+      FailureCommand(),
+      SilentCommand(),
+      EchoCommand(),
+      ErrorTextCommand(),
+    ]).create().execute(args);

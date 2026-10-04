@@ -212,7 +212,7 @@ final class _Execution {
               allowGroup: true,
             ) {
     _validateGroupDefaults(commands);
-    if (_defaultCommandPath != null) _effectivePath([_registry.name]);
+    if (_defaultCommandPath != null) _effectivePath(const []);
     _assignCompletion(commands, _registry.toRecord());
   }
   final HelpFormatter _help;
@@ -223,17 +223,24 @@ final class _Execution {
   final CommandRegistry _registry;
   final List<String>? _defaultCommandPath;
   Future<MambaExecutionResult> execute(List<String> args) async {
-    final explicit = _registry.resolveCommandPath(
-      args,
-      defaultTarget: _defaultTarget,
-    );
+    final CommandResolution explicit;
+    try {
+      explicit = _registry.resolveCommandPath(
+        args,
+        defaultTarget: _defaultTarget,
+      );
+    } on Exception catch (error, trace) {
+      return _failure(MambaExecutionPhase.parse, error, trace, [
+        _registry.name,
+      ]);
+    }
     final helpOrVersion = _requestsControlFlag(args, explicit);
     final selectedPath = helpOrVersion
         ? explicit.path
         : _effectivePath(explicit.path);
     final registry = helpOrVersion
         ? explicit.registry
-        : _registry.registryForPath(selectedPath);
+        : _registry.descendant(selectedPath);
     ParsedArguments parsed;
     try {
       parsed = Parser(
@@ -378,14 +385,7 @@ final class _Execution {
             scope;
         continue;
       }
-      if (token == '--help' ||
-          token == '--version' ||
-          (token.startsWith('-') &&
-              !token.startsWith('--') &&
-              (token.substring(1).contains('h') ||
-                  token.substring(1).contains('V')))) {
-        return true;
-      }
+      if (MambaBuiltInFlags.isControl(token)) return true;
       final length =
           scope.registeredInputTokenLength(token) ??
           _defaultTarget(scope).registeredInputTokenLength(token);
@@ -395,7 +395,11 @@ final class _Execution {
   }
 
   CommandRegistry _defaultTarget(CommandRegistry scope) =>
-      _registry.registryForPath(_effectivePath(scope.fullPath));
+      _registry.descendant(_effectivePath(_relativePath(scope)));
+
+  /// [scope]'s path as an invocation names it: without the application name.
+  static List<String> _relativePath(CommandRegistry scope) =>
+      scope.parent == null ? const [] : scope.fullPath.skip(1).toList();
 
   List<String> _effectivePath(List<String> explicit) {
     final path = [...explicit];
@@ -416,7 +420,7 @@ final class _Execution {
         return path;
       }
       followedDefault = true;
-      final parent = _registry.registryForPath(path);
+      final parent = _registry.descendant(path);
       final canonical = <String>[];
       var current = parent;
       for (final segment in next) {
@@ -463,14 +467,13 @@ final class _Execution {
       return null;
     }
 
-    return visit(commands, [_registry.name])!;
+    return visit(commands, const []) ?? const [];
   }
 
   List<Command> _commandsForPath(List<String> path) {
     var children = commands;
     final selected = <Command>[];
     for (final name in path) {
-      if (name == _registry.name) continue;
       final command = children
           .where(
             (candidate) =>
