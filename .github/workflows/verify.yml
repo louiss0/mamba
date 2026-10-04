@@ -1,0 +1,93 @@
+name: Verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test --coverage=.dart_tool/coverage
+      - name: Collect coverage
+        run: |
+          dart run coverage:format_coverage \
+            --lcov \
+            --in=.dart_tool/coverage \
+            --out=.dart_tool/coverage.lcov \
+            --report-on=lib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .dart_tool/coverage.lcov
+
+  generated-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+      # A stale fixture is a defect in its own right: the checked-in
+      # completions are what users install.
+      - name: Fail when a completion artifact is stale
+        run: |
+          dart run tool/regenerate_fixtures.dart
+          if ! git diff --quiet -- fixtures/rig/completions; then
+            echo '::error::completion artifacts are stale, run dart run tool/regenerate_fixtures.dart'
+            git diff --stat -- fixtures/rig/completions
+            exit 1
+          fi
+
+  shells:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+      # Every shell a generated artifact targets must at least accept what the
+      # generator writes. Windows PowerShell's own parser is the strictest of
+      # these checks and is the one that caught duplicate command names.
+      - name: Install the shells this runner lacks
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y zsh fish
+          fi
+      - run: dart test test/completion_shell_test.dart
+      - run: dart test test/integrations_test.dart
+      - name: Parse the checked-in Bash artifact
+        if: runner.os != 'Windows'
+        run: bash -n fixtures/rig/completions/rig.bash
+      - name: Parse the checked-in zsh artifact
+        if: runner.os != 'Windows'
+        run: zsh -n fixtures/rig/completions/_rig
+      - name: Parse the checked-in fish artifact
+        if: runner.os != 'Windows'
+        run: fish --no-execute fixtures/rig/completions/rig.fish
+
+  docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install
+      - run: pnpm test
+      - run: pnpm build
