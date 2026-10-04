@@ -37,10 +37,11 @@ String _bashCompletionOutput(
   // follows drives it. Two files would make a missing write look like a shell
   // that cannot find its completion.
   final harness =
-      'echo "handler=[\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\')]" >&2\n'
+      'handler=\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\')\n'
+      'echo "handler=[\$handler]" >&2\n'
       'COMP_WORDS=(${words.map((word) => "'$word'").join(' ')})\n'
       'COMP_CWORD=${words.length - 1}\n'
-      '"\$(complete -p $command | sed -E \'s/.* -F ([^ ]+) .*/\\1/\'| head -1)"\n'
+      '"\$handler"\n'
       'echo "reply=[\${COMPREPLY[*]}]" >&2\n'
       'printf \'%s\\n\' "\${COMPREPLY[@]}"\n';
   final harnessFile = File('${directory.path}/completion.sh')
@@ -110,5 +111,48 @@ void main() {
         reason: 'the parser rejects 1.0 for this step',
       );
     }, skip: _skipReason);
+
+    test('stops a shell that cannot load the artifact', () {
+      final script = ToBashCompletionConverter(
+        CommandRegistry.create(
+          'probe',
+          'Collision probe.',
+          commands: [TestCommand('run', 'Run it.')],
+        ).toRecord(),
+      ).convert();
+
+      final result = _runAsOldBash(script);
+
+      expect(
+        result.stderr,
+        contains('probe: completion requires bash 4 or newer'),
+      );
+      expect(
+        result.stderr,
+        isNot(contains('declare')),
+        reason:
+            'the guard has to stop the script before the associative arrays',
+      );
+      expect(result.stdout, isEmpty);
+    }, skip: _skipReason);
   });
+}
+
+/// Runs [script] as though the shell were older than Mamba supports.
+///
+/// The guard reads `BASH_VERSINFO`, which a shell will not let a test
+/// overwrite, so the version in the guard is relaxed instead. That exercises
+/// the path the guard exists for — the message, and the script stopping before
+/// anything an old bash rejects — without needing an old bash.
+({String stdout, String stderr}) _runAsOldBash(String script) {
+  final directory = Directory.systemTemp.createTempSync('mamba_oldbash_');
+  final file = File('${directory.path}/completion.sh')
+    ..writeAsStringSync(script.replaceFirst('< 4', '< 99'));
+  try {
+    final result = Process.runSync('bash', [file.path]);
+    printOnFailure('old-bash stderr:\n${result.stderr}');
+    return (stdout: '${result.stdout}', stderr: '${result.stderr}');
+  } finally {
+    directory.deleteSync(recursive: true);
+  }
 }

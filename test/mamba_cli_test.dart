@@ -591,6 +591,85 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test(
+    'the generated suite type-checks and passes against its own package',
+    () async {
+      final directory = tempDirectory();
+      // A usable pubspec, because the generated suite is run as a real Dart
+      // test and the runner reads the environment constraint of the package it
+      // finds there.
+      File('${directory.path}/pubspec.yaml').writeAsStringSync(
+        'name: demo\n'
+        'environment:\n'
+        '  sdk: ^3.13.0\n'
+        'dependencies:\n'
+        '  mamba: any\n'
+        'dev_dependencies:\n'
+        '  test: any\n',
+      );
+      // The generated project declares `mamba: any`, which would resolve to
+      // the published package and test the suite against code that is not this
+      // one. An override points it here instead, and `--offline` keeps the
+      // check hermetic because everything it needs is already in the cache.
+      File('${directory.path}/pubspec_overrides.yaml').writeAsStringSync(
+        'dependency_overrides:\n'
+        '  mamba:\n'
+        '    path: ${_packageRoot().path}\n',
+      );
+      final result = await Executor('tool', 'Tool.', '1.0.0', [
+        ScaffoldCommand(directory, sourceFormatter: sourceFormatter),
+      ]).fake().execute(['command', 'greet', '--test']);
+
+      expect(result.exitCode, 0);
+      final install = Process.runSync('dart', [
+        'pub',
+        'get',
+        '--offline',
+      ], workingDirectory: directory.path);
+      expect(
+        install.exitCode,
+        0,
+        reason:
+            'could not resolve the generated package:\n'
+            '${install.stdout}${install.stderr}',
+      );
+
+      final analysis = Process.runSync('dart', [
+        'analyze',
+        '${directory.path}/test/greet_test.dart',
+      ]);
+      expect(
+        analysis.exitCode,
+        0,
+        reason: 'generated suite does not analyze:\n${analysis.stdout}',
+      );
+
+      final run = Process.runSync('dart', [
+        'test',
+        '--reporter',
+        'expanded',
+        'test/greet_test.dart',
+      ], workingDirectory: directory.path);
+      expect(
+        run.exitCode,
+        0,
+        reason: 'generated suite does not pass:\n${run.stdout}${run.stderr}',
+      );
+      // Both generated tests must appear by name: a suite that silently ran
+      // nothing would still report that it passed.
+      for (final name in [
+        'shows help',
+        'rejects an input it does not declare',
+      ]) {
+        expect(
+          run.stdout,
+          contains(name),
+          reason: 'generated suite did not run "$name":\n${run.stdout}',
+        );
+      }
+    },
+  );
+
+  test(
     'scaffolding command leaves no command when its test cannot be created',
     () async {
       final directory = tempDirectory();
@@ -1027,4 +1106,18 @@ List<String> _unformattedPaths(Directory projectDirectory) {
       .allMatches(result.stdout.toString())
       .map((match) => match.group(1)!.replaceAll(r'\', '/'))
       .toList();
+}
+
+/// The checkout these tests run in, found by walking up from the working
+/// directory dart test runs in.
+Directory _packageRoot() {
+  var root = Directory.current.absolute;
+  while (!File('${root.path}/pubspec.yaml').existsSync()) {
+    final parent = root.parent;
+    if (parent.path == root.path) {
+      throw StateError('No pubspec above ${Directory.current.path}');
+    }
+    root = parent;
+  }
+  return root;
 }

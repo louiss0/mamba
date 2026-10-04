@@ -464,7 +464,7 @@ void main() {
           ).convert(),
           '--ratio',
         ),
-        allOf(contains('0.9'), isNot(contains('1.0'))),
+        unorderedEquals(<String>['0.0', '0.3', '0.6', '0.9']),
       );
       expect(
         _bashCandidatesFor(
@@ -477,7 +477,7 @@ void main() {
           ).convert(),
           '--fine',
         ),
-        allOf(contains('0.3'), isNot(contains('0.4'))),
+        unorderedEquals(<String>['0.0', '0.1', '0.2', '0.3']),
       );
     });
 
