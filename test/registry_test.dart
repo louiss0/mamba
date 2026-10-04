@@ -11,10 +11,6 @@ import 'fixtures.dart';
 String stripAnsi(String value) =>
     value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
 
-enum VariantChoice { one }
-
-enum _Format { json, yaml }
-
 enum DeploymentFormat { yaml, json }
 
 /// Expected metadata for a flag exported by a registry.
@@ -503,14 +499,14 @@ void main() {
                 options: [
                   ChoiceOption.withDefault(
                     'format',
-                    choices: _Format.values,
-                    defaultValue: _Format.json,
+                    choices: DeploymentFormat.values,
+                    defaultValue: DeploymentFormat.json,
                   ),
                 ],
                 mandatoryPositionals: [
-                  ChoicePositional('source', choices: _Format.values),
+                  ChoicePositional('source', choices: DeploymentFormat.values),
                 ],
-                variadic: ChoiceVariadic(choices: _Format.values),
+                variadic: ChoiceVariadic(choices: DeploymentFormat.values),
                 accessors: [
                   AccessorListOption('settings', [
                     AccessorStringOption('path'),
@@ -529,7 +525,7 @@ void main() {
           final direct = registry.commandRegistries.single.toMap();
           expect(child.aliases, ['r']);
           expect(child.options!.single.name, direct.options!.single.name);
-          expect(child.options!.single.choices, ['json', 'yaml']);
+          expect(child.options!.single.choices, ['yaml', 'json']);
           expect(child.options!.single.defaultValue, 'json');
           expect(
             child.positionals!.single.name,
@@ -561,7 +557,10 @@ void main() {
             'Tool command.',
             accessors: [
               AccessorListOption('server', [
-                AccessorChoiceOption<_Format>('format', choices: const []),
+                AccessorChoiceOption<DeploymentFormat>(
+                  'format',
+                  choices: const [],
+                ),
               ]),
             ],
           ),
