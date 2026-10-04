@@ -1027,11 +1027,10 @@ void invalid(ParsedInputs inputs) {
 
   group('ProcessedStandardInput', () {
     test('exposes character, UTF-8, and JSON representations', () {
-      final text = ProcessedStandardInput('hé'.codeUnits);
       final utf8Input = ProcessedStandardInput([104, 195, 169]);
       final json = ProcessedStandardInput('{"enabled":true}'.codeUnits);
 
-      expect(text.text, 'hé');
+      expect(utf8Input.text, 'hé');
       expect(utf8Input.utf8Text, 'hé');
       expect(json.json, {'enabled': true});
     });
