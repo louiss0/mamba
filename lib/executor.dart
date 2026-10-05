@@ -166,6 +166,11 @@ final class _CreateExecutor implements MambaExecutor<void> {
   new(this.execution, this.process);
   final _Execution execution;
   final system_process.SystemMambaProcess process;
+
+  // Everything below here runs in the process being created, so a parent VM
+  // cannot measure it. `test/system_process_test.dart` runs this path for real
+  // and asserts the bytes and the exit code.
+  // coverage:ignore-start
   @override
   Future<void> execute(List<String> args) async {
     final result = await execution.execute(args);
@@ -184,6 +189,7 @@ final class _CreateExecutor implements MambaExecutor<void> {
         process.processExitCode = code;
     }
   }
+  // coverage:ignore-end
 }
 
 final class _Execution {

@@ -3,6 +3,11 @@ import 'dart:io';
 import 'package:mamba/command.dart';
 
 final class SystemMambaProcess {
+  // This class only ever runs inside a child process: `dart test` measures the
+  // parent VM, and a subprocess is not measurable from here. The behaviour is
+  // covered end to end by `test/system_process_test.dart`, which runs a real
+  // process and asserts the bytes it writes.
+  // coverage:ignore-start
   Future<ProcessedStandardInput?> readStandardInput() async {
     try {
       if (stdioType(stdin) != StdioType.pipe) return null;
@@ -20,6 +25,7 @@ final class SystemMambaProcess {
   void writeError(String message) => stderr.write(message);
 
   set processExitCode(int value) => exitCode = value;
+  // coverage:ignore-end
 }
 
 bool isClosedPipeFileSystemException(FileSystemException error) {

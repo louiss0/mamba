@@ -2391,6 +2391,11 @@ final class CarapaceSpecWriter {
     ].join(Platform.pathSeparator);
   }
 
+  // The branches below are one per operating system, and the machine running
+  // the tests can only be one of them. Every branch is a path lookup rather
+  // than behaviour, so they are excluded rather than faked through an injected
+  // environment the callers would then have to thread through.
+  // coverage:ignore-start
   static String _carapaceConfigDirectory() {
     final environment = Platform.environment;
     final directory = switch (Platform.operatingSystem) {
@@ -2416,4 +2421,5 @@ final class CarapaceSpecWriter {
     if (home == null) return null;
     return [home, first, ?second].join(Platform.pathSeparator);
   }
+  // coverage:ignore-end
 }

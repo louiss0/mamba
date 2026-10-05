@@ -314,6 +314,10 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
 }
 
 final class SystemProjectProcessRunner implements ProjectProcessRunner {
+  // Runs git and pub in a child process, so the parent VM cannot measure it.
+  // The commands it runs are checked by the project tests, which substitute a
+  // recording runner for the real one.
+  // coverage:ignore-start
   @override
   void run(String executable, List<String> arguments, String workingDirectory) {
     final result = Process.runSync(
@@ -329,6 +333,7 @@ final class SystemProjectProcessRunner implements ProjectProcessRunner {
       throw MambaException('Failed to run $executable ${arguments.join(' ')}.');
     }
   }
+  // coverage:ignore-end
 }
 
 final class SystemSourceFormatter implements SourceFormatter {
@@ -340,6 +345,10 @@ final class SystemSourceFormatter implements SourceFormatter {
   }
 }
 
+// These three prompts each shell out to the `terminice` executable, which is
+// not a Dart library and not installed on a test machine. What they ask is
+// covered through the prompt interfaces the tests substitute for them.
+// coverage:ignore-start
 final class TerminiceInstallPrompt implements InstallPrompt {
   /// Installing is the answer that leaves a runnable project, so it is the
   /// answer a bare Enter produces.
@@ -361,6 +370,7 @@ final class TerminiceDescriptionPrompt implements DescriptionPrompt {
   String asksForDescription() =>
       terminice.text('Short description', required: true) ?? '';
 }
+// coverage:ignore-end
 
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
