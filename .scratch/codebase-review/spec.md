@@ -51,10 +51,31 @@ Not verifiable on this machine: no `bash`, `zsh`, or `fish`, so the runtime
 completion tier was verified on CI rather than locally. PowerShell 5.1 is
 present, and the PowerShell parse check reproduced F2 before the fix.
 
-## Out of scope
+## Reversed: line coverage
 
-Raising line coverage toward 100%. The review is explicit that cross-component contracts matter
-more, and no ticket here is justified by a coverage percentage.
+This spec originally put *"raising line coverage toward 100%"* under Out of
+scope, on the review's advice that cross-component contracts matter more. That
+advice was right about where the value was, and it was also read as a
+prohibition, which it was not. The goal is now adopted: **every measurable line
+in `lib/` is covered**, and CI fails when one stops being covered.
+
+Reaching it honestly needed a decision about the lines a parent VM cannot see.
+Four blocks are annotated `// coverage:ignore-start` with the reason written
+above them, and each is covered elsewhere rather than skipped:
+
+| Block | Why it cannot be measured | Where it is covered |
+| --- | --- | --- |
+| `SystemMambaProcess` and `_CreateExecutor.execute` | they only run in a child process | `test/system_process_test.dart` runs a real process and asserts its bytes and exit code |
+| `SystemProjectProcessRunner.run` | runs git and pub as subprocesses | the project tests substitute a recording runner |
+| the three `terminice` prompts | each shells out to a binary that is not a Dart library | the prompt interfaces are substituted for them |
+| the Carapace config directory | one branch per operating system, and a test machine is one of them | it is a path lookup, not behaviour |
+
+`AccessorOption`'s constructor was removed rather than annotated: the class is
+sealed and every implementer extends `Input` while implementing it, so nothing
+ever called it.
+
+Measuring the annotations requires `--check-ignore`, which is why the workflow
+passes it; without the flag the report would quietly show those lines again.
 
 ## Notes
 
