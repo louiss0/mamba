@@ -34,7 +34,17 @@ pass and the site builds. Formatting, fatal-info analysis and POSIX script
 syntax checks are clean. The real supported-shell child suite runs all three
 completion tests without skips on Git for Windows' Bash 5.2.
 
-Actual macOS provisioning must be verified on GitHub Actions; local Windows
-verification cannot establish Homebrew behavior or the runner's updated PATH.
-The user authorized committing, pushing to main, and watching CI for that
-verification.
+The user authorized committing, pushing to main, and watching CI. Actual
+runner verification is now established by Verify run `37389052631` on
+`c06edaf`: all six jobs passed. macOS selected Homebrew Bash 5.3.15 at
+`/opt/homebrew/opt/bash/bin/bash`; Linux selected Bash 5.2.21 at
+`/usr/bin/bash`. Both runtime completion steps executed all three named tests
+and reported `+3: All tests passed!`, with no version-based skips. The
+coverage gate and all-example checker also passed.
+
+The local self-review found no outstanding standards or spec issues. The
+fixed minimum is enforced in both action preflight and the suite; there is no
+skip/continue-on-error escape hatch for an unsupported Bash. Bootstrap uses
+POSIX sh, and shell-script LF line endings are enforced for Windows checkouts.
+Windows PowerShell coverage and the confirmed local-only CI opt-out remain
+unchanged.
