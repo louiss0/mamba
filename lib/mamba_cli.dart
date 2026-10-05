@@ -591,12 +591,18 @@ final class ScaffoldTestCommand extends Command {
     final libraryRoot = _parentDirectory.absolute.path.replaceAll('\\', '/');
     final absoluteSourcePath = sourceFile.absolute.path.replaceAll('\\', '/');
     final sourcePrefix = '$libraryRoot/lib/';
+    // Windows paths compare case-insensitively and POSIX paths do not, so one
+    // of these two comparisons is dead on any given machine. Both branches are
+    // kept: folding case on POSIX would let a path outside `lib` pass only
+    // because it differed in case.
+    // coverage:ignore-start
     final comparableSource = Platform.isWindows
         ? absoluteSourcePath.toLowerCase()
         : absoluteSourcePath;
     final comparablePrefix = Platform.isWindows
         ? sourcePrefix.toLowerCase()
         : sourcePrefix;
+    // coverage:ignore-end
     if (!comparableSource.startsWith(comparablePrefix) ||
         !absoluteSourcePath.endsWith('.dart')) {
       throw MambaException(
