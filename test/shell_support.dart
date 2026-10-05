@@ -35,13 +35,14 @@ bool get runningInCi =>
 /// The major version of the bash on this machine, or null when there is none.
 ///
 /// The generated Bash completion uses associative arrays, which need bash 4.
-/// macOS still ships bash 3.2 as `/bin/bash`, so a version is not implied by
-/// the shell existing.
+/// The setup action provisions a supported Bash on CI, and the runtime suite
+/// treats a missing, unreadable, or unsupported version as a failure.
 int? bashMajorVersion() {
   final shell = shellOnPath('bash');
   if (shell == null) return null;
   try {
     final result = Process.runSync(shell, ['-c', r'echo ${BASH_VERSINFO[0]}']);
+    if (result.exitCode != 0) return null;
     return int.tryParse('${result.stdout}'.trim());
   } on ProcessException {
     return null;

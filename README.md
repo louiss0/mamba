@@ -365,14 +365,16 @@ Mamba supports these shells:
 
 | Shell | Requires | Verified against |
 | --- | --- | --- |
-| Bash | 4 or newer | 5.2 on Linux, and bash 3.2 refused on macOS |
+| Bash | 4 or newer | Linux Bash and Homebrew Bash on macOS |
 | Zsh | 5.9 or newer | 5.9 on Linux and macOS |
 | Fish | 3.7 or newer | 3.7 on Linux, 4.9 on macOS |
 | PowerShell | 5.1 or newer | 7.6 on Windows |
 | Carapace | any Carapace that reads YAML specs | generated as a spec file, not run by a shell |
 
-The verified column is what CI parses the artifacts with on every push, so a
-claim here is backed by a run rather than by memory.
+CI uses `.github/actions/setup-bash` to select Bash 4+ before shell checks.
+On macOS it installs Homebrew Bash and puts it first on `PATH`. Missing,
+unreadable, or older Bash fails CI rather than skipping completion tests.
+The verified column is what CI parses the artifacts with on every push.
 
 After adding `completion` to the executor's command list, select the shell and
 a shell-appropriate output path:

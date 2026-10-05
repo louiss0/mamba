@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-bash
       - uses: dart-lang/setup-dart@v1
       - run: dart pub get
       - run: dart format --output=none --set-exit-if-changed .
@@ -48,6 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-bash
       - uses: dart-lang/setup-dart@v1
       - run: dart pub get
       # A stale fixture is a defect in its own right: the checked-in
@@ -69,6 +71,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-bash
+        if: runner.os != 'Windows'
       - uses: dart-lang/setup-dart@v1
       - run: dart pub get
       # Every shell a generated artifact targets must at least accept what the
@@ -96,7 +100,7 @@ jobs:
         run: pwsh --version
       - name: Drive a real bash completion
         if: runner.os != 'Windows'
-        run: dart test test/completion_shell_test.dart
+        run: dart test test/completion_shell_test.dart --reporter=expanded
       - name: Check every script the local shell can parse
         run: dart test test/integrations_test.dart
       - name: Parse the checked-in Bash artifact
@@ -116,6 +120,7 @@ jobs:
         working-directory: docs
     steps:
       - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-bash
       - uses: pnpm/action-setup@v4
         with:
           version: 10

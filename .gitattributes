@@ -5,3 +5,6 @@
 # PowerShell, and YAML sources, where a carriage return is a defect rather
 # than a preference.
 fixtures/**/completions/** -text
+
+# POSIX shell scripts must also run from Windows checkouts through Git Bash.
+*.sh text eol=lf

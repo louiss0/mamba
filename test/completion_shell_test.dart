@@ -6,19 +6,6 @@ import 'package:test/test.dart';
 import 'fixtures.dart';
 import 'shell_support.dart';
 
-/// Whether a generated completion can be driven for real here.
-///
-/// The generated Bash completion needs bash 4 for associative arrays, and
-/// macOS still ships bash 3.2 as `/bin/bash`, so the version is checked rather
-/// than assumed from the shell existing.
-final _bashMajor = bashMajorVersion();
-final String? _skipReason = switch ((runningInCi, _bashMajor)) {
-  (false, _) => 'needs CI',
-  (_, null) => 'needs a bash shell',
-  (_, final int major) when major < 4 => 'needs bash 4 or newer, found $major',
-  _ => null,
-};
-
 final _first = BooleanFlag('first');
 final _second = BooleanFlag('second');
 
@@ -60,6 +47,21 @@ String _bashCompletionOutput(
 
 void main() {
   group('completion in a real shell', () {
+    setUpAll(() {
+      final major = bashMajorVersion();
+      expect(
+        major,
+        isNotNull,
+        reason:
+            'Completion CI requires Bash 4 or newer on PATH; '
+            'Bash is missing or its version could not be read.',
+      );
+      expect(
+        major,
+        greaterThanOrEqualTo(4),
+        reason: 'Completion CI requires Bash 4 or newer; found Bash $major.',
+      );
+    });
     test('offers the flags of the command whose name has a hyphen', () {
       final record = CommandRegistry.create(
         'probe',
@@ -88,7 +90,7 @@ void main() {
           reason: "completing $command offered another command's flags",
         );
       }
-    }, skip: _skipReason);
+    });
 
     test('offers stepped numbers the parser accepts', () {
       final registry = CommandRegistry.create(
@@ -110,7 +112,7 @@ void main() {
         isNot(contains('1.0')),
         reason: 'the parser rejects 1.0 for this step',
       );
-    }, skip: _skipReason);
+    });
 
     test('stops a shell that cannot load the artifact', () {
       final script = ToBashCompletionConverter(
@@ -134,8 +136,8 @@ void main() {
             'the guard has to stop the script before the associative arrays',
       );
       expect(result.stdout, isEmpty);
-    }, skip: _skipReason);
-  });
+    });
+  }, skip: runningInCi ? false : 'needs CI');
 }
 
 /// Runs [script] as though the shell were older than Mamba supports.
