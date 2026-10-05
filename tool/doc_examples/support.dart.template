@@ -1,0 +1,53 @@
+import 'package:mamba/mamba.dart';
+
+// Application-owned dependencies omitted from the prose examples. These use
+// the real Mamba API; none substitute for Mamba input or execution types.
+class ExampleCommand(final String name) extends Command {
+  @override
+  String get shortDescription => 'Example command.';
+  @override
+  String run(ParsedInputs inputs, List<String> args) => name;
+}
+final class StatusCommand extends ExampleCommand {
+  new() : super('status');
+}
+final class ConfigureCommand extends ExampleCommand {
+  new() : super('configure');
+}
+final class DeployCommand extends ExampleCommand {
+  new() : super('deploy');
+}
+final class ImportCommand extends Command with HookRunner {
+  String? received;
+  @override
+  String get name => 'import';
+  @override
+  String get shortDescription => 'Read standard input.';
+  @override
+  void preRun(ParsedInputs inputs, MambaReadContext context,
+      ProcessedStandardInput? input) {
+    received = input?.utf8Text;
+  }
+  @override
+  String? run(ParsedInputs inputs, List<String> args) => received;
+}
+final class ApplyCommand extends Command with HookRunner {
+  String? received;
+  @override
+  String get name => 'apply';
+  @override
+  String get shortDescription => 'Apply input.';
+  @override
+  void preRun(ParsedInputs inputs, MambaReadContext context,
+      ProcessedStandardInput? input) {
+    received = input?.utf8Text;
+  }
+  @override
+  String? run(ParsedInputs inputs, List<String> args) => received;
+}
+enum OutputFormat { text, json }
+enum Format { text, json }
+final class ExampleStore {
+  final files = <String, String>{};
+  void put(String path, String contents) { files[path] = contents; }
+}

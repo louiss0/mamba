@@ -48,7 +48,7 @@ BooleanFlag(
   hidden: false,
   defaultValue: false,
   negatable: false,
-)
+);
 ```
 
 A boolean flag returns `bool`. Its long spelling is `--name`; `short` adds a
@@ -66,7 +66,7 @@ CountFlag(
   short: short,
   description: description,
   hidden: false,
-)
+);
 ```
 
 A count flag returns `int`. It starts at `0` and increments for each
@@ -77,7 +77,7 @@ occurrence, including repeated short aliases such as `-vv`.
 - `Command(flags: [...])` registers flags only for that command.
 - `GroupCommand(..., flags: [...])` registers flags only for the group itself.
 - `GroupCommand(..., propagatedFlags: [...])` makes flags available to the
-  group and its descendants.
+  group's descendants, not the declaring group itself.
 - `Executor(..., flags: [...])` makes flags available across the command tree.
 
 Mamba provides these reusable declarations:
@@ -99,7 +99,7 @@ reserved names or short aliases in a scope where they collide.
 Flags may participate in a command's `conflicts` map by long name:
 
 ```dart
-DeployCommand()
+new()
   : super(
       flags: [force],
       options: [plan],

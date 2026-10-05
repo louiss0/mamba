@@ -1,0 +1,48 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'skill_commit.dart';
+
+final class SimpleCommitCommand extends Command {
+  @override
+  String get name => 'commit';
+  @override
+  String get shortDescription => 'Commit.';
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'Committed README.md.';
+}
+final class FailingPushCommand extends Command with HookRunner {
+  @override
+  void preRun(ParsedInputs inputs, MambaReadContext context,
+      ProcessedStandardInput? input) {}
+  @override
+  String get name => 'push';
+  @override
+  String get shortDescription => 'Push.';
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    throw MambaException('fatal: push rejected');
+  }
+  @override
+  void postRun(ParsedInputs inputs, MambaReadContext context) {
+    throw MambaException('failed to close transport');
+  }
+}
+void main() {
+  test('success assertion uses the real executor result', () async {
+    final result = await Executor('git', 'Git.', '1.0.0', [SimpleCommitCommand()])
+      .fake().execute(['commit']);
+    {{skills/mamba-framework/references/testing.md#3}}
+  });
+  test('failure assertion uses the real parser diagnostic', () async {
+    final result = await Executor('git', 'Git.', '1.0.0', [CommitCommand()])
+      .fake().execute(['commit', 'README.md']);
+    {{skills/mamba-framework/references/testing.md#4}}
+  });
+  test('multiple failures assert their real order', () async {
+    final result = await Executor('git', 'Git.', '1.0.0', [FailingPushCommand()])
+      .fake().execute(['push']);
+    expect(result, isA<MambaFailureResult>());
+    final failure = result as MambaFailureResult;
+    {{skills/mamba-framework/references/testing.md#5}}
+  });
+}

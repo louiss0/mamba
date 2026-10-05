@@ -175,7 +175,7 @@ with the executor:
 
 ```dart
 import 'package:mamba/mamba.dart';
-import 'package:my_app/greet.dart';
+import '../lib/greet.dart';
 
 Future<void> main(List<String> args) => Executor(
   'my_app',

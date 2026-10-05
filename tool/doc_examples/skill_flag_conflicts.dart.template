@@ -1,0 +1,12 @@
+import 'package:mamba/mamba.dart';
+final class DeployCommand extends Command {
+  static const force = BooleanFlag('force');
+  static final plan = StringOption('plan');
+  {{skills/mamba-framework/references/flags.md#4}}
+  @override
+  String get name => 'deploy';
+  @override
+  String get shortDescription => 'Deploy.';
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
+}

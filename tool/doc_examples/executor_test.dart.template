@@ -1,0 +1,17 @@
+import 'dart:convert';
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'support.dart' show ImportCommand, StatusCommand;
+void main() {
+  test('executor standard input and structured results', () async {
+    {{docs/src/content/docs/reference/executor.md#2}}
+    expect(result, isA<MambaSuccessResult>().having(
+      (result) => result.output, 'output', '{"enabled":true}'));
+  });
+  test('executor selects the default command', () async {
+    {{docs/src/content/docs/reference/executor.md#4}}
+    final result = await executor.fake().execute([]);
+    expect(result, isA<MambaSuccessResult>().having(
+      (result) => result.output, 'output', 'status'));
+  });
+}

@@ -1,0 +1,9 @@
+import 'package:mamba/mamba.dart';
+{{skills/mamba-framework/references/flags.md#1}}
+void constructors() {
+  const name = 'force';
+  const short = 'f';
+  const description = 'Force.';
+  {{skills/mamba-framework/references/flags.md#2}}
+  {{skills/mamba-framework/references/flags.md#3}}
+}

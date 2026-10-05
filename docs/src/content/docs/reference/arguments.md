@@ -121,7 +121,7 @@ not stored in `ParsedInputs`.
 Validates every trailing token against `regex`, which defaults to `\S+`:
 
 ```dart
-NormalVariadic(regex: RegExp(r'.+'))
+NormalVariadic(regex: RegExp(r'.+'));
 ```
 
 ### `ChoiceVariadic<T>`
@@ -129,5 +129,5 @@ NormalVariadic(regex: RegExp(r'.+'))
 Accepts at most one trailing enum member name:
 
 ```dart
-ChoiceVariadic<Format>(choices: Format.values)
+ChoiceVariadic<Format>(choices: Format.values);
 ```

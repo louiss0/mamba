@@ -1,0 +1,20 @@
+import 'dart:async';
+import 'package:mamba/mamba.dart';
+final class ForceCommand extends Command {
+  new() : super(flags: [force]);
+  static const force = BooleanFlag('force', short: 'f', negatable: true);
+  @override
+  String get name => 'deploy';
+  @override
+  String get shortDescription => 'Deploy.';
+  {{docs/src/content/docs/reference/flags.md#1}}
+}
+final class CountCommand extends Command {
+  new() : super(flags: [verbose]);
+  static const verbose = CountFlag('verbose', short: 'v');
+  @override
+  String get name => 'build';
+  @override
+  String get shortDescription => 'Build.';
+  {{docs/src/content/docs/reference/flags.md#2}}
+}

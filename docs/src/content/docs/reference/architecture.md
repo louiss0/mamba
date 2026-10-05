@@ -40,7 +40,7 @@ The execution contract is deliberately narrower than the declaration:
 FutureOr<String?> run(
   ParsedInputs inputs,
   List<String> args,
-)
+);
 ```
 
 By the time `run` is called, command aliases have been canonicalized and values have been validated and grouped by their Dart value type. A command can complete synchronously or asynchronously, return text for the production executor to print, or return `null` when it has no output.

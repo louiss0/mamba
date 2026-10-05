@@ -1,0 +1,15 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'overview.dart' hide main;
+import 'support.dart' show OutputFormat;
+
+void readOptions(ParsedInputs inputs) {
+  {{docs/src/content/docs/guides/overview.md#3}}
+}
+void main() {
+  test('overview fake invocation', () async {
+    {{docs/src/content/docs/guides/overview.md#5}}
+    expect((result as MambaSuccessResult).output,
+      'Adding README.md: Document Mamba');
+  });
+}

@@ -9,8 +9,10 @@ parameter; the executor calls `format()` for root help, nested command help,
 and the help output returned when no command is selected.
 
 ```dart
-abstract interface class HelpFormatter {
+abstract class HelpFormatter {
+  void formatLongDescription(StringBuffer buffer, String longDescription);
   String format(CommandRegistry registry);
+  // Concrete formatInto... helpers are inherited by subclasses.
 }
 ```
 
@@ -33,9 +35,10 @@ final executor = Executor(
 );
 ```
 
-## Implement `HelpFormatter`
+## Extend `HelpFormatter`
 
-An implementation provides `format()` only. The method receives the selected
+A subclass provides `format()` and `formatLongDescription()`, and inherits
+the concrete `formatInto...` helpers. The method receives the selected
 `CommandRegistry` and returns the full help string. The executor writes the
 result to stdout when the user requests help or when no subcommand is selected.
 
@@ -58,7 +61,12 @@ writing a formatter:
 ```dart
 import 'package:mamba/mamba.dart';
 
-final class CompactHelpFormatter implements HelpFormatter {
+final class CompactHelpFormatter extends HelpFormatter {
+  @override
+  void formatLongDescription(StringBuffer buffer, String longDescription) {
+    buffer.writeln(longDescription);
+  }
+
   @override
   String format(CommandRegistry registry) {
     final buffer = StringBuffer()
@@ -68,7 +76,7 @@ final class CompactHelpFormatter implements HelpFormatter {
     final longDescription = registry.longDescription;
     if (longDescription != null) {
       buffer.writeln();
-      buffer.writeln(longDescription);
+      formatLongDescription(buffer, longDescription);
     }
 
     _writeFlags(buffer, registry);
@@ -155,14 +163,18 @@ final class CompactHelpFormatter implements HelpFormatter {
 ## Wrap `MambaHelpFormatter`
 
 `MambaHelpFormatter` is the final default implementation, so it cannot be
-extended. Implement `HelpFormatter` and delegate to it when you only need to
+extended. Extend `HelpFormatter` and delegate to it when you only need to
 decorate the default output:
 
 ```dart
 import 'package:mamba/mamba.dart';
 
-final class BrandedHelpFormatter implements HelpFormatter {
+final class BrandedHelpFormatter extends HelpFormatter {
   final MambaHelpFormatter _defaultFormatter = MambaHelpFormatter();
+
+  @override
+  void formatLongDescription(StringBuffer buffer, String longDescription) =>
+      _defaultFormatter.formatLongDescription(buffer, longDescription);
 
   @override
   String format(CommandRegistry registry) {

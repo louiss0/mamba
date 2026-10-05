@@ -1,0 +1,23 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'compact_formatter.dart' show CompactHelpFormatter;
+import 'branded_formatter.dart';
+void main() {
+  test('compact formatter handles long descriptions and hidden inputs', () {
+    final registry = CommandRegistry.create('tool', 'Tool.',
+      longDescription: 'Detailed help.',
+      flags: [BooleanFlag('private', hidden: true), BooleanFlag('force', short: 'f')]);
+    final output = CompactHelpFormatter().format(registry);
+    expect(output, contains('Detailed help.'));
+    expect(output, contains('-f, --force'));
+    expect(output, isNot(contains('--private')));
+  });
+  test('branded formatter delegates the default rendering', () {
+    final registry = CommandRegistry.create('tool', 'Tool.');
+    expect(BrandedHelpFormatter().format(registry),
+      'My CLI\n${MambaHelpFormatter().format(registry)}');
+    final buffer = StringBuffer();
+    BrandedHelpFormatter().formatLongDescription(buffer, 'Long help.');
+    expect(buffer.toString(), contains('Long help.'));
+  });
+}

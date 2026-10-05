@@ -1,0 +1,33 @@
+import 'package:mamba/mamba.dart';
+import 'support.dart' show OutputFormat;
+void optionalOption(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/options.md#1}}
+}
+void requiredOption(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/options.md#2}}
+}
+void defaultedOption(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/options.md#3}}
+}
+void scalarConstructors() {
+  {{docs/src/content/docs/reference/options.md#4}}
+  {{docs/src/content/docs/reference/options.md#5}}
+  {{docs/src/content/docs/reference/options.md#6}}
+  {{docs/src/content/docs/reference/options.md#7}}
+}
+void repeatableConstructors() {
+  {{docs/src/content/docs/reference/options.md#8}}
+  {{docs/src/content/docs/reference/options.md#9}}
+}
+void paired(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/options.md#10}}
+}
+void selected(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/options.md#11}}
+  {{docs/src/content/docs/reference/options.md#12}}
+}
+void accessor(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/options.md#13}}
+  {{docs/src/content/docs/reference/options.md#14}}
+}
+{{docs/src/content/docs/reference/options.md#15}}

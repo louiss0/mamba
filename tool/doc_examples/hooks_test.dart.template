@@ -1,0 +1,11 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+void main() {
+  test('documented typed context', () {
+    final context = MambaContext();
+    {{docs/src/content/docs/reference/hooks.md#3}}
+    expect(workspace, '/workspace');
+    expect(verbose, true);
+    expect(retries, 3);
+  });
+}

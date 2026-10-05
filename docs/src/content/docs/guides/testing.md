@@ -96,18 +96,24 @@ piped input through `HookRunner.preRun`:
 
 ```dart
 import 'dart:convert';
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
 
-final input = ProcessedStandardInput(
-  utf8.encode('{"enabled":true}'),
-);
-final result = await Executor(
-  'my-app',
-  'This is my app.',
-  '1.0.0',
-  [ImportCommand()],
-).fake(standardInput: input).execute(['import']);
+void main() {
+  test('import reads standard input', () async {
+    final input = ProcessedStandardInput(
+      utf8.encode('{"enabled":true}'),
+    );
+    final result = await Executor(
+      'my-app',
+      'This is my app.',
+      '1.0.0',
+      [ImportCommand()],
+    ).fake(standardInput: input).execute(['import']);
 
-expect(result, isA<MambaSuccessResult>());
+    expect(result, isA<MambaSuccessResult>());
+  });
+}
 ```
 
 Use `bytes`, `text`, `utf8Text`, or `json` on the value received by `preRun`.

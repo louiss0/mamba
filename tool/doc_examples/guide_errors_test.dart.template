@@ -1,0 +1,24 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'guide_testing_test.dart' show AddCommand;
+
+final class FailingCommand extends Command {
+  @override
+  String get name => 'fail';
+  @override
+  String get shortDescription => 'Fail.';
+  {{docs/src/content/docs/guides/testing.md#2}}
+}
+void main() {
+  test('documented exception reaches the user', () async {
+    final result = await Executor('tool', 'Tool.', '1.0.0', [FailingCommand()])
+      .fake().execute(['fail']);
+    expect(result, isA<MambaFailureResult>().having(
+      (result) => result.message, 'message', 'Something went wrong.'));
+  });
+  test('missing documented positional is a parse failure', () async {
+    {{docs/src/content/docs/guides/testing.md#3}}
+    expect(result, isA<MambaFailureResult>().having(
+      (result) => result.errors.single.phase, 'phase', MambaExecutionPhase.parse));
+  });
+}

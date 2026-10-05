@@ -1,0 +1,26 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'flags.dart';
+void main() {
+  test('documented boolean spellings', () async {
+    for (final (tokens, output) in [
+      (['deploy', '--force'], 'force: true'),
+      (['deploy', '-f'], 'force: true'),
+      (['deploy', '--no-force'], 'force: false'),
+      (['deploy'], 'force: false'),
+    ]) {
+      final result = await Executor('tool', 'Tool.', '1.0.0', [ForceCommand()])
+        .fake().execute(tokens);
+      expect(result, isA<MambaSuccessResult>().having(
+        (result) => result.output, 'output', output));
+    }
+  });
+  test('documented count spellings', () async {
+    for (final tokens in [['build', '-vv'], ['build', '--verbose', '--verbose']]) {
+      final result = await Executor('tool', 'Tool.', '1.0.0', [CountCommand()])
+        .fake().execute(tokens);
+      expect(result, isA<MambaSuccessResult>().having(
+        (result) => result.output, 'output', 'verbosity: 2'));
+    }
+  });
+}

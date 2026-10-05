@@ -59,10 +59,17 @@ final format = ChoiceOption.withDefault(
 );
 
 final class BuildCommand extends Command {
-  BuildCommand()
-    : super(options: [output, retries, threshold, format]);
+  new() : super(options: [output, retries, threshold, format]);
 
-  // Implement name, shortDescription, and run.
+  @override
+  String get name => 'build';
+
+  @override
+  String get shortDescription => 'Build an output.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      '${inputs.valueOf(output)}/${inputs.valueOf(retries)}/${inputs.valueOf(format).name}';
 }
 ```
 
@@ -103,9 +110,17 @@ final formats = RepeatableChoiceOption.withDefault(
 );
 
 final class ServeCommand extends Command {
-  ServeCommand() : super(options: [labels, ports, formats]);
+  new() : super(options: [labels, ports, formats]);
 
-  // Implement name, shortDescription, and run.
+  @override
+  String get name => 'serve';
+
+  @override
+  String get shortDescription => 'Serve on selected ports.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      inputs.valueOf(ports).join(',');
 }
 ```
 
@@ -128,10 +143,17 @@ final credentials = PairedOptions<String>.required(
 );
 
 final class LoginCommand extends Command {
-  LoginCommand() : super(pairedOptions: [credentials]);
+  new() : super(pairedOptions: [credentials]);
 
-  // inputs.valueOf(credentials) returns Map<String, String>.
-  // Implement name, shortDescription, and run.
+  @override
+  String get name => 'login';
+
+  @override
+  String get shortDescription => 'Log in.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      'Logged in as ${inputs.valueOf(credentials)['username']}';
 }
 ```
 
@@ -167,10 +189,17 @@ final output = SelectedOptions<String>.required(
 );
 
 final class ExportCommand extends Command {
-  ExportCommand() : super(selectedOptions: [output]);
+  new() : super(selectedOptions: [output]);
 
-  // inputs.valueOf(output) returns Map<String, String>.
-  // Implement name, shortDescription, and run.
+  @override
+  String get name => 'export';
+
+  @override
+  String get shortDescription => 'Export to one destination.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      inputs.valueOf(output).keys.single;
 }
 ```
 
@@ -199,10 +228,17 @@ final server = AccessorListOption(
 );
 
 final class ConnectCommand extends Command {
-  ConnectCommand() : super(accessors: [server]);
+  new() : super(accessors: [server]);
 
-  // --server.host example.com --server.tls.certificate cert.pem
-  // Implement name, shortDescription, and run.
+  @override
+  String get name => 'connect';
+
+  @override
+  String get shortDescription => 'Connect to a server.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      'Connected to ${inputs.valueOf(server)['host']}';
 }
 ```
 
@@ -221,7 +257,7 @@ preserving parsing.
 - `Command(options: [...])` and `GroupCommand(..., options: [...])` register
   scalar or repeatable options locally.
 - `GroupCommand(..., propagatedOptions: [...])` makes scalar or repeatable
-  options available to the group and its descendants.
+  options available to the group's descendants, not the group itself.
 - `Executor(..., options: [...])` makes scalar or repeatable options global.
 - Paired, selected, and accessor registrations belong to the command lists
   shown at the top of this page. Executor supports global accessors, but not
@@ -234,12 +270,12 @@ Names may refer to flags, ordinary options, paired or selected members, or
 accessor leaves. Use the full dotted name for an accessor leaf:
 
 ```dart
-ConnectCommand()
+new()
   : super(
       flags: [local],
       accessors: [server],
       conflicts: {
-        'local': ['server.host'],
+        'local': ['server.tls.certificate'],
       },
     );
 ```

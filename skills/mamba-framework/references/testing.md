@@ -67,13 +67,15 @@ expect(
 Every failure assertion covers the result variant, non-zero exit code,
 surfaced message, output, error phase, and resolved command path. The
 `message` assertion is mandatory: it proves the user receives the intended
-diagnostic instead of only proving that an internal failure exists.
+diagnostic instead of only proving that an internal failure exists. An error's
+`commandPath` is the full registry path, including the application name;
+invocation tokens still exclude that name.
 
 ```dart
 expect(
   result,
   isA<MambaFailureResult>()
-      .having((value) => value.exitCode, 'exit code', 64)
+      .having((value) => value.exitCode, 'exit code', 1)
       .having(
         (value) => value.message,
         'message',
@@ -125,7 +127,11 @@ final class CommitCommand extends Command {
 
   static final _path = NormalPositional('path');
   static final _amend = BooleanFlag('amend');
-  static final _message = StringOption.required('message', short: 'm');
+  static final _message = StringOption.required(
+    'message',
+    short: 'm',
+    regex: RegExp(r'.+'),
+  );
 
   final bool hasStagedChanges;
 
@@ -534,14 +540,22 @@ Pass `ProcessedStandardInput` to `fake()` when `preRun` reads piped input:
 
 ```dart
 import 'dart:convert';
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
 
-final input = ProcessedStandardInput(utf8.encode('ref=main\n'));
-final result = await Executor(
-  'git',
-  'Track source changes.',
-  '1.0.0',
-  [ApplyCommand()],
-).fake(standardInput: input).execute(['apply']);
+void main() {
+  test('apply reads standard input', () async {
+    final input = ProcessedStandardInput(utf8.encode('ref=main\n'));
+    final result = await Executor(
+      'git',
+      'Track source changes.',
+      '1.0.0',
+      [ApplyCommand()],
+    ).fake(standardInput: input).execute(['apply']);
+
+    expect(result, isA<MambaSuccessResult>());
+  });
+}
 ```
 
 Assert what the hook observed in addition to the complete execution result.

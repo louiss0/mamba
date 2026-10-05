@@ -1,0 +1,12 @@
+import 'package:mamba/mamba.dart';
+import 'skill_accessors.dart' show server;
+final class ConnectCommand extends Command {
+  static const local = BooleanFlag('local');
+  {{skills/mamba-framework/references/options.md#6}}
+  @override
+  String get name => 'connect';
+  @override
+  String get shortDescription => 'Connect.';
+  @override
+  String run(ParsedInputs inputs, List<String> args) => 'Connected.';
+}

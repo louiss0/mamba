@@ -1,0 +1,54 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'skill_arguments.dart' as arguments;
+import 'skill_scalar.dart' as scalar;
+import 'skill_repeatable.dart' as repeatable;
+import 'skill_paired.dart' as paired;
+import 'skill_selected.dart' as selected;
+import 'skill_accessors.dart' as accessors;
+import 'skill_accessor_conflicts.dart' as conflicts;
+import 'skill_flag_conflicts.dart' as flags;
+import 'lib/greet.dart';
+
+void main() {
+  test('repeated positionals stop at their declared maximum', () async {
+    final executor = Executor('tool', 'Tool.', '1.0.0', [arguments.BuildCommand()]).fake();
+    final result = await executor.execute(['build', 'a.dart', 'b.dart', 'c.dart']);
+    expect(result, isA<MambaSuccessResult>().having(
+      (result) => result.output, 'output', 'a.dart,b.dart,c.dart'));
+    expect(await executor.execute(['build', 'a.dart', 'b.dart', 'c.dart', 'd.dart']),
+      isA<MambaFailureResult>());
+  });
+  test('scalar defaults and repeatable values reach commands', () async {
+    expect(await Executor('tool', 'Tool.', '1.0.0', [scalar.BuildCommand()]).fake()
+      .execute(['build', '--output', 'out']), isA<MambaSuccessResult>().having(
+        (result) => result.output, 'output', 'out/3/text'));
+    expect(await Executor('tool', 'Tool.', '1.0.0', [repeatable.ServeCommand()]).fake()
+      .execute(['serve', '--port', '443']), isA<MambaSuccessResult>());
+  });
+  test('paired, selected and accessor examples execute', () async {
+    expect(await Executor('tool', 'Tool.', '1.0.0', [paired.LoginCommand()]).fake()
+      .execute(['login', '--username', 'me', '--password', 'secret']),
+      isA<MambaSuccessResult>());
+    final export = Executor('tool', 'Tool.', '1.0.0', [selected.ExportCommand()]).fake();
+    expect(await export.execute(['export', '--json', 'tasks.json']), isA<MambaSuccessResult>());
+    expect(await export.execute(['export', '--json', 'a', '--text', 'b']), isA<MambaFailureResult>());
+    expect(await Executor('tool', 'Tool.', '1.0.0', [accessors.ConnectCommand()]).fake()
+      .execute(['connect', '--server.host', 'example.com', '--server.tls.certificate', 'cert.pem']),
+      isA<MambaSuccessResult>());
+  });
+  test('documented conflicts refer to optional members', () async {
+    final executor = Executor('tool', 'Tool.', '1.0.0', [conflicts.ConnectCommand()]).fake();
+    expect(await executor.execute(['connect', '--server.host', 'example.com', '--local']),
+      isA<MambaSuccessResult>());
+    expect(await executor.execute(['connect', '--server.host', 'example.com', '--local',
+      '--server.tls.certificate', 'cert.pem']), isA<MambaFailureResult>());
+    expect(await Executor('tool', 'Tool.', '1.0.0', [flags.DeployCommand()]).fake()
+      .execute(['deploy', '--force', '--plan', 'preview']), isA<MambaFailureResult>());
+  });
+  test('getting started command executes without arguments', () async {
+    expect(await Executor('my_app', 'App.', '0.0.0', [GreetCommand()],
+      defaultCommandPath: ['greet']).fake().execute([]), isA<MambaSuccessResult>().having(
+        (result) => result.output, 'output', 'Hello from Mamba!'));
+  });
+}

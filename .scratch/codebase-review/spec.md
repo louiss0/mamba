@@ -36,16 +36,21 @@ starting and drop anything already fixed.
 | 05 | Tests — assertion quality and templates | T1, T3, T4, T5 |
 | 06 | CI — push/PR verification | T6, T2 runtime completion |
 | 07 | Deferred — renames and vocabulary | Vocabulary table, `persistentFlags` collision |
+| 08 | Registry/integrations — selected-group metadata | Remaining representational half of T2 |
+| 09 | Documentation — compile all examples | All-example follow-up to ticket 04 |
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
 | `dart analyze --fatal-infos` | No issues found |
-| `dart test` | 402 passed, 2 skipped (the CI-only shell tier) |
+| `dart test --coverage=.dart_tool/coverage` | 448 passed, 3 skipped (the CI-only shell tier) |
+| Measurable `lib/` line coverage (`--check-ignore`) | 2,901/2,901; zero uncovered lines |
+| `dart run tool/check_examples.dart` | 105 Dart fences compile; 42 example tests pass; no exemptions |
 | `pnpm --dir docs test` | 20 passed |
+| `pnpm --dir docs build` | Succeeded (non-failing site warnings) |
 | `dart format --output=none --set-exit-if-changed .` | Clean |
-| `Verify` workflow on `main` | 6/6 jobs green (run 37239905075) |
+| `Verify` workflow on `main` | Prior baseline: 6/6 jobs green (run 37239905075); follow-ups not yet pushed |
 
 Not verifiable on this machine: no `bash`, `zsh`, or `fish`, so the runtime
 completion tier was verified on CI rather than locally. PowerShell 5.1 is
@@ -89,3 +94,15 @@ process suite, aliases reused across scopes, nested identifier collisions, and a
 precision-boundary step in the completion suite, and the integer syntax across repeatable,
 paired, and accessor inputs. Shell detection moved into `test/shell_support.dart` so the two
 suites cannot disagree about what is installed.
+
+The last requested follow-ups are resolved in tickets 08 and 09. Selected
+groups now reach `optionGroups` with `required` and `single`; group kind is
+inferred from member partner metadata, as the user chose. Carapace does not
+misinterpret a required selected group as requiring every member. Shell-side
+group enforcement remains outside this representational change.
+
+Every Dart example in README.md, docs/ and skills/ is now kernel-compiled from
+its original fence with explicit context templates. Example assertions run as
+real tests, and CI gates missing/stale context, compilation and assertion
+failures. See `follow-up-review.md` for the final two-axis self-review and
+verification evidence.

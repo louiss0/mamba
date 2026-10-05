@@ -185,6 +185,7 @@ final class AddCommand extends Command {
   static final message = StringOption.required(
     'message',
     short: 'm',
+    regex: RegExp(r'.+'),
     description: 'Commit message.',
   );
 
@@ -484,7 +485,14 @@ dart pub get
 dart format .
 dart analyze --fatal-infos
 dart test
+dart run tool/check_examples.dart
 ```
+
+The example checker compiles every Dart code block in this README, `docs/`,
+and `skills/`, then executes the example assertions. Context templates under
+`tool/doc_examples/` provide imports and application-owned declarations;
+a new block without a template fails the check. See
+[`tool/doc_examples/README.md`](tool/doc_examples/README.md) for the format.
 
 The documentation site is an Astro Starlight project. To work on it locally:
 

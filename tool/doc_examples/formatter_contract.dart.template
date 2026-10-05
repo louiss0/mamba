@@ -1,0 +1,2 @@
+import 'package:mamba/mamba.dart' show CommandRegistry;
+{{docs/src/content/docs/guides/help-formatter.md#1}}

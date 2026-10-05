@@ -1,0 +1,28 @@
+import 'dart:convert';
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'readme.dart' hide main;
+import 'support.dart' show ImportCommand;
+
+void main() {
+  test('README fake execution and standard input', () async {
+    {{README.md#9}}
+    expect((result as MambaSuccessResult).output, 'Hello from Mamba!');
+    expect(importResult, isA<MambaSuccessResult>().having(
+      (result) => result.output, 'output', '{"enabled":true}'));
+  });
+  test('README selected formats accept zero or exactly one', () {
+    final optional = Parser(CommandRegistry.create('tool', 'Tool.',
+      selectedOptions: [optionalFormat]));
+    expect(optional.parse([]).$2.valueOf(optionalFormat), isEmpty);
+    expect(optional.parse(['--json', 'out.json']).$2.valueOf(optionalFormat),
+      {'json': 'out.json'});
+    expect(() => optional.parse(['--json', 'a', '--text', 'b']),
+      throwsA(isA<MambaParseException>()));
+    final required = Parser(CommandRegistry.create('tool', 'Tool.',
+      selectedOptions: [requiredFormat]));
+    expect(() => required.parse([]), throwsA(isA<MambaParseException>()));
+    expect(required.parse(['--text', 'out.txt']).$2.valueOf(requiredFormat),
+      {'text': 'out.txt'});
+  });
+}

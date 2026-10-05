@@ -59,7 +59,7 @@ validated `path` and the generated `contents`; the callback owns the write.
 `path` is an empty string when the optional path positional was omitted, and
 the default writer rejects that case rather than inventing a destination.
 Extend `CompletionCommand` when custom handling also needs access to the
-registry or different input declarations.
+registry. Its shell and path declarations remain intrinsic to the command.
 
 ## Build a custom completion command
 
@@ -160,6 +160,7 @@ Join ancestor and leaf names with `.` to form the long spelling. For example,
 the `certificate` value below `server` and `tls` becomes
 `--server.tls.certificate`. A hidden group hides its descendant leaves.
 
-Use the unnamed `CompletionCommand` constructor to supply custom positionals
-or options. Access `registryRecord` during `run`, after the executor has
-initialized the command tree.
+The unnamed `CompletionCommand` constructor accepts destination handling,
+long description, and aliases, not custom positionals or options. Read its
+retained `shellInput` and `pathInput` handles in an override. Access
+`registryRecord` during `run`, after the executor initializes the command tree.

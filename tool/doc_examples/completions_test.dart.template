@@ -1,0 +1,40 @@
+import 'dart:io';
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'completions.dart';
+import 'support.dart' show ExampleStore;
+void main() {
+  test('custom completion command reads its intrinsic positional handles', () async {
+    final directory = Directory.systemTemp.createTempSync('mamba-doc-completion-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final path = '${directory.path}/tool.bash';
+    final executor = Executor('tool', 'Tool.', '1.0.0', [GenerateCompletionCommand()]).fake();
+    expect(await executor.execute(['completion', 'bash']),
+      isA<MambaFailureResult>().having((result) => result.message, 'message',
+        'A destination path is required.'));
+    expect(await executor.execute(['completion', 'bash', path]),
+      isA<MambaSuccessResult>().having((result) => result.output, 'output',
+        'Wrote bash completions to $path.'));
+    expect(File(path).readAsStringSync(), contains('complete -F'));
+  });
+  test('documented converters consume real registry records', () {
+    final registryRecord = CommandRegistry.create('tool', 'Tool.').toRecord();
+    {{docs/src/content/docs/guides/completions.md#1}}
+    for (final artifact in [bash, zsh, fish, powerShell, carapace]) {
+      expect(artifact, contains('tool'));
+    }
+    {{docs/src/content/docs/guides/completions.md#5}}
+  });
+  test('documented preset writer and callback', () async {
+    {
+      {{docs/src/content/docs/guides/completions.md#3}}
+      expect(completion.name, 'completion');
+    }
+    final store = ExampleStore();
+    {{docs/src/content/docs/guides/completions.md#4}}
+    final result = await Executor('tool', 'Tool.', '1.0.0', [completion])
+      .fake().execute(['completion', 'bash', './tool.bash']);
+    expect(result, isA<MambaSuccessResult>());
+    expect(store.files['./tool.bash'], contains('complete -F'));
+  });
+}

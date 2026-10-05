@@ -1,0 +1,6 @@
+import 'package:mamba/mamba.dart';
+{{skills/mamba-framework/references/completion-commands.md#1}}
+{{skills/mamba-framework/references/completion-commands.md#2}}
+void convert(ShellCompletion shell, RegistryRecord registryRecord) {
+  {{skills/mamba-framework/references/completion-commands.md#3}}
+}

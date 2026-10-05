@@ -1,0 +1,6 @@
+import 'package:mamba/mamba.dart';
+import 'package:test/test.dart';
+import 'skill_remote.dart';
+void main() {
+  {{skills/mamba-framework/references/testing.md#9}}
+}

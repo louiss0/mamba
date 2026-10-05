@@ -51,8 +51,8 @@ Parses a complete `String` matching `regex`. The default `\S+` pattern accepts
 one non-whitespace token.
 
 ```dart
-StringOption('label', short: 'l')
-StringOption.required('output', short: 'o')
+StringOption('label', short: 'l');
+StringOption.required('output', short: 'o');
 ```
 
 ### `IntOption`
@@ -60,8 +60,8 @@ StringOption.required('output', short: 'o')
 Parses a signed decimal `int`. `min` and `max` define inclusive bounds.
 
 ```dart
-IntOption('retries', min: 0, max: 5)
-IntOption.required('port', min: 1, max: 65535)
+IntOption('retries', min: 0, max: 5);
+IntOption.required('port', min: 1, max: 65535);
 ```
 
 ### `DoubleOption`
@@ -71,8 +71,8 @@ Parses a signed decimal `double`. `min` and `max` define inclusive bounds. A
 `min`.
 
 ```dart
-DoubleOption('ratio', min: 0, max: 1, step: 0.25)
-DoubleOption.required('amount', min: 0)
+DoubleOption('ratio', min: 0, max: 1, step: 0.25);
+DoubleOption.required('amount', min: 0);
 ```
 
 ### `ChoiceOption<T>`
@@ -80,13 +80,13 @@ DoubleOption.required('amount', min: 0)
 Accepts the name of a registered enum member and returns that enum member.
 
 ```dart
-ChoiceOption<OutputFormat>('format', choices: OutputFormat.values)
-ChoiceOption.required('format', choices: OutputFormat.values)
+ChoiceOption<OutputFormat>('format', choices: OutputFormat.values);
+ChoiceOption.required('format', choices: OutputFormat.values);
 ChoiceOption.withDefault(
   'format',
   choices: OutputFormat.values,
   defaultValue: OutputFormat.text,
-)
+);
 ```
 
 Generic factories infer their type from `choices` and `defaultValue`.
@@ -100,12 +100,12 @@ mamba build --tag stable --tag public
 ```
 
 ```dart
-RepeatableStringOption('tag')             // List<String>?
-RepeatableStringOption.required('tag')    // List<String>
-RepeatableIntOption('port')               // List<int>?
-RepeatableIntOption.required('port')      // List<int>
-RepeatableDoubleOption('ratio')           // List<double>?
-RepeatableDoubleOption.required('ratio')  // List<double>
+RepeatableStringOption('tag');             // List<String>?
+RepeatableStringOption.required('tag');    // List<String>
+RepeatableIntOption('port');               // List<int>?
+RepeatableIntOption.required('port');      // List<int>
+RepeatableDoubleOption('ratio');           // List<double>?
+RepeatableDoubleOption.required('ratio');  // List<double>
 ```
 
 `RepeatableChoiceOption<T>` returns enum members. With `unique: true`, a
@@ -116,7 +116,7 @@ RepeatableChoiceOption<OutputFormat>(
   'format',
   OutputFormat.values,
   unique: true,
-)
+);
 ```
 
 ## Paired options

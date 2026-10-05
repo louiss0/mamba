@@ -43,7 +43,9 @@ Extend `CompletionCommand` when a command needs the complete application
 registry. The executor assigns `registryRecord` while it builds the execution
 environment, before the completion command can run.
 
-This example selects a converter and writes its output to a required path:
+The shell and path inputs belong to `CompletionCommand` and cannot be
+replaced through its constructor. This example reads those retained positional
+handles, selects a converter, and rejects an omitted destination:
 
 ```dart
 import 'dart:io';
@@ -51,17 +53,6 @@ import 'dart:io';
 import 'package:mamba/mamba.dart';
 
 final class GenerateCompletionCommand extends CompletionCommand {
-  new() : super(options: [shell, output]);
-
-  static final shell = ChoiceOption.required(
-    'shell',
-    choices: ShellCompletion.values,
-  );
-  static final output = StringOption.required(
-    'output',
-    description: 'File to write.',
-  );
-
   @override
   String get name => 'completion';
 
@@ -70,8 +61,11 @@ final class GenerateCompletionCommand extends CompletionCommand {
 
   @override
   String run(ParsedInputs inputs, List<String> args) {
-    final selectedShell = inputs.valueOf(shell);
-    final path = inputs.valueOf(output);
+    final selectedShell = inputs.valueOf(CompletionCommand.shellInput);
+    final path = inputs.valueOf(CompletionCommand.pathInput);
+    if (path == null) {
+      throw MambaException('A destination path is required.');
+    }
     final content = switch (selectedShell) {
       .bash => ToBashCompletionConverter(registryRecord).convert(),
       .zsh => ToZshCompletionConverter(registryRecord).convert(),
@@ -86,11 +80,11 @@ final class GenerateCompletionCommand extends CompletionCommand {
 ```
 
 Register `GenerateCompletionCommand()` in the executor's command list, then
-invoke it with named options:
+invoke it with positional values:
 
 ```console
-my-cli completion --shell bash --output ./my-cli.bash
-my-cli completion --shell carapace --output ./my-cli.yaml
+my-cli completion bash ./my-cli.bash
+my-cli completion carapace ./my-cli.yaml
 ```
 
 For Carapace specifically, `CarapaceSpecWriter` can choose the platform's

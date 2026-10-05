@@ -1,0 +1,3 @@
+import 'package:mamba/mamba.dart';
+import 'lib/greet.dart';
+{{docs/src/content/docs/guides/getting-started.md#3}}

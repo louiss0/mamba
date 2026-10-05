@@ -76,7 +76,7 @@ final format = ChoicePositional.withDefault(
 Repeated string positionals accept `regex`. Repeated choice positionals accept
 `choices`; their default is a `List<T>`. Both accept `times`, which defaults to
 `1` and is the maximum number of values that declaration consumes. `times`
-must be zero or greater. A mandatory repeated positional must still consume at
+must be positive. A mandatory repeated positional must still consume at
 least one value.
 
 Repeated positionals consume greedily in registration order until `times` is
@@ -97,13 +97,21 @@ final formats = RepeatedChoicePositional.optional(
 );
 
 final class BuildCommand extends Command {
-  BuildCommand()
+  new()
     : super(
         mandatoryPositionals: [sources],
         discretionaryPositionals: [formats],
       );
 
-  // Implement name, shortDescription, and run.
+  @override
+  String get name => 'build';
+
+  @override
+  String get shortDescription => 'Build Dart sources.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) =>
+      inputs.valueOf(sources).join(',');
 }
 ```
 
@@ -128,16 +136,15 @@ final class ForwardCommand extends Command {
 }
 ```
 
-`ChoiceVariadic<T>` accepts `choices`, optional `description`, and optional
-`defaultValue`. It validates at most one trailing enum name. The default is
-registry metadata; it does not insert a value into `args` when the user omits
-one. `run` receives the original string rather than the enum member:
+`ChoiceVariadic<T>` accepts `choices` and an optional `description`, not a
+`defaultValue`. It validates at most one trailing enum name. When omitted, it
+adds nothing to `args`. `run` receives the original string rather than the
+enum member:
 
 ```dart
 ChoiceVariadic<OutputFormat>(
   choices: OutputFormat.values,
-  defaultValue: OutputFormat.text,
-)
+);
 ```
 
 Without a registered variadic, Mamba passes tokens after `--` to `run`

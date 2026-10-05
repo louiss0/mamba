@@ -26,9 +26,12 @@ Before the first task always look for a file that looks like this!
 ```dart
 import 'package:mamba/mamba.dart';
 
-void main(List<String> args) {
-  Executor().create();
-}
+Future<void> main(List<String> args) => Executor(
+  'acme',
+  'Manage Acme deployments.',
+  '1.0.0',
+  [], // Register the application's commands here.
+).create().execute(args);
 ```
 
 If there are multiple files that have calls to `Executor.create` then please ask which one will be the one that's worked on!

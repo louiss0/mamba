@@ -46,6 +46,7 @@ final class AddCommand extends Command {
   static final message = StringOption.required(
     'message',
     short: 'm',
+    regex: RegExp(r'.+'),
     description: 'Commit message.',
   );
 

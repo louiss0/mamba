@@ -1,0 +1,8 @@
+import 'package:mamba/mamba.dart';
+{{skills/mamba-framework/references/arguments.md#1}}
+{{skills/mamba-framework/references/arguments.md#2}}
+{{skills/mamba-framework/references/arguments.md#3}}
+{{skills/mamba-framework/references/arguments.md#4}}
+void choiceVariadic() {
+  {{skills/mamba-framework/references/arguments.md#5}}
+}

@@ -1,0 +1,25 @@
+import 'package:mamba/mamba.dart';
+import 'support.dart' show Format;
+{{docs/src/content/docs/reference/arguments.md#1}}
+void requiredTarget(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/arguments.md#2}}
+}
+void optionalTarget(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/arguments.md#3}}
+}
+void choicePositional() {
+  {{docs/src/content/docs/reference/arguments.md#4}}
+}
+void defaultedChoice() {
+  {{docs/src/content/docs/reference/arguments.md#5}}
+}
+void repeatedPositional(ParsedInputs inputs) {
+  {{docs/src/content/docs/reference/arguments.md#6}}
+}
+void repeatedChoice() {
+  {{docs/src/content/docs/reference/arguments.md#7}}
+}
+void variadics() {
+  {{docs/src/content/docs/reference/arguments.md#8}}
+  {{docs/src/content/docs/reference/arguments.md#9}}
+}

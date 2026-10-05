@@ -1,0 +1,4 @@
+import 'dart:async';
+import 'package:mamba/mamba.dart';
+{{docs/src/content/docs/reference/hooks.md#1}}
+{{docs/src/content/docs/reference/hooks.md#2}}
