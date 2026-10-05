@@ -732,6 +732,46 @@ void main() {
       );
     });
 
+    test('rejects a selected member supplied twice', () {
+      final format = PairStringOption('format');
+      final subject = parser(
+        selectedOptions: [
+          SelectedOptions<String>([format, PairStringOption('output')]),
+        ],
+      );
+
+      expect(
+        () => subject.parse(['--format', 'json', '--format', 'text']),
+        throwsA(
+          isA<MambaParseException>().having(
+            (error) => error.message,
+            'message',
+            contains('was provided more than once'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'stops a repeated choice positional at a word it does not declare',
+      () {
+        final formats = RepeatedChoicePositional<Format>(
+          'formats',
+          choices: Format.values,
+          times: 2,
+        );
+        final target = NormalPositional.optional('target');
+
+        final inputs = parser(
+          mandatory: [formats],
+          discretionary: [target],
+        ).parse(['json', 'text', 'extra']).$2;
+
+        expect(inputs.valueOf(formats), [Format.json, Format.text]);
+        expect(inputs.valueOf(target), 'extra');
+      },
+    );
+
     test('reads one integer syntax in every spelling', () {
       final count = IntOption('count');
 

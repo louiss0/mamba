@@ -147,6 +147,45 @@ final class BareGroup extends GroupCommand {
   String get shortDescription => 'Groups commands.';
 }
 
+/// A group whose name and default sub-command a test chooses.
+final class _DefaultingNamedGroup extends GroupCommand {
+  new(
+    this.events,
+    super.commands,
+    this.groupName, {
+    super.defaultSubCommandPath,
+  });
+
+  final List<String> events;
+  final String groupName;
+
+  @override
+  String get name => groupName;
+
+  @override
+  String get shortDescription => 'Groups commands.';
+}
+
+/// Records that it ran, so a test can name the command that actually ran.
+final class _LeafNamed extends Command {
+  new(this.events, this.leafName);
+
+  final List<String> events;
+  final String leafName;
+
+  @override
+  String get name => leafName;
+
+  @override
+  String get shortDescription => 'Records that it ran.';
+
+  @override
+  String run(ParsedInputs inputs, List<String> args) {
+    events.add(leafName);
+    return leafName;
+  }
+}
+
 /// Records the command path it was reached by, so a test can name the command
 /// that actually ran.
 final class PathRecordingCommand extends Command {
@@ -600,6 +639,24 @@ void main() {
     expect(events, ['run']);
   });
 
+  test("resolves a nested group's own default sub-command", () async {
+    final events = <String>[];
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      _DefaultingNamedGroup(events, [
+        _DefaultingNamedGroup(
+          events,
+          [_LeafNamed(events, 'leaf')],
+          'inner',
+          defaultSubCommandPath: ['leaf'],
+        ),
+        _DefaultingNamedGroup(events, [_LeafNamed(events, 'leaf')], 'sibling'),
+      ], 'outer'),
+    ]).fake().execute(['outer', 'inner']);
+
+    expect(result, isA<MambaSuccessResult>());
+    expect(events, ['leaf']);
+  });
+
   test('root and group defaults parse the leaf and run its hooks', () async {
     for (final (executor, arguments) in [
       (
@@ -677,6 +734,50 @@ void main() {
       expect(events, isEmpty);
     },
   );
+
+  group('default command paths', () {
+    test('refuses a default path that ends at a group', () {
+      expect(
+        () => Executor(
+          'tool',
+          'Tool.',
+          '1.0.0',
+          [
+            TestGroupCommand('group', [
+              TestCommand('run', 'Run command.'),
+            ], 'Group command.'),
+          ],
+          defaultCommandPath: ['group'],
+        ),
+        throwsA(
+          isA<MambaRegistryError>().having(
+            (error) => error.message,
+            'message',
+            contains('must end at an executable command'),
+          ),
+        ),
+      );
+    });
+
+    test('validates a default on a group nested inside another', () {
+      expect(
+        () => Executor(
+          'tool',
+          'Tool.',
+          '1.0.0',
+          [
+            TestGroupCommand('outer', [
+              TestGroupCommand('inner', [
+                TestCommand('run', 'Run command.'),
+              ], 'Inner group.'),
+            ], 'Outer group.'),
+          ],
+          defaultCommandPath: ['outer', 'inner'],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    });
+  });
 
   group('command paths that repeat a name', () {
     test('runs a child command named after the application', () async {

@@ -1271,12 +1271,16 @@ final class SelectedOptions<T extends Object>
       _valuesFrom(options, parsed);
 }
 
+/// A value or a group of values inside an accessor tree.
+///
+/// Every implementer extends [Input] and supplies its own [name] and
+/// [description]; this declares the shape they share rather than a constructor
+/// they would have to call.
 sealed class AccessorOption implements InputDefinition {
-  const new(this.name, {this.description});
   @override
-  final String name;
+  String get name;
   @override
-  final String? description;
+  String? get description;
 }
 
 sealed class AccessorPrimitiveOption<T> extends Input<T>

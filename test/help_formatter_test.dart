@@ -55,6 +55,48 @@ void main() {
     });
   });
 
+  test('rejects a required string that would break the usage line', () {
+    expect(
+      () => MambaHelpFormatter().formatIntoRequiredString('a < b'),
+      throwsFormatException,
+    );
+  });
+
+  test('renders a paired group whose members take choices', () {
+    final help = stripAnsi(
+      MambaHelpFormatter().format(
+        CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          pairedOptions: [
+            PairedOptions<_OutputFormat>([
+              PairChoiceOption<_OutputFormat>(
+                'format',
+                choices: _OutputFormat.values,
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+
+    expect(help, contains('[ --format (json|yaml) ]'));
+  });
+
+  test('turns a camelCase option name into an upper-case placeholder', () {
+    final help = stripAnsi(
+      MambaHelpFormatter().format(
+        CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [IntOption('retryLimit')],
+        ),
+      ),
+    );
+
+    expect(help, contains('RETRY_LIMIT'));
+  });
+
   test('renders current flag and option variants', () {
     final registry = CommandRegistry.create(
       'tool',

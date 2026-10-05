@@ -2778,6 +2778,119 @@ void main() {
   });
 
   group('declaration validity', () {
+    test('rejects a command whose name is outside the shared name form', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          commands: [TestCommand('bad!', 'Broken name.')],
+        ).commandRegistries,
+        throwsA(
+          isA<MambaRegistryError>().having(
+            (error) => error.message,
+            'message',
+            contains('Command name "bad!"'),
+          ),
+        ),
+      );
+    });
+
+    test('walks a full path back to the registry that owns it', () {
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestGroupCommand('group', [
+            TestCommand('run', 'Run command.'),
+          ], 'Group command.'),
+        ],
+      );
+
+      expect(
+        registry.registryForPath(['tool', 'group', 'run']),
+        registry.commandRegistries.single.commandRegistries.single,
+      );
+      expect(
+        () => registry.registryForPath(['group', 'run']),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      'rejects a propagated input that clashes with a local short alias',
+      () {
+        expect(
+          () => CommandRegistry.create(
+            'tool',
+            'Tool command.',
+            commands: [
+              TestGroupCommand(
+                'group',
+                [TestCommand('run', 'Run command.')],
+                'Group command.',
+                propagatedFlags: [BooleanFlag('inherited', short: 'x')],
+                flags: [BooleanFlag('local', short: 'x')],
+              ),
+            ],
+          ).commandRegistries,
+          throwsA(
+            isA<MambaRegistryError>().having(
+              (error) => error.message,
+              'message',
+              contains('Short alias -x is used by both'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('names the accessor kinds the registry understands', () {
+      expect(
+        () => RegistryAccessor.value(
+          name: 'size',
+          valueType: 'quantity',
+          description: null,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        RegistryAccessor.group(
+          name: 'config',
+          hidden: false,
+          options: const [],
+        ).valueType,
+        isNull,
+        reason: 'a group holds leaves rather than one value type',
+      );
+      final group = RegistryAccessor.group(
+        name: 'config',
+        hidden: false,
+        options: const [],
+      );
+      expect(group.choices, isNull);
+      expect(group.defaultValue, isNull);
+      expect(group.pattern, isNull);
+    });
+
+    test('copies the declared conflicts rather than sharing caller lists', () {
+      final members = ['quiet'];
+      final registry = CommandRegistry.create(
+        'tool',
+        'Tool command.',
+        commands: [
+          TestCommand(
+            'run',
+            'Run command.',
+            flags: [BooleanFlag('verbose'), BooleanFlag('quiet')],
+            conflicts: {'verbose': members},
+          ),
+        ],
+      ).commandRegistries.single;
+      members.add('injected');
+
+      expect(registry.conflicts['verbose'], ['quiet']);
+    });
+
     test('rejects a repeated positional that can hold no values', () {
       expect(
         () => RepeatedStringPositional('tags', times: 0),
