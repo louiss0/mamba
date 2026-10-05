@@ -19,9 +19,24 @@ jobs:
         run: |
           dart run coverage:format_coverage \
             --lcov \
+            --check-ignore \
             --in=.dart_tool/coverage \
             --out=.dart_tool/coverage.lcov \
-            --report-on=lib
+            --report-on=lib \
+            --packages=.dart_tool/package_config.json
+      # Every measurable line is covered, and the four blocks that are not are
+      # annotated in the source with why a parent VM cannot see them. A line
+      # that loses coverage fails the build rather than quietly shrinking the
+      # denominator.
+      - name: Fail on an uncovered line
+        run: |
+          missed=$(grep -c '^DA:[0-9]*,0$' .dart_tool/coverage.lcov || true)
+          if [ "$missed" != "0" ]; then
+            echo "::error::$missed measurable lines are not covered"
+            grep '^DA:[0-9]*,0$' .dart_tool/coverage.lcov | head -20
+            exit 1
+          fi
+          echo "every measurable line is covered"
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
