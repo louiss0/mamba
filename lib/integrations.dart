@@ -1472,7 +1472,15 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
               .firstOrNull;
           if (value != null) {
             final option = value;
-            placeOption(member, option, persistent, required: required);
+            // A selected group requires a selection, not every member. Its
+            // registry-produced members have an empty pairedOptions list.
+            // Null retains the paired interpretation for manual records.
+            placeOption(
+              member,
+              option,
+              persistent,
+              required: required && option.pairedOptions?.isEmpty != true,
+            );
           }
         }
       }

@@ -62,7 +62,17 @@ typedef RegistryVariadic = ({
   String? pattern,
 });
 
-typedef RegistryOptionGroup = ({bool required, List<String> members});
+/// One group of related options: a paired set or a selected set.
+///
+/// [required] requires all paired members or at least one selected member.
+/// [single] limits a selected group to at most one member and is false for a
+/// paired group. In registry-produced records, a member's `pairedOptions` is
+/// empty for a selected group and lists the partners for a paired group.
+typedef RegistryOptionGroup = ({
+  bool required,
+  bool single,
+  List<String> members,
+});
 
 final class RegistryCommand {
   new({
@@ -687,14 +697,19 @@ final class CommandRegistry {
               for (final option in options) _optionRecord(option, registry),
             ]),
       persistentOptions: null,
-      optionGroups: [
-        ...registry.pairedOptionGroups.map(
-          (group) => (
+      optionGroups: List<RegistryOptionGroup>.unmodifiable([
+        for (final group in <PairedOptionsDefinition>[
+          ...registry.pairedOptionGroups,
+          ...registry.selectedOptions,
+        ])
+          (
             required: group.required,
-            members: List.unmodifiable(group.options.map((item) => item.name)),
+            single: group is SelectedOptions && group.single,
+            members: List<String>.unmodifiable(
+              group.options.map((item) => item.name),
+            ),
           ),
-        ),
-      ],
+      ]),
       accessors: registry.applicableAccessors.isEmpty
           ? null
           : List.unmodifiable([

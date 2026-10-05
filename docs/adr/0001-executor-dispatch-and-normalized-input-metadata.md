@@ -2,6 +2,19 @@
 
 Default commands are resolved by the executor before parsing, including chained group defaults, so the selected leaf's inputs and all applicable hooks use the same execution pipeline as an explicitly named command. Direct `GroupCommand.run` remains a low-level call, not equivalent to executor dispatch. The registry owns the shared interpretation of input kind and positional cardinality; parsing and completion use that interpretation, while shared validation helpers keep declaration defaults and explicit values in sync. Typed declaration handles remain the way commands read parsed values. We chose this over direct child `run` calls and independent interpretation in each consumer because those approaches let parsing contexts, hooks, and completion behavior diverge.
 
+A group of related options is described rather than flattened. Paired and
+selected groups both reach a record's `optionGroups`, the selected group
+carrying `single`, so the relationship a command declared survives into the
+completion artifacts instead of arriving as members that merely look
+independent. Shell-side enforcement is a separate matter: the current converters
+do not enforce paired-group relationships either. Preserving both kinds in the
+record makes that a uniform, documented gap rather than a lost declaration.
+Group kind is inferred from each member's `pairedOptions`: selected members
+have an empty list, paired members list their partners. A required selected
+group requires a selection, not every member, so Carapace must not mark each
+selected member mandatory. Manually built records with null partner metadata
+retain the existing paired-group interpretation.
+
 ## Amendment
 
 The registry is the single authority on declaration validity, including reserved spellings, effective spellings after inheritance and overrides resolve, and declared counts and capacities, all of which must be positive. A count is refused where it is declared rather than in one registry pass, because that is where a negative count was already refused and one constructor then covers every shape of the declaration; the registry still refuses a default that cannot fit its own capacity, which only it can see. Only help and version spellings are reserved; opt-in built-in declarations are ordinary declarations the registry validates like any other. The parser recognizes those reserved spellings and tells the executor they were used; it does not interpret them independently of a declaration.

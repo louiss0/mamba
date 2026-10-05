@@ -311,7 +311,7 @@ RegistryRecord _complexRecord() {
     ],
     persistentOptions: persistentOptions,
     optionGroups: [
-      (required: true, members: ['input', 'output']),
+      (required: true, single: false, members: ['input', 'output']),
     ],
     accessors: [
       RegistryAccessor.group(
@@ -348,6 +348,43 @@ RegistryRecord _emptyRecord() => (
 
 void main() {
   group('completion converters', () {
+    test('carries a selected group and whether it is exclusive', () {
+      final record = CommandRegistry.create(
+        'tool',
+        'Tool.',
+        selectedOptions: [
+          SelectedOptions<String>([
+            PairStringOption('json'),
+            PairStringOption('text'),
+          ]),
+          SelectedOptions<String>.required([
+            PairStringOption('all'),
+            PairStringOption('none'),
+          ], single: true),
+        ],
+      ).toRecord();
+
+      expect(
+        record.optionGroups!.map((group) => (group.required, group.single)),
+        [(false, false), (true, true)],
+      );
+      expect(record.optionGroups!.map((group) => group.members), [
+        ['json', 'text'],
+        ['all', 'none'],
+      ]);
+      expect(record.options!.map((option) => option.pairedOptions), [
+        <String>[],
+        <String>[],
+        <String>[],
+        <String>[],
+      ]);
+      expect(() => record.optionGroups!.clear(), throwsUnsupportedError);
+      expect(
+        () => record.optionGroups!.first.members.clear(),
+        throwsUnsupportedError,
+      );
+    });
+
     test('consume uniqueness metadata', () {
       final record = CommandRegistry.create(
         'tool',
@@ -601,6 +638,36 @@ void main() {
   });
 
   group('Carapace conversion', () {
+    test('does not require every member of a required selected group', () {
+      final record = CommandRegistry.create(
+        'tool',
+        'Tool.',
+        pairedOptions: [
+          PairedOptions<String>.required([
+            PairStringOption('host'),
+            PairStringOption('port'),
+          ]),
+        ],
+        selectedOptions: [
+          SelectedOptions<String>.required([
+            PairStringOption('json'),
+            PairStringOption('text'),
+          ], single: true),
+          SelectedOptions<String>.required([
+            PairStringOption('log'),
+            PairStringOption('report'),
+          ]),
+        ],
+      ).toRecord();
+      final completion = CarapaceSpecConverter(record).convert();
+
+      expect(completion, contains('--host!='));
+      expect(completion, contains('--port!='));
+      for (final name in ['json', 'text', 'log', 'report']) {
+        expect(completion, contains('--$name?='));
+        expect(completion, isNot(contains('--$name!=')));
+      }
+    });
     test('uses times as the maximum number of positional slots', () {
       final completion = CarapaceSpecConverter(_complexRecord()).convert();
       expect(RegExp(r'- - "stage"').allMatches(completion), hasLength(1));
@@ -732,11 +799,11 @@ void main() {
         deploy.flags!.where((flag) => flag.hidden).map((flag) => flag.name),
         ['quiet'],
       );
-      // Only paired groups reach `optionGroups`; a selected group is exported
-      // as its members being independent options. That asymmetry is recorded
-      // in the fixtures rather than papered over here.
+      // Both kinds of group reach `optionGroups`, so a selected group no longer
+      // arrives as members that happen to be independent.
       expect(deploy.optionGroups!.map((group) => group.members), [
         ['host', 'port'],
+        ['log', 'report'],
       ]);
       expect(
         deploy.options!.map((option) => option.name),

@@ -159,7 +159,7 @@ The root record has these fields:
 | `persistentFlags` | `List<RegistryFlag>?` | Flags that converters should also make available to descendants. |
 | `options` | `List<RegistryOption>?` | Value-taking options available at this command. |
 | `persistentOptions` | `List<RegistryOption>?` | Options that converters should also make available to descendants. |
-| `optionGroups` | `List<RegistryOptionGroup>?` | All-or-nothing paired-option groups. |
+| `optionGroups` | `List<RegistryOptionGroup>?` | Paired and selected option groups. |
 | `accessors` | `List<RegistryAccessor>?` | Recursive trees that become dotted option names. |
 
 `CommandRegistry.toRecord()` places each command's effective inherited inputs in
@@ -183,7 +183,7 @@ and recursion:
 | `variadic` | Trailing values accepted after `--`. |
 | `flags` / `options` | Inputs available on this command. |
 | `persistentFlags` / `persistentOptions` | Inputs inherited by descendants when supplied explicitly in a record. |
-| `optionGroups` | Paired-option relationships owned by this command. |
+| `optionGroups` | Paired and selected relationships owned by this command. |
 | `accessors` | Dotted option trees available on this command. |
 
 Build the command path while descending through `commands`. Completion
@@ -254,17 +254,20 @@ recognize that selecting one member requires the other members as well.
 
 ### `RegistryOptionGroup`
 
-`RegistryOptionGroup` captures an all-or-nothing `PairedOptions` declaration:
+`RegistryOptionGroup` preserves a `PairedOptions` or `SelectedOptions` declaration:
 
 | Field | Meaning |
 | --- | --- |
-| `required` | `true` when the entire group must be present; `false` when the entire group may be omitted. |
+| `required` | Requires all paired members or at least one selected member. |
+| `single` | Limits a selected group to at most one member; always false for paired groups. |
 | `members` | Option names belonging to the group, in declaration order. |
 
-Supplying any member requires every member regardless of `required`.
-`required` controls whether omitting the whole group is valid. Selected-option
-groups are flattened into `options`; they are not emitted as
-`RegistryOptionGroup` values.
+Every member also appears in `options`. In registry-produced records, its
+`pairedOptions` lists the partners for a paired group and is empty for a
+selected group, so consumers infer the group kind from member metadata.
+A required selected group does not make every member individually mandatory.
+The current converters do not enforce group selection or exclusivity in shell
+completions; the record preserves those relationships for consumers.
 
 ### `RegistryAccessor`
 

@@ -102,8 +102,9 @@ Build the command path while recursing through `commands`. Records produced by
 `CommandRegistry.toRecord()` already place effective inherited inputs in each
 command's `flags`, `options`, and `accessors`; their `persistentFlags` and
 `persistentOptions` are left `null`, so a manually built record is the only way
-to state them. `optionGroups` carries paired groups; a selected group is
-exported as its members being independent options.
+to state them. `optionGroups` carries both kinds of group: a paired set and a
+selected set, so a selected group no longer arrives as members that merely
+look independent.
 
 ### `RegistryPositional`
 
@@ -136,10 +137,16 @@ validation metadata:
 
 ### `RegistryOptionGroup`
 
-`members` lists the option names in one `PairedOptions` declaration. Supplying
-one member requires all members. `required` controls whether the whole group
-may be omitted. Selected-option groups are flattened into `options` and do not
-produce `RegistryOptionGroup` values.
+`members` lists the option names in one `PairedOptions` or `SelectedOptions`
+declaration. A paired group is all-or-nothing: supplying one member requires
+all members, and `required` controls whether the whole group may be omitted. A
+selected group requires at least one member when `required` is true, and
+accepts at most one when `single` is true. All members also appear in `options`.
+In registry-produced records, a member's `pairedOptions` is empty for a
+selected group and lists the partners for a paired group. Infer the group
+kind from that metadata; `single: false` alone does not distinguish them.
+The current converters preserve these relationships in the record but do not
+enforce group selection or exclusivity in shell completions.
 
 ### `RegistryAccessor`
 
