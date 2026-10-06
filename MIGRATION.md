@@ -1,8 +1,7 @@
 # Framework correctness and expressiveness migration
 
-These changes are unreleased. They repair retained-handle guarantees and make
-syntax, scope, declaration validity, and generated metadata agree. No release
-version, tag, or publication is part of this milestone.
+These changes are included in Mamba 0.16.0. They repair retained-handle guarantees
+and make syntax, scope, declaration validity, and generated metadata agree.
 
 ## Individual behavior changes
 

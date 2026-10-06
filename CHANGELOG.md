@@ -1,4 +1,4 @@
-## Unreleased
+## 0.16.0
 
 Framework correctness and expressiveness milestone. See [MIGRATION.md](MIGRATION.md)
 for individual before/after/action guidance and preserved/deferred boundaries.
@@ -30,11 +30,19 @@ for individual before/after/action guidance and preserved/deferred boundaries.
   injective, with real load-order/re-sourcing/path isolation regressions.
 - Windows CI requires PowerShell 5.1 and pwsh runtime tests alongside existing
   Bash runtime, shell syntax, fixtures, examples, and coverage gates.
+- Malformed equals attachments with no short option name (`-=`, `-=text`) are
+  rejected before command execution; valid empty values such as `-o=` remain
+  supported.
+- Inherited conflicts are revalidated against effective override requiredness,
+  including nested accessor leaves, before command ownership is claimed.
+- Fish preserves newline-containing choices through static quoted rules and
+  omits tab-containing candidates due to its native description protocol;
+  parsing and registry metadata still preserve both exactly.
 
-## 0.16.0
+### Earlier review fixes
 
-Fixes from a review of the 0.15.0 surface. The first three entries are
-breaking.
+The release also includes these fixes from a review of the 0.15.0 surface.
+The entries under Breaking change public contracts.
 
 ### Breaking
 
