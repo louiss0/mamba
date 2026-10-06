@@ -15,10 +15,10 @@ _rig_rig_deploy() {
     '--dry-run[Report without deploying.]' \
     '--no-dry-run[Report without deploying.]' \
     '*{-r,--retries}[Retry a failed deploy.]' \
-    '--format[Output format.]:format:(text json yaml)' \
+    '--format[Output format.]:format:->mamba_option_format' \
     '*{-t,--tag}[Tag to apply.]:tag:' \
     '--replicas[Replica count.]:replicas:_numbers -l 1 -m 4' \
-    '--level[Log level.]:level:(debug info warn)' \
+    '--level[Log level.]:level:->mamba_option_level' \
     '{-k,--token}[Deploy token.]:token:' \
     '--host[Deploy host.]:host:' \
     '--port[Deploy port.]:port:' \
@@ -26,11 +26,32 @@ _rig_rig_deploy() {
     '--report[Write a report.]:report:' \
     '--database.dsn[Connection string.]:database.dsn:' \
     '--database.pool.size[Pool size.]:database.pool.size:_numbers' \
-    '--database.pool.mode[]:database.pool.mode:(text json yaml)' \
+    '--database.pool.mode[]:database.pool.mode:->mamba_option_database_2Epool_2Emode' \
     '1:target:' \
     '2::profile:' \
     '*::argument:'
   case $state in
+    mamba_option_format)
+      if [[ "$IPREFIX" == *= || "${words[CURRENT]}" == -*=* ]]; then
+        compadd -- 'text' 'json' 'yaml'
+      else
+        compadd -- 'text' 'json' 'yaml'
+      fi
+      ;;
+    mamba_option_level)
+      if [[ "$IPREFIX" == *= || "${words[CURRENT]}" == -*=* ]]; then
+        compadd -- 'debug' 'info' 'warn'
+      else
+        compadd -- 'debug' 'info' 'warn'
+      fi
+      ;;
+    mamba_option_database_2Epool_2Emode)
+      if [[ "$IPREFIX" == *= || "${words[CURRENT]}" == -*=* ]]; then
+        compadd -- 'text' 'json' 'yaml'
+      else
+        compadd -- 'text' 'json' 'yaml'
+      fi
+      ;;
   esac
 }
 

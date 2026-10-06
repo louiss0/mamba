@@ -15,6 +15,33 @@ _mamba_filter() {
   done
 }
 
+_mamba_filter_separate() {
+  local numeric="$1" current="$2"
+  shift 2
+  local candidate
+  local -a accepted=()
+  for candidate in "$@"; do
+    if [[ "$numeric" == true || "$candidate" != -* || "$candidate" == - ]]; then
+      accepted+=("$candidate")
+    fi
+  done
+  _mamba_filter "$current" "${accepted[@]}"
+}
+
+_mamba_valid_short_value() {
+  local head="$1"
+  shift
+  local prefix="${head:1:${#head}-2}"
+  local index flag found
+  for ((index = 0; index < ${#prefix}; index++)); do
+    found=0
+    for flag in "$@"; do
+      [[ "$flag" == "-${prefix:index:1}" ]] && found=1
+    done
+    ((found)) || return 1
+  done
+}
+
 _mamba_filter_option() {
   local option="$1"
   local current="$2"
@@ -160,30 +187,33 @@ _rig_rig_deploy_completion() {
 
   case "$current" in
     --format=*)
-      _mamba_filter_option '--format' "$current" "${_rig_rig_deploy_format_5Fvalues[@]}"
+      if [[ "$current" != --* ]] && ! _mamba_valid_short_value "${current%%=*}" "${_rig_rig_deploy_flags[@]}"; then return; fi
+      _mamba_filter_option "${current%%=*}" "$current" "${_rig_rig_deploy_format_5Fvalues[@]}"
       return
       ;;
     --level=*)
-      _mamba_filter_option '--level' "$current" "${_rig_rig_deploy_level_5Fvalues[@]}"
+      if [[ "$current" != --* ]] && ! _mamba_valid_short_value "${current%%=*}" "${_rig_rig_deploy_flags[@]}"; then return; fi
+      _mamba_filter_option "${current%%=*}" "$current" "${_rig_rig_deploy_level_5Fvalues[@]}"
       return
       ;;
     --database.pool.mode=*)
-      _mamba_filter_option '--database.pool.mode' "$current" "${_rig_rig_deploy_database_2Epool_2Emode_5Fvalues[@]}"
+      if [[ "$current" != --* ]] && ! _mamba_valid_short_value "${current%%=*}" "${_rig_rig_deploy_flags[@]}"; then return; fi
+      _mamba_filter_option "${current%%=*}" "$current" "${_rig_rig_deploy_database_2Epool_2Emode_5Fvalues[@]}"
       return
       ;;
   esac
 
   case "$previous" in
     --format)
-      _mamba_filter "$current" "${_rig_rig_deploy_format_5Fvalues[@]}"
+      _mamba_filter_separate false "$current" "${_rig_rig_deploy_format_5Fvalues[@]}"
       return
       ;;
     --level)
-      _mamba_filter "$current" "${_rig_rig_deploy_level_5Fvalues[@]}"
+      _mamba_filter_separate false "$current" "${_rig_rig_deploy_level_5Fvalues[@]}"
       return
       ;;
     --database.pool.mode)
-      _mamba_filter "$current" "${_rig_rig_deploy_database_2Epool_2Emode_5Fvalues[@]}"
+      _mamba_filter_separate false "$current" "${_rig_rig_deploy_database_2Epool_2Emode_5Fvalues[@]}"
       return
       ;;
   esac
@@ -347,7 +377,7 @@ _rig_completion() {
       after_separator=1
       continue
     fi
-    if [[ -n "${_rig_value_options["$path|$token"]}" ]]; then
+    if [[ -n "${_rig_value_options["$path|$token"]}" && "${COMP_WORDS[index + 1]}" != -* ]]; then
       ((index++))
       continue
     fi
