@@ -9,8 +9,15 @@ import 'skill_accessors.dart' as accessors;
 import 'skill_accessor_conflicts.dart' as conflicts;
 import 'skill_flag_conflicts.dart' as flags;
 import 'lib/greet.dart';
+import 'options.dart' as options;
 
 void main() {
+  test('documented enum implementation returns typed members using exact spellings', () {
+    final registry = CommandRegistry.create('tool', 'Tool.', options: [options.wireFormat]);
+    final options.WireFormat? value = Parser(registry).parse(['--wire-format=json-lines']).$2.valueOf(options.wireFormat);
+    expect(value, options.WireFormat.jsonLines);
+    expect(() => Parser(registry).parse(['--wire-format=jsonLines']), throwsA(isA<MambaParseException>()));
+  });
   test('repeated positionals stop at their declared maximum', () async {
     final executor = Executor('tool', 'Tool.', '1.0.0', [arguments.BuildCommand()]).fake();
     final result = await executor.execute(['build', 'a.dart', 'b.dart', 'c.dart']);
