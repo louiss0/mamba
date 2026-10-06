@@ -16,15 +16,33 @@ instead of loading. Every other target runs on the shell its name suggests.
 | Bash | 4 or newer | Linux Bash and Homebrew Bash on macOS |
 | Zsh | 5.9 or newer | 5.9 on Linux and macOS |
 | Fish | 3.7 or newer | 3.7 on Linux, 4.9 on macOS |
-| PowerShell | 5.1 or newer | 7.6 on Windows |
+| PowerShell | 5.1 or newer | Windows PowerShell 5.1 and pwsh on Windows CI |
 | Carapace | any Carapace that reads YAML specs | generated as a spec file, not run by a shell |
 
 CI installs Homebrew Bash on macOS and requires Bash 4+ before checking
 artifacts. Missing, unreadable, or older Bash fails CI; completion tests are
 never skipped because of the Bash version.
 
-CI parses every generated artifact with these shells on each push and prints the
-versions it used, so the verified column is a record rather than a claim.
+CI retains syntax gates and real Bash runtime tests, and requires real Windows
+PowerShell 5.1 and pwsh isolation regressions. Versions are printed in the jobs.
+Unavailable local shells are reported as unverified skips; configuring a CI gate
+is not proof that a hosted run has passed. Enforcement of relationships and
+finite positional allocation remains best-effort; the parser is authoritative.
+
+Regenerate and reinstall artifacts after upgrading. PowerShell state/helper
+names use injective namespaces, so hyphenated/underscored applications and
+command paths do not collide; executable registration itself is case-insensitive.
+Tiny stepped decimals are emitted as accepted decimal text, not scientific
+notation or rounded zeroes. Candidates are checked against the parser's existing
+floating-point step alignment; generation does not relax its precision or syntax.
+Large stepped-double materialization remains a
+deferred resource risk; no new shared enumeration cap is added.
+
+Fish preserves newline-containing choices using static quoted rules. It omits
+choices containing tabs: Fish treats a tab as the separator before a completion
+description even when the value was quoted. Those choices remain legal exact
+Mamba input and stay in registry metadata; supply them manually. This is a
+native completion-protocol limitation, not a parsing restriction.
 
 ## Completion converters
 
@@ -45,7 +63,9 @@ an invocation.
 
 Extend `CompletionCommand` when a command needs the complete application
 registry. The executor assigns `registryRecord` while it builds the execution
-environment, before the completion command can run.
+owner after whole-tree validation, before the completion command can run.
+One command instance has one configured owner; create fresh instances for other
+applications. Multiple adapters from the same owner remain supported.
 
 The shell and path inputs belong to `CompletionCommand` and cannot be
 replaced through its constructor. This example reads those retained positional
@@ -93,6 +113,17 @@ my-cli completion carapace ./my-cli.yaml
 
 For Carapace specifically, `CarapaceSpecWriter` can choose the platform's
 Carapace spec directory or write to an explicit `outputPath`.
+
+Carapace interprets completion values using its own spec language. A leading
+`$` selects a macro (for example, `$files`); ` ||| ` attaches modifiers (for
+example, `value ||| $nospace`). It also expands environment references and uses
+tabs to separate descriptions. YAML quoting does not disable those rules.
+Mamba preserves this native interpretation rather than adding a literal-value
+helper or rejecting these choices. Application authors own Carapace-specific
+semantics; an exact Mamba enum spelling is not a guarantee that Carapace will
+advertise the same literal text. See the upstream
+[macro documentation](https://carapace-sh.github.io/carapace-spec/carapace-spec/macros.html)
+and [value interpreter](https://github.com/carapace-sh/carapace-spec/blob/master/action.go).
 
 ## The preset constructor
 
@@ -159,6 +190,8 @@ The root record has these fields:
 | `persistentOptions` | `List<RegistryOption>?` | Options that converters should also make available to descendants. |
 | `optionGroups` | `List<RegistryOptionGroup>?` | Paired and selected option groups. |
 | `accessors` | `List<RegistryAccessor>?` | Recursive trees that become dotted option names. |
+| `conflicts` | `Map<String, List<String>>` | Effective identity-inherited syntax conflicts, even when shells cannot fully enforce them. |
+| `defaultCommandPath` | `List<String>?` | Canonical default path relative to this scope. |
 
 `CommandRegistry.toRecord()` places each command's effective inherited inputs in
 `flags`, `options`, and `accessors`. It currently leaves `persistentFlags` and
@@ -183,6 +216,10 @@ and recursion:
 | `persistentFlags` / `persistentOptions` | Inputs inherited by descendants when supplied explicitly in a record. |
 | `optionGroups` | Paired and selected relationships owned by this command. |
 | `accessors` | Dotted option trees available on this command. |
+| `conflicts` / `defaultCommandPath` | Effective syntax conflicts and canonical relative default path. |
+
+Manual `RegistryRecord` literals now supply `conflicts` (an empty map if none)
+and `defaultCommandPath` (nullable). `RegistryCommand` accepts optional equivalents.
 
 Build the command path while descending through `commands`. Completion
 converters use that path to distinguish identically named inputs belonging to
@@ -198,7 +235,7 @@ is its parse position.
 | `name` | Human-readable input name used by help and completion descriptions. |
 | `required` | Whether the positional must be supplied. |
 | `description` | Optional help text. |
-| `choices` | Allowed enum names when the positional is choice-backed. |
+| `choices` | Exact offered enum spellings when the positional is choice-backed. |
 | `defaultValue` | Default rendered as text; repeated defaults are comma-separated. |
 | `repeatable` | `true` for a repeated positional and `null` otherwise. |
 | `times` | Maximum number of values a repeated positional accepts. |
@@ -239,7 +276,7 @@ cover spelling, cardinality, validation, and group relationships:
 | `valueType` | One of `string`, `int`, `double`, or `choice`. |
 | `repeatable` | `true` when the option can occur more than once; otherwise `null`. |
 | `unique` | `true` when repeated values may not repeat; otherwise `null`. |
-| `choices` | Finite enum names to offer as values. |
+| `choices` | Exact offered enum spellings, including MambaEnumValue values. |
 | `defaultValue` | Default rendered as text; list defaults are comma-separated. |
 | `pattern` | Regular-expression source for string validation. |
 | `min` / `max` | Inclusive numeric bounds when range validation is present. |
@@ -275,13 +312,16 @@ branch, while a value is a completable leaf:
 | `kind` | Populated fields | Meaning |
 | --- | --- | --- |
 | `group` | `name`, `hidden`, `description`, `options` | A named branch containing more accessors. |
-| `value` | `name`, `valueType`, `description`, `choices`, `defaultValue`, `pattern` | A leaf that consumes a value. |
+| `value` | `name`, `valueType`, `required`, `description`, `choices`, `defaultValue`, `pattern` | A leaf that consumes a value. |
 
 Join ancestor names with `.` to obtain the long option spelling. For example,
 a `server` group containing a `tls` group containing a `certificate` value
 becomes `--server.tls.certificate`. `hidden` belongs to groups, so hiding a
 group hides its descendant leaves. Leaf `valueType` uses the same `string`,
-`int`, `double`, and `choice` values as `RegistryOption`.
+`int`, `double`, and `choice` values as `RegistryOption`. Each leaf retains its
+independent requiredness. Manual `RegistryAccessor.value` construction defaults
+`required` to false; set it explicitly for mandatory leaves. Hidden metadata is
+visibility, not an authorization boundary.
 
 Use the record's named getters and ordinary list traversal to inspect the
 root and descendants:
