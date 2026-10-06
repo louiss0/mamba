@@ -45,7 +45,8 @@ strings are passed to `run` through `args`, not through `ParsedInputs`.
 ## Positional API
 
 All positionals accept `name` and optional `description`. Normal string
-positionals also accept `regex`; the default pattern is `\S+`.
+positionals accept every supplied String by default, including empty/whitespace
+content. An explicit `regex` checks the complete assigned value.
 
 | Declaration | Registration | Parsed type |
 | --- | --- | --- |
@@ -60,8 +61,9 @@ positionals also accept `regex`; the default pattern is `\S+`.
 | `RepeatedChoicePositional.optional(...)` | discretionary | `List<T>?` |
 | `RepeatedChoicePositional.withDefault(...)` | discretionary | `List<T>` |
 
-Choice declarations accept enum values and parse the selected member by its
-`.name`:
+Choice declarations return enum members. Ordinary enums use `.name`; enums
+implementing `MambaEnumValue` use their exact String `value`, without implicit
+name aliases. Offered spellings/entries must be unique:
 
 ```dart
 enum OutputFormat { text, json }
@@ -79,9 +81,10 @@ Repeated string positionals accept `regex`. Repeated choice positionals accept
 must be positive. A mandatory repeated positional must still consume at
 least one value.
 
-Repeated positionals consume greedily in registration order until `times` is
-reached or the next token fails their validation. Their parsed lists and
-configured choice/default lists are immutable.
+Repeated positionals allocate up to `times` in registration order while
+reserving one token for each following mandatory positional. Validators check
+the assigned values without backtracking. Parsed lists and configured
+choice/default lists are immutable, including accepted empty defaults.
 
 ```dart
 final sources = RepeatedStringPositional(
@@ -118,7 +121,8 @@ final class BuildCommand extends Command {
 ## Variadic API
 
 `NormalVariadic` validates every token after the first `--`. It accepts an
-optional `description` and `regex`; the default pattern is `\S+`.
+optional `description` and `regex`. Without an explicit validator every supplied
+trailing String is accepted. The trailing list is separate from positionals.
 
 ```dart
 final class ForwardCommand extends Command {

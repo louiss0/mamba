@@ -77,7 +77,8 @@ occurrence, including repeated short aliases such as `-vv`.
 - `Command(flags: [...])` registers flags only for that command.
 - `GroupCommand(..., flags: [...])` registers flags only for the group itself.
 - `GroupCommand(..., propagatedFlags: [...])` makes flags available to the
-  group's descendants, not the declaring group itself.
+  declaring group and every descendant. Compatible overrides preserve kind,
+  output type, cardinality, and retained ancestor reads.
 - `Executor(..., flags: [...])` makes flags available across the command tree.
 
 Mamba provides these reusable declarations:

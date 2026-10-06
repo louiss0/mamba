@@ -27,7 +27,10 @@ non-null fallback.
 | `ChoiceOption<T>` | `T?` | `T` | `T` |
 
 All scalar forms accept `name`, `short`, `description`, and `hidden`.
-`StringOption` accepts `regex`, defaulting to `\S+`. Integer options accept
+`StringOption` accepts every supplied String by default; an explicit `regex`
+checks whole content. Separate option-looking string values require inline
+supply. Shorts support `-o=value` and flag-prefix `-vo=value`, not `-ofile` or
+`-vo value`. Integer options accept
 inclusive `min` and `max`. Double options accept inclusive `min`, `max`, and
 `step`. Choice options accept enum `choices`; defaulted choices also require a
 member from that enum.
@@ -257,7 +260,8 @@ preserving parsing.
 - `Command(options: [...])` and `GroupCommand(..., options: [...])` register
   scalar or repeatable options locally.
 - `GroupCommand(..., propagatedOptions: [...])` makes scalar or repeatable
-  options available to the group's descendants, not the group itself.
+  options available to the declaring group and every descendant. Compatible
+  overrides preserve output type/cardinality and ancestor retained reads.
 - `Executor(..., options: [...])` makes scalar or repeatable options global.
 - Paired, selected, and accessor registrations belong to the command lists
   shown at the top of this page. Executor supports global accessors, but not
@@ -265,7 +269,11 @@ preserving parsing.
 
 ## Conflicts and presence
 
-Use `Command.conflicts` to reject incompatible named inputs before `run`.
+Use `Command.conflicts` to reject explicit CLI occurrences before `run`, not
+defaulted values. Explicit negations count even when false. Applicable edges
+inherit by declaration identity through compatible overrides; unavailable local
+endpoints do not resurrect under unrelated matching names. `contains` still
+means stored-value presence.
 Names may refer to flags, ordinary options, paired or selected members, or
 accessor leaves. Use the full dotted name for an accessor leaf:
 

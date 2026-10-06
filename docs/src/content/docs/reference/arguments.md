@@ -47,7 +47,8 @@ that an input's output type cannot contradict its registration.
 
 ## `NormalPositional`
 
-Parses one complete `String` using `regex`, which defaults to `\S+`:
+Parses one complete supplied `String`, including empty strings and embedded
+whitespace. Supply an explicit `regex` to constrain content:
 
 ```dart
 final target = NormalPositional(
@@ -66,7 +67,9 @@ final String? targetValue = inputs.valueOf(target);
 
 ## `ChoicePositional<T>`
 
-Accepts an enum member name and returns the corresponding enum member:
+Accepts an offered enum choice spelling and returns the corresponding enum
+member. Ordinary enums use their member names; enums implementing
+`MambaEnumValue` use their exact `value` strings:
 
 ```dart
 final format = ChoicePositional<Format>(
@@ -90,9 +93,12 @@ Generic factories infer their type from `choices` and `defaultValue`.
 
 ## Repeated positionals
 
-`RepeatedStringPositional` and `RepeatedChoicePositional<T>` greedily parse at
-most `times` values in registration order. `times` defaults to `1` and must be
-positive. Mandatory declarations produce non-null lists:
+`RepeatedStringPositional` and `RepeatedChoicePositional<T>` allocate at most
+`times` values in registration order, reserving one token for each following
+mandatory positional. `times` defaults to `1` and must be finite and positive;
+it is a maximum, not an exact required length. Validators check assigned values
+without moving rejected tokens to a later declaration. Mandatory declarations
+need at least one token and produce non-null lists:
 
 ```dart
 final files = RepeatedStringPositional('files', times: 2);
@@ -118,7 +124,8 @@ not stored in `ParsedInputs`.
 
 ### `NormalVariadic`
 
-Validates every trailing token against `regex`, which defaults to `\S+`:
+Accepts every supplied trailing string by default. An explicit `regex` validates
+each complete string:
 
 ```dart
 NormalVariadic(regex: RegExp(r'.+'));
@@ -126,7 +133,7 @@ NormalVariadic(regex: RegExp(r'.+'));
 
 ### `ChoiceVariadic<T>`
 
-Accepts at most one trailing enum member name:
+Accepts at most one trailing enum choice spelling, retaining its raw string:
 
 ```dart
 ChoiceVariadic<Format>(choices: Format.values);

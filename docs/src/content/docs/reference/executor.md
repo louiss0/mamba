@@ -33,7 +33,7 @@ to stderr and assigns the first failure's exit code to the process.
 
 ```mermaid
 flowchart TD
-    A["Receive command-line arguments"] --> B["Resolve the selected registry<br/>and an empty-input default path"]
+    A["Receive command-line arguments"] --> B["Resolve the selected registry<br/>and its default path"]
     B --> C["Parse the command path and typed inputs"]
     C --> D{"Framework output or command?"}
 
@@ -206,6 +206,28 @@ final executor = Executor(
 );
 ```
 
-The default applies only when the argument list passed to `execute` is empty.
-If any flag, option, or command token is present, normal command resolution is
-used instead.
+The default applies when no child command is explicitly named at that scope,
+even when flags or options are supplied. A group's `defaultSubCommandPath`
+applies once that group has been selected; a root without a default renders
+root help rather than implicitly selecting a group's default. Default chains
+are resolved before parsing the selected command. Help describes the explicit
+scope, not its implicit default.
+
+## Ownership and sequential reuse
+
+Construction validates every descendant and default path before atomically
+claiming command instances. Each command object has one configured owner and
+one canonical path. Use fresh instances for different configurations or tree
+placements; aliases and shared immutable input declarations remain valid.
+A failed construction claims nothing and cannot rebind another owner's metadata.
+
+One configured `Executor` may create multiple fake/process adapters. All share
+one retained scalar hook context; an injected context preserves its identity.
+Await invocations sequentially. Overlapping or reentrant calls, including calls
+through different adapters, raise `StateError` before the second enters hooks.
+The guard is released after every exit, even an escaping `Error`.
+
+Fake execution does not intercept application-owned effects or their mocks.
+Nonzero statuses remain exception-driven. Hook cleanup catches `Exception`,
+not `Error`: Errors escape without a guarantee of remaining post-hooks, while
+successful pre-hooks earn their matching post-hooks for recoverable failures.

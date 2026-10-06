@@ -257,9 +257,23 @@ The optional form accepts zero or one selection. The required form accepts
 exactly one.
 
 Long options accept `--name value` and `--name=value`; short options accept
-`-n value`. Boolean short flags can be bundled, for example `-vvv`. `--` ends
-option parsing and passes the remaining validated tokens to `Command.run` as
-`args`. They are not stored in `ParsedInputs`.
+`-n value` and `-n=value`. A flag-only prefix may precede a final value-taking
+short with equals supply, for example `-vo=file`. No-equals attachments and
+separate-value mixed bundles remain unsupported. Unconstrained strings accept
+empty and whitespace-containing argv values; explicit validators constrain
+content, and literal option-looking text requires inline supply.
+
+Repeated positionals have a positive finite `times` maximum and reserve one
+token for each following required positional. Validators check the assigned
+layout rather than discovering boundaries. `--` starts a separate immutable raw
+trailing list, optionally validated by `Variadic`; it never supplies ordinary
+positionals. Trailing values are not stored in `ParsedInputs`.
+
+Choice declarations return typed enum members. Ordinary enums retain member-name
+syntax; enums implementing `MambaEnumValue` supply exact, case-sensitive `String`
+spellings through `value`, without implicit name aliases. Offered spellings must
+be unique. See the [options reference](docs/src/content/docs/reference/options.md)
+for a compiling `implements` example and [migration guidance](MIGRATION.md).
 
 ### Conflicting inputs
 
@@ -293,8 +307,11 @@ final class DeployCommand extends Command {
 }
 ```
 
-The map belongs to the command that owns those inputs; `Executor` does not
-define conflicts. Registry creation rejects a conflict between a required input
+Conflicts use explicit occurrences, including false-valued negations, rather
+than defaults. Applicable global and propagated endpoints may be referenced;
+edges inherit by declaration identity through compatible overrides, not just
+matching names. `ParsedInputs.contains` continues to mean stored-value presence.
+The map belongs to its declaring command; `Executor` does not define conflicts. Registry creation rejects a conflict between a required input
 and another input because the other input could never be supplied. When both
 inputs are required, the error names both inputs and explains that they cannot
 be used together.
@@ -304,7 +321,7 @@ be used together.
 Use `GroupCommand` for nested command paths such as `remote add`. Selecting a
 group without a child prints that group's help, which lists its children:
 `GroupCommand.run` formats the registry the executor handed it. Groups can
-publish inherited flags and options, and can select a child by setting
+propagate flags and options to themselves and all descendants, and select a child by setting
 `defaultSubCommandPath`. Defaults are resolved before parsing, so the selected
 child receives its own typed inputs and hooks. A nested default can select
 another group with a default; invalid paths fail when building the executor.
@@ -346,6 +363,14 @@ and nothing else, so a subclass of `MambaContext` adds members no command can
 reach. Environment variables and configuration files remain application
 responsibilities.
 
+Construction validates the whole tree before atomically assigning each command
+instance one configured owner and canonical path. Use fresh command objects for
+different configurations or paths; aliases and immutable declaration sharing
+remain valid. Multiple adapters from one owner share the retained scalar context.
+Await calls sequentially: overlapping or reentrant executions raise `StateError`
+before entering the second invocation, and the guard releases even after Errors.
+Recoverable cleanup remains Exception-only and nonzero statuses are exception-driven.
+
 ### Shell completions
 
 Register the preset completion command to generate Bash, Zsh, Fish,
@@ -368,13 +393,19 @@ Mamba supports these shells:
 | Bash | 4 or newer | Linux Bash and Homebrew Bash on macOS |
 | Zsh | 5.9 or newer | 5.9 on Linux and macOS |
 | Fish | 3.7 or newer | 3.7 on Linux, 4.9 on macOS |
-| PowerShell | 5.1 or newer | 7.6 on Windows |
+| PowerShell | 5.1 or newer | Windows PowerShell 5.1 and pwsh on Windows CI |
 | Carapace | any Carapace that reads YAML specs | generated as a spec file, not run by a shell |
 
 CI uses `.github/actions/setup-bash` to select Bash 4+ before shell checks.
 On macOS it installs Homebrew Bash and puts it first on `PATH`. Missing,
 unreadable, or older Bash fails CI rather than skipping completion tests.
-The verified column is what CI parses the artifacts with on every push.
+The verified column describes the CI gates, not a claim that every local shell
+was executed. Bash and PowerShell also have real runtime regressions. Static
+shell relationship/cardinality enforcement remains best-effort; the parser is
+authoritative. Distinct PowerShell application/path namespaces are isolated,
+but executable registration itself remains case-insensitive. Regenerate and
+reinstall artifacts after upgrading. Large stepped-double materialization
+remains a deferred resource risk; this milestone adds no enumeration cap.
 
 After adding `completion` to the executor's command list, select the shell and
 a shell-appropriate output path:

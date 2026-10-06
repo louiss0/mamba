@@ -95,11 +95,11 @@ Keeping parsing independent has an important consequence: command code never nee
 
 ## Production execution: `Executor`
 
-`Executor` is Mamba's composition root. It owns the application name, description, semantic version, root command list, optional default command path, and help formatter. Creating the production executor builds a reusable internal execution object containing the validated registry and command tree.
+`Executor` is Mamba's composition root. It owns the application name, description, semantic version, root command list, optional default command path, and help formatter. Configured construction eagerly validates the entire tree/defaults, atomically claims each command instance one owner/path, and builds one reusable execution object. Fake/process adapters share that object and its retained scalar context; an owner-wide guard rejects overlap/reentrancy and releases after all exits.
 
 For each call to `execute`, the production path is:
 
-1. **Resolve the selected registry.** The registry identifies the command path represented by the argument list. When the list is empty, `Executor.defaultCommandPath` can supply a root command path.
+1. **Resolve the selected registry.** The registry identifies the command path represented by the argument list. When no child is explicitly selected at a scope, defaults can supply a command path, including with flags/options. Help uses the explicit scope rather than the default.
 2. **Parse the arguments.** The normalized list is passed to `Parser` with the previously built registry.
 3. **Resolve the command objects.** The canonical path returned by the parser is followed through the original command tree.
 4. **Handle framework output.** Version requests return the application name and version. Help requests, or an invocation with no selected command, render the selected registry instead of dispatching command behavior.
@@ -122,7 +122,9 @@ Because help consumes the same validated registry as the parser, its command nam
 
 The completion converters consume this record to produce Bash, Zsh, Fish, PowerShell, or Carapace artifacts. They do not inspect command implementations and do not parse a real invocation. Instead, they translate the already validated command model into each target shell's routing and completion rules. The Carapace writer can then place its generated specification in the platform's configuration directory.
 
-A `CompletionCommand` receives the complete root registry record when the execution environment is constructed. This gives completion behavior a snapshot of the same command surface used by production parsing and help generation, including nested commands and inherited declarations.
+Records preserve effective conflicts, canonical default paths, exact choice spellings, accessor requiredness, and inherited visibility. Shell-side enforcement remains best-effort. Manual root records now include `conflicts` and nullable `defaultCommandPath`; command constructors add optional equivalents, and accessor value constructors add `required` (default false).
+
+A `CompletionCommand` receives the complete root registry record once its configured owner is validated and constructed. This gives completion behavior a snapshot of the same command surface used by production parsing and help generation, including nested commands and inherited declarations.
 
 ## Errors and the process boundary
 

@@ -9,7 +9,11 @@ Register paired and selected groups in their corresponding command lists.
 Accessor options are registered as trees.
 
 Long options accept `--name value` and `--name=value`. A one-letter `short`
-alias accepts `-n value`.
+alias accepts `-n value` and `-n=value`. A flag-only prefix may precede one
+final value-taking short: `-vo=file`. Everything after the first `=` is the
+value, including empty text and additional equals signs. `-ofile` and `-vo file`
+remain unsupported. Separate-form string supply cannot start with a dash other
+than a lone `-`; use inline supply for literal option-looking values.
 
 ## Output availability
 
@@ -47,8 +51,9 @@ type.
 
 ### `StringOption`
 
-Parses a complete `String` matching `regex`. The default `\S+` pattern accepts
-one non-whitespace token.
+Accepts every supplied `String` by default, including empty strings and
+whitespace. Requiredness checks supply, not content. An explicit `regex` checks
+the entire value and any configured defaults.
 
 ```dart
 StringOption('label', short: 'l');
@@ -77,7 +82,9 @@ DoubleOption.required('amount', min: 0);
 
 ### `ChoiceOption<T>`
 
-Accepts the name of a registered enum member and returns that enum member.
+Accepts an offered enum choice spelling and returns the actual enum member.
+Ordinary enums use member names. Implementing `MambaEnumValue` opts in to exact
+`value` spellings, with no implicit member-name aliases.
 
 ```dart
 ChoiceOption<OutputFormat>('format', choices: OutputFormat.values);
@@ -199,6 +206,9 @@ final OutputFormat formatValue = values['format'] as OutputFormat;
 
 Nested accessor lists produce nested immutable maps, so an option such as
 `--server.auth.token secret` is available below `inputs.valueOf(server)`.
+Every nested accessor container remains readable, even when all its optional
+leaves are absent. Compatible overrides must explicitly preserve every ancestor
+path with the same output type; ancestor handles read the effective local data.
 Accessor trees registered on `Executor` are global and can be read by every
 command through the same top-level declaration handle. Accessors registered
 on a command remain local to that command.
@@ -235,8 +245,13 @@ final class DeployCommand extends Command {
 }
 ```
 
-The conflict map belongs to the command that declares the inputs; it is not an
-`Executor` configuration option.
+Conflicts concern explicit CLI occurrences, including explicitly negated flags,
+not defaults or truthiness. References may name applicable global, propagated,
+grouped, and dotted-leaf inputs. Edges inherit only while their original endpoint
+identities remain applicable, including compatible overrides; unrelated same-name
+local inputs do not revive them. `ParsedInputs.contains` still checks stored
+values, not explicit supply. Effective-value rules belong to application code.
+The conflict map is not an `Executor` configuration option.
 
 ## Shared metadata
 
@@ -244,3 +259,28 @@ The conflict map belongs to the command that declares the inputs; it is not an
 parseable while omitting them from help. Registry records retain required,
 default, range, repetition, and group metadata for help and completion
 converters.
+
+## Enum-owned choice spellings
+
+Enums implement the interface; ordinary enums need no migration. Offered
+spellings are exact and case-sensitive, may contain whitespace or be empty,
+and must be unique within each declaration's offered choices. Repeating the
+same member is also invalid. Unoffered members do not invalidate a narrowed set.
+Use inline option supply for dash-leading choice strings.
+
+```dart
+enum const WireFormat(@override final String value) implements MambaEnumValue {
+  jsonLines('json-lines'),
+  text('text');
+}
+
+final wireFormat = ChoiceOption<WireFormat>(
+  'wire-format',
+  choices: WireFormat.values,
+);
+```
+
+`--wire-format=json-lines` returns `WireFormat.jsonLines`;
+`--wire-format=jsonLines` is rejected. Typed defaults, help, registry records,
+completion, accessors, groups, positionals, and trailing choice validation all
+use the same spelling interpretation.

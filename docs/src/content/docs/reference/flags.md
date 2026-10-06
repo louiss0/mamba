@@ -5,9 +5,9 @@ description: Make flags in Mamba
 
 Flags are named inputs that do not take values. Register them in
 `Command.flags` for one command, in `Executor.flags` for the entire command
-tree, or in `GroupCommand.propagatedFlags` for a group's descendants. A
-propagated input is not one of the declaring group's own inputs; declare it
-locally too when the group needs it. The executor registers `--verbose` / `-v`
+tree, or in `GroupCommand.propagatedFlags` for the declaring group and all its
+descendants. Local declarations apply only when their declaring command is
+selected, regardless of token placement. The executor registers `--verbose` / `-v`
 and `--version` / `-V` globally; `--help` / `-h` is built into every command
 registry, and the help and version spellings are reserved, so no declaration
 may claim `--help`, `-h`, `--version`, or `-V`. Register

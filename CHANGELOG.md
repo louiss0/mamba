@@ -1,3 +1,36 @@
+## Unreleased
+
+Framework correctness and expressiveness milestone. See [MIGRATION.md](MIGRATION.md)
+for individual before/after/action guidance and preserved/deferred boundaries.
+
+### Breaking contracts
+
+- Unconstrained strings accept supplied empty/whitespace content; syntactic
+  ownership, not regex validation, decides separate-form option supply.
+- Finite repeated positionals reserve mandatory suffixes, without validation
+  backtracking. Propagated inputs also apply to their declaring group.
+- Effective/generated spelling collisions and incompatible overrides fail early;
+  structurally compatible overrides preserve ancestor retained reads.
+- Syntax conflicts use explicit occurrences and inherit applicable identities.
+- Configured Executors eagerly validate and atomically own command instances;
+  adapters share retained scalar context and reject overlap/reentrancy.
+- Numeric bounds/defaults/steps are finite and meaningful; stepped doubles require
+  both ordered bounds. Duplicate offered choice spellings/entries are invalid.
+- Manual RegistryRecord literals add conflicts and defaultCommandPath fields;
+  accessor metadata preserves independent requiredness and inherited visibility.
+
+### Added and fixed
+
+- Equals-attached short values (`-o=file`, `-vo=file`) and opt-in MambaEnumValue
+  spellings retain exact strings and typed enum outputs.
+- Empty default lists and nested accessor containers retain immutable values.
+- Child help advertises controls; records preserve conflicts and default paths.
+- Static stepped decimals no longer collapse tiny exponent-form representations;
+  shell quoting preserves literal choices. PowerShell artifact namespaces are
+  injective, with real load-order/re-sourcing/path isolation regressions.
+- Windows CI requires PowerShell 5.1 and pwsh runtime tests alongside existing
+  Bash runtime, shell syntax, fixtures, examples, and coverage gates.
+
 ## 0.16.0
 
 Fixes from a review of the 0.15.0 surface. The first three entries are

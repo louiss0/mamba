@@ -96,7 +96,10 @@ final class GitCommand extends GroupCommand {
 
 This produces the command path `git commit`. A group's own `flags`, `options`,
 positionals, and accessors apply to the group itself. `propagatedFlags` and
-`propagatedOptions` are inherited by descendants.
+`propagatedOptions` apply to the declaring group and every descendant. A
+compatible local override preserves kind, output type, and cardinality; retained
+ancestor handles read its effective value. Accessor overrides explicitly preserve
+every ancestor container and leaf path, and may add local fields.
 
 Selecting a group with no child command under it prints that group's help
 rather than running anything, because the invocation is a question about the
