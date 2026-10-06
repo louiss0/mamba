@@ -126,6 +126,11 @@ final class Parser {
       }
       if (token.startsWith('-') && token.length > 1) {
         final (short, inline) = _split(token.substring(1));
+        if (short.isEmpty) {
+          throw MambaParseException(
+            'An attached value requires a short option name.',
+          );
+        }
         final letters = short.split('');
         for (final (letterIndex, letter) in letters.indexed) {
           final input = optionInputs

@@ -334,7 +334,7 @@ final class CommandRegistry {
     InputDefinition? applicable(String name, InputDefinition input) =>
         lineage[input] ??
         (identical(conflictInput(name), input) ? input : null);
-    return [
+    final edges = <_ConflictEdge>[
       for (final edge in _allConflictEdges)
         if (applicable(edge.sourceName, edge.source) != null &&
             applicable(edge.targetName, edge.target) != null)
@@ -345,15 +345,38 @@ final class CommandRegistry {
             target: applicable(edge.targetName, edge.target) as InputDefinition,
           ),
     ];
+    for (final edge in edges) {
+      _validateConflictEdge(edge);
+    }
+    return edges;
   }
 
-  List<_ConflictEdge> _resolveConflicts() {
-    final edges = <_ConflictEdge>[];
+  void _validateConflictEdge(_ConflictEdge edge) {
     bool required(InputDefinition input) =>
         input is RequiredInput ||
         pairedOptionGroups.any(
           (group) => group.required && group.options.contains(input),
         );
+    if (required(edge.source) && required(edge.target)) {
+      throw MambaRegistryError(
+        'Inputs --${edge.sourceName} and --${edge.targetName} are both required but cannot be used together.',
+      );
+    }
+    if (required(edge.source) || required(edge.target)) {
+      final requiredName = required(edge.source)
+          ? edge.sourceName
+          : edge.targetName;
+      final optionalName = required(edge.source)
+          ? edge.targetName
+          : edge.sourceName;
+      throw MambaRegistryError(
+        'Input --$optionalName cannot be supplied because it conflicts with required input --$requiredName.',
+      );
+    }
+  }
+
+  List<_ConflictEdge> _resolveConflicts() {
+    final edges = <_ConflictEdge>[];
     InputDefinition endpoint(String name, String role) {
       final input = conflictInput(name);
       if (input == null ||
@@ -373,18 +396,6 @@ final class CommandRegistry {
           name,
           'member at index $index for ${entry.key}:',
         );
-        if (required(key) && required(member)) {
-          throw MambaRegistryError(
-            'Inputs --${entry.key} and --$name are both required but cannot be used together.',
-          );
-        }
-        if (required(key) || required(member)) {
-          final requiredName = required(key) ? entry.key : name;
-          final optionalName = required(key) ? name : entry.key;
-          throw MambaRegistryError(
-            'Input --$optionalName cannot be supplied because it conflicts with required input --$requiredName.',
-          );
-        }
         edges.add((
           sourceName: entry.key,
           source: key,

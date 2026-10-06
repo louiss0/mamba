@@ -470,6 +470,80 @@ void main() {
       expect(runs, 1);
     },
   );
+  test('required overrides invalidate inherited conflicts before ownership is claimed', () async {
+    for (final reverse in [false, true]) {
+      final output = StringOption.withDefault('output', defaultValue: 'text');
+      final requiredOutput = StringOption.required('output');
+      final command = _ValueProbe(options: [requiredOutput]);
+      final scope = _InputScope(
+        [command],
+        propagatedOptions: [output],
+        propagatedFlags: [BooleanFlag('replace')],
+        conflicts: reverse
+            ? {
+                'replace': ['output'],
+              }
+            : {
+                'output': ['replace'],
+              },
+      );
+      expect(
+        () => Executor('app', 'App.', '1.0.0', [scope]),
+        throwsA(
+          isA<MambaRegistryError>().having(
+            (error) => error.message,
+            'message',
+            contains('conflicts with required input --output'),
+          ),
+        ),
+      );
+      // Failed composition must leave every command reusable by a valid owner.
+      expect(
+        await _probeExecutor(command).execute(['run', '--output=text']),
+        isA<MambaSuccessResult>(),
+      );
+    }
+  });
+
+  test('required accessor leaf overrides invalidate inherited conflicts', () {
+    final oldRoot = AccessorListOption('config', [
+      AccessorListOption('auth', [
+        AccessorStringOption.withDefault('token', defaultValue: 'old'),
+      ]),
+    ]);
+    final root = AccessorListOption('config', [
+      AccessorListOption('auth', [AccessorStringOption.required('token')]),
+    ]);
+    expect(
+      () => Executor(
+        'app',
+        'App.',
+        '1.0.0',
+        [
+          _InputScope(
+            [
+              _InputScope([
+                _ValueProbe(accessors: [root]),
+              ]),
+            ],
+            propagatedFlags: [BooleanFlag('replace')],
+            conflicts: {
+              'replace': ['config.auth.token'],
+            },
+          ),
+        ],
+        accessors: [oldRoot],
+      ),
+      throwsA(
+        isA<MambaRegistryError>().having(
+          (error) => error.message,
+          'message',
+          contains('conflicts with required input --config.auth.token'),
+        ),
+      ),
+    );
+  });
+
   test('inherited conflict identities survive overrides but never resurrect local names', () async {
     final shared = BooleanFlag('shared');
     final remote = StringOption('remote');
@@ -715,6 +789,33 @@ void main() {
       expect((result as MambaSuccessResult).output, text);
     }
   });
+
+  test(
+    'rejects equals attachment without a short name before execution',
+    () async {
+      var runs = 0;
+      final executor = _probeExecutor(
+        _ValueProbe(
+          action: (_, _) {
+            runs++;
+            return 'executed';
+          },
+        ),
+      );
+      for (final argv in [
+        ['run', '-='],
+        ['run', '-=oops'],
+        ['run', '-=oops', '--help'],
+      ]) {
+        expect(
+          await executor.execute(argv),
+          isA<MambaFailureResult>(),
+          reason: '$argv',
+        );
+        expect(runs, 0);
+      }
+    },
+  );
 
   test(
     'syntax owns option values, not content validators or controls',
