@@ -10,24 +10,33 @@ import 'shell_support.dart';
 
 enum Mode { json, text }
 
+enum const FishLiteral(@override final String value) implements MambaEnumValue {
+  newline('one\ntwo'),
+  dashNewline('--one\ntwo'),
+  tab('one\ttwo'),
+  ordinary('plain'),
+}
+
+/// Decodes Fish's public single-quoted argument syntax, not generator tables.
+(String, int) _fishQuoted(String script, int start) {
+  final value = StringBuffer();
+  var index = start + 1;
+  while (index < script.length) {
+    final char = script[index++];
+    if (char == "'") return (value.toString(), index);
+    if (char == r'\' &&
+        index < script.length &&
+        (script[index] == r'\' || script[index] == "'")) {
+      value.write(script[index++]);
+    } else {
+      value.write(char);
+    }
+  }
+  throw FormatException('Unclosed Fish string literal');
+}
+
 final first = BooleanFlag('first');
 final second = BooleanFlag('second');
-
-/// The candidate list a generated Bash script offers after [option].
-List<String> _bashCandidatesFor(String script, String option) {
-  final variable = RegExp("\\['${RegExp.escape(option)}'\\]='([^']+)'")
-      .firstMatch(script);
-  expect(variable, isNotNull, reason: 'no values bound to $option');
-  final block = RegExp(
-    "^${RegExp.escape(variable!.group(1)!)}=\\(\n((?:  '[^']*'\n)*)\\)",
-    multiLine: true,
-  ).firstMatch(script);
-  expect(block, isNotNull, reason: 'no candidate block for $option');
-  return RegExp("'([^']*)'")
-      .allMatches(block!.group(1)!)
-      .map((match) => match.group(1)!)
-      .toList();
-}
 
 /// The parse errors PowerShell's own parser reports for [script].
 ///
@@ -236,6 +245,8 @@ RegistryRecord _complexRecord() {
 
   return (
     name: 'mamba-tool',
+    conflicts: const {},
+    defaultCommandPath: null,
     description: 'Manage releases.\nUse responsibly.',
     commands: [child],
     variadic: (
@@ -334,6 +345,8 @@ RegistryRecord _complexRecord() {
 
 RegistryRecord _emptyRecord() => (
   name: 'empty',
+  conflicts: const {},
+  defaultCommandPath: null,
   description: 'Empty command.',
   commands: null,
   variadic: null,
@@ -347,6 +360,196 @@ RegistryRecord _emptyRecord() => (
 );
 
 void main() {
+  test('Fish static choices preserve newlines and omit native tab-description values', () {
+    final option = RepeatableChoiceOption(
+      'format',
+      FishLiteral.values,
+      unique: true,
+    );
+    final registry = CommandRegistry.create(
+      'probe',
+      'Literal choices.',
+      options: [option],
+    );
+    final script = ToFishCompletionConverter(registry.toRecord()).convert();
+    final candidates = <String>{};
+    for (final match in RegExp("\\s-a\\s+'").allMatches(script)) {
+      final (argument, _) = _fishQuoted(script, match.end - 1);
+      if (argument.startsWith("'")) candidates.add(_fishQuoted(argument, 0).$1);
+    }
+    expect(candidates, {'one\ntwo', '--one\ntwo', 'plain'});
+    expect(Parser(registry).parse(['--format=one\ttwo']).$2.valueOf(option), [
+      FishLiteral.tab,
+    ]);
+    expect(script, isNot(contains('one\ttwo')));
+    for (final candidate in candidates) {
+      expect(
+        () => Parser(registry).parse(['--format=$candidate']),
+        returnsNormally,
+      );
+    }
+  });
+  test('Fish static choices with short option cover short alias branch', () {
+    final option = RepeatableChoiceOption(
+      'format',
+      FishLiteral.values,
+      unique: true,
+      short: 'f',
+    );
+    final registry = CommandRegistry.create(
+      'probe',
+      'Literal choices.',
+      options: [option],
+    );
+    final script = ToFishCompletionConverter(registry.toRecord()).convert();
+    expect(script, contains('-s f'));
+    expect(script, isNot(contains('one\ttwo')));
+  });
+  test('Fish omits native tab-description choices across named, accessor, positional and trailing shapes', () {
+    final record = CommandRegistry.create(
+      'probe',
+      'Tabs.',
+      options: [
+        ChoiceOption('format', choices: [FishLiteral.tab]),
+      ],
+      accessors: [
+        AccessorListOption('settings', [
+          AccessorChoiceOption('format', choices: [FishLiteral.tab]),
+        ]),
+      ],
+      variadic: ChoiceVariadic(choices: [FishLiteral.tab]),
+      commands: [
+        TestCommand(
+          'run',
+          'Run.',
+          mandatoryPositionals: [
+            ChoicePositional('format', choices: [FishLiteral.tab]),
+          ],
+        ),
+      ],
+    ).toRecord();
+    final script = ToFishCompletionConverter(record).convert();
+    expect(script, isNot(contains('one\ttwo')));
+    expect(record.options!.single.choices, ['one\ttwo']);
+    expect(record.variadic!.choices, ['one\ttwo']);
+    expect(record.commands!.single.positionals!.single.choices, ['one\ttwo']);
+  });
+  test('finite decimal artifacts contain only parser-accepted candidates in every converter', () {
+    for (final (option, expected) in [
+      (
+        DoubleOption('ratio', min: 0, max: 1, step: 0.3),
+        ['0.0', '0.3', '0.6', '0.9'],
+      ),
+      (
+        DoubleOption('tiny', min: 1e-7, max: 3e-7, step: 1e-7),
+        ['0.0000001', '0.0000002', '0.0000003'],
+      ),
+      (DoubleOption('shifted', min: 1, max: 1.0000002, step: 1e-7), ['1.0']),
+    ]) {
+      final registry = CommandRegistry.create(
+        'probe',
+        'Finite decimals.',
+        options: [option],
+      );
+      final record = registry.toRecord();
+      for (final converter in [
+        ToBashCompletionConverter(record),
+        ToZshCompletionConverter(record),
+        ToFishCompletionConverter(record),
+        ToPowerShellCompletionConverter(record),
+        CarapaceSpecConverter(record),
+      ]) {
+        // With one numeric declaration, standalone quoted decimals are its
+        // static value literals. Fish additionally escapes their closing quote
+        // inside the complete argument. Decode the logical numeric text without
+        // depending on generated handler names, arrays, or table layouts.
+        final candidates = RegExp(r'''(["'])([+-]?[0-9]+\.[0-9]+)(?:\\)?\1''')
+            .allMatches(converter.convert())
+            .map((match) => match.group(2)!)
+            .toSet();
+        expect(
+          candidates,
+          unorderedEquals(expected),
+          reason: '${converter.runtimeType}: ${option.name}',
+        );
+        for (final candidate in candidates) {
+          expect(
+            () => Parser(registry).parse(['--${option.name}=$candidate']),
+            returnsNormally,
+            reason: '${converter.runtimeType}: $candidate',
+          );
+        }
+      }
+    }
+  });
+  test(
+    'static decimal candidates reject invalid manually assembled ranges',
+    () {
+      final RegistryRecord record = (
+        name: 'app',
+        description: 'App.',
+        conflicts: const {},
+        defaultCommandPath: null,
+        commands: null,
+        variadic: null,
+        positionals: null,
+        flags: null,
+        persistentFlags: null,
+        persistentOptions: null,
+        optionGroups: null,
+        accessors: null,
+        options: [
+          _option(
+            'ratio',
+            valueType: 'double',
+            min: 0,
+            max: 1,
+            step: double.nan,
+          ),
+        ],
+      );
+      for (final converter in [
+        ToBashCompletionConverter(record),
+        ToZshCompletionConverter(record),
+        ToFishCompletionConverter(record),
+        ToPowerShellCompletionConverter(record),
+        CarapaceSpecConverter(record),
+      ]) {
+        expect(converter.convert, throwsA(isA<MambaIntegrationException>()));
+      }
+    },
+  );
+  test(
+    'required accessor metadata and hidden containers survive flattening',
+    () {
+      final record = CommandRegistry.create(
+        'probe',
+        'Accessors.',
+        accessors: [
+          AccessorListOption('config', [AccessorStringOption.required('host')]),
+          AccessorListOption('secret', [
+            AccessorStringOption('token'),
+          ], hidden: true),
+        ],
+      ).toRecord();
+      expect(
+        CarapaceSpecConverter(record).convert(),
+        contains('config.host!='),
+      );
+      expect(
+        CarapaceSpecConverter(record).convert(),
+        contains('--secret.token?&='),
+      );
+      for (final converter in <RegistryRecordConverter>[
+        ToBashCompletionConverter(record),
+        ToZshCompletionConverter(record),
+        ToFishCompletionConverter(record),
+        ToPowerShellCompletionConverter(record),
+      ]) {
+        expect(converter.convert(), isNot(contains('--secret.token')));
+      }
+    },
+  );
   group('completion converters', () {
     test('carries a selected group and whether it is exclusive', () {
       final record = CommandRegistry.create(
@@ -464,60 +667,6 @@ void main() {
       );
     });
 
-    test('offer only stepped numbers the declaration accepts', () {
-      final uneven = DoubleOption('ratio', min: 0, max: 1, step: 0.3);
-      final precise = DoubleOption('fine', min: 0, max: 0.3, step: 0.1);
-      for (final option in [uneven, precise]) {
-        final registry = CommandRegistry.create(
-          'probe',
-          'Stepped numbers.',
-          options: [option],
-        );
-        final candidates = _bashCandidatesFor(
-          ToBashCompletionConverter(registry.toRecord()).convert(),
-          '--${option.name}',
-        );
-
-        expect(candidates, isNotEmpty, reason: option.name);
-        for (final candidate in candidates) {
-          expect(
-            () => Parser(registry).parse(['--${option.name}', candidate]),
-            returnsNormally,
-            reason: 'candidate $candidate for ${option.name}',
-          );
-        }
-      }
-
-      // The bound the step does not reach is not offered; the one it does is,
-      // including where floating point puts the sum just past the bound.
-      expect(
-        _bashCandidatesFor(
-          ToBashCompletionConverter(
-            CommandRegistry.create(
-              'probe',
-              'Stepped numbers.',
-              options: [uneven],
-            ).toRecord(),
-          ).convert(),
-          '--ratio',
-        ),
-        unorderedEquals(<String>['0.0', '0.3', '0.6', '0.9']),
-      );
-      expect(
-        _bashCandidatesFor(
-          ToBashCompletionConverter(
-            CommandRegistry.create(
-              'probe',
-              'Stepped numbers.',
-              options: [precise],
-            ).toRecord(),
-          ).convert(),
-          '--fine',
-        ),
-        unorderedEquals(<String>['0.0', '0.1', '0.2', '0.3']),
-      );
-    });
-
     test('read one integer syntax in every input shape', () {
       final pair = PairedOptions<int>([
         PairIntOption('host'),
@@ -585,7 +734,8 @@ void main() {
           contains('_numbers -l 1 -m 3'),
         ),
       );
-      expect(zsh, contains("'1:workspace:(core docs)'"));
+      expect(zsh, contains("'1:workspace:"));
+      expect(zsh, contains("compadd -- 'core' 'docs'"));
       expect(fish, contains("complete -c mamba-tool -s C -l colour"));
       expect(fish, contains('__mamba_unique_choices format F json text'));
       expect(fish, isNot(contains('-l internal.token')));
