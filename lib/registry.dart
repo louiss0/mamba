@@ -2,6 +2,15 @@ import 'package:mamba/built_in_flags.dart';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/src/input_validation.dart' as validation;
+import 'package:mamba/src/token_ownership.dart';
+import 'package:mamba/src/choice_spelling.dart';
+
+typedef _ConflictEdge = ({
+  String sourceName,
+  InputDefinition source,
+  String targetName,
+  InputDefinition target,
+});
 
 typedef RegistryRecord = ({
   String name,
@@ -15,6 +24,8 @@ typedef RegistryRecord = ({
   List<RegistryOption>? persistentOptions,
   List<RegistryOptionGroup>? optionGroups,
   List<RegistryAccessor>? accessors,
+  Map<String, List<String>> conflicts,
+  List<String>? defaultCommandPath,
 });
 typedef RegistryFlag = ({
   String name,
@@ -88,6 +99,8 @@ final class RegistryCommand {
     this.persistentOptions,
     this.optionGroups,
     this.accessors,
+    this.conflicts = const {},
+    this.defaultCommandPath,
   });
   final String name;
   final String description;
@@ -101,6 +114,8 @@ final class RegistryCommand {
   final List<RegistryOption>? persistentOptions;
   final List<RegistryOptionGroup>? optionGroups;
   final List<RegistryAccessor>? accessors;
+  final Map<String, List<String>> conflicts;
+  final List<String>? defaultCommandPath;
 }
 
 enum RegistryValueKind {
@@ -141,12 +156,14 @@ sealed class RegistryAccessor {
   factory value({
     required String name,
     required String valueType,
+    bool required = false,
     String? description,
     List<String>? choices,
     String? defaultValue,
     String? pattern,
   }) => RegistryAccessorValue(
     name: name,
+    required: required,
     valueKind: switch (valueType) {
       'string' => RegistryValueKind.string,
       'int' => RegistryValueKind.integer,
@@ -162,6 +179,7 @@ sealed class RegistryAccessor {
   final String name;
   final String? description;
   String get kind;
+  bool get required => false;
   bool? get hidden => null;
   String? get valueType => null;
   List<String>? get choices => null;
@@ -190,6 +208,7 @@ final class RegistryAccessorValue extends RegistryAccessor {
   new({
     required String name,
     required this.valueKind,
+    this.required = false,
     String? description,
     List<String>? choices,
     this.defaultValue,
@@ -199,6 +218,8 @@ final class RegistryAccessorValue extends RegistryAccessor {
   @override
   String get kind => 'value';
   final RegistryValueKind valueKind;
+  @override
+  final bool required;
   @override
   String get valueType => valueKind.wireName;
   @override
@@ -239,6 +260,7 @@ final class CommandRegistry {
   new _({
     required this.name,
     required this.shortDescription,
+    this.defaultCommandPath,
     this.longDescription,
     this.commandAliases,
     this.parent,
@@ -259,7 +281,7 @@ final class CommandRegistry {
        options = List.unmodifiable(options ?? const []),
        pairedOptionGroups = List.unmodifiable(pairedOptions ?? const []),
        selectedOptions = List.unmodifiable(selectedOptions ?? const []),
-       conflicts = Map<String, List<String>>.unmodifiable({
+       _declaredConflicts = Map<String, List<String>>.unmodifiable({
          for (final entry
              in (conflicts ?? const <String, List<String>>{}).entries)
            entry.key: List<String>.unmodifiable(entry.value),
@@ -276,9 +298,11 @@ final class CommandRegistry {
        publishedAccessors = List.unmodifiable(publishedAccessors ?? const []),
        commands = List.unmodifiable(commands ?? const []) {
     _validateEffectiveSpellings();
+    _effectiveConflictEdges;
   }
   final String name;
   final String shortDescription;
+  final List<String>? defaultCommandPath;
   final String? longDescription;
   final List<String>? commandAliases;
   final CommandRegistry? parent;
@@ -286,7 +310,92 @@ final class CommandRegistry {
   final List<Option<Object?>> options;
   final List<PairedOptionsDefinition> pairedOptionGroups;
   final List<SelectedOptions> selectedOptions;
-  final Map<String, List<String>> conflicts;
+  final Map<String, List<String>> _declaredConflicts;
+  Map<String, List<String>> get conflicts {
+    final result = <String, List<String>>{};
+    for (final edge in _effectiveConflictEdges) {
+      (result[edge.sourceName] ??= []).add(edge.targetName);
+    }
+    return Map.unmodifiable({
+      for (final entry in result.entries)
+        entry.key: List<String>.unmodifiable(entry.value),
+    });
+  }
+
+  late final List<_ConflictEdge> _localConflictEdges = _resolveConflicts();
+
+  List<_ConflictEdge> get _allConflictEdges => [
+    ...?parent?._allConflictEdges,
+    ..._localConflictEdges,
+  ];
+
+  List<_ConflictEdge> get _effectiveConflictEdges {
+    final lineage = inputLineage;
+    InputDefinition? applicable(String name, InputDefinition input) =>
+        lineage[input] ??
+        (identical(conflictInput(name), input) ? input : null);
+    return [
+      for (final edge in _allConflictEdges)
+        if (applicable(edge.sourceName, edge.source) != null &&
+            applicable(edge.targetName, edge.target) != null)
+          (
+            sourceName: edge.sourceName,
+            source: applicable(edge.sourceName, edge.source) as InputDefinition,
+            targetName: edge.targetName,
+            target: applicable(edge.targetName, edge.target) as InputDefinition,
+          ),
+    ];
+  }
+
+  List<_ConflictEdge> _resolveConflicts() {
+    final edges = <_ConflictEdge>[];
+    bool required(InputDefinition input) =>
+        input is RequiredInput ||
+        pairedOptionGroups.any(
+          (group) => group.required && group.options.contains(input),
+        );
+    InputDefinition endpoint(String name, String role) {
+      final input = conflictInput(name);
+      if (input == null ||
+          identical(input, MambaBuiltInFlags.help) ||
+          identical(input, MambaBuiltInFlags.version)) {
+        throw MambaRegistryError(
+          'Conflict $role $name is not a registered ordinary input.',
+        );
+      }
+      return input;
+    }
+
+    for (final entry in _declaredConflicts.entries) {
+      final key = endpoint(entry.key, 'key');
+      for (final (index, name) in entry.value.indexed) {
+        final member = endpoint(
+          name,
+          'member at index $index for ${entry.key}:',
+        );
+        if (required(key) && required(member)) {
+          throw MambaRegistryError(
+            'Inputs --${entry.key} and --$name are both required but cannot be used together.',
+          );
+        }
+        if (required(key) || required(member)) {
+          final requiredName = required(key) ? entry.key : name;
+          final optionalName = required(key) ? name : entry.key;
+          throw MambaRegistryError(
+            'Input --$optionalName cannot be supplied because it conflicts with required input --$requiredName.',
+          );
+        }
+        edges.add((
+          sourceName: entry.key,
+          source: key,
+          targetName: name,
+          target: member,
+        ));
+      }
+    }
+    return List.unmodifiable(edges);
+  }
+
   final List<MandatoryPositional<Object?>> mandatoryPositionals;
   final List<DiscretionaryPositional<Object?>> discretionaryPositionals;
   final Variadic? variadic;
@@ -309,12 +418,14 @@ final class CommandRegistry {
       parent == null ? const [] : fullPath.skip(1).toList();
   List<Flag<Object?>> get applicableFlags {
     final resolved = <String, Flag<Object?>>{
-      for (final flag in [...?parent?._publishedFlagsToHere, ...flags])
+      for (final flag in [
+        ...?parent?._publishedFlagsToHere,
+        ...publishedFlags,
+        ...flags,
+      ])
         flag.name: flag,
     };
-    if (parent == null) {
-      resolved[MambaBuiltInFlags.help.name] = MambaBuiltInFlags.help;
-    }
+    resolved[MambaBuiltInFlags.help.name] = MambaBuiltInFlags.help;
     return List.unmodifiable(resolved.values);
   }
 
@@ -324,7 +435,11 @@ final class CommandRegistry {
   ];
   List<Option<Object?>> get applicableOptions => List.unmodifiable(
     {
-      for (final option in [...?parent?._publishedOptionsToHere, ...options])
+      for (final option in [
+        ...?parent?._publishedOptionsToHere,
+        ...publishedOptions,
+        ...options,
+      ])
         option.name: option,
     }.values,
   );
@@ -336,6 +451,7 @@ final class CommandRegistry {
     {
       for (final accessor in [
         ...?parent?._publishedAccessorsToHere,
+        ...publishedAccessors,
         ...accessors,
       ])
         accessor.name: accessor,
@@ -359,6 +475,7 @@ final class CommandRegistry {
     Map<String, List<String>>? conflicts,
     List<AccessorListOption>? accessors,
     List<Command>? commands,
+    List<String>? defaultCommandPath,
   }) {
     _validate(
       name,
@@ -371,10 +488,14 @@ final class CommandRegistry {
       accessors: accessors,
       mandatory: mandatoryPositionals,
       discretionary: discretionaryPositionals,
+      variadic: variadic,
       commands: commands,
     );
-    return CommandRegistry._(
+    final registry = CommandRegistry._(
       name: name,
+      defaultCommandPath: defaultCommandPath == null
+          ? null
+          : List.unmodifiable(defaultCommandPath),
       shortDescription: shortDescription,
       longDescription: longDescription,
       flags: flags,
@@ -391,6 +512,17 @@ final class CommandRegistry {
       publishedOptions: options,
       publishedAccessors: accessors,
     );
+    void validateTree(CommandRegistry scope) {
+      for (final child in scope.commandRegistries) {
+        validateTree(child);
+      }
+      if (scope.defaultCommandPath != null) {
+        scope.canonicalCommandPath(scope.defaultCommandPath!, allowGroup: true);
+      }
+    }
+
+    validateTree(registry);
+    return registry;
   }
   static CommandRegistry _fromCommand(Command command, CommandRegistry parent) {
     final group = command is GroupCommand ? command : null;
@@ -405,12 +537,14 @@ final class CommandRegistry {
       accessors: command.accessors,
       mandatory: command.mandatoryPositionals,
       discretionary: command.discretionaryPositionals,
+      variadic: command.variadic,
       commands: group?.commands,
       propagatedFlags: group?.inheritedFlags,
       propagatedOptions: group?.inheritedOptions,
     );
     return CommandRegistry._(
       name: command.name,
+      defaultCommandPath: group?.defaultSubCommandPath,
       shortDescription: command.shortDescription,
       longDescription: command.longDescription,
       commandAliases: command.aliases,
@@ -441,9 +575,13 @@ final class CommandRegistry {
     for (var index = 0; index < args.length; index++) {
       final token = args[index];
       if (token == '--') break;
+      final next = index + 1 < args.length ? args[index + 1] : null;
       final ownedLength =
-          registry.registeredInputTokenLength(token) ??
-          defaultTarget?.call(registry).registeredInputTokenLength(token);
+          registry.registeredInputTokenLength(token, next: next) ??
+          defaultTarget
+              ?.call(registry)
+              .registeredInputTokenLength(token, next: next);
+      if (MambaBuiltInFlags.isControl(token)) break;
       if (ownedLength != null) {
         index += ownedLength - 1;
         continue;
@@ -529,13 +667,15 @@ final class CommandRegistry {
     return List.unmodifiable(canonical);
   }
 
-  int? registeredInputTokenLength(String token) {
+  int? registeredInputTokenLength(String token, {String? next}) {
+    int width(InputDefinition input) =>
+        next == null || ownsSeparateValue(input, next) ? 2 : 1;
     if (token.startsWith('--')) {
       final name = token.substring(2).split('=').first;
-      if (_allValueInputs.any((input) => input.name == name) ||
-          _accessorFor(name) != null) {
-        return token.contains('=') ? 1 : 2;
-      }
+      final input =
+          _allValueInputs.where((input) => input.name == name).firstOrNull ??
+          _accessorFor(name);
+      if (input != null) return token.contains('=') ? 1 : width(input);
       if (applicableFlags.any(
         (flag) =>
             flag.name == name ||
@@ -547,8 +687,12 @@ final class CommandRegistry {
       }
     }
     if (token.startsWith('-') && token.length > 1) {
-      final short = token.substring(1);
-      if (_allValueInputs.any((input) => _shortOf(input) == short)) return 2;
+      final short = token.substring(1).split('=').first;
+      if (token.contains('=')) return 1;
+      final input = _allValueInputs
+          .where((input) => _shortOf(input) == short)
+          .firstOrNull;
+      if (input != null) return width(input);
       if (short
           .split('')
           .every(
@@ -594,7 +738,39 @@ final class CommandRegistry {
   /// the one the parser reads. A short alias may only answer for one of them,
   /// and no declaration may claim a spelling Mamba always interprets itself.
   void _validateEffectiveSpellings() {
+    // Computing lineage also checks that every override preserves retained types.
+    inputLineage;
     final shorts = <String, String>{};
+    final longs = <String, String>{};
+    void claim(String spelling, String owner) {
+      final previous = longs[spelling];
+      if (previous != null) {
+        throw MambaRegistryError(
+          'Spelling --$spelling is used by both $previous and $owner.',
+        );
+      }
+      longs[spelling] = owner;
+    }
+
+    final leaves = <AccessorPrimitiveOption<Object?>>{};
+    for (final accessor in applicableAccessors) {
+      _rejectReservedSpelling(accessor);
+      void visit(AccessorOption input, String path) {
+        if (input is AccessorPrimitiveOption && !leaves.add(input)) {
+          throw MambaRegistryError(
+            'Accessor leaf ${input.name} is reused in multiple effective paths.',
+          );
+        }
+        claim(path, accessor.name);
+        if (input is AccessorListOption) {
+          for (final child in input.options) {
+            visit(child, '$path.${child.name}');
+          }
+        }
+      }
+
+      visit(accessor, accessor.name);
+    }
     final inputs = <InputDefinition>[
       ...applicableFlags,
       ...applicableOptions,
@@ -602,6 +778,10 @@ final class CommandRegistry {
       for (final group in selectedOptions) ...group.options,
     ];
     for (final input in inputs) {
+      claim(input.name, input.name);
+      if (input is BooleanFlag && input.negatable) {
+        claim('no-${input.name}', input.name);
+      }
       _rejectReservedSpelling(input);
       final short = _shortOf(input);
       if (short == null) continue;
@@ -613,6 +793,69 @@ final class CommandRegistry {
       }
       shorts[short] = input.name;
     }
+  }
+
+  /// Maps actual applicable declaration identities to their effective handles.
+  /// Names alone never connect declarations from an unavailable local scope.
+  late final Map<InputDefinition, InputDefinition> inputLineage =
+      _resolveInputLineage();
+
+  Map<InputDefinition, InputDefinition> _resolveInputLineage() {
+    final aliases = <InputDefinition, InputDefinition>{};
+    void pair(InputDefinition ancestor, InputDefinition effective) {
+      if (ancestor is! Input ||
+          effective is! Input ||
+          ancestor.outputType != effective.outputType ||
+          (ancestor is Flag) != (effective is Flag) ||
+          (ancestor is AccessorListOption) !=
+              (effective is AccessorListOption) ||
+          (ancestor is AccessorPrimitiveOption) !=
+              (effective is AccessorPrimitiveOption) ||
+          (ancestor is RepeatableOptionDefinition) !=
+              (effective is RepeatableOptionDefinition) ||
+          (ancestor is! AccessorListOption &&
+              valueKindOf(ancestor) != valueKindOf(effective))) {
+        throw MambaRegistryError(
+          'Override of ${ancestor.name} must preserve kind, output type, and cardinality.',
+        );
+      }
+      aliases[ancestor] = effective;
+      if (ancestor is AccessorListOption && effective is AccessorListOption) {
+        for (final child in ancestor.options) {
+          final replacement = effective.options
+              .where((item) => item.name == child.name)
+              .firstOrNull;
+          if (replacement == null) {
+            throw MambaRegistryError(
+              'Accessor override ${ancestor.name} omits ${child.name}.',
+            );
+          }
+          pair(child, replacement);
+        }
+      }
+    }
+
+    void family(List<InputDefinition> candidates) {
+      final effective = <String, InputDefinition>{
+        for (final input in candidates) input.name: input,
+      };
+      for (final input in candidates) {
+        pair(input, effective[input.name] as InputDefinition);
+      }
+    }
+
+    family([...?parent?._publishedFlagsToHere, ...publishedFlags, ...flags]);
+    family([
+      ...?parent?._publishedOptionsToHere,
+      ...publishedOptions,
+      ...options,
+    ]);
+    family([
+      ...?parent?._publishedAccessorsToHere,
+      ...publishedAccessors,
+      ...accessors,
+    ]);
+    return Map.unmodifiable(aliases);
   }
 
   /// Rejects [input] when it claims a spelling Mamba always reads itself.
@@ -667,6 +910,13 @@ final class CommandRegistry {
     ];
     return (
       name: registry.name,
+      conflicts: registry.conflicts,
+      defaultCommandPath: registry.defaultCommandPath == null
+          ? null
+          : registry.canonicalCommandPath(
+              registry.defaultCommandPath!,
+              allowGroup: true,
+            ),
       description: registry.longDescription == null
           ? registry.shortDescription
           : '${registry.shortDescription}\n\n${registry.longDescription}',
@@ -732,6 +982,8 @@ final class CommandRegistry {
       options: record.options,
       optionGroups: record.optionGroups,
       accessors: record.accessors,
+      conflicts: record.conflicts,
+      defaultCommandPath: record.defaultCommandPath,
     );
   }
 
@@ -767,7 +1019,7 @@ final class CommandRegistry {
       unique: input is RepeatableOptionDefinition && input.unique ? true : null,
       choices: choice == null
           ? null
-          : List.unmodifiable(choice.map((item) => item.name)),
+          : List.unmodifiable(choice.map(choiceSpelling)),
       defaultValue: switch (input) {
         DefaultValue(:final defaultValue) => _defaultText(defaultValue),
         _ => null,
@@ -791,7 +1043,7 @@ final class CommandRegistry {
   }
 
   static String _defaultText(Object? value) => switch (value) {
-    Enum value => value.name,
+    Enum value => choiceSpelling(value),
     List<Object?> values => values.map(_defaultText).join(','),
     _ => value.toString(),
   };
@@ -809,11 +1061,13 @@ final class CommandRegistry {
       description: input.description,
       choices: choices == null
           ? null
-          : List.unmodifiable(choices.map((choice) => choice.name)),
+          : List.unmodifiable(choices.map(choiceSpelling)),
       defaultValue: switch (input) {
         DefaultValue(:final defaultValue) when defaultValue is List<Enum> =>
-          defaultValue.map((choice) => choice.name).join(','),
-        DefaultValue(:final defaultValue) => (defaultValue as Enum).name,
+          defaultValue.map(choiceSpelling).join(','),
+        DefaultValue(:final defaultValue) => choiceSpelling(
+          defaultValue as Enum,
+        ),
         _ => null,
       },
       repeatable: input is RepeatedPositionalDefinition ? true : null,
@@ -830,7 +1084,7 @@ final class CommandRegistry {
       description: input.description,
       choices: choices == null
           ? null
-          : List.unmodifiable(choices.map((choice) => choice.name)),
+          : List.unmodifiable(choices.map(choiceSpelling)),
       pattern: input is NormalVariadic ? input.regex.pattern : null,
     );
   }
@@ -847,11 +1101,12 @@ final class CommandRegistry {
         AccessorPrimitiveOption() => RegistryAccessor.value(
           name: input.name,
           valueType: valueKindOf(input).wireName,
+          required: input is RequiredInput,
           description: input.description,
           choices: input is ChoiceValidated
               ? List.unmodifiable(
                   (input as ChoiceValidated).choices.cast<Enum>().map(
-                    (choice) => choice.name,
+                    choiceSpelling,
                   ),
                 )
               : null,
@@ -889,6 +1144,7 @@ final class CommandRegistry {
     List<AccessorListOption>? accessors,
     List<Positional<Object?>>? mandatory,
     List<Positional<Object?>>? discretionary,
+    Variadic? variadic,
     List<Command>? commands,
   }) {
     if (!_name.hasMatch(name)) {
@@ -917,57 +1173,6 @@ final class CommandRegistry {
       for (final group in selected ?? const <SelectedOptions>[])
         ...group.options,
     ];
-    final requiredByName = <String, bool>{
-      for (final flag in flags ?? const <Flag<Object?>>[]) flag.name: false,
-      for (final option in options ?? const <Option<Object?>>[])
-        option.name: option.isRequired,
-      for (final group in paired ?? const <PairedOptionsDefinition>[])
-        for (final option in group.options) option.name: group.required,
-      for (final group in selected ?? const <SelectedOptions>[])
-        for (final option in group.options) option.name: false,
-    };
-    void registerAccessorPaths(AccessorOption accessor, String path) {
-      if (accessor is AccessorPrimitiveOption) {
-        requiredByName[path] = accessor is RequiredInput;
-      }
-      if (accessor is AccessorListOption) {
-        for (final child in accessor.options) {
-          registerAccessorPaths(child, '$path.${child.name}');
-        }
-      }
-    }
-
-    for (final accessor in accessors ?? const <AccessorListOption>[]) {
-      registerAccessorPaths(accessor, accessor.name);
-    }
-    for (final entry in (conflicts ?? const <String, List<String>>{}).entries) {
-      final keyRequired = requiredByName[entry.key];
-      if (keyRequired == null) {
-        throw MambaRegistryError(
-          'Conflict key ${entry.key} is not a registered input.',
-        );
-      }
-      for (final (index, member) in entry.value.indexed) {
-        final memberRequired = requiredByName[member];
-        if (memberRequired == null) {
-          throw MambaRegistryError(
-            'Conflict member at index $index for ${entry.key} is not a registered input: $member.',
-          );
-        }
-        if (keyRequired && memberRequired) {
-          throw MambaRegistryError(
-            'Inputs --${entry.key} and --$member are both required but cannot be used together.',
-          );
-        }
-        if (keyRequired || memberRequired) {
-          final requiredName = keyRequired ? entry.key : member;
-          final optionalName = keyRequired ? member : entry.key;
-          throw MambaRegistryError(
-            'Input --$optionalName cannot be supplied because it conflicts with required input --$requiredName.',
-          );
-        }
-      }
-    }
     final names = <String>{};
     final shorts = <String, InputDefinition>{};
     for (final input in inputs) {
@@ -1014,6 +1219,14 @@ final class CommandRegistry {
         }
       }
     }
+    if (variadic is ChoiceVariadic) {
+      final spellings = variadic.choices.map(choiceSpelling).toList();
+      if (spellings.isEmpty || spellings.toSet().length != spellings.length) {
+        throw MambaRegistryError(
+          'Variadic choices must have nonempty, unique offered entries.',
+        );
+      }
+    }
     final leaves = <AccessorPrimitiveOption<Object?>>{};
     void visit(AccessorOption input) {
       if (!_name.hasMatch(input.name)) {
@@ -1050,6 +1263,11 @@ final class CommandRegistry {
             'Choices for ${input.name} must not be empty.',
           );
         }
+        if (choices.map(choiceSpelling).toSet().length != choices.length) {
+          throw MambaRegistryError(
+            'Offered choice spellings for ${input.name} must be unique.',
+          );
+        }
         final defaultValue = switch (input) {
           DefaultValue(:final defaultValue) => defaultValue,
           _ => null,
@@ -1060,6 +1278,14 @@ final class CommandRegistry {
           Enum value => choices.contains(value),
           _ => false,
         };
+        if (input is RepeatableOptionDefinition &&
+            input.unique &&
+            defaultValue is List &&
+            defaultValue.toSet().length != defaultValue.length) {
+          throw MambaRegistryError(
+            'Unique defaults for ${input.name} must not repeat a choice.',
+          );
+        }
         if (!defaultsAreRegistered) {
           throw MambaRegistryError(
             'Every default must be a registered choice for ${input.name}.',
@@ -1102,6 +1328,10 @@ final class CommandRegistry {
     void validateNumeric(InputDefinition input) {
       if (input is NumericRangeValidated) {
         final range = input as NumericRangeValidated;
+        if ((range.min != null && !range.min!.isFinite) ||
+            (range.max != null && !range.max!.isFinite)) {
+          throw MambaRegistryError('Bounds must be finite for ${input.name}.');
+        }
         if (range.min != null && range.max != null && range.min! > range.max!) {
           throw MambaRegistryError(
             'Minimum must not exceed maximum for ${input.name}.',
@@ -1110,8 +1340,19 @@ final class CommandRegistry {
       }
       if (input is NumericStepValidated) {
         final stepped = input as NumericStepValidated;
-        if (stepped.step != null && stepped.step! <= 0) {
-          throw MambaRegistryError('Step must be positive for ${input.name}.');
+        final step = stepped.step;
+        if (step != null) {
+          if (!step.isFinite || step <= 0) {
+            throw MambaRegistryError(
+              'Step must be finite and positive for ${input.name}.',
+            );
+          }
+          final range = input as NumericRangeValidated;
+          if (range.min == null || range.max == null) {
+            throw MambaRegistryError(
+              'Stepped doubles require both finite bounds for ${input.name}.',
+            );
+          }
         }
       }
       if (input is DefaultValue) {
@@ -1120,7 +1361,13 @@ final class CommandRegistry {
             ? defaulted.defaultValue as List
             : [defaulted.defaultValue];
         for (final value in defaults) {
+          if (value is num && !value.isFinite) {
+            throw MambaRegistryError(
+              'Default must be finite for ${input.name}.',
+            );
+          }
           if (input is RegExpValidated &&
+              input is! ChoiceValidated &&
               (value is! String ||
                   !validation.matchesEntireValue(
                     (input as RegExpValidated).regex,
@@ -1169,6 +1416,8 @@ final class CommandRegistry {
     for (final input in [
       ...?options,
       ...?propagatedOptions,
+      ...?mandatory,
+      ...?discretionary,
       ...?accessors,
       for (final group in paired ?? const <PairedOptionsDefinition>[])
         ...group.options,

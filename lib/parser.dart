@@ -4,6 +4,8 @@ import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
 import 'package:mamba/src/input_validation.dart' as validation;
 import 'package:mamba/src/suggestion.dart' as suggestion;
+import 'package:mamba/src/token_ownership.dart';
+import 'package:mamba/src/choice_spelling.dart';
 
 class MambaParseException extends MambaException {
   new(super.message, {super.exitCode});
@@ -21,7 +23,6 @@ typedef ParsedArguments = (
 final class Parser {
   new(this._registry);
   final CommandRegistry _registry;
-  static final RegExp _leadingNumber = RegExp(r'^-[0-9]');
 
   /// Reads [tokens] against the resolved registry and returns typed values.
   ///
@@ -73,7 +74,7 @@ final class Parser {
         version = true;
         continue;
       }
-      if (help || version) continue;
+      if ((help || version) && !MambaBuiltInFlags.isControl(token)) continue;
       if (token.startsWith('--') && token.length > 2) {
         final (name, inline) = _split(token.substring(2));
         final accessor = _accessorFor(name, registry.applicableAccessors);
@@ -124,22 +125,32 @@ final class Parser {
         continue;
       }
       if (token.startsWith('-') && token.length > 1) {
-        final short = token.substring(1);
-        final input = optionInputs
-            .where((item) => _shortOf(item) == short)
-            .firstOrNull;
-        if (input != null) {
-          _put(
-            values,
-            input,
-            _parseValue(
+        final (short, inline) = _split(token.substring(1));
+        final letters = short.split('');
+        for (final (letterIndex, letter) in letters.indexed) {
+          final input = optionInputs
+              .where((item) => _shortOf(item) == letter)
+              .firstOrNull;
+          if (input != null) {
+            if (letterIndex != letters.length - 1 ||
+                (letters.length > 1 && inline == null)) {
+              throw MambaParseException(
+                'A bundled value option must be final and use equals-attached supply.',
+              );
+            }
+            _put(
+              values,
               input,
-              _takeValue(tokens, index, consumed, input.name, null, input),
-            ),
-          );
-          continue;
-        }
-        for (final letter in short.split('')) {
+              _parseValue(
+                input,
+                _takeValue(tokens, index, consumed, input.name, inline, input),
+              ),
+            );
+            continue;
+          }
+          if (letterIndex == letters.length - 1 && inline != null) {
+            throw MambaParseException('Flag -$letter does not accept a value');
+          }
           if (letter == MambaBuiltInFlags.help.short) {
             // A group does not publish the built-in help flag to its
             // descendants, so the clustered path cannot find it by lookup. The
@@ -169,20 +180,26 @@ final class Parser {
       positionals.add(token);
     }
     if (!help && !version) {
+      final occurrences = values.keys.toSet();
       _addDefaults(registry, values);
       _validateRequired(registry, values);
-      _validateConflicts(registry, values);
+      _validateConflicts(registry, occurrences);
       _validateGroups(registry, values);
       _parsePositionals(registry, positionals, values);
       _validateVariadic(registry.variadic, trailing);
     }
     for (final flag in registry.applicableFlags) {
-      if (flag is BooleanFlag && flag.name != 'help') {
+      if (flag is BooleanFlag) {
         values.putIfAbsent(flag, () => flag.defaultValue);
       }
       if (flag is CountFlag) values.putIfAbsent(flag, () => 0);
     }
     _addAccessorMaps(registry, values);
+    for (final entry in registry.inputLineage.entries) {
+      if (values.containsKey(entry.value)) {
+        values[entry.key] = values[entry.value];
+      }
+    }
     return (
       commandPath,
       ParsedInputs(values, _knownInputs(registry)),
@@ -212,31 +229,13 @@ final class Parser {
       throw MambaParseException('Option --$name requires a value');
     }
     final value = tokens[index + 1];
-    if (value == '--' ||
-        (value.startsWith('-') &&
-            !_allowsDash(input, value) &&
-            !_attemptedNumber(value))) {
+    if (!ownsSeparateValue(input, value)) {
       throw MambaParseException('Option --$name requires a value');
     }
     consumed.add(index + 1);
     return value;
   }
 
-  /// Whether a dash-led token is an attempt at a number rather than a value
-  /// that was left out.
-  ///
-  /// A negative value the declaration cannot read is still a value the author
-  /// typed, so the value parser reports the syntax rather than a missing value.
-  static bool _attemptedNumber(String value) => _leadingNumber.hasMatch(value);
-
-  bool _allowsDash(InputDefinition input, String value) =>
-      (input is RegExpValidated &&
-          _matches((input as RegExpValidated).regex, value)) ||
-      ((input is NumericRangeValidated<int> || input is AccessorIntOption) &&
-          _matches(AccessorIntOption.syntax, value)) ||
-      ((input is NumericRangeValidated<double> ||
-              input is AccessorDoubleOption) &&
-          _matches(AccessorDoubleOption.syntax, value));
   void _put(Map<Object, Object?> values, InputDefinition input, Object value) {
     void appendPairValue<T>(RepeatablePairOption<T> option) {
       final existing = values[option] as List<T>?;
@@ -248,7 +247,7 @@ final class Parser {
         final existing = values[input] as List?;
         if (input.unique && existing?.contains(value) == true) {
           throw MambaParseException(
-            'Option --${input.name} accepts each choice once; ${(value as Enum).name} was provided more than once.',
+            'Option --${input.name} accepts each choice once; ${choiceSpelling(value as Enum)} was provided more than once.',
           );
         }
         values[input] = input.appendValue(value, existing);
@@ -298,7 +297,9 @@ final class Parser {
 
   double _double(InputDefinition input, String value) {
     final parsed = double.tryParse(value);
-    if (parsed == null || !_matches(AccessorDoubleOption.syntax, value)) {
+    if (parsed == null ||
+        !parsed.isFinite ||
+        !_matches(AccessorDoubleOption.syntax, value)) {
       throw MambaParseException(
         'Invalid double value: $value must be a signed decimal number',
       );
@@ -338,7 +339,7 @@ final class Parser {
   Object _choice(ChoiceValidated input, String value) {
     return input.choices
             .cast<Enum>()
-            .where((choice) => choice.name == value)
+            .where((choice) => choiceSpelling(choice) == value)
             .firstOrNull ??
         (throw MambaParseException(
           '$value is not a valid choice for ${(input as InputDefinition).name}',
@@ -436,16 +437,13 @@ final class Parser {
     }
   }
 
-  void _validateConflicts(
-    CommandRegistry registry,
-    Map<Object, Object?> values,
-  ) {
+  void _validateConflicts(CommandRegistry registry, Set<Object> occurrences) {
     for (final entry in registry.conflicts.entries) {
       final key = registry.conflictInput(entry.key)!;
-      if (!values.containsKey(key)) continue;
+      if (!occurrences.contains(key)) continue;
       for (final memberName in entry.value) {
         final member = registry.conflictInput(memberName)!;
-        if (values.containsKey(member)) {
+        if (occurrences.contains(member)) {
           throw MambaParseException(
             'Input --${entry.key} conflicts with --$memberName.',
           );
@@ -459,7 +457,9 @@ final class Parser {
       final map = <String, Object?>{};
       for (final option in accessor.options) {
         if (option is AccessorListOption) {
-          map[option.name] = mapAccessor(option);
+          final nested = mapAccessor(option);
+          values[option] = nested;
+          map[option.name] = nested;
         } else if (values.containsKey(option)) {
           map[option.name] = values[option];
         }
@@ -485,20 +485,21 @@ final class Parser {
     Map<Object, Object?> values,
   ) {
     var index = 0;
-    for (final positional in [
+    final declarations = <Positional<Object?>>[
       ...registry.mandatoryPositionals,
       ...registry.discretionaryPositionals,
-    ]) {
+    ];
+    for (final (declarationIndex, positional) in declarations.indexed) {
       final required = registry.mandatoryPositionals.contains(positional);
       if (positional case final RepeatedPositionalDefinition definition) {
         final collected = <Object>[];
-        // Membership is decided before the value is read, so a token that is
-        // not one of this input's values stops the run instead of raising. That
-        // leaves the token for the next positional and keeps a genuine
-        // violation from being reported as an unknown command.
-        while (index < source.length &&
-            collected.length < definition.times &&
-            _accepts(positional, source[index])) {
+        final reserved = declarations
+            .skip(declarationIndex + 1)
+            .where(registry.mandatoryPositionals.contains)
+            .length;
+        final available = source.length - index - reserved;
+        while (collected.length < available &&
+            collected.length < definition.times) {
           collected.add(_positionalValue(positional, source[index]));
           index++;
         }
@@ -512,7 +513,7 @@ final class Parser {
             'The ${positional.name} is required at $index after this command',
           );
         }
-        if (collected.isNotEmpty) {
+        if (collected.isNotEmpty || positional is DefaultValue) {
           values[positional] = definition.freezeValues(collected);
         }
       } else if (index < source.length) {
@@ -527,36 +528,8 @@ final class Parser {
     }
     if (index != source.length) {
       final leftover = source[index];
-      // A repeated positional ended because the next word was not one of its
-      // values. Naming the declaration that turned it away keeps the reader
-      // from hunting for a command typo that was never there.
-      final rejectedBy =
-          [
-                ...registry.mandatoryPositionals,
-                ...registry.discretionaryPositionals,
-              ]
-              .whereType<RepeatedPositionalDefinition>()
-              .where((input) => !_accepts(input, leftover))
-              .firstOrNull;
-      if (rejectedBy != null) {
-        throw MambaParseException(
-          "'$leftover' is not an accepted value for ${rejectedBy.name}.",
-        );
-      }
       throw _unregisteredTerm(registry, leftover);
     }
-  }
-
-  /// Whether [value] is one of the values [input] declares.
-  ///
-  /// Deciding membership before parsing is what lets a repeated positional stop
-  /// at the first word that belongs to the input after it, without treating a
-  /// malformed value as the end of the command line.
-  bool _accepts(InputDefinition input, String value) {
-    if (input case ChoiceValidated(:final choices)) {
-      return choices.cast<Enum>().any((choice) => choice.name == value);
-    }
-    return _matches((input as RegExpValidated).regex, value);
   }
 
   /// Rejects [term] with the context a reader needs to correct it.
@@ -678,10 +651,18 @@ final class Parser {
     return shorts;
   }
 
-  Object _positionalValue(Positional<Object?> input, String value) =>
-      input is ChoiceValidated
-      ? _choice(input as ChoiceValidated, value)
-      : _regex(input, value);
+  Object _positionalValue(Positional<Object?> input, String value) {
+    if (input is ChoiceValidated) {
+      return _choice(input as ChoiceValidated, value);
+    }
+    if (!_matches(input.regex, value)) {
+      throw MambaParseException(
+        "'$value' is not an accepted value for ${input.name}.",
+      );
+    }
+    return value;
+  }
+
   void _validateVariadic(Variadic? variadic, List<String> values) {
     if (values.isEmpty || variadic == null) return;
     if (variadic is ChoiceVariadic && values.length > 1) {
@@ -696,7 +677,7 @@ final class Parser {
         );
       }
       if (variadic is ChoiceVariadic &&
-          !variadic.choices.any((choice) => choice.name == value)) {
+          !variadic.choices.any((choice) => choiceSpelling(choice) == value)) {
         throw MambaParseException(
           "The term isn't accepted by the registered variadic",
         );
@@ -720,6 +701,7 @@ final class Parser {
 
   Iterable<Object> _knownInputs(CommandRegistry registry) sync* {
     final known = <InputDefinition>[];
+    yield* registry.inputLineage.keys;
     yield* registry.applicableFlags;
     yield* registry.applicableOptions;
     yield* registry.mandatoryPositionals;

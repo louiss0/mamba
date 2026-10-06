@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:mamba/built_in_flags.dart';
@@ -97,17 +98,34 @@ final class Executor {
        defaultCommandPath = defaultCommandPath == null
            ? null
            : List.unmodifiable(defaultCommandPath) {
-    // Default paths are declaration errors, not invocation errors.
-    if (this.defaultCommandPath != null ||
-        this.commands.any(_hasGroupDefault)) {
-      _Execution(this);
+    final placements = HashSet<Command>.identity();
+    void visit(Iterable<Command> children) {
+      for (final command in children) {
+        if (!placements.add(command)) {
+          throw MambaRegistryError(
+            'Command instance ${command.name} occupies more than one path.',
+          );
+        }
+        if (_owners[command] != null) {
+          throw MambaRegistryError(
+            'Command instance ${command.name} already belongs to a configured Executor.',
+          );
+        }
+        if (command is GroupCommand) visit(command.commands);
+      }
     }
+
+    visit(this.commands);
+    // Validate everything before claiming any identity or binding metadata.
+    _execution = _Execution(this);
+    for (final command in placements) {
+      _owners[command] = this;
+    }
+    _execution.bindMetadata();
   }
 
-  static bool _hasGroupDefault(Command command) =>
-      command is GroupCommand &&
-      (command.defaultSubCommandPath != null ||
-          command.commands.any(_hasGroupDefault));
+  static final _owners = Expando<Executor>('configured command owner');
+  late final _Execution _execution;
   final String name;
   final String shortDescription;
   final String _version;
@@ -138,28 +156,24 @@ final class Executor {
   /// [HookRunner.preRun] method.
   MambaExecutor<MambaExecutionResult> fake({
     ProcessedStandardInput? standardInput,
-  }) => _FakeExecutor(
-    _Execution(this, readStandardInput: () async => standardInput),
-  );
+  }) => _FakeExecutor(_execution, () async => standardInput);
 
   /// Creates a process-facing executor.
   ///
   /// Reads and writes the current Dart process.
   MambaExecutor<void> create() {
     final process = system_process.SystemMambaProcess();
-    return _CreateExecutor(
-      _Execution(this, readStandardInput: process.readStandardInput),
-      process,
-    );
+    return _CreateExecutor(_execution, process);
   }
 }
 
 final class _FakeExecutor implements MambaExecutor<MambaExecutionResult> {
-  new(this.execution);
+  new(this.execution, this.readStandardInput);
   final _Execution execution;
+  final Future<ProcessedStandardInput?> Function() readStandardInput;
   @override
   Future<MambaExecutionResult> execute(List<String> args) =>
-      execution.execute(args);
+      execution.execute(args, readStandardInput: readStandardInput);
 }
 
 final class _CreateExecutor implements MambaExecutor<void> {
@@ -173,7 +187,10 @@ final class _CreateExecutor implements MambaExecutor<void> {
   // coverage:ignore-start
   @override
   Future<void> execute(List<String> args) async {
-    final result = await execution.execute(args);
+    final result = await execution.execute(
+      args,
+      readStandardInput: process.readStandardInput,
+    );
     switch (result) {
       case MambaSuccessResult(:final output):
         if (output != null) process.writeOutput(output);
@@ -193,7 +210,7 @@ final class _CreateExecutor implements MambaExecutor<void> {
 }
 
 final class _Execution {
-  new(Executor executor, {this.readStandardInput})
+  new(Executor executor)
     : _help = executor.helpFormatter ?? MambaHelpFormatter(),
       _context = executor.context ?? MambaContext(),
       _version = executor._version,
@@ -206,29 +223,39 @@ final class _Execution {
         options: executor.options,
         accessors: executor.accessors,
         commands: executor.commands,
-      ),
-      _defaultCommandPath = executor.defaultCommandPath == null
-          ? null
-          : CommandRegistry.create(
-              executor.name,
-              executor.shortDescription,
-              commands: executor.commands,
-            ).canonicalCommandPath(
-              executor.defaultCommandPath!,
-              allowGroup: true,
-            ) {
-    _validateGroupDefaults(commands);
-    if (_defaultCommandPath != null) _effectivePath(const []);
-    _assignCompletion(commands, _registry.toRecord());
+        defaultCommandPath: executor.defaultCommandPath,
+      ) {
+    _validateGroupDefaults(_registry);
+    _registry.toRecord();
   }
   final HelpFormatter _help;
-  final Future<ProcessedStandardInput?> Function()? readStandardInput;
+  void bindMetadata() => _assignCompletion(commands, _registry.toRecord());
+  bool _inFlight = false;
   final MambaContext _context;
   final String _version;
   final List<Command> commands;
   final CommandRegistry _registry;
-  final List<String>? _defaultCommandPath;
-  Future<MambaExecutionResult> execute(List<String> args) async {
+  Future<MambaExecutionResult> execute(
+    List<String> args, {
+    required Future<ProcessedStandardInput?> Function() readStandardInput,
+  }) async {
+    if (_inFlight) {
+      throw StateError(
+        'A configured Executor already has an invocation in flight.',
+      );
+    }
+    _inFlight = true;
+    try {
+      return await _execute(args, readStandardInput);
+    } finally {
+      _inFlight = false;
+    }
+  }
+
+  Future<MambaExecutionResult> _execute(
+    List<String> args,
+    Future<ProcessedStandardInput?> Function() readStandardInput,
+  ) async {
     final CommandResolution explicit;
     try {
       explicit = _registry.resolveCommandPath(
@@ -303,7 +330,7 @@ final class _Execution {
     }
     if (errors.isEmpty && command is HookRunner) {
       try {
-        await command.preRun(inputs, readContext, await _readInput());
+        await command.preRun(inputs, readContext, await readStandardInput());
         ordinary = command;
       } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.preRun, error, trace, errorPath));
@@ -392,9 +419,10 @@ final class _Execution {
         continue;
       }
       if (MambaBuiltInFlags.isControl(token)) return true;
+      final next = index + 1 < args.length ? args[index + 1] : null;
       final length =
-          scope.registeredInputTokenLength(token) ??
-          _defaultTarget(scope).registeredInputTokenLength(token);
+          scope.registeredInputTokenLength(token, next: next) ??
+          _defaultTarget(scope).registeredInputTokenLength(token, next: next);
       if (length != null) index += length - 1;
     }
     return false;
@@ -407,14 +435,11 @@ final class _Execution {
     final path = [...explicit];
     var followedDefault = false;
     while (true) {
-      final selected = _commandsForPath(path).lastOrNull;
-      final next = selected is GroupCommand
-          ? selected.defaultSubCommandPath
-          : selected == null
-          ? _defaultCommandPath
-          : null;
+      final scope = _registry.descendant(path);
+      final next = scope.defaultCommandPath;
       if (next == null) {
-        if (followedDefault && selected is GroupCommand) {
+        if (followedDefault &&
+            _commandsForPath(path).lastOrNull is GroupCommand) {
           throw MambaRegistryError(
             'Default command path must end at an executable command.',
           );
@@ -422,54 +447,15 @@ final class _Execution {
         return path;
       }
       followedDefault = true;
-      final parent = _registry.descendant(path);
-      final canonical = <String>[];
-      var current = parent;
-      for (final segment in next) {
-        final child = current.commandRegistries
-            .where(
-              (candidate) =>
-                  candidate.name == segment ||
-                  candidate.commandAliases?.contains(segment) == true,
-            )
-            .firstOrNull;
-        if (child == null) {
-          throw MambaRegistryError(
-            'Unknown default command segment $segment under ${current.fullPath.join(' ')}.',
-          );
-        }
-        canonical.add(child.name);
-        current = child;
-      }
-      path.addAll(canonical);
+      path.addAll(scope.canonicalCommandPath(next, allowGroup: true));
     }
   }
 
-  void _validateGroupDefaults(Iterable<Command> candidates) {
-    for (final candidate in candidates) {
-      if (candidate is GroupCommand) {
-        if (candidate.defaultSubCommandPath != null) {
-          _effectivePath(_pathOf(candidate));
-        }
-        _validateGroupDefaults(candidate.commands);
-      }
+  void _validateGroupDefaults(CommandRegistry scope) {
+    if (scope.defaultCommandPath != null) _effectivePath(scope.relativePath);
+    for (final child in scope.commandRegistries) {
+      _validateGroupDefaults(child);
     }
-  }
-
-  List<String> _pathOf(Command target) {
-    List<String>? visit(List<Command> children, List<String> prefix) {
-      for (final child in children) {
-        final path = [...prefix, child.name];
-        if (identical(child, target)) return path;
-        if (child is GroupCommand) {
-          final found = visit(child.commands, path);
-          if (found != null) return found;
-        }
-      }
-      return null;
-    }
-
-    return visit(commands, const []) ?? const [];
   }
 
   List<Command> _commandsForPath(List<String> path) {
@@ -489,9 +475,6 @@ final class _Execution {
     }
     return selected;
   }
-
-  Future<ProcessedStandardInput?> _readInput() async =>
-      readStandardInput?.call();
 
   void _assignCompletion(Iterable<Command> candidates, RegistryRecord record) {
     for (final command in candidates) {

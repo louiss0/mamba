@@ -2,6 +2,7 @@ import 'package:chalkdart/chalkstrings.dart';
 
 import 'command.dart';
 import 'registry.dart';
+import 'src/choice_spelling.dart';
 
 abstract final class MambaColors {
   static final yellow = chalk.hex('#D3C85E');
@@ -272,7 +273,7 @@ final class MambaHelpFormatter extends HelpFormatter {
   }
 
   String _choiceExpression(Iterable<Enum> choices) =>
-      choices.map((choice) => choice.name).join('|');
+      choices.map(choiceSpelling).join('|');
 
   String _flag(Flag<Object?> flag) => _entry(
     name: flag.name,

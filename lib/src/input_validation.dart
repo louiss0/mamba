@@ -6,5 +6,6 @@ bool matchesEntireValue(RegExp regex, String value) {
 
 bool followsNumericStep(num value, num origin, num step) {
   final increments = (value.toDouble() - origin.toDouble()) / step;
-  return (increments - increments.round()).abs() <= 1e-12;
+  return increments.isFinite &&
+      (increments - increments.round()).abs() <= 1e-12;
 }

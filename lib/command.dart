@@ -20,6 +20,9 @@ abstract interface class ParsedValue<T>;
 /// An identity-based, typed handle for a parsed command value.
 sealed class Input<T> implements InputDefinition, ParsedValue<T> {
   const new();
+
+  /// The exact output type promised by this retained declaration.
+  Type get outputType => T;
 }
 
 abstract interface class RequiredInput<T> implements Input<T>;
@@ -30,7 +33,12 @@ abstract interface class DefaultedInput<T> implements Input<T>;
 
 mixin RegExpValidated {
   RegExp get regex;
-  static final RegExp anyToken = RegExp(r'\S+');
+  static final RegExp anyToken = RegExp(r'[\s\S]*');
+}
+
+/// Opt in to exact enum-owned CLI choice spellings instead of [Enum.name].
+abstract interface class MambaEnumValue {
+  String get value;
 }
 
 mixin ChoiceValidated<T extends Enum> {

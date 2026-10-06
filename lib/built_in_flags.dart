@@ -42,7 +42,7 @@ abstract final class MambaBuiltInFlags {
     if (!token.startsWith('-') || token.startsWith('--') || token == '-') {
       return false;
     }
-    final letters = token.substring(1);
+    final letters = token.substring(1).split('=').first;
     return letters.contains(help.short!) || letters.contains(version.short!);
   }
 }
