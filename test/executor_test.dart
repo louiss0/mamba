@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:mamba/mamba.dart';
@@ -355,7 +356,531 @@ final class DryRunFlagReader extends Command {
       '${inputs.valueOf(MambaBuiltInFlags.dryRun)}';
 }
 
+final class _ControlledCommand extends Command {
+  final entered = Completer<void>();
+  final release = Completer<void>();
+  bool first = true;
+  @override
+  String get name => 'wait';
+  @override
+  String get shortDescription => 'Controlled execution.';
+  @override
+  Future<String> run(ParsedInputs inputs, List<String> args) async {
+    if (first) {
+      first = false;
+      entered.complete();
+      await release.future;
+    }
+    return 'done';
+  }
+}
+
+final class _ValueProbe extends Command {
+  new({
+    this.action,
+    super.flags,
+    super.options,
+    super.mandatoryPositionals,
+    super.discretionaryPositionals,
+    super.accessors,
+  });
+  final FutureOr<String?> Function(ParsedInputs, List<String>)? action;
+  @override
+  String get name => 'run';
+  @override
+  String get shortDescription => 'Observe public invocation values.';
+  @override
+  FutureOr<String?> run(ParsedInputs inputs, List<String> args) =>
+      action?.call(inputs, args);
+}
+
+final class _InputScope extends GroupCommand with PersistentHookRunner {
+  new(
+    super.commands, {
+    super.propagatedFlags,
+    super.propagatedOptions,
+    super.options,
+    super.conflicts,
+    this.observe,
+    this.observeContext,
+  });
+  final void Function(ParsedInputs)? observe;
+  final void Function(MambaContext)? observeContext;
+  @override
+  String get name => 'scope';
+  @override
+  String get shortDescription => 'Scoped inputs.';
+  @override
+  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
+    observe?.call(inputs);
+    observeContext?.call(context);
+  }
+}
+
+enum _Pick { one, two }
+
+MambaExecutor<MambaExecutionResult> _probeExecutor(_ValueProbe command) =>
+    Executor('app', 'Application.', '1.0.0', [command]).fake();
+
 void main() {
+  test(
+    'owner retains default and injected scalar context across adapters',
+    () async {
+      for (final injected in <MambaContext?>[null, MambaContext()]) {
+        final key = MambaContextKey<int>();
+        final seen = <MambaContext>[];
+        final counts = <int>[];
+        final scope = _InputScope(
+          [_ValueProbe()],
+          observeContext: (context) {
+            seen.add(context);
+            final count = (context.get(key) ?? 0) + 1;
+            context.set(key, MambaContextInt(count));
+            counts.add(count);
+          },
+        );
+        final owner = Executor('app', 'App.', '1.0.0', [
+          scope,
+        ], context: injected);
+        await owner.fake().execute(['scope', 'run']);
+        await owner.fake().execute(['scope', 'run']);
+        expect(counts, [1, 2]);
+        expect(seen.last, same(injected ?? seen.first));
+      }
+    },
+  );
+
+  test(
+    'reentrant execute raises StateError before the inner command enters',
+    () async {
+      late final Executor owner;
+      var runs = 0;
+      final command = _ValueProbe(
+        action: (_, _) async {
+          runs++;
+          await expectLater(owner.fake().execute(['run']), throwsStateError);
+          return 'outer';
+        },
+      );
+      owner = Executor('app', 'App.', '1.0.0', [command]);
+      expect(
+        (await owner.fake().execute(['run']) as MambaSuccessResult).output,
+        'outer',
+      );
+      expect(runs, 1);
+    },
+  );
+  test('inherited conflict identities survive overrides but never resurrect local names', () async {
+    final shared = BooleanFlag('shared');
+    final remote = StringOption('remote');
+    final local = StringOption('local');
+    final scope = _InputScope(
+      [
+        _ValueProbe(
+          flags: [BooleanFlag('shared')],
+          options: [StringOption('local')],
+        ),
+      ],
+      propagatedFlags: [shared],
+      options: [local],
+      conflicts: {
+        'shared': ['remote', 'local'],
+      },
+    );
+    final executor = Executor(
+      'app',
+      'App.',
+      '1.0.0',
+      [scope],
+      options: [remote],
+    ).fake();
+    expect(
+      await executor.execute(['scope', 'run', '--shared', '--remote=x']),
+      isA<MambaFailureResult>(),
+    );
+    expect(
+      await executor.execute(['scope', 'run', '--shared', '--local=x']),
+      isA<MambaSuccessResult>(),
+    );
+    expect(
+      await executor.execute(['scope', '--shared', '--local=x']),
+      isA<MambaFailureResult>(),
+    );
+  });
+
+  test(
+    'compatible accessor overrides preserve every ancestor container and leaf',
+    () async {
+      final oldLeaf = AccessorStringOption.withDefault(
+        'token',
+        defaultValue: 'old',
+      );
+      final oldNested = AccessorListOption('auth', [oldLeaf]);
+      final oldRoot = AccessorListOption('config', [oldNested]);
+      final leaf = AccessorStringOption.withDefault(
+        'token',
+        defaultValue: 'new',
+      );
+      final nested = AccessorListOption('auth', [
+        leaf,
+        AccessorIntOption.withDefault('port', defaultValue: 80),
+      ]);
+      final root = AccessorListOption('config', [nested]);
+      final command = _ValueProbe(
+        accessors: [root],
+        action: (inputs, _) {
+          expect(inputs.valueOf(oldLeaf), 'new');
+          expect(inputs.valueOf(oldNested), {'token': 'new', 'port': 80});
+          expect(inputs.valueOf(oldRoot), inputs.valueOf(root));
+          return 'compatible';
+        },
+      );
+      final executor = Executor(
+        'app',
+        'App.',
+        '1.0.0',
+        [command],
+        accessors: [oldRoot],
+      ).fake();
+      expect(
+        (await executor.execute(['run']) as MambaSuccessResult).output,
+        'compatible',
+      );
+    },
+  );
+
+  test('owner context is shared across adapters and the guard releases after escaping Errors', () async {
+    var calls = 0;
+    final owner = Executor('app', 'App.', '1.0.0', [
+      RetainingContextWriter([
+        _ValueProbe(
+          action: (_, _) {
+            if (calls++ == 0) throw StateError('escaping');
+            return 'reused';
+          },
+        ),
+      ]),
+    ]);
+    final first = owner.fake();
+    final second = owner.fake();
+    await expectLater(first.execute(['retaining', 'run']), throwsStateError);
+    expect(
+      (await second.execute(['retaining', 'run']) as MambaSuccessResult).output,
+      'reused',
+    );
+  });
+  test('propagation includes its group and compatible retained handles read the override', () async {
+    final ancestor = StringOption.withDefault(
+      'label',
+      defaultValue: 'ancestor',
+      short: 'a',
+    );
+    final local = StringOption.withDefault(
+      'label',
+      defaultValue: 'local',
+      short: 'l',
+    );
+    final group = _InputScope(
+      [
+        _ValueProbe(
+          options: [local],
+          action: (inputs, _) => inputs.valueOf(local),
+        ),
+      ],
+      propagatedOptions: [ancestor],
+      observe: (inputs) => expect(inputs.valueOf(ancestor), 'local'),
+    );
+    final executor = Executor('app', 'Application.', '1.0.0', [group]).fake();
+    expect(
+      (await executor.execute(['scope', 'run']) as MambaSuccessResult).output,
+      'local',
+    );
+    final direct = _InputScope([], propagatedOptions: [ancestor]);
+    expect(
+      await Executor('other', 'Application.', '1.0.0', [
+        direct,
+      ]).fake().execute(['scope', '--label=group']),
+      isA<MambaSuccessResult>(),
+    );
+  });
+
+  test('unconstrained sources reserve their required suffix', () async {
+    final sources = RepeatedStringPositional('sources', times: 3);
+    final destination = NormalPositional('destination');
+    final executor = _probeExecutor(
+      _ValueProbe(
+        mandatoryPositionals: [sources, destination],
+        action: (inputs, _) =>
+            '${inputs.valueOf(sources)}:${inputs.valueOf(destination)}',
+      ),
+    );
+    final result = await executor.execute(['run', 'a', 'out']);
+    expect(result, isA<MambaSuccessResult>());
+    expect((result as MambaSuccessResult).output, '[a]:out');
+  });
+
+  test('bounded sources reserve a mandatory destination without backtracking', () async {
+    final sources = RepeatedStringPositional(
+      'sources',
+      times: 3,
+      regex: RegExp(r'.*\.txt'),
+    );
+    final destination = NormalPositional('destination');
+    final executor = _probeExecutor(
+      _ValueProbe(
+        mandatoryPositionals: [sources, destination],
+        action: (inputs, _) =>
+            '${inputs.valueOf(sources).join(',')} -> ${inputs.valueOf(destination)}',
+      ),
+    );
+    expect(
+      (await executor.execute([
+        'run',
+        'a.txt',
+        'out/',
+      ]) as MambaSuccessResult).output,
+      'a.txt -> out/',
+    );
+    expect(
+      (await executor.execute([
+        'run',
+        'a.txt',
+        'b.txt',
+        'c.txt',
+        'out/',
+      ]) as MambaSuccessResult).output,
+      'a.txt,b.txt,c.txt -> out/',
+    );
+    for (final argv in [
+      ['run', 'out/'],
+      ['run', 'bad', 'out/'],
+      ['run', 'a.txt', '--', 'out/'],
+    ]) {
+      expect(await executor.execute(argv), isA<MambaFailureResult>());
+    }
+  });
+
+  test('empty default repeats and nested accessor containers retain non-null values', () async {
+    final picks = RepeatedChoicePositional.withDefault(
+      'picks',
+      choices: _Pick.values,
+      defaultValue: <_Pick>[],
+      times: 2,
+    );
+    final leaf = AccessorStringOption('token');
+    final nested = AccessorListOption('auth', [leaf]);
+    final root = AccessorListOption('config', [nested]);
+    final executor = _probeExecutor(
+      _ValueProbe(
+        discretionaryPositionals: [picks],
+        accessors: [root],
+        action: (inputs, _) {
+          expect(inputs.contains(picks), isTrue);
+          expect(inputs.valueOf(picks), isEmpty);
+          expect(inputs.valueOf(nested), isEmpty);
+          expect(inputs.valueOf(root), {'auth': <String, Object?>{}});
+          expect(inputs.valueOf(leaf), isNull);
+          expect(
+            () => inputs.valueOf(picks).add(_Pick.one),
+            throwsUnsupportedError,
+          );
+          expect(
+            () => inputs.valueOf(nested)['token'] = 'changed',
+            throwsUnsupportedError,
+          );
+          return 'stored';
+        },
+      ),
+    );
+    final result = await executor.execute(['run']);
+    expect(
+      result,
+      isA<MambaSuccessResult>(),
+      reason: result is MambaFailureResult ? result.message : null,
+    );
+    expect((result as MambaSuccessResult).output, 'stored');
+  });
+
+  test('supplied strings remain one value, including empty content', () async {
+    final label = StringOption.required('label');
+    final executor = _probeExecutor(
+      _ValueProbe(
+        options: [label],
+        action: (inputs, _) => inputs.valueOf(label),
+      ),
+    );
+    for (final text in ['', 'two words', 'a\nb']) {
+      final result = await executor.execute(['run', '--label', text]);
+      expect(result, isA<MambaSuccessResult>());
+      expect((result as MambaSuccessResult).output, text);
+    }
+  });
+
+  test(
+    'syntax owns option values, not content validators or controls',
+    () async {
+      final label = StringOption(
+        'label',
+        short: 'o',
+        regex: RegExp(r'[\s\S]*'),
+      );
+      final executor = _probeExecutor(
+        _ValueProbe(
+          options: [label],
+          action: (inputs, _) => inputs.valueOf(label),
+        ),
+      );
+      expect(
+        await executor.execute(['run', '--label', '--help']),
+        isA<MambaFailureResult>(),
+      );
+      for (final (argv, expected) in <(List<String>, String)>[
+        (['--label=--help'], '--help'),
+        (['-o=--help'], '--help'),
+        (['-vo=a=b'], 'a=b'),
+        (['-vo='], ''),
+        (['-o', 'two words'], 'two words'),
+      ]) {
+        final result = await executor.execute(['run', ...argv]);
+        expect(result, isA<MambaSuccessResult>(), reason: '$argv');
+        expect((result as MambaSuccessResult).output, expected);
+      }
+      for (final argv in [
+        ['-ofile'],
+        ['-vo', 'file'],
+        ['-v=file'],
+        ['-xo=file'],
+        ['-oo=file'],
+        ['-hv=file'],
+        ['-hx'],
+      ]) {
+        expect(
+          await executor.execute(['run', ...argv]),
+          isA<MambaFailureResult>(),
+          reason: '$argv',
+        );
+      }
+      expect(
+        await executor.execute(['run', '-h', '--typo']),
+        isA<MambaSuccessResult>(),
+      );
+      expect(
+        await executor.execute(['run', '--typo', '-h']),
+        isA<MambaFailureResult>(),
+      );
+    },
+  );
+  test(
+    'syntax conflicts depend on explicit occurrences, including false flags',
+    () async {
+      final output = StringOption.withDefault('output', defaultValue: 'text');
+      final replace = BooleanFlag('replace');
+      final command = TestCommand(
+        'run',
+        'Run.',
+        options: [output],
+        flags: [replace],
+        conflicts: {
+          'output': ['replace'],
+        },
+      );
+      final executor = Executor('app', 'App.', '1.0.0', [command]).fake();
+      expect(
+        await executor.execute(['run', '--replace']),
+        isA<MambaSuccessResult>(),
+      );
+      expect(
+        await executor.execute(['run', '--replace', '--output=text']),
+        isA<MambaFailureResult>(),
+      );
+      final negative = TestCommand(
+        'run',
+        'Run.',
+        flags: [BooleanFlag('cache', negatable: true), replace],
+        conflicts: {
+          'cache': ['replace'],
+        },
+      );
+      final negativeExecutor = Executor('negative', 'App.', '1.0.0', [
+        negative,
+      ]).fake();
+      expect(
+        await negativeExecutor.execute(['run', '--no-cache', '--replace']),
+        isA<MambaFailureResult>(),
+      );
+    },
+  );
+  test(
+    'duplicate command placement fails before claiming either path',
+    () async {
+      final command = ResultCommand([]);
+      expect(
+        () => Executor('app', 'App.', '1.0.0', [
+          command,
+          BareGroup([command]),
+        ]),
+        throwsA(isA<MambaRegistryError>()),
+      );
+      final result = await Executor('valid', 'Valid.', '1.0.0', [
+        command,
+      ]).fake().execute(['run']);
+      expect((result as MambaSuccessResult).output, 'output');
+    },
+  );
+  test('configured ownership is eager and failed claims are atomic', () async {
+    final owned = ResultCommand([]);
+    final owner = Executor('first', 'First.', '1.0.0', [owned]);
+    final reusable = ResultCommand([]);
+    expect(
+      () => Executor('second', 'Second.', '1.0.0', [
+        BareGroup([reusable]),
+        owned,
+      ]),
+      throwsA(isA<MambaRegistryError>()),
+    );
+    expect(
+      (await owner.fake().execute(['run']) as MambaSuccessResult).output,
+      'output',
+    );
+    expect(
+      () => Executor('third', 'Third.', '1.0.0', [reusable]),
+      returnsNormally,
+    );
+    final invalidTree = ResultCommand([]);
+    expect(
+      () => Executor('bad', 'Bad.', '1.0.0', [
+        BareGroup([
+          invalidTree,
+          TestCommand(
+            'bad',
+            'Bad.',
+            options: [DoubleOption('ratio', step: 0.1)],
+          ),
+        ]),
+      ]),
+      throwsA(isA<MambaRegistryError>()),
+    );
+    expect(
+      () => Executor('valid', 'Valid.', '1.0.0', [invalidTree]),
+      returnsNormally,
+    );
+  });
+
+  test(
+    'owner rejects cross-adapter overlap and releases after completion',
+    () async {
+      final command = _ControlledCommand();
+      final owner = Executor('app', 'Application.', '1.0.0', [command]);
+      final a = owner.fake();
+      final b = owner.fake();
+      final first = a.execute(['wait']);
+      await command.entered.future;
+      await expectLater(b.execute(['wait']), throwsStateError);
+      command.release.complete();
+      expect((await first as MambaSuccessResult).output, 'done');
+      expect((await b.execute(['wait']) as MambaSuccessResult).output, 'done');
+    },
+  );
   group('MambaException', () {
     test('uses a portable default exit code', () {
       expect(MambaException('failure').exitCode, 1);
@@ -886,7 +1411,7 @@ void main() {
         [LabelCommand()],
         defaultCommandPath: ['label-command'],
       ).fake();
-      final result = await executor.execute(['--label', '-V']);
+      final result = await executor.execute(['--label=-V']);
       expect(
         result,
         isA<MambaSuccessResult>().having(

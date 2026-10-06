@@ -117,6 +117,16 @@ String rejectionOf(List<String> args) {
 }
 
 void main() {
+  test('overflowing numeric step arithmetic reports an ordinary validation failure', () {
+    final option = DoubleOption('ratio', min: -1e308, max: 1e308, step: 1e308);
+    final registry = CommandRegistry.create('app', 'App.', options: [option]);
+    final maximum = '1${''.padLeft(308, '0')}.0';
+    expect(
+      () => Parser(registry).parse(['--ratio=$maximum']),
+      throwsA(isA<MambaParseException>()),
+    );
+    expect(Parser(registry).parse(['--ratio=0']).$2.valueOf(option), 0.0);
+  });
   group('typed parsed inputs', () {
     test('returns values through their declaration identities', () {
       final name = StringOption('name');
@@ -637,7 +647,11 @@ void main() {
       () {
         final noCache = BooleanFlag('no-cache');
         final cache = BooleanFlag('cache', negatable: true);
-        final result = parser(flags: [noCache, cache]).parse(['--no-cache']);
+        expect(
+          () => parser(flags: [noCache, cache]),
+          throwsA(isA<MambaRegistryError>()),
+        );
+        final result = parser(flags: [noCache]).parse(['--no-cache']);
         expect(result.$2.valueOf(noCache), isTrue);
       },
     );
@@ -693,27 +707,34 @@ void main() {
       );
     });
 
-    test('requires option values while allowing matching dashed values', () {
-      final name = StringOption('name', short: 'n');
-      final format = ChoiceOption<Format>('format', choices: Format.values);
-      final subject = parser(options: [name, format]);
+    test(
+      'requires separate option supply and preserves inline dashed values',
+      () {
+        final name = StringOption('name', short: 'n');
+        final format = ChoiceOption<Format>('format', choices: Format.values);
+        final subject = parser(options: [name, format]);
 
-      expect(
-        () => subject.parse(['--name']),
-        throwsA(
-          isA<MambaParseException>().having(
-            (error) => error.message,
-            'message',
-            'Option --name requires a value',
+        expect(
+          () => subject.parse(['--name']),
+          throwsA(
+            isA<MambaParseException>().having(
+              (error) => error.message,
+              'message',
+              'Option --name requires a value',
+            ),
           ),
-        ),
-      );
-      expect(
-        () => subject.parse(['--format', '--name']),
-        throwsA(isA<MambaParseException>()),
-      );
-      expect(subject.parse(['-n', '-draft']).$2.valueOf(name), '-draft');
-    });
+        );
+        expect(
+          () => subject.parse(['--format', '--name']),
+          throwsA(isA<MambaParseException>()),
+        );
+        expect(
+          () => subject.parse(['-n', '-draft']),
+          throwsA(isA<MambaParseException>()),
+        );
+        expect(subject.parse(['-n=-draft']).$2.valueOf(name), '-draft');
+      },
+    );
   });
 
   group('value validation', () {

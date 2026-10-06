@@ -63,7 +63,7 @@ void main() {
     test('completion CI runs every test on supported Bash', () async {
       final result = await _suite(File(_realBash()).parent.path);
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
-      expect(result.stdout, contains('+3: All tests passed!'));
+      expect(result.stdout, contains('+5: All tests passed!'));
       expect(result.stdout, isNot(contains('Skip:')));
     });
 
@@ -154,7 +154,13 @@ Future<ProcessResult> _suite(
   bool isolated = false,
 }) => Process.run(
   Platform.resolvedExecutable,
-  ['test', 'test/completion_shell_test.dart', '--reporter=expanded'],
+  [
+    'test',
+    'test/completion_shell_test.dart',
+    '--name',
+    'completion in a real shell',
+    '--reporter=expanded',
+  ],
   environment: {
     'CI': 'true',
     'PATH': isolated

@@ -45,7 +45,161 @@ String _bashCompletionOutput(
   }
 }
 
+enum _Color { blue, red }
+
+enum const _Literal(@override final String value) implements MambaEnumValue {
+  empty(''),
+  spaced('two words'),
+  quoted("quote's"),
+  metacharacter(r'$(throw "unsafe")'),
+  dash('--help'),
+}
+
 void main() {
+  test(
+    'PowerShell completion encodes literal choices without evaluating their content',
+    () {
+      final shell = firstShellOnPath(['powershell.exe', 'pwsh']);
+      expect(shell, isNotNull);
+      final directory = tempDirectory('mamba_literal_');
+      final registry = CommandRegistry.create(
+        'literal-probe',
+        'Exact choices.',
+        options: [ChoiceOption('format', choices: _Literal.values)],
+      );
+      final artifact = File('${directory.path}/literal.ps1')
+        ..writeAsStringSync(
+          ToPowerShellCompletionConverter(registry.toRecord()).convert(),
+        );
+      final harness = File('${directory.path}/harness.ps1')
+        ..writeAsStringSync('''
+\$ErrorActionPreference = 'Stop'
+. '${artifact.path.replaceAll("'", "''")}'
+function literal-probe { \$args[0] }
+\$line = 'literal-probe --format='
+\$matches = [System.Management.Automation.CommandCompletion]::CompleteInput(\$line, \$line.Length, \$null).CompletionMatches
+foreach (\$match in \$matches) { Invoke-Expression ('literal-probe ' + \$match.CompletionText) }
+\$line = 'literal-probe --format '
+\$separate = [System.Management.Automation.CommandCompletion]::CompleteInput(\$line, \$line.Length, \$null).CompletionMatches
+foreach (\$match in \$separate) {
+  if (\$match.ListItemText -ceq '--help') { throw 'Dash-leading choice requires inline supply' }
+}
+''');
+      final result = Process.runSync(shell!, [
+        '-NoProfile',
+        '-NonInteractive',
+        '-File',
+        harness.path,
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+      expect('${result.stdout}'.replaceAll('\r', '').trim().split('\n'), [
+        '--format=',
+        '--format=two words',
+        "--format=quote's",
+        r'--format=$(throw "unsafe")',
+        '--format=--help',
+      ]);
+    },
+    skip: firstShellOnPath(['powershell.exe', 'pwsh']) == null
+        ? 'PowerShell unavailable; literal runtime unverified'
+        : false,
+  );
+
+  for (final shellName in ['powershell.exe', 'pwsh']) {
+    final shell = firstShellOnPath([shellName]);
+    test(
+      'PowerShell isolation in $shellName across load order, sourcing, and paths',
+      () {
+        expect(
+          shell,
+          isNotNull,
+          reason: 'Windows CI requires $shellName on PATH.',
+        );
+        final directory = tempDirectory('mamba_ps_');
+        final paths = <String>[];
+        for (final (name, color) in [
+          ('foo-bar', _Color.blue),
+          ('foo_bar', _Color.red),
+        ]) {
+          final record = CommandRegistry.create(
+            name,
+            'Isolated candidates.',
+            commands: [
+              TestCommand(
+                'run',
+                'Run.',
+                options: [
+                  ChoiceOption('color', choices: [color]),
+                ],
+              ),
+              TestGroupCommand('foo-bar', [
+                TestCommand(
+                  'run',
+                  'Run.',
+                  options: [
+                    ChoiceOption('color', choices: [_Color.blue]),
+                  ],
+                ),
+              ], 'Blue path.'),
+              TestGroupCommand('foo_bar', [
+                TestCommand(
+                  'run',
+                  'Run.',
+                  options: [
+                    ChoiceOption('color', choices: [_Color.red]),
+                  ],
+                ),
+              ], 'Red path.'),
+            ],
+          ).toRecord();
+          final file = File('${directory.path}/$name.ps1')
+            ..writeAsStringSync(
+              ToPowerShellCompletionConverter(record).convert(),
+            );
+          paths.add(file.path);
+        }
+        String quote(String value) => "'${value.replaceAll("'", "''")}'";
+        for (final order in [paths, paths.reversed.toList()]) {
+          final harness = File('${directory.path}/harness.ps1')
+            ..writeAsStringSync('''
+\$ErrorActionPreference = 'Stop'
+\$PSVersionTable.PSVersion.ToString()
+. ${quote(order[0])}
+. ${quote(order[1])}
+. ${quote(order[0])}
+foreach (\$case in @(
+  @('foo-bar run --color ', 'blue'),
+  @('foo_bar run --color ', 'red'),
+  @('foo-bar foo-bar run --color ', 'blue'),
+  @('foo-bar foo_bar run --color ', 'red')
+)) {
+  \$line = \$case[0]
+  \$result = [System.Management.Automation.CommandCompletion]::CompleteInput(\$line, \$line.Length, \$null)
+  \$actual = (\$result.CompletionMatches | ForEach-Object CompletionText) -join ','
+  if (\$actual -cne \$case[1]) { throw "\$line expected \$(\$case[1]), got \$actual" }
+}
+'ISOLATED'
+''');
+          final result = Process.runSync(shell!, [
+            '-NoProfile',
+            '-NonInteractive',
+            '-File',
+            harness.path,
+          ]);
+          printOnFailure('${result.stdout}\n${result.stderr}');
+          expect(result.exitCode, 0, reason: '${result.stderr}');
+          expect(result.stdout, contains('ISOLATED'));
+        }
+      },
+      skip:
+          shell == null &&
+              !(runningInCi &&
+                  Platform.isWindows &&
+                  Platform.environment['GITHUB_ACTIONS'] == 'true')
+          ? '$shellName unavailable locally; runtime unverified'
+          : false,
+    );
+  }
   group('completion in a real shell', () {
     setUpAll(() {
       final major = bashMajorVersion();
@@ -92,26 +246,107 @@ void main() {
       }
     });
 
-    test('offers stepped numbers the parser accepts', () {
+    test(
+      'offers exact literal choices for long and equals-attached short forms',
+      () {
+        final option = ChoiceOption(
+          'format',
+          choices: _Literal.values,
+          short: 'o',
+        );
+        final registry = CommandRegistry.create(
+          'probe',
+          'Exact choices.',
+          flags: [BooleanFlag('verbose', short: 'v')],
+          options: [option],
+        );
+        final script = ToBashCompletionConverter(registry.toRecord()).convert();
+        for (final prefix in ['--format=', '-o=', '-vo=']) {
+          final output = _bashCompletionOutput(script, [
+            'probe',
+            prefix,
+          ], command: 'probe');
+          final candidates = output.replaceAll('\r', '').trim().split('\n');
+          expect(
+            candidates,
+            _Literal.values.map((choice) => '$prefix${choice.value}').toList(),
+          );
+          for (final candidate in candidates) {
+            expect(
+              Parser(registry).parse([candidate]).$2.valueOf(option),
+              isA<_Literal>(),
+            );
+          }
+        }
+        final invalid = _bashCompletionOutput(script, [
+          'probe',
+          '-xo=',
+        ], command: 'probe');
+        expect(invalid.trim(), isEmpty);
+      },
+    );
+
+    test('separate choice completions omit option-looking values', () {
+      final option = ChoiceOption('format', choices: _Literal.values);
       final registry = CommandRegistry.create(
         'probe',
-        'Stepped numbers.',
-        options: [DoubleOption('ratio', min: 0, max: 1, step: 0.3)],
+        'Choices.',
+        options: [option],
       );
-      final script = ToBashCompletionConverter(registry.toRecord()).convert();
-
-      final output = _bashCompletionOutput(script, [
-        'probe',
-        '--ratio',
-        '',
-      ], command: 'probe');
-
-      expect(output, contains('0.9'));
-      expect(
-        output,
-        isNot(contains('1.0')),
-        reason: 'the parser rejects 1.0 for this step',
+      final output = _bashCompletionOutput(
+        ToBashCompletionConverter(registry.toRecord()).convert(),
+        ['probe', '--format', ''],
+        command: 'probe',
       );
+      final candidates = output.replaceAll('\r', '').split('\n')..removeLast();
+      expect(candidates, ['', 'two words', "quote's", r'$(throw "unsafe")']);
+      for (final candidate in candidates) {
+        expect(
+          Parser(registry).parse(['--format', candidate]).$2.valueOf(option),
+          isA<_Literal>(),
+        );
+      }
+    });
+
+    test('offers stepped numbers the parser accepts', () {
+      for (final (option, expected) in [
+        (
+          DoubleOption('ratio', min: 0, max: 1, step: 0.3),
+          ['0.0', '0.3', '0.6', '0.9'],
+        ),
+        (
+          DoubleOption('fine', min: 0, max: 0.3, step: 0.1),
+          ['0.0', '0.1', '0.2', '0.3'],
+        ),
+        (
+          DoubleOption('tiny', min: 1e-7, max: 3e-7, step: 1e-7),
+          ['0.0000001', '0.0000002', '0.0000003'],
+        ),
+        (DoubleOption('shifted', min: 1, max: 1.0000002, step: 1e-7), ['1.0']),
+        (
+          DoubleOption('signed', min: -0.3, max: 0, step: 0.1),
+          ['-0.3', '-0.2', '-0.1', '0.0'],
+        ),
+      ]) {
+        final registry = CommandRegistry.create(
+          'probe',
+          'Stepped numbers.',
+          options: [option],
+        );
+        final candidates = _bashCompletionOutput(
+          ToBashCompletionConverter(registry.toRecord()).convert(),
+          ['probe', '--${option.name}', ''],
+          command: 'probe',
+        ).replaceAll('\r', '').trim().split('\n');
+        expect(candidates, expected, reason: option.name);
+        for (final candidate in candidates) {
+          expect(
+            () => Parser(registry).parse(['--${option.name}', candidate]),
+            returnsNormally,
+            reason: '${option.name}: $candidate',
+          );
+        }
+      }
     });
 
     test('stops a shell that cannot load the artifact', () {

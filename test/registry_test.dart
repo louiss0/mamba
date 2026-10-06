@@ -13,6 +13,14 @@ String stripAnsi(String value) =>
 
 enum DeploymentFormat { yaml, json }
 
+enum const WireFormat(@override final String value) implements MambaEnumValue {
+  jsonLines('json-lines'),
+  empty(''),
+  spaced('two words'),
+  dash('--help'),
+  duplicate('json-lines'),
+}
+
 /// Expected metadata for a flag exported by a registry.
 typedef FlagExpectation = (
   String name, {
@@ -197,7 +205,7 @@ Matcher matchRegistry(
       .having(
         (command) => command.flags,
         'flags',
-        unorderedEquals(matchFlags(expected.flags, includesHelp: false)),
+        unorderedEquals(matchFlags(expected.flags, includesHelp: true)),
       )
       .having(
         (command) => command.options,
@@ -249,6 +257,203 @@ Matcher matchRegistry(
 }
 
 void main() {
+  test('accessor overrides cannot omit retained ancestor paths', () {
+    expect(
+      () => CommandRegistry.create(
+        'app',
+        'App.',
+        accessors: [
+          AccessorListOption('settings', [AccessorStringOption('label')]),
+        ],
+        commands: [
+          TestCommand(
+            'run',
+            'Run.',
+            accessors: [AccessorListOption('settings', [])],
+          ),
+        ],
+      ),
+      throwsA(isA<MambaRegistryError>()),
+    );
+  });
+  test('one accessor leaf cannot own distinct effective paths', () {
+    final leaf = AccessorStringOption('label');
+    expect(
+      () => CommandRegistry.create(
+        'app',
+        'App.',
+        accessors: [
+          AccessorListOption('global', [leaf]),
+        ],
+        commands: [
+          TestCommand(
+            'run',
+            'Run.',
+            accessors: [
+              AccessorListOption('local', [leaf]),
+            ],
+          ),
+        ],
+      ),
+      throwsA(isA<MambaRegistryError>()),
+    );
+  });
+  test(
+    'variadic choices and unique defaults reject repeated offered values',
+    () {
+      for (final choices in [
+        <DeploymentFormat>[],
+        [DeploymentFormat.yaml, DeploymentFormat.yaml],
+      ]) {
+        expect(
+          () => CommandRegistry.create(
+            'app',
+            'App.',
+            variadic: ChoiceVariadic(choices: choices),
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      }
+      expect(
+        () => CommandRegistry.create(
+          'app',
+          'App.',
+          options: [
+            RepeatableChoiceOption.withDefault(
+              'format',
+              DeploymentFormat.values,
+              defaultValue: [DeploymentFormat.yaml, DeploymentFormat.yaml],
+              unique: true,
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    },
+  );
+  test('accessor containers do not require their optional leaves', () {
+    final record = CommandRegistry.create(
+      'app',
+      'App.',
+      accessors: [
+        AccessorListOption('settings', [AccessorStringOption('label')]),
+      ],
+    ).toRecord();
+    expect(record.accessors!.single.required, isFalse);
+    expect(record.accessors!.single.options!.single.required, isFalse);
+  });
+  test(
+    'effective cross-kind and generated spellings have exactly one owner',
+    () {
+      for (final child in [
+        TestCommand('run', 'Run.', options: [StringOption('cache')]),
+        TestCommand('run', 'Run.', flags: [BooleanFlag('no-cache')]),
+      ]) {
+        expect(
+          () => CommandRegistry.create(
+            'app',
+            'Application.',
+            flags: [BooleanFlag('cache', negatable: true)],
+            commands: [child],
+          ),
+          throwsA(isA<MambaRegistryError>()),
+        );
+      }
+      expect(
+        () => CommandRegistry.create(
+          'app',
+          'Application.',
+          options: [StringOption('label')],
+          commands: [
+            TestCommand('run', 'Run.', options: [IntOption('label')]),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    },
+  );
+  test('enum-owned exact spellings retain typed values and reject offered duplicates', () {
+    final format = ChoiceOption(
+      'format',
+      choices: WireFormat.values.take(4).toList(),
+    );
+    final registry = CommandRegistry.create('app', 'App.', options: [format]);
+    for (final choice in WireFormat.values.take(4)) {
+      expect(
+        Parser(registry).parse(['--format=${choice.value}']).$2.valueOf(format),
+        same(choice),
+      );
+    }
+    expect(
+      () => Parser(registry).parse(['--format=jsonLines']),
+      throwsA(isA<MambaParseException>()),
+    );
+    expect(registry.toRecord().options!.single.choices, [
+      'json-lines',
+      '',
+      'two words',
+      '--help',
+    ]);
+    for (final choices in [
+      [WireFormat.jsonLines, WireFormat.duplicate],
+      [WireFormat.empty, WireFormat.empty],
+    ]) {
+      expect(
+        () => CommandRegistry.create(
+          'app',
+          'App.',
+          options: [ChoiceOption('format', choices: choices)],
+        ),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    }
+    expect(
+      () => CommandRegistry.create(
+        'app',
+        'App.',
+        options: [
+          ChoiceOption('format', choices: [WireFormat.duplicate]),
+        ],
+      ),
+      returnsNormally,
+    );
+  });
+  test('numeric declarations reject nonfinite domains and inert steps', () {
+    for (final option in <Option<Object?>>[
+      DoubleOption('ratio', step: 0.25),
+      DoubleOption('ratio', min: 0, step: 0.25),
+      DoubleOption('ratio', min: 0, max: double.infinity, step: 0.25),
+      DoubleOption('ratio', min: double.nan, max: 1),
+      DoubleOption('ratio', min: 0, max: 1, step: double.nan),
+      DoubleOption('ratio', min: 0, max: 1, step: double.infinity),
+      DoubleOption.withDefault('ratio', defaultValue: double.nan),
+      RepeatableDoubleOption.withDefault(
+        'ratio',
+        defaultValue: [double.negativeInfinity],
+      ),
+    ]) {
+      expect(
+        () => CommandRegistry.create('app', 'Application.', options: [option]),
+        throwsA(isA<MambaRegistryError>()),
+      );
+    }
+    expect(
+      () => CommandRegistry.create(
+        'app',
+        'Application.',
+        options: [
+          DoubleOption.withDefault(
+            'ratio',
+            defaultValue: -0.5,
+            min: -1,
+            max: 0,
+            step: 0.25,
+          ),
+        ],
+      ),
+      returnsNormally,
+    );
+  });
   group('MambaHelpFormatter', () {
     test('renders commands, usage, flags, and options', () {
       final help = stripAnsi(
@@ -590,12 +795,19 @@ void main() {
         ).toRecord();
         final group = record.commands!.single;
         final run = group.commands!.single;
-        expect(group.flags!.map((flag) => flag.name), ['local']);
-        expect(group.options!.single.name, 'local-path');
+        expect(group.flags!.map((flag) => flag.name), [
+          'shared',
+          'local',
+          'help',
+        ]);
+        expect(group.options!.map((option) => option.name), [
+          'shared-path',
+          'local-path',
+        ]);
         expect(group.persistentFlags, isNull);
         expect(group.persistentOptions, isNull);
         expect(group.accessors!.single.name, 'config');
-        expect(run.flags!.map((flag) => flag.name), ['shared']);
+        expect(run.flags!.map((flag) => flag.name), ['shared', 'help']);
         expect(run.options!.single.name, 'shared-path');
         expect(run.accessors!.single.name, 'config');
       });
@@ -612,7 +824,10 @@ void main() {
               'run',
               'Run command.',
               accessors: [
-                AccessorListOption('config', [AccessorIntOption('port')]),
+                AccessorListOption('config', [
+                  AccessorStringOption('host'),
+                  AccessorIntOption('port'),
+                ]),
               ],
             ),
           ],
@@ -620,7 +835,10 @@ void main() {
 
         final accessor = record.commands!.single.accessors!.single;
         expect(accessor.name, 'config');
-        expect(accessor.options!.single.name, 'port');
+        expect(accessor.options!.map((option) => option.name), [
+          'host',
+          'port',
+        ]);
       });
 
       test("exports a record from the inputs", () {
@@ -2023,7 +2241,7 @@ void main() {
         );
 
         final get = registry.commandRegistries.single.commandRegistries.single;
-        expect(get.applicableFlags, [localColor]);
+        expect(get.applicableFlags, [localColor, MambaBuiltInFlags.help]);
       });
 
       test('parses help after selecting the command path', () {
@@ -2135,7 +2353,7 @@ void main() {
     });
 
     test('nearer published inputs override root inputs at descendants', () {
-      final rootProfile = IntOption('profile');
+      final rootProfile = StringOption('profile');
       final groupProfile = StringOption('profile', regex: RegExp(r'\S+'));
       final registry = CommandRegistry.create(
         'tool',
@@ -2155,7 +2373,8 @@ void main() {
           .parse(['config', 'get', '--profile', 'development'])
           .$2;
       expect(inputs.valueOf(groupProfile), 'development');
-      expect(inputs.contains(rootProfile), isFalse);
+      expect(inputs.contains(rootProfile), isTrue);
+      expect(inputs.valueOf(rootProfile), 'development');
     });
     test('only group commands register child commands', () {
       final registry = CommandRegistry.create(
@@ -2757,23 +2976,22 @@ void main() {
       );
     });
 
-    test('cardinality overrides replace the inherited option shape', () {
-      final registry = CommandRegistry.create(
-        'tool',
-        'Tool command.',
-        options: [RepeatableStringOption('profile')],
-        commands: [
-          TestCommand(
-            'run',
-            'Run command.',
-            options: [StringOption('profile', regex: RegExp(r'\\S+'))],
-          ),
-        ],
+    test('cardinality overrides must preserve the inherited output shape', () {
+      expect(
+        () => CommandRegistry.create(
+          'tool',
+          'Tool command.',
+          options: [RepeatableStringOption('profile')],
+          commands: [
+            TestCommand(
+              'run',
+              'Run command.',
+              options: [StringOption('profile')],
+            ),
+          ],
+        ),
+        throwsA(isA<MambaRegistryError>()),
       );
-      final run = registry.commandRegistries.single;
-
-      expect(run.applicableOptions, hasLength(1));
-      expect(run.applicableOptions.single, isA<StringOption>());
     });
   });
 
