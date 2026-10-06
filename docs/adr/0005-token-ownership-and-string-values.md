@@ -1,0 +1,3 @@
+# Separate token ownership from string validation
+
+Unconstrained string declarations accept every supplied string, including empty and whitespace-containing values; missing supply and unacceptable content are distinct failures. Named-input syntax determines token ownership independently of validation: a following option-looking token is not a separate-form string value, so `--label --help` reports a missing label value while `--label=--help` supplies literal text; numeric declarations retain signed-number handling. We chose this over regex-dependent ownership or always consuming the next token so broadening a validator cannot swallow another input and ordinary already-tokenized text needs no custom regex.

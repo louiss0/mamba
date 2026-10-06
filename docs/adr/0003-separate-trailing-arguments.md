@@ -1,0 +1,3 @@
+# Keep a separate trailing-argument channel
+
+Mamba retains a separate trailing-argument list after the first `--`; these tokens do not satisfy ordinary positional declarations. We chose to preserve the distinction between positionals and trailing arguments rather than adopt conventional positional continuation after option termination, accepting that `copy -- -report.txt backup.txt` cannot satisfy ordinary required source and destination declarations. Dash-leading positional support, typed trailing declarations, and raw process passthrough remain separate design questions rather than implicit consequences of this delimiter decision.

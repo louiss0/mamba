@@ -1,0 +1,3 @@
+# Retain the existing relationship vocabulary
+
+Mamba retains explicit-occurrence conflicts and its existing paired/selected value-option groups rather than introduce generalized typed-handle relationships or additional specialized relationship families. Exactly-one flag groups, directed dependencies, and effective-value conditional requirements remain application logic, and generated metadata describes only supported declarations rather than those external rules. This accepts the existing grouping/aggregate-value trade-off and narrows the declaration-once promise to what the framework actually models.
