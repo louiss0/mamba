@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:mamba/errors.dart';
 import 'package:mamba/registry.dart';
+import 'package:mamba/src/input_validation.dart' as validation;
 import 'package:yaml_writer/yaml_writer.dart';
 
 List<String> _stringList(List<String>? values) => values ?? const [];
@@ -20,7 +21,7 @@ List<RegistryOption> _mergeOptions(List<RegistryOption> options) =>
 RegistryOption _accessorOption(RegistryAccessorValue accessor, String name) => (
   name: name,
   short: null,
-  required: false,
+  required: accessor.required,
   hidden: false,
   description: accessor.description,
   valueType: accessor.valueType,
@@ -62,6 +63,17 @@ List<String> _steppedDoubleValuesFor(RegistryOption value) {
   return _steppedDoubleValues(min.toDouble(), max.toDouble(), step.toDouble());
 }
 
+bool _accessorPathReplaced(String path, List<RegistryAccessor>? roots) =>
+    (roots ?? const <RegistryAccessor>[]).any(
+      (root) => path.startsWith('${root.name}.'),
+    );
+
+Iterable<String> _separateStringChoices(Iterable<String> choices) =>
+    choices.where((choice) => !choice.startsWith('-') || choice == '-');
+
+List<String> _fishChoices(List<String>? choices) =>
+    _stringList(choices).where((choice) => !choice.contains('\t')).toList();
+
 /// The values a stepped numeric declaration accepts between its bounds.
 ///
 /// Every candidate increments from [min] by [step] and stays within [max], so
@@ -69,18 +81,48 @@ List<String> _steppedDoubleValuesFor(RegistryOption value) {
 /// not a candidate: the parser rejects it, and offering it would teach a shell
 /// to complete a value the program refuses.
 List<String> _steppedDoubleValues(double min, double max, double step) {
-  final decimalPlaces = [min, max, step]
-      .map(
-        (value) => value.toString().split('.').elementAtOrNull(1)?.length ?? 0,
-      )
-      .fold(0, (current, value) => current > value ? current : value);
-  final count = ((max - min) / step).round();
-  return [
-    for (var index = 0; index <= count; index++)
-      if (min + step * index <= max + step * 1e-9)
-        double.parse((min + step * index).toStringAsFixed(decimalPlaces))
-            .toString(),
-  ];
+  if (!min.isFinite ||
+      !max.isFinite ||
+      !step.isFinite ||
+      step <= 0 ||
+      min > max) {
+    throw MambaIntegrationException(
+      'Static decimal candidates require finite ordered bounds and a finite positive step.',
+    );
+  }
+  (BigInt, int) decimal(double value) {
+    final parts = value.toString().toLowerCase().split('e');
+    final coefficient = parts.first;
+    final exponent = parts.length == 2 ? int.parse(parts.last) : 0;
+    final fraction = coefficient.split('.').elementAtOrNull(1)?.length ?? 0;
+    return (BigInt.parse(coefficient.replaceAll('.', '')), fraction - exponent);
+  }
+
+  final parts = [decimal(min), decimal(max), decimal(step)];
+  final scale = parts.map((part) => part.$2).fold(0, (a, b) => a > b ? a : b);
+  BigInt scaled((BigInt, int) part) =>
+      part.$1 * BigInt.from(10).pow(scale - part.$2);
+  final origin = scaled(parts[0]);
+  final limit = scaled(parts[1]);
+  final increment = scaled(parts[2]);
+  String text(BigInt value) {
+    final sign = value.isNegative ? '-' : '';
+    final digits = value.abs().toString().padLeft(scale + 1, '0');
+    if (scale == 0) return '$sign$digits.0';
+    final fraction = digits
+        .substring(digits.length - scale)
+        .replaceFirst(RegExp(r'0+$'), '');
+    return '$sign${digits.substring(0, digits.length - scale)}.${fraction.isEmpty ? '0' : fraction}';
+  }
+
+  final candidates = <String>[];
+  for (var value = origin; value <= limit; value += increment) {
+    final candidate = text(value);
+    if (validation.followsNumericStep(double.parse(candidate), min, step)) {
+      candidates.add(candidate);
+    }
+  }
+  return candidates;
 }
 
 /// Converts a typed registry description into an integration-specific artifact.
@@ -101,6 +143,8 @@ abstract class RegistryRecordConverter {
     positionals: registry.positionals,
     variadic: registry.variadic,
     accessors: registry.accessors,
+    conflicts: registry.conflicts,
+    defaultCommandPath: registry.defaultCommandPath,
   );
 
   String convert();
@@ -241,7 +285,7 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
       '      after_separator=1',
       '      continue',
       '    fi',
-      '    if [[ -n "\${_${rootIdentifier}_value_options["\$path|\$token"]}" ]]; then',
+      '    if [[ -n "\${_${rootIdentifier}_value_options["\$path|\$token"]}" && "\${COMP_WORDS[index + 1]}" != -* ]]; then',
       '      ((index++))',
       '      continue',
       '    fi',
@@ -284,6 +328,33 @@ final class ToBashCompletionConverter extends RegistryRecordConverter {
     if [[ "$candidate" == "$current"* ]]; then
       COMPREPLY+=("$candidate")
     fi
+  done
+}
+
+_mamba_filter_separate() {
+  local numeric="$1" current="$2"
+  shift 2
+  local candidate
+  local -a accepted=()
+  for candidate in "$@"; do
+    if [[ "$numeric" == true || "$candidate" != -* || "$candidate" == - ]]; then
+      accepted+=("$candidate")
+    fi
+  done
+  _mamba_filter "$current" "${accepted[@]}"
+}
+
+_mamba_valid_short_value() {
+  local head="$1"
+  shift
+  local prefix="${head:1:${#head}-2}"
+  local index flag found
+  for ((index = 0; index < ${#prefix}; index++)); do
+    found=0
+    for flag in "$@"; do
+      [[ "$flag" == "-${prefix:index:1}" ]] && found=1
+    done
+    ((found)) || return 1
   done
 }
 
@@ -360,7 +431,9 @@ _mamba_filter_option() {
       ...?command.flags,
     ]);
     final options = _mergeOptions([
-      ...inheritedOptions,
+      ...inheritedOptions.where(
+        (option) => !_accessorPathReplaced(option.name, command.accessors),
+      ),
       ...persistentOptions,
       ..._optionsFor(command, includePersistent: false),
     ]);
@@ -479,7 +552,7 @@ _mamba_filter_option() {
         if (_stringList(entry.choices).isNotEmpty ||
             _steppedDoubleValuesFor(entry).isNotEmpty) ...[
           '$indent${_optionPattern(entry)})',
-          '$indent  _mamba_filter "\$current" ${_arrayValues(_variable(path, '${entry.name}_values'))}',
+          '$indent  _mamba_filter_separate ${entry.valueType == 'int' || entry.valueType == 'double'} "\$current" ${_arrayValues(_variable(path, '${entry.name}_values'))}',
           '$indent  return',
           '$indent  ;;',
         ],
@@ -495,8 +568,9 @@ _mamba_filter_option() {
       for (final entry in options)
         if (_stringList(entry.choices).isNotEmpty ||
             _steppedDoubleValuesFor(entry).isNotEmpty) ...[
-          '$indent--${entry.name}=*)',
-          '$indent  _mamba_filter_option ${_quote('--${entry.name}')} "\$current" ${_arrayValues(_variable(path, '${entry.name}_values'))}',
+          '$indent--${entry.name}=*${entry.short == null ? '' : '|-${entry.short}=*|-*${entry.short}=*'})',
+          '$indent  if [[ "\$current" != --* ]] && ! _mamba_valid_short_value "\${current%%=*}" ${_arrayValues(_variable(path, 'flags'))}; then return; fi',
+          '$indent  _mamba_filter_option "\${current%%=*}" "\$current" ${_arrayValues(_variable(path, '${entry.name}_values'))}',
           '$indent  return',
           '$indent  ;;',
         ],
@@ -536,7 +610,7 @@ _mamba_filter_option() {
           ].join('|');
           lines.addAll([
             '    $indexes)',
-            '      _mamba_filter "\$current" ${choices.map(_quote).join(' ')}',
+            '      _mamba_filter "\$current" ${_separateStringChoices(choices).map(_quote).join(' ')}',
             '      ;;',
           ]);
         }
@@ -587,7 +661,7 @@ _mamba_filter_option() {
   String _variable(List<String> path, String suffix) =>
       '_${_generatedPathIdentifier(path)}_${_generatedIdentifier(suffix)}';
 
-  String _quote(String value) => "'${value.replaceAll("'", "'\\\"'\\\"")}'";
+  String _quote(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
 
   Iterable<({String path, RegistryOption value})> _accessorLeaves(
     List<RegistryAccessor>? accessors, {
@@ -600,7 +674,8 @@ _mamba_filter_option() {
           : '$parentPath.${entry.name}';
       final value = entry;
       switch (value) {
-        case RegistryAccessorGroup(:final options):
+        case RegistryAccessorGroup(:final options, :final hidden):
+          if (hidden) continue;
           yield* _accessorLeaves(options, parentPath: path);
         case RegistryAccessorValue():
           yield (path: path, value: _accessorOption(value, path));
@@ -648,7 +723,9 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
       ...?command.flags,
     ]);
     final options = _mergeOptions([
-      ...inheritedOptions,
+      ...inheritedOptions.where(
+        (option) => !_accessorPathReplaced(option.name, command.accessors),
+      ),
       ...?command.persistentOptions,
       ...?command.options,
       for (final accessor in _accessorLeaves(command.accessors))
@@ -657,7 +734,20 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
     final children = command.commands;
     if (children != null) {
       for (final child in children) {
-        _writeCommand(lines, child, [...path, child.name], flags, options);
+        _writeCommand(
+          lines,
+          child,
+          [...path, child.name],
+          path.length == 1
+              ? flags
+              : _mergeFlags([...inheritedFlags, ...?command.persistentFlags]),
+          path.length == 1
+              ? options
+              : _mergeOptions([
+                  ...inheritedOptions,
+                  ...?command.persistentOptions,
+                ]),
+        );
       }
     }
 
@@ -701,6 +791,37 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
         for (final child in children) ..._commandCandidates(child),
         '      )',
         "      _describe 'command' commands",
+        '      ;;',
+      ]);
+    }
+    for (final option in options) {
+      final choices = [
+        ..._stringList(option.choices),
+        ..._steppedDoubleValuesFor(option),
+      ];
+      if (choices.isEmpty || option.hidden) continue;
+      lines.addAll([
+        '    mamba_option_${_generatedIdentifier(option.name)})',
+        if (option.valueType == 'choice') ...[
+          r'      if [[ "$IPREFIX" == *= || "${words[CURRENT]}" == -*=* ]]; then',
+          '        compadd -- ${choices.map(_quote).join(' ')}',
+          '      else',
+          if (_separateStringChoices(choices).isNotEmpty)
+            '        compadd -- ${_separateStringChoices(choices).map(_quote).join(' ')}',
+          if (_separateStringChoices(choices).isEmpty) '        :',
+          '      fi',
+        ] else
+          '      compadd -- ${choices.map(_quote).join(' ')}',
+        '      ;;',
+      ]);
+    }
+    for (final positional
+        in command.positionals ?? const <RegistryPositional>[]) {
+      if (_stringList(positional.choices).isEmpty) continue;
+      lines.addAll([
+        '    mamba_positional_${_generatedIdentifier(positional.name)})',
+        if (_separateStringChoices(positional.choices!).isNotEmpty)
+          '      compadd -- ${_separateStringChoices(positional.choices!).map(_quote).join(' ')}',
         '      ;;',
       ]);
     }
@@ -756,7 +877,7 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
       for (var count = 0; count < positional.slots; count++) {
         final optional = positional.required == true && count == 0 ? ':' : '::';
         specs.add(
-          "'$index$optional${_escape(entry.name)}:${_choiceAction(positional.choices)}'",
+          "'$index$optional${_escape(entry.name)}:${_stringList(positional.choices).isEmpty ? '' : '->mamba_positional_${_generatedIdentifier(positional.name)}'}'",
         );
         index++;
       }
@@ -770,19 +891,14 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
     final choices = _stringList(variadic.choices);
     return choices.isEmpty
         ? ['$indent:']
-        : ["${indent}_values 'value' ${choices.map(_quote).join(' ')}"];
+        : ['${indent}compadd -- ${choices.map(_quote).join(' ')}'];
   }
-
-  String _choiceAction(List<String>? choices) =>
-      choices == null || choices.isEmpty
-      ? ''
-      : '(${choices.map(_escape).join(' ')})';
 
   String _valueAction(RegistryOption value) {
     final choices = _stringList(value.choices);
     final steppedValues = _steppedDoubleValuesFor(value);
     if (choices.isNotEmpty || steppedValues.isNotEmpty) {
-      return '(${[...choices, ...steppedValues].map(_escape).join(' ')})';
+      return '->mamba_option_${_generatedIdentifier(value.name)}';
     }
     final minimum = value.min;
     final maximum = value.max;
@@ -818,7 +934,7 @@ final class ToZshCompletionConverter extends RegistryRecordConverter {
       .replaceAll(':', r'\\:')
       .replaceAll("'", r"'\\''");
 
-  String _quote(String value) => "'${_escape(value)}'";
+  String _quote(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
 
   Iterable<({String path, RegistryOption value, bool hidden})> _accessorLeaves(
     List<RegistryAccessor>? accessors, {
@@ -875,15 +991,33 @@ final class ToFishCompletionConverter extends RegistryRecordConverter {
     string split ',' -- $fields[$argv[2]]
 end
 
+function __mamba_separate_width
+    if test (count $argv) -lt 3
+        echo 2
+        return
+    end
+    set -l next $argv[3]
+    if test "$next" = --
+        echo 1
+    else if not string match -q -- '-*' "$next"; or test "$next" = -
+        echo 2
+    else if contains -- $argv[2] (__mamba_segment_field $argv[1] 7); and string match -rq -- '^-[0-9]' "$next"
+        echo 2
+    else
+        echo 1
+    end
+end
+
 function __mamba_input_width
     set -l spec $argv[1]
     set -l token $argv[2]
+    set -l next $argv[3]
     if string match -q -- '--*' $token
         set -l long (string replace -r '^--' '' -- $token)
         set -l parts (string split -m 1 '=' -- $long)
         if contains -- $parts[1] (__mamba_segment_field $spec 4)
             if test (count $parts) -eq 1
-                echo 2
+                __mamba_separate_width $spec --$parts[1] $next
             else
                 echo 1
             end
@@ -898,8 +1032,25 @@ function __mamba_input_width
     end
     if string match -q -- '-*' $token
         set -l short (string sub -s 2 -- $token)
+        set -l parts (string split -m 1 '=' -- $short)
+        if test (count $parts) -gt 1
+            set -l letters (string split '' -- $parts[1])
+            if not contains -- $letters[-1] (__mamba_segment_field $spec 5)
+                echo 0
+                return
+            end
+            set -e letters[-1]
+            for letter in $letters
+                if not contains -- $letter (__mamba_segment_field $spec 3)
+                    echo 0
+                    return
+                end
+            end
+            echo 1
+            return
+        end
         if test (string length -- $short) -eq 1; and contains -- $short (__mamba_segment_field $spec 5)
-            echo 2
+            __mamba_separate_width $spec -$short $next
             return
         end
         for name in (string split '' -- $short)
@@ -942,7 +1093,8 @@ function __mamba_path_state
         if contains -- $token (__mamba_segment_field $specs[$depth] 6)
             return 1
         end
-        set -l width (__mamba_input_width $specs[$depth] $token)
+        set -l next_offset (math $offset + 1)
+        set -l width (__mamba_input_width $specs[$depth] $token $tokens[$next_offset])
         if test $width -gt 0
             if test $width -eq 2; and test $offset -eq (count $tokens)
                 set selecting false
@@ -1004,25 +1156,48 @@ function __mamba_option_available
     return 0
 end
 
-function __mamba_unique_choices
+function __mamba_value_choices
+    set -l current (commandline -ct)
+    for candidate in $argv
+        if string match -q -- '-*=*' "$current"; or not string match -q -- '-*' "$candidate"; or test "$candidate" = -
+            printf '%s\n' "$candidate"
+        end
+    end
+end
+
+function __mamba_choice_unused
     set -l option --$argv[1]
     set -l short $argv[2]
-    set -e argv[1..2]
-    set -l used
+    set -l choice $argv[3]
     set -l tokens (commandline -xpc)
     for index in (seq (count $tokens))
         set -l token $tokens[$index]
-        if string match -q -- "$option=*" $token
-            set -a used (string replace -- "$option=" '' $token)
-        else if test "$token" = "$option"; and test $index -lt (count $tokens)
-            set -a used $tokens[(math $index + 1)]
-        else if test "$short" != _; and test "$token" = -$short; and test $index -lt (count $tokens)
-            set -a used $tokens[(math $index + 1)]
+        if test "$token" = "$option=$choice"
+            return 1
+        end
+        if test "$token" = "$option"; or begin; test "$short" != _; and test "$token" = -$short; end
+            set -l next (math $index + 1)
+            if test $next -le (count $tokens); and test "$tokens[$next]" = "$choice"
+                return 1
+            end
+        end
+        if test "$short" != _
+            set -l head (string match -r -- "^-[A-Za-z0-9]*$short=" "$token")
+            if test (count $head) -gt 0; and test "$token" = "$head$choice"
+                return 1
+            end
         end
     end
+    return 0
+end
+
+function __mamba_unique_choices
+    set -l option $argv[1]
+    set -l short $argv[2]
+    set -e argv[1..2]
     for choice in $argv
-        if not contains -- $choice $used
-            echo $choice
+        if __mamba_choice_unused $option $short "$choice"
+            __mamba_value_choices "$choice"
         end
     end
 end
@@ -1052,7 +1227,8 @@ function __mamba_positional_slot
         if contains -- $token (__mamba_segment_field $specs[$depth] 6)
             return 1
         end
-        set -l width (__mamba_input_width $specs[$depth] $token)
+        set -l next_offset (math $offset + 1)
+        set -l width (__mamba_input_width $specs[$depth] $token $tokens[$next_offset])
         if test $width -gt 0
             set offset (math $offset + $width)
             continue
@@ -1175,18 +1351,20 @@ end''';
       if (option.hidden == true) continue;
       final short = option.short;
       final type = option.valueType;
-      final choices = _stringList(option.choices);
+      final choices = _fishChoices(option.choices);
       final steppedValues = _steppedDoubleValuesFor(option);
       final completionValues = [...choices, ...steppedValues];
       final choicesArgument = option.unique == true && choices.isNotEmpty
-          ? '-a ${_quote('(__mamba_unique_choices ${entry.name} ${short ?? '_'} ${choices.join(' ')})')}'
+          ? '-a ${_quote('(__mamba_unique_choices ${entry.name} ${short ?? '_'} ${choices.map(_candidateArgument).join(' ')})')}'
           : completionValues.isEmpty
           ? null
-          : '-a ${_quote(completionValues.join(' '))}';
+          : choices.isNotEmpty
+          ? '-a ${_quote('(__mamba_value_choices ${choices.map(_candidateArgument).join(' ')})')}'
+          : '-a ${_quote(completionValues.map(_candidateArgument).join(' '))}';
       final switches = <String>[
         if (short != null) '-s $short',
         '-l ${_quoteBare(entry.name)}',
-        choices.isNotEmpty || type == 'int' || type == 'double' ? '-x' : '-r',
+        type == 'choice' || type == 'int' || type == 'double' ? '-x' : '-r',
         ?choicesArgument,
       ];
       final available =
@@ -1194,6 +1372,29 @@ end''';
       final availability = condition.isEmpty
           ? available
           : '$condition; and $available';
+      if (choices.any((choice) => choice.contains('\n'))) {
+        // Static words retain embedded newlines; command-substitution output
+        // would split those spellings into separate, invalid candidates.
+        for (final choice in choices) {
+          final choiceCondition = _joinConditions([
+            availability,
+            if (option.unique == true)
+              '__mamba_choice_unused ${entry.name} ${short ?? '_'} ${_quote(choice)}',
+            if (choice.startsWith('-') && choice != '-')
+              "string match -q -- '-*=*' (commandline -ct)",
+          ]);
+          final choiceSwitches = [
+            if (short != null) '-s $short',
+            '-l ${entry.name}',
+            '-x',
+            '-a ${_quote(_quote(choice))}',
+          ];
+          lines.add(
+            'complete -c $executable -n ${_quote(choiceCondition)} ${choiceSwitches.join(' ')}${_description(option.description)}',
+          );
+        }
+        continue;
+      }
       lines.add(
         'complete -c $executable -n ${_quote(availability)} ${switches.join(' ')}${_description(option.description)}',
       );
@@ -1212,20 +1413,20 @@ end''';
     var slot = 0;
     for (final value in positionals) {
       final positional = value;
-      final choices = _stringList(positional.choices);
+      final choices = _fishChoices(positional.choices);
       for (
         var occurrence = 0;
         occurrence < positional.slots;
         occurrence++, slot++
       ) {
-        if (choices.isEmpty) continue;
+        if (_stringList(positional.choices).isEmpty) continue;
         final positionalCondition = _joinConditions([
           condition,
           'not __mamba_after_double_dash',
           _helperCondition('__mamba_positional_slot $slot', specs),
         ]);
         lines.add(
-          "complete -c ${_quoteBare(executable)} -n ${_quote(positionalCondition)} -f -a ${_quote(choices.join(' '))}${_description(positional.description)}",
+          "complete -c ${_quoteBare(executable)} -n ${_quote(positionalCondition)} -f -a ${_quote(_separateStringChoices(choices).map(_candidateArgument).join(' '))}${_description(positional.description)}",
         );
       }
     }
@@ -1239,14 +1440,14 @@ end''';
   ) {
     final variadic = command.variadic;
     if (variadic == null) return;
-    final choices = _stringList(variadic.choices);
-    if (choices.isEmpty) return;
+    final choices = _fishChoices(variadic.choices);
+    if (_stringList(variadic.choices).isEmpty) return;
     final variadicCondition = _joinConditions([
       condition,
       '__mamba_after_double_dash',
     ]);
     lines.add(
-      "complete -c ${_quoteBare(executable)} -n ${_quote(variadicCondition)} -f -a ${_quote(choices.join(' '))}${_description(variadic.description)}",
+      "complete -c ${_quoteBare(executable)} -n ${_quote(variadicCondition)} -f -a ${_quote(choices.map(_candidateArgument).join(' '))}${_description(variadic.description)}",
     );
   }
 
@@ -1288,6 +1489,13 @@ end''';
       longOptions.join(','),
       shortOptions.join(','),
       childNames.join(','),
+      [
+        for (final option in mergedOptions)
+          if (option.valueType == 'int' || option.valueType == 'double') ...[
+            '--${option.name}',
+            if (option.short case final String short) '-$short',
+          ],
+      ].join(','),
     ].join('|');
   }
 
@@ -1304,6 +1512,8 @@ end''';
   String _quoteBare(String value) => value;
   String _quote(String value) =>
       "'${value.replaceAll(r'\', r'\\').replaceAll("'", r"\'")}'";
+  String _candidateArgument(String value) =>
+      RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(value) ? value : _quote(value);
 
   Iterable<({String path, RegistryOption value})> _accessorLeaves(
     List<RegistryAccessor>? accessors, {
@@ -1521,7 +1731,7 @@ final class CarapaceSpecConverter extends RegistryRecordConverter {
           name: accessor.path,
           short: null,
           repeatable: false,
-          mandatory: false,
+          mandatory: accessor.value.required,
           hidden: accessor.hidden,
           takesValue: true,
         ),
@@ -1701,15 +1911,15 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
   /// PowerShell variables and helper functions.
   String get _powerShellNamespace {
     final root = _root;
-    return 'Mamba${_pascalCase(root.name)}';
+    return 'Mamba${_powerShellIdentifier(root.name)}';
   }
 
   String _state(String name) => r'$script:' + _powerShellNamespace + name;
 
-  String _pascalCase(String name) => name
-      .split(RegExp(r'[^a-zA-Z0-9]+'))
-      .where((word) => word.isNotEmpty)
-      .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
+  // Fixed-width code units also distinguish letter case in a case-insensitive
+  // identifier namespace. Public executable registration retains its spelling.
+  String _powerShellIdentifier(String name) => name.codeUnits
+      .map((unit) => unit.toRadixString(16).padLeft(4, '0'))
       .join();
 
   @override
@@ -1747,11 +1957,14 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
   // ---------------------------------------------------------------------
 
   List<String> _tableInitializers() => [
-    '${_state('Inputs')} = @{}',
-    '${_state('Children')} = @{}',
-    '${_state('PositionalSlots')} = @{}',
-    '${_state('ValueHandlers')} = @{}',
-    '${_state('VariadicHandlers')} = @{}',
+    for (final table in [
+      'Inputs',
+      'Children',
+      'PositionalSlots',
+      'ValueHandlers',
+      'VariadicHandlers',
+    ])
+      '${_state(table)} = New-Object "System.Collections.Generic.Dictionary[string,object]" ([System.StringComparer]::Ordinal)',
     '',
   ];
 
@@ -1810,16 +2023,34 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
       if (option.hidden == true) continue;
       final isRepeatable = option.repeatable == true;
       entries.add(
-        _row('--${entry.name}', option.description, isRepeatable: isRepeatable),
+        _row(
+          '--${entry.name}',
+          option.description,
+          isRepeatable: isRepeatable,
+          isNumeric: option.valueType == 'int' || option.valueType == 'double',
+        ),
       );
       if (option.short case final String short) {
         entries.add(
-          _row('-$short', option.description, isRepeatable: isRepeatable),
+          _row(
+            '-$short',
+            option.description,
+            isRepeatable: isRepeatable,
+            isNumeric:
+                option.valueType == 'int' || option.valueType == 'double',
+          ),
         );
       }
     }
     for (final leaf in accessors) {
-      entries.add(_row('--${leaf.path}', leaf.description, isAccessor: true));
+      entries.add(
+        _row(
+          '--${leaf.path}',
+          leaf.description,
+          isAccessor: true,
+          isNumeric: leaf.numeric,
+        ),
+      );
     }
     final pathKey = path.join('.');
     return [
@@ -1850,6 +2081,7 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
     bool isCount = false,
     bool isRepeatable = false,
     bool isAccessor = false,
+    bool isNumeric = false,
     bool help = false,
   }) =>
       '    [PSCustomObject]@{'
@@ -1859,6 +2091,7 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
       ' IsCount = ${_psBool(isCount)};'
       ' IsRepeatable = ${_psBool(isRepeatable)};'
       ' IsAccessor = ${_psBool(isAccessor)};'
+      ' IsNumeric = ${_psBool(isNumeric)};'
       ' IsHelp = ${_psBool(help)}'
       ' }';
 
@@ -1923,7 +2156,7 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
         if (choices.isEmpty) continue;
         lines.add(
           '    $slot = [PSCustomObject]@{'
-          ' Choices = @(${choices.map(_psQuote).join(', ')});'
+          ' Choices = @(${_separateStringChoices(choices).map(_psQuote).join(', ')});'
           ' Description = ${_psQuoteOrNull(positional.description)}'
           ' }',
         );
@@ -2006,7 +2239,9 @@ final class ToPowerShellCompletionConverter extends RegistryRecordConverter {
       ...?command.options,
     ]);
     final accessors = _mergeNamed([
-      ...inheritedAccessors,
+      ...inheritedAccessors.where(
+        (leaf) => !_accessorPathReplaced(leaf.path, command.accessors),
+      ),
       ..._accessorLeaves(command.accessors),
     ], (leaf) => leaf.path);
     final lines = <String>[
@@ -2085,7 +2320,7 @@ function Resolve-MambaState {
         $el = $elements[$i]
         if (-not (Update-MambaStateObject -CursorPosition $CursorPosition -Element $el)) { continue }
         $isLastElement = ($i -eq $elements.Count - 1)
-        $tokenText = $el.Extent.Text
+        $tokenText = if ($el -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $el.Value } else { $el.Extent.Text }
         # The last AST element is the completion word only while the cursor
         # is inside it or immediately after it; a trailing space means the
         # last element has already been supplied.
@@ -2093,12 +2328,19 @@ function Resolve-MambaState {
 
         if ($isWord) { continue }
 
-        # A value belongs to the preceding option even when it looks like a
-        # command, another option, or the variadic separator.
+        # Syntax owns separate values independently of their content validators.
         if ($null -ne $pendingValueOwner) {
-            $usedNonRepeatable[$pendingValueOwner] = $true
+            $pendingInput = Find-MambaInput -PathKey ($resolved -join '.') -Spelling $pendingValueOwner
+            $ownsValue = $tokenText -ne '--' -and (
+                -not $tokenText.StartsWith('-') -or $tokenText -eq '-' -or
+                ($pendingInput.IsNumeric -and $tokenText -match '^-[0-9]')
+            )
+            if ($ownsValue) {
+                $usedNonRepeatable[$pendingValueOwner] = $true
+                $pendingValueOwner = $null
+                continue
+            }
             $pendingValueOwner = $null
-            continue
         }
 
         if ($afterDoubleDash) {
@@ -2172,12 +2414,16 @@ function Resolve-MambaState {
 
 function Write-MambaCompletionResult {
     param(
-        [Parameter(Mandatory)][string]$CompletionText,
-        [Parameter(Mandatory)][string]$ListItemText,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$CompletionText,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$ListItemText,
         [Parameter(Mandatory)][string]$ResultType,
         [string]$Description
     )
     if ([string]::IsNullOrEmpty($Description)) { $Description = ' ' }
+    if ($ResultType -ceq 'ParameterValue' -and $CompletionText -cnotmatch '^[A-Za-z0-9_./=+-]+$') {
+        $CompletionText = "'" + $CompletionText.Replace("'", "''") + "'"
+    }
+    if ([string]::IsNullOrEmpty($ListItemText)) { $ListItemText = $CompletionText }
     [System.Management.Automation.CompletionResult]::new(
         $CompletionText,
         $ListItemText,
@@ -2218,7 +2464,9 @@ function Write-MambaCompletionResult {
         if ($null -ne $state.PendingValueOwner) {
             $handler = $script:MambaValueHandlers["$pathKey.$($state.PendingValueOwner)"]
             if ($null -ne $handler) {
+                $owner = Find-MambaInput -PathKey $pathKey -Spelling $state.PendingValueOwner
                 foreach ($choice in $handler) {
+                    if (-not $owner.IsNumeric -and $choice.StartsWith('-') -and $choice -cne '-') { continue }
                     if ($choice.StartsWith($wordToComplete, [System.StringComparison]::Ordinal)) {
                         Write-MambaCompletionResult -CompletionText $choice -ListItemText $choice -ResultType 'ParameterValue' -Description ''
                     }
@@ -2227,15 +2475,24 @@ function Write-MambaCompletionResult {
             return
         }
         $currentWord = $state.WordToComplete
-        if ($currentWord.StartsWith('--', [System.StringComparison]::Ordinal) -and $currentWord.Contains('=')) {
+        if ($currentWord.StartsWith('-', [System.StringComparison]::Ordinal) -and $currentWord.Contains('=')) {
             $equalsIndex = $currentWord.IndexOf('=')
-            $owner = $currentWord.Substring(0, $equalsIndex)
+            $prefix = $currentWord.Substring(0, $equalsIndex)
+            $owner = $prefix
+            if (-not $prefix.StartsWith('--', [System.StringComparison]::Ordinal)) {
+                if ($prefix.Length -lt 2) { return }
+                for ($i = 1; $i -lt $prefix.Length - 1; $i++) {
+                    $flag = Find-MambaInput -PathKey $pathKey -Spelling ('-' + $prefix[$i])
+                    if ($null -eq $flag -or -not $flag.IsFlag) { return }
+                }
+                $owner = '-' + $prefix[$prefix.Length - 1]
+            }
             $valuePrefix = $currentWord.Substring($equalsIndex + 1)
             $handler = $script:MambaValueHandlers["$pathKey.$owner"]
             if ($null -ne $handler) {
                 foreach ($choice in $handler) {
                     if ($choice.StartsWith($valuePrefix, [System.StringComparison]::Ordinal)) {
-                        $completionText = "$owner=$choice"
+                        $completionText = "$prefix=$choice"
                         Write-MambaCompletionResult -CompletionText $completionText -ListItemText $completionText -ResultType 'ParameterValue' -Description ''
                     }
                 }
@@ -2344,6 +2601,9 @@ function Write-MambaCompletionResult {
           yield _AccessorLeaf(
             path: path,
             description: value.description,
+            numeric:
+                value.valueKind == RegistryValueKind.integer ||
+                value.valueKind == RegistryValueKind.decimal,
             choices: value.valueKind == RegistryValueKind.choice
                 ? _stringList(value.choices)
                 : const <String>[],
@@ -2357,6 +2617,7 @@ class _AccessorLeaf({
   required final String path,
   required final String? description,
   required final List<String> choices,
+  required final bool numeric,
 });
 
 /// Writes a record-derived Carapace spec to the platform's spec directory.
