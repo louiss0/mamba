@@ -5,8 +5,10 @@ import 'package:test/test.dart';
 
 void main() {
   test('re-exports the terminal UI toolkit applications prompt with', () {
-    expect(terminice, isA<Terminice>());
-    expect(terminice.confirm, isA<Function>());
+    expect(ClixInput(prompt: 'Name'), isA<Prompt<String>>());
+    expect(Confirm(prompt: 'Continue?'), isA<Prompt<bool>>());
+    expect(SpinnerType.dots, isNotNull);
+    expect(BooleanFlag('verbose'), isA<Input<bool>>());
   });
 
   test('re-exports the styling and serialization packages', () {

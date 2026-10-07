@@ -1,3 +1,19 @@
+## Unreleased
+
+- Replace Terminice with Clix for CLI prompts and generated components, removing
+  Terminice's `intl` dependency from Mamba's dependency graph.
+- Use Clix line input for description/confirmation prompts and numbered,
+  filterable selectors and directory browsing. Blank component answers cancel;
+  native Clix raw-key menus are not used by these components.
+- Re-export Clix with its text prompt named `ClixInput`, preserving Mamba's
+  typed declaration `Input`. Add `ClixSelector`, `ClixDirectoryPicker`, and a
+  cleanup-safe `Spinner.whileRunning` extension.
+- Await setup prompt results through `FutureOr` interfaces, preserving
+  synchronous injected implementations and existing Enter defaults. Closed
+  setup input fails instead of retrying indefinitely or accepting defaults.
+- Add generated-component execution tests and real Windows console regressions
+  for Backspace, cursor movement, Delete, setup choices, and directory browsing.
+
 ## 0.16.0
 
 Framework correctness and expressiveness milestone. See [MIGRATION.md](MIGRATION.md)

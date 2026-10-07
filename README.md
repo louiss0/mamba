@@ -90,10 +90,8 @@ command's help path, so the starter test works for both `Command` and
 --help` for all scaffolding options.
 
 `mamba component <kind> <name>` writes `lib/components/<name>.dart`: a plain
-class that encapsulates one terminice call behind one async `render` method, so
-every component is used the same way and a command awaits it instead of
-blocking on a synchronous prompt. The kinds are `prompt`, `selector`, `picker`,
-and `indicator`:
+class that encapsulates one Clix-backed interaction behind one async `render`
+method. The kinds are `prompt`, `selector`, `picker`, and `indicator`:
 
 ```sh
 mamba component prompt ask
@@ -108,16 +106,30 @@ final class AskComponent {
 
   final String label;
 
-  Future<String?> render() async => terminice.text(label);
+  Future<String?> render() async {
+    final value = await ClixInput(prompt: label).interact();
+    return value.isEmpty ? null : value;
+  }
 }
 
 // await ask();  is the same as  await ask.render();
 ```
 
-A selector takes the choices it filters through an `options` field. The
-indicator is generic, because it reports on work it cannot know ahead of time:
-`Future<T> render<T>(Future<T> Function() work)` awaits the work behind the
-spinner.
+Mamba re-exports Clix, with its text prompt named `ClixInput` to keep `Input`
+available for Mamba's typed declarations. Text input and yes/no confirmations
+use ordinary line input. A selector takes an `options` field: enter a number to
+choose, or text to filter before choosing a number. The directory picker uses
+the same numbered interaction to enter a child, visit the parent, or confirm the
+current directory. A blank answer cancels prompts, selectors, and pickers.
+
+`ClixSelector` and `ClixDirectoryPicker` are Mamba's line-based adapters, not
+native Clix widgets. They avoid raw-key menus; native Clix `Select` and `Search`
+remain available through the export, but are not used by the generated components.
+
+The indicator is generic: `Future<T> render<T>(Future<T> Function() work)` awaits
+the work behind a Clix `Spinner`. Mamba's `whileRunning` extension completes on
+success, reports failure, and always stops the spinner. Clix starts a spinner
+when it is constructed; `SpinnerType.line` offers ASCII frames.
 
 ## Quick start
 

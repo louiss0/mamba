@@ -701,7 +701,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   });
 
   test(
-    'scaffolding component creates a prompt that awaits terminice',
+    'scaffolding component creates a prompt that awaits Clix line input',
     () async {
       final directory = tempDirectory();
       final result = await Executor('tool', 'Tool.', '1.0.0', [
@@ -714,7 +714,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         allOf(
           contains('final class AskComponent'),
           contains('Future<String?> render() async'),
-          contains('terminice.text(label)'),
+          contains('ClixInput(prompt: label).interact()'),
         ),
       );
     },
@@ -733,7 +733,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         allOf(
           contains('required this.options'),
           contains('Future<String?> render() async'),
-          contains('terminice.searchSelector('),
+          contains('ClixSelector('),
         ),
       );
     },
@@ -752,7 +752,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         File('${directory.path}/lib/components/target.dart').readAsStringSync(),
         allOf(
           contains('Future<String?> render() async'),
-          contains('terminice.pathPicker(label)'),
+          contains('ClixDirectoryPicker(prompt: label).interact()'),
         ),
       );
     },
@@ -771,7 +771,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         File('${directory.path}/lib/components/report.dart').readAsStringSync(),
         allOf(
           contains('Future<T> render<T>(Future<T> Function() work)'),
-          contains('terminice.loadingSpinner(label'),
+          contains('Spinner(label, type: type)'),
           contains('spinner().whileRunning(work)'),
         ),
       );

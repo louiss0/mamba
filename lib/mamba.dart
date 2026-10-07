@@ -14,11 +14,12 @@
 library;
 
 export 'package:chalkdart/chalk.dart';
-export 'package:terminice/terminice.dart';
+export 'package:clix/clix.dart' hide Input;
 export 'package:yaml_writer/yaml_writer.dart';
 
 export 'built_in_flags.dart';
 export 'command.dart';
+export 'components.dart';
 export 'context.dart';
 export 'errors.dart';
 export 'executor.dart';

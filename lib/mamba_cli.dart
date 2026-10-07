@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:clix/clix.dart' as clix;
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
-import 'package:terminice/terminice.dart';
 
 /// Versions a newly scaffolded application executor.
 const _applicationVersion = '0.0.0';
@@ -32,17 +33,17 @@ abstract interface class SourceFormatter {
 
 /// Asks for the one-line description a project is published under.
 abstract interface class DescriptionPrompt {
-  String asksForDescription();
+  FutureOr<String> asksForDescription();
 }
 
 /// Asks whether a new project should have its dependencies installed.
 abstract interface class InstallPrompt {
-  bool confirmsInstallation();
+  FutureOr<bool> confirmsInstallation();
 }
 
 /// Asks whether a new project should be initialized as a Git repository.
 abstract interface class GitPrompt {
-  bool confirmsInitialization();
+  FutureOr<bool> confirmsInitialization();
 }
 
 /// The Dart package name a scaffolded project is published under.
@@ -165,14 +166,15 @@ Four commands write files. Run `mamba --help` for the full surface.
 | `mamba command <name> --append <file>` | appends to `<file>` | Add a command to an existing file. |
 | `mamba test <name>` | `test/<name>_test.dart` | Add a suite for an existing command. |
 | `mamba binary <name>` | `bin/<name>.dart` | Add a second executable. |
-| `mamba component prompt <name>` | `lib/components/<name>.dart` | Wrap a terminice prompt. |
-| `mamba component selector <name>` | `lib/components/<name>.dart` | Wrap a terminice selector. |
-| `mamba component picker <name>` | `lib/components/<name>.dart` | Wrap a terminice picker. |
-| `mamba component indicator <name>` | `lib/components/<name>.dart` | Wrap a terminice indicator. |
+| `mamba component prompt <name>` | `lib/components/<name>.dart` | Wrap Clix line input. |
+| `mamba component selector <name>` | `lib/components/<name>.dart` | Select or filter numbered choices. |
+| `mamba component picker <name>` | `lib/components/<name>.dart` | Browse directories with numbered choices. |
+| `mamba component indicator <name>` | `lib/components/<name>.dart` | Wrap a Clix spinner. |
 
 A component is a plain class that owns one question or one piece of progress,
-and exposes one async `render`, so a command awaits it instead of blocking on
-a synchronous prompt.
+and exposes one async `render` that a command awaits. Input, selectors, and
+pickers use line input; a blank answer cancels. Use `ClixInput` for the toolkit
+text prompt: `Input` remains Mamba's typed declaration.
 
 `<file>` and `--append` require each other, so pass both or neither. `mamba
 test` mirrors `lib/a/b.dart` to `test/a/b_test.dart` and rejects a source file
@@ -345,32 +347,56 @@ final class SystemSourceFormatter implements SourceFormatter {
   }
 }
 
-// These three prompts each shell out to the `terminice` executable, which is
-// not a Dart library and not installed on a test machine. What they ask is
-// covered through the prompt interfaces the tests substitute for them.
-// coverage:ignore-start
-final class TerminiceInstallPrompt implements InstallPrompt {
-  /// Installing is the answer that leaves a runnable project, so it is the
-  /// answer a bare Enter produces.
+final class _ClixConsoleIO extends clix.ConsoleIO {
+  // Real SDK stdin is exercised by clix_process_test.dart in a child VM;
+  // its reads cannot be measured by the parent test VM's coverage collector.
+  // coverage:ignore-start
   @override
-  bool confirmsInstallation() =>
-      terminice.confirm(message: 'Install dependencies?', defaultYes: true);
+  String readLine() {
+    final value = stdin.readLineSync();
+    if (value == null) {
+      throw MambaException(
+        'No input available. Run interactively or answer the setup prompts on standard input.',
+      );
+    }
+    return value;
+  }
+  // coverage:ignore-end
 }
 
-final class TerminiceGitPrompt implements GitPrompt {
+/// A line-based Clix confirmation with installation enabled by bare Enter.
+final class ClixInstallPrompt({clix.CliIO? io}) implements InstallPrompt {
+  final clix.CliIO _io = io ?? _ClixConsoleIO();
+
   @override
-  bool confirmsInitialization() => terminice.confirm(
-    message: 'Initialize a Git repository?',
-    defaultYes: false,
-  );
+  Future<bool> confirmsInstallation() => clix.Confirm(
+    prompt: 'Install dependencies?',
+    defaultValue: true,
+  ).interact(_io);
 }
 
-final class TerminiceDescriptionPrompt implements DescriptionPrompt {
+/// A line-based Clix confirmation with Git disabled by bare Enter.
+final class ClixGitPrompt({clix.CliIO? io}) implements GitPrompt {
+  final clix.CliIO _io = io ?? _ClixConsoleIO();
+
   @override
-  String asksForDescription() =>
-      terminice.text('Short description', required: true) ?? '';
+  Future<bool> confirmsInitialization() => clix.Confirm(
+    prompt: 'Initialize a Git repository?',
+    defaultValue: false,
+  ).interact(_io);
 }
-// coverage:ignore-end
+
+/// A required description read through Clix's validated line input.
+final class ClixDescriptionPrompt({clix.CliIO? io})
+    implements DescriptionPrompt {
+  final clix.CliIO _io = io ?? _ClixConsoleIO();
+
+  @override
+  Future<String> asksForDescription() => clix.Input(
+    prompt: 'Short description',
+    validator: (value) => value.isEmpty ? 'Enter a short description.' : null,
+  ).interact(_io);
+}
 
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
@@ -383,9 +409,9 @@ final class CreateProjectCommand extends Command {
   }) : _parentDirectory = parentDirectory,
        _projectScaffolder =
            projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
-       _descriptionPrompt = descriptionPrompt ?? TerminiceDescriptionPrompt(),
-       _installPrompt = installPrompt ?? TerminiceInstallPrompt(),
-       _gitPrompt = gitPrompt ?? TerminiceGitPrompt(),
+       _descriptionPrompt = descriptionPrompt ?? ClixDescriptionPrompt(),
+       _installPrompt = installPrompt ?? ClixInstallPrompt(),
+       _gitPrompt = gitPrompt ?? ClixGitPrompt(),
        super(
          mandatoryPositionals: [packageName],
          discretionaryPositionals: [projectDescription],
@@ -424,21 +450,22 @@ final class CreateProjectCommand extends Command {
       'Create a Dart console application using Mamba.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  Future<String> run(ParsedInputs inputs, List<String> args) async {
     final name = inputs.valueOf(packageName);
 
     // The description is the one step nothing else answers, so the prompt is
     // only reached when the argument was left off.
     final description =
         inputs.valueOf(projectDescription) ??
-        _descriptionPrompt.asksForDescription();
+        await _descriptionPrompt.asksForDescription();
 
     // A flag answers its own step, so the prompt is only reached when the
     // answer is still open.
     final installsDependencies =
-        inputs.valueOf(install) || _installPrompt.confirmsInstallation();
+        inputs.valueOf(install) || await _installPrompt.confirmsInstallation();
     final initializesGitRepository =
-        inputs.valueOf(initializeGit) || _gitPrompt.confirmsInitialization();
+        inputs.valueOf(initializeGit) ||
+        await _gitPrompt.confirmsInitialization();
 
     _projectScaffolder.scaffold(
       name,
@@ -814,10 +841,9 @@ final class ScaffoldCommand extends Command {
 
 /// One component a scaffolded `mamba component` can encapsulate.
 ///
-/// Each wraps a single terminice call behind an async `render` method, so every
-/// component is used the same way and a command awaits the reader instead of
-/// blocking on a synchronous prompt. An enum is avoided here because its
-/// constructor trips the analyzer's
+/// Each wraps a Clix-backed interaction behind an async `render` method, so
+/// every component is used the same way and a command awaits its result. An
+/// enum is avoided here because its constructor trips the analyzer's
 /// `unnecessary_type_name_in_constructor` rule with no alternative spelling.
 final class _ComponentKind {
   new(this.name, this.shortDescription, this.label, this.body);
@@ -843,25 +869,22 @@ final class _ComponentKind {
     'Project name',
     '/// Shows the prompt and returns what the reader typed.\n'
         '  ///\n'
-        "  /// Returns `null` when the reader cancels the prompt.\n"
-        '  Future<String?> render() async => terminice.text(label);',
+        "  /// Returns `null` when the reader submits a blank line.\n"
+        '  Future<String?> render() async {\n'
+        '    final value = await ClixInput(prompt: label).interact();\n'
+        '    return value.isEmpty ? null : value;\n'
+        '  }',
   );
 
   static final selector = _ComponentKind(
     'selector',
     'Let the reader pick from known options.',
     'Choose an option',
-    '/// Shows a filterable selector and returns the chosen option.\n'
-        '  ///\n'
-        "  /// Returns `null` when the reader cancels without choosing.\n"
-        '  Future<String?> render() async {\n'
-        '    final chosen = terminice.searchSelector(\n'
-        '      prompt: label,\n'
-        '      options: options,\n'
-        '      showSearch: true,\n'
-        '    );\n'
-        '    return chosen.isEmpty ? null : chosen.first;\n'
-        '  }',
+    '/// Shows numbered choices; text filters them and a blank line cancels.\n'
+        '  Future<String?> render() async => ClixSelector(\n'
+        '    prompt: label,\n'
+        '    options: options,\n'
+        '  ).interact();',
   );
 
   static final picker = _ComponentKind(
@@ -870,8 +893,9 @@ final class _ComponentKind {
     'Choose a directory',
     '/// Lets the reader browse for a path and returns what they chose.\n'
         '  ///\n'
-        "  /// Returns `null` when the reader cancels.\n"
-        '  Future<String?> render() async => terminice.pathPicker(label);',
+        "  /// Returns `null` when the reader submits a blank line.\n"
+        '  Future<String?> render() async =>\n'
+        '      ClixDirectoryPicker(prompt: label).interact();',
   );
 
   static final indicator = _ComponentKind(
@@ -883,20 +907,19 @@ final class _ComponentKind {
         '  /// A failure is cleaned up before it is rethrown, so the reader is\n'
         "  /// never left looking at a spinner that stopped moving.\n"
         '  ///\n'
-        '  /// Pass `SpinnerStyle.bars` to [spinner] for a rising and falling\n'
-        '  /// bar instead of the default dotted frames.\n'
+        '  /// Pass `SpinnerType.line` to [spinner] for ASCII frames.\n'
         '  Future<T> render<T>(Future<T> Function() work) =>\n'
         '      spinner().whileRunning(work);\n'
         '\n'
-        '  /// The spinner this component reports through.\n'
-        '  LoadingSpinner spinner() =>\n'
-        "      terminice.loadingSpinner(label, style: SpinnerStyle.dots);",
+        '  /// Creates and starts the spinner this component reports through.\n'
+        '  Spinner spinner({SpinnerType type = SpinnerType.dots}) =>\n'
+        '      Spinner(label, type: type);',
   );
 
   static final values = [prompt, selector, picker, indicator];
 }
 
-/// Creates a component that encapsulates one terminice call.
+/// Creates a component that encapsulates one Clix-backed interaction.
 ///
 /// The component is a plain class rather than a command: it owns one question
 /// or one piece of progress, and a command awaits it.
@@ -915,7 +938,7 @@ final class ScaffoldComponentCommand extends GroupCommand {
   String get name => 'component';
 
   @override
-  String get shortDescription => 'Create a component around a terminice call.';
+  String get shortDescription => 'Create a Clix-backed component.';
 }
 
 final class _ScaffoldComponentKindCommand extends Command {
@@ -977,7 +1000,7 @@ final class _ScaffoldComponentKindCommand extends Command {
     file.writeAsStringSync(
       "import 'package:mamba/mamba.dart';\n"
       '\n'
-      '/// Encapsulates a terminice ${kind.name} behind one async `render`.\n'
+      '/// Encapsulates a Clix-backed ${kind.name} behind one async `render`.\n'
       'final class $className {\n'
       '$constructor'
       '\n'

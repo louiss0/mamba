@@ -1,4 +1,24 @@
-# Framework correctness and expressiveness migration
+# Migration
+
+## Unreleased: Clix components
+
+Terminice is replaced by Clix. Mamba's argument parser is unchanged.
+
+| Before | After | Author action |
+| --- | --- | --- |
+| `terminice` and Terminice types re-exported from Mamba | Clix re-exported; toolkit text input is `ClixInput`, while `Input` remains Mamba's declaration | Replace Terminice calls/types. Import Clix directly with a prefix if you prefer its original `Input` name. |
+| Synchronous built-in setup prompts | Clix setup adapters return Futures; prompt interfaces accept `FutureOr` | Await direct adapter calls. Existing synchronous injected prompt implementations still work. |
+| Arrow-driven generated selectors and directory pickers | `ClixSelector` and `ClixDirectoryPicker` use typed/numbered line input | Regenerate or update existing component files; enter a number, filter with text, or submit a blank line to cancel. |
+| Esc cancellation in rich generated input | Blank-line cancellation in generated prompts, selectors, and pickers | Update interaction instructions; a raw-key cancellation contract is not retained. |
+| `LoadingSpinner`, `SpinnerStyle`, and a non-started spinner factory | Clix `Spinner` starts on construction; `SpinnerType` chooses frames | Replace spinner types and use `whileRunning` for automatic completion/failure/stop. `SpinnerType.line` uses ASCII frames. |
+| Missing setup input could fall through to defaults | Closed input raises a command failure | Supply complete piped answers or run interactively. Bare Enter still means install yes / Git no. |
+
+Clix has no native filesystem picker; `ClixDirectoryPicker` is Mamba's
+Clix-backed adapter. Native Clix `Select`/`Search` are still re-exported, but are
+not used by the generated components. Mamba no longer pulls in `intl` through
+Terminice; dependencies declared by an application remain its responsibility.
+
+## Framework correctness and expressiveness migration
 
 These changes are included in Mamba 0.16.0. They repair retained-handle guarantees
 and make syntax, scope, declaration validity, and generated metadata agree.

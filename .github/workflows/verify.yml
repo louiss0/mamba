@@ -104,6 +104,18 @@ jobs:
       - name: Drive real Windows PowerShell and pwsh completion isolation
         if: runner.os == 'Windows'
         run: dart test test/completion_shell_test.dart --name PowerShell --reporter=expanded
+      - uses: actions/setup-python@v6
+        if: runner.os == 'Windows'
+        with:
+          python-version: '3.13'
+      - name: Install Windows terminal test transport
+        if: runner.os == 'Windows'
+        run: python -m pip install pywinpty==3.0.5
+      - name: Drive Clix-backed components through a real Windows console
+        if: runner.os == 'Windows'
+        run: python tool/check_clix_terminal.py
+      - name: Check Clix-backed component behavior and generated code
+        run: dart test test/components_test.dart test/clix_prompts_test.dart test/clix_process_test.dart test/component_codegen_test.dart
       - name: Drive a real bash completion
         if: runner.os != 'Windows'
         run: dart test test/completion_shell_test.dart --reporter=expanded
