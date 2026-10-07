@@ -88,7 +88,8 @@ Future<void> main(List<String> arguments) async {
         ('prompt', '\n', null),
         ('selector', '2\n', 'Beta'),
         ('selector', '\n', null),
-        ('picker', '1\n', root.absolute.path),
+        // The child's current directory resolves macOS's /var symlink.
+        ('picker', '1\n', root.resolveSymbolicLinksSync()),
         ('picker', '\n', null),
         ('indicator', '', 17),
         ('indicator-error', '', 'work failed'),
