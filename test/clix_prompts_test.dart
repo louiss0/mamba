@@ -8,14 +8,13 @@ import 'fixtures.dart';
 import 'fixtures/clix_io.dart';
 
 void main() {
-  test('create awaits Clix answers and retries an empty description', () async {
-    final io = ScriptedCliIO(['', 'probe', 'n', 'y']);
+  test('create asks only for installation and Git', () async {
+    final io = ScriptedCliIO(['n', 'y']);
     final scaffolder = FakeProjectScaffolder();
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         Directory.current,
         projectScaffolder: scaffolder,
-        descriptionPrompt: ClixDescriptionPrompt(io: io),
         installPrompt: ClixInstallPrompt(io: io),
         gitPrompt: ClixGitPrompt(io: io),
       ),
@@ -25,13 +24,13 @@ void main() {
     expect(scaffolder.projects, [
       (
         packageName: 'probe',
-        shortDescription: 'probe',
+        shortDescription: 'This is a CLI app',
         installDependencies: false,
         initializeGitRepository: true,
       ),
     ]);
-    expect(io.output.toString(), contains('Enter a short description.'));
-    expect(io.reads, 4);
+    expect(io.output.toString(), isNot(contains('Short description')));
+    expect(io.reads, 2);
   });
 
   test('Clix setup prompts preserve bare-Enter defaults', () async {
@@ -45,35 +44,41 @@ void main() {
     );
   });
 
-  test(
-    'create flags skip Clix confirmations rather than consuming input',
-    () async {
-      final io = ScriptedCliIO([]);
-      final scaffolder = FakeProjectScaffolder();
-      final result =
-          await Executor('tool', 'Tool.', '1.0.0', [
-            CreateProjectCommand(
-              Directory.current,
-              projectScaffolder: scaffolder,
-              descriptionPrompt: ClixDescriptionPrompt(io: io),
-              installPrompt: ClixInstallPrompt(io: io),
-              gitPrompt: ClixGitPrompt(io: io),
-            ),
-          ]).fake().execute([
-            'create',
-            'probe',
-            'Provided description',
-            '--install',
-            '--git',
-          ]);
-      expect(result.exitCode, 0);
-      expect(io.reads, 0);
-      expect(
-        scaffolder.projects.single.shortDescription,
-        'Provided description',
-      );
-      expect(scaffolder.projects.single.installDependencies, isTrue);
-      expect(scaffolder.projects.single.initializeGitRepository, isTrue);
-    },
-  );
+  for (final (descriptionArgs, expectedDescription) in [
+    (<String>[], 'This is a CLI app'),
+    (['--description', 'Provided description'], 'Provided description'),
+  ]) {
+    test(
+      'create with $descriptionArgs and setup flags reads no input',
+      () async {
+        final io = ScriptedCliIO([]);
+        final scaffolder = FakeProjectScaffolder();
+        final result =
+            await Executor('tool', 'Tool.', '1.0.0', [
+              CreateProjectCommand(
+                Directory.current,
+                projectScaffolder: scaffolder,
+                installPrompt: ClixInstallPrompt(io: io),
+                gitPrompt: ClixGitPrompt(io: io),
+              ),
+            ]).fake().execute([
+              'create',
+              'probe',
+              ...descriptionArgs,
+              '--install',
+              '--git',
+            ]);
+        expect(result.exitCode, 0);
+        expect(io.reads, 0);
+        expect(scaffolder.projects, [
+          (
+            packageName: 'probe',
+            shortDescription: expectedDescription,
+            installDependencies: true,
+            initializeGitRepository: true,
+          ),
+        ]);
+      },
+    );
+  }
 }

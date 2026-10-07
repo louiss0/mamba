@@ -7,7 +7,8 @@ Terminice is replaced by Clix. Mamba's argument parser is unchanged.
 | Before | After | Author action |
 | --- | --- | --- |
 | `terminice` and Terminice types re-exported from Mamba | Clix re-exported; toolkit text input is `ClixInput`, while `Input` remains Mamba's declaration | Replace Terminice calls/types. Import Clix directly with a prefix if you prefer its original `Input` name. |
-| Synchronous built-in setup prompts | Clix setup adapters return Futures; prompt interfaces accept `FutureOr` | Await direct adapter calls. Existing synchronous injected prompt implementations still work. |
+| Synchronous built-in setup prompts | Clix install/Git adapters return Futures; prompt interfaces accept `FutureOr` | Await direct adapter calls. Existing synchronous injected install/Git prompt implementations still work. |
+| Optional positional description and a description prompt | Optional `--description` option, defaulting to `This is a CLI app` without prompting | Use `mamba create my_app --description "Manage my application."`. Remove `DescriptionPrompt`/`ClixDescriptionPrompt` implementations and the `descriptionPrompt` constructor argument. |
 | Arrow-driven generated selectors and directory pickers | `ClixSelector` and `ClixDirectoryPicker` use typed/numbered line input | Regenerate or update existing component files; enter a number, filter with text, or submit a blank line to cancel. |
 | Esc cancellation in rich generated input | Blank-line cancellation in generated prompts, selectors, and pickers | Update interaction instructions; a raw-key cancellation contract is not retained. |
 | `LoadingSpinner`, `SpinnerStyle`, and a non-started spinner factory | Clix `Spinner` starts on construction; `SpinnerType` chooses frames | Replace spinner types and use `whileRunning` for automatic completion/failure/stop. `SpinnerType.line` uses ASCII frames. |

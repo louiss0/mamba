@@ -23,7 +23,7 @@ final class RecordingScaffolder implements ProjectScaffolder {
 
 Future<void> main(List<String> arguments) async {
   switch (arguments.first) {
-    case 'create' || 'create-eof':
+    case 'create' || 'create-custom' || 'create-flags':
       final result =
           await Executor('probe', 'Probe.', '1.0.0', [
             CreateProjectCommand(
@@ -33,7 +33,11 @@ Future<void> main(List<String> arguments) async {
           ]).fake().execute([
             'create',
             'keyboard_probe',
-            if (arguments.first == 'create-eof') 'probe',
+            if (arguments.first == 'create-custom') ...[
+              '--description',
+              'Custom description',
+            ],
+            if (arguments.first == 'create-flags') ...['--install', '--git'],
           ]);
       if (result case MambaFailureResult(:final message)) {
         emitResult({'error': message});

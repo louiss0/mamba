@@ -34,12 +34,13 @@ mamba --help
 ## Create a project
 
 Run `mamba create` from the directory that should contain your new project.
-The command takes a package name and an optional short description, then
-creates a directory with that package name:
+The command takes a package name and an optional `--description` option,
+then creates a directory with that package name:
 
 ```sh
 cd ~/code
-mamba create my_app "Manage my application."
+mamba create my_app --description "Manage my application."
+# Install dependencies? [Y/n]
 # Initialize a Git repository? [y/N]
 cd my_app
 ```
@@ -48,13 +49,14 @@ The package name must start with a lowercase letter and may contain lowercase
 letters, numbers, and underscores. For example, `my_app` is valid, while
 `MyApp` is not.
 
-The short description is optional. When it is left off, the command asks for
-one before it writes anything:
+The `--description` option is optional. When it is left off, the description
+defaults to `This is a CLI app`; there is no description prompt:
 
 ```sh
 cd ~/code
 mamba create my_app
-# Short description: Manage my application.
+# Install dependencies? [Y/n]
+# Initialize a Git repository? [y/N]
 ```
 
 Both setup questions have a default: installing dependencies is preselected,
@@ -62,8 +64,8 @@ and initializing a Git repository is not. `--install` and `--git` answer them
 without prompting.
 
 If the `mamba` executable is not on your `PATH`, replace
-`mamba create my_app "Manage my application."` with
-`dart pub global run mamba create my_app "Manage my application."`.
+`mamba create my_app --description "Manage my application."` with
+`dart pub global run mamba create my_app --description "Manage my application."`.
 
 The command automatically runs `dart pub get`, installs Mamba's
 package-provided skills for generic agents and Claude with `dart run skills@
@@ -78,7 +80,7 @@ my_app/
 └── pubspec.yaml
 ```
 
-Its `pubspec.yaml` records the short description you supplied and targets Dart
+Its `pubspec.yaml` records your supplied or default description and targets Dart
 `^3.13.2`, matching Mamba's language version.
 
 The generated executable uses Mamba's `Executor` at version `0.0.0` and starts

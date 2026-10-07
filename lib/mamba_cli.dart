@@ -31,11 +31,6 @@ abstract interface class SourceFormatter {
   void formatSource(String path);
 }
 
-/// Asks for the one-line description a project is published under.
-abstract interface class DescriptionPrompt {
-  FutureOr<String> asksForDescription();
-}
-
 /// Asks whether a new project should have its dependencies installed.
 abstract interface class InstallPrompt {
   FutureOr<bool> confirmsInstallation();
@@ -386,35 +381,21 @@ final class ClixGitPrompt({clix.CliIO? io}) implements GitPrompt {
   ).interact(_io);
 }
 
-/// A required description read through Clix's validated line input.
-final class ClixDescriptionPrompt({clix.CliIO? io})
-    implements DescriptionPrompt {
-  final clix.CliIO _io = io ?? _ClixConsoleIO();
-
-  @override
-  Future<String> asksForDescription() => clix.Input(
-    prompt: 'Short description',
-    validator: (value) => value.isEmpty ? 'Enter a short description.' : null,
-  ).interact(_io);
-}
-
 /// Creates a small Dart package using the current typed command API.
 final class CreateProjectCommand extends Command {
   new(
     Directory parentDirectory, {
     ProjectScaffolder? projectScaffolder,
-    DescriptionPrompt? descriptionPrompt,
     InstallPrompt? installPrompt,
     GitPrompt? gitPrompt,
   }) : _parentDirectory = parentDirectory,
        _projectScaffolder =
            projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
-       _descriptionPrompt = descriptionPrompt ?? ClixDescriptionPrompt(),
        _installPrompt = installPrompt ?? ClixInstallPrompt(),
        _gitPrompt = gitPrompt ?? ClixGitPrompt(),
        super(
          mandatoryPositionals: [packageName],
-         discretionaryPositionals: [projectDescription],
+         options: [projectDescription],
          flags: [install, initializeGit],
        );
 
@@ -423,9 +404,10 @@ final class CreateProjectCommand extends Command {
     regex: RegExp(_packageNamePattern),
     description: 'Name for the new package.',
   );
-  static final projectDescription = NormalPositional.optional(
-    'short-description',
-    regex: RegExp(r'.+'),
+  static final projectDescription = StringOption.withDefault(
+    'description',
+    defaultValue: 'This is a CLI app',
+    description: 'Description for the new package.',
   );
   static final install = BooleanFlag(
     'install',
@@ -438,7 +420,6 @@ final class CreateProjectCommand extends Command {
 
   final Directory _parentDirectory;
   final ProjectScaffolder _projectScaffolder;
-  final DescriptionPrompt _descriptionPrompt;
   final InstallPrompt _installPrompt;
   final GitPrompt _gitPrompt;
 
@@ -453,11 +434,7 @@ final class CreateProjectCommand extends Command {
   Future<String> run(ParsedInputs inputs, List<String> args) async {
     final name = inputs.valueOf(packageName);
 
-    // The description is the one step nothing else answers, so the prompt is
-    // only reached when the argument was left off.
-    final description =
-        inputs.valueOf(projectDescription) ??
-        await _descriptionPrompt.asksForDescription();
+    final description = inputs.valueOf(projectDescription);
 
     // A flag answers its own step, so the prompt is only reached when the
     // answer is still open.

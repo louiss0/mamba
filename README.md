@@ -54,7 +54,8 @@ The global executable can create a Dart console package and add command
 skeletons:
 
 ```sh
-mamba create my_app "Manage my application."
+mamba create my_app --description "Manage my application."
+# Install dependencies? [Y/n]
 # Initialize a Git repository? [y/N]
 cd my_app
 dart run bin/my_app.dart
@@ -68,8 +69,9 @@ mamba command status --test
 package-provided skills for generic agents and Claude with `dart run skills@
 get --all -p mamba --agent generic` and `dart run skills@ get --all -p mamba
 --agent claude`. It then prompts you whether to initialize the project as a Git
-repository. The short description is optional: leave it off and the command
-asks for one. The generated command file still needs to be registered in the
+repository. Set the optional `--description` option to provide a short
+description; if omitted, it defaults to `This is a CLI app` without prompting.
+The generated command file still needs to be registered in the
 application's command list. `--group` generates an empty `GroupCommand` for
 nesting child commands. `mamba binary <name>` creates another executable in
 `bin/`, while `mamba test <name>` creates a grouped test suite for the matching

@@ -82,12 +82,17 @@ if __name__ == '__main__':
     check('Backspace', 'input', 'Clix input', ['probeX', '\x7f', '\r'], 'probe')
     check('Left cursor', 'input', 'Clix input', ['ac', '\x1b[D', 'b', '\r'], 'abc')
     check('Delete', 'input', 'Clix input', ['abc', '\x1b[D', '\x1b[3~', '\r'], 'ab')
-    check('Create answers', 'create', 'Short description', ['probeX', '\x7f', '\r',
-        ('Install dependencies?', 'n\r'), ('Initialize a Git repository?', 'y\r')],
-        {'description': 'probe', 'install': False, 'git': True})
-    check('Create defaults', 'create', 'Short description', ['probe\r',
-        ('Install dependencies?', '\r'), ('Initialize a Git repository?', '\r')],
-        {'description': 'probe', 'install': True, 'git': False})
+    check('Create answers', 'create', 'Install dependencies?', ['n\r',
+        ('Initialize a Git repository?', 'y\r')],
+        {'description': 'This is a CLI app', 'install': False, 'git': True})
+    check('Create defaults', 'create', 'Install dependencies?', ['\r',
+        ('Initialize a Git repository?', '\r')],
+        {'description': 'This is a CLI app', 'install': True, 'git': False})
+    check('Custom description', 'create-custom', 'Install dependencies?', ['n\r',
+        ('Initialize a Git repository?', 'y\r')],
+        {'description': 'Custom description', 'install': False, 'git': True})
+    check('Create without input', 'create-flags', 'CLIX_RESULT=', [],
+        {'description': 'This is a CLI app', 'install': True, 'git': True})
     check('Filtered selection', 'selector', 'Clix selection', ['Al\r', '2\r'], 'Alpine')
     check('Selection cancellation', 'selector', 'Clix selection', ['\r'], None)
     with tempfile.TemporaryDirectory(prefix='mamba-clix-') as directory:
@@ -97,4 +102,4 @@ if __name__ == '__main__':
         check('Directory navigation', 'picker', 'Clix directory', ['4\r', '1\r'],
             str(root / 'Beta'), (str(root),))
         check('Directory cancellation', 'picker', 'Clix directory', ['\r'], None, (str(root),))
-    print('All nine Windows terminal checks passed.')
+    print('All eleven Windows terminal checks passed.')

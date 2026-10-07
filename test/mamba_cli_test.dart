@@ -12,14 +12,20 @@ void main() {
     final projectScaffolder = FakeProjectScaffolder();
     final installPrompt = FakeInstallPrompt(shouldInstall: true);
     final gitPrompt = FakeGitPrompt(shouldInitialize: false);
-    final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(
-        directory,
-        projectScaffolder: projectScaffolder,
-        installPrompt: installPrompt,
-        gitPrompt: gitPrompt,
-      ),
-    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
+    final result =
+        await Executor('tool', 'Tool.', '1.0.0', [
+          CreateProjectCommand(
+            directory,
+            projectScaffolder: projectScaffolder,
+            installPrompt: installPrompt,
+            gitPrompt: gitPrompt,
+          ),
+        ]).fake().execute([
+          'create',
+          'demo',
+          '--description',
+          'A demonstration CLI.',
+        ]);
 
     expect(result.exitCode, 0);
     expect(installPrompt.questions, 1);
@@ -201,7 +207,7 @@ void main() {
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: true),
       ),
-    ]).fake().execute(['create', '.', 'A demonstration CLI.']);
+    ]).fake().execute(['create', '.', '--description', 'A demonstration CLI.']);
 
     expect(result, isA<MambaFailureResult>());
     expect(projectScaffolder.projects, isEmpty);
@@ -210,14 +216,20 @@ void main() {
 
   test('project command rejects a package name that is not a name', () async {
     final directory = tempDirectory();
-    final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(
-        directory,
-        projectScaffolder: FakeProjectScaffolder(),
-        installPrompt: FakeInstallPrompt(shouldInstall: true),
-        gitPrompt: FakeGitPrompt(shouldInitialize: true),
-      ),
-    ]).fake().execute(['create', 'My Project', 'A demonstration CLI.']);
+    final result =
+        await Executor('tool', 'Tool.', '1.0.0', [
+          CreateProjectCommand(
+            directory,
+            projectScaffolder: FakeProjectScaffolder(),
+            installPrompt: FakeInstallPrompt(shouldInstall: true),
+            gitPrompt: FakeGitPrompt(shouldInitialize: true),
+          ),
+        ]).fake().execute([
+          'create',
+          'My Project',
+          '--description',
+          'A demonstration CLI.',
+        ]);
 
     expect(result, isA<MambaFailureResult>());
   });
@@ -329,6 +341,7 @@ void main() {
         ]).fake().execute([
           'create',
           'demo',
+          '--description',
           'A demonstration CLI.',
           '--install',
           '--git',
@@ -348,14 +361,20 @@ void main() {
   test('project command reports what finishes a declined install', () async {
     final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
-    final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(
-        directory,
-        projectScaffolder: projectScaffolder,
-        installPrompt: FakeInstallPrompt(shouldInstall: false),
-        gitPrompt: FakeGitPrompt(shouldInitialize: true),
-      ),
-    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
+    final result =
+        await Executor('tool', 'Tool.', '1.0.0', [
+          CreateProjectCommand(
+            directory,
+            projectScaffolder: projectScaffolder,
+            installPrompt: FakeInstallPrompt(shouldInstall: false),
+            gitPrompt: FakeGitPrompt(shouldInitialize: true),
+          ),
+        ]).fake().execute([
+          'create',
+          'demo',
+          '--description',
+          'A demonstration CLI.',
+        ]);
 
     final projectPath = '${directory.path}${Platform.pathSeparator}demo';
     expect((result as MambaSuccessResult).output, '''
@@ -366,13 +385,19 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
   test('project command rejects an existing directory', () async {
     final directory = tempDirectory();
     Directory('${directory.path}/demo').createSync();
-    final result = await Executor('tool', 'Tool.', '1.0.0', [
-      CreateProjectCommand(
-        directory,
-        installPrompt: FakeInstallPrompt(shouldInstall: true),
-        gitPrompt: FakeGitPrompt(shouldInitialize: false),
-      ),
-    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
+    final result =
+        await Executor('tool', 'Tool.', '1.0.0', [
+          CreateProjectCommand(
+            directory,
+            installPrompt: FakeInstallPrompt(shouldInstall: true),
+            gitPrompt: FakeGitPrompt(shouldInitialize: false),
+          ),
+        ]).fake().execute([
+          'create',
+          'demo',
+          '--description',
+          'A demonstration CLI.',
+        ]);
 
     expect(result.exitCode, 1);
     expect(
@@ -381,48 +406,74 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     );
   });
 
-  test('project command asks for a description when none is passed', () async {
+  test('project command defaults the description without asking', () async {
     final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
-    final descriptionPrompt = FakeDescriptionPrompt('A prompted description.');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         directory,
         projectScaffolder: projectScaffolder,
-        descriptionPrompt: descriptionPrompt,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: false),
       ),
     ]).fake().execute(['create', 'demo']);
 
     expect(result.exitCode, 0);
-    expect(descriptionPrompt.questions, 1);
     expect(
       projectScaffolder.projects.single.shortDescription,
-      'A prompted description.',
+      'This is a CLI app',
     );
   });
 
-  test('project command keeps a description it was given', () async {
+  test('project command accepts an equals-form description option', () async {
     final directory = tempDirectory();
     final projectScaffolder = FakeProjectScaffolder();
-    final descriptionPrompt = FakeDescriptionPrompt('A prompted description.');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         directory,
         projectScaffolder: projectScaffolder,
-        descriptionPrompt: descriptionPrompt,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: false),
       ),
-    ]).fake().execute(['create', 'demo', 'A demonstration CLI.']);
+    ]).fake().execute(['create', 'demo', '--description=A demonstration CLI.']);
 
     expect(result.exitCode, 0);
-    expect(descriptionPrompt.questions, 0);
     expect(
       projectScaffolder.projects.single.shortDescription,
       'A demonstration CLI.',
     );
+  });
+
+  test('project command rejects a positional description', () async {
+    final projectScaffolder = FakeProjectScaffolder();
+    final result = await Executor('tool', 'Tool.', '1.0.0', [
+      CreateProjectCommand(
+        tempDirectory(),
+        projectScaffolder: projectScaffolder,
+      ),
+    ]).fake().execute(['create', 'demo', 'Old positional description']);
+
+    expect(result.exitCode, 1);
+    expect(projectScaffolder.projects, isEmpty);
+  });
+
+  test('project command requires a value after --description', () async {
+    final projectScaffolder = FakeProjectScaffolder();
+    final result = await Executor(
+      'tool',
+      'Tool.',
+      '1.0.0',
+      [
+        CreateProjectCommand(
+          tempDirectory(),
+          projectScaffolder: projectScaffolder,
+        ),
+      ],
+    ).fake().execute(['create', 'demo', '--install', '--git', '--description']);
+
+    expect(result.exitCode, 1);
+    expect((result as MambaFailureResult).message, contains('description'));
+    expect(projectScaffolder.projects, isEmpty);
   });
 
   test('binary command scaffolds a process-facing executor', () async {

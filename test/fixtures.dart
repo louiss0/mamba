@@ -211,16 +211,3 @@ final class FakeGitPrompt implements GitPrompt {
     return shouldInitialize;
   }
 }
-
-final class FakeDescriptionPrompt implements DescriptionPrompt {
-  new(this.description);
-
-  final String description;
-  var questions = 0;
-
-  @override
-  String asksForDescription() {
-    questions++;
-    return description;
-  }
-}

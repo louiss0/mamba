@@ -30,29 +30,59 @@ void main() {
   test(
     'create fails on closed input instead of accepting a setup default',
     () async {
-      final result = await runClixFixture('create-eof');
+      final result = await runClixFixture('create');
       expect(result.exitCode, 1);
       expect(result.output, contains('No input available'));
       expect(result.errors, isEmpty);
     },
   );
 
-  test('required Clix description exits cleanly at end of input', () async {
-    final result = await runClixFixture('create');
+  test('create rejects closed input at the Git confirmation', () async {
+    final result = await runClixFixture('create', input: 'n\n');
     expect(result.exitCode, 1);
+    expect(result.output, contains('Initialize a Git repository?'));
     expect(result.output, contains('No input available'));
     expect(result.errors, isEmpty);
   });
 
-  test('Clix setup can consume complete piped answers', () async {
-    final result = await runClixFixture('create', input: 'probe\nn\ny\n');
+  test('Clix setup can consume just the two confirmation answers', () async {
+    final result = await runClixFixture('create', input: 'n\ny\n');
     expect(result.exitCode, 0);
     expect(
       result.output,
       contains(
-        'CLIX_RESULT={"description":"probe","install":false,"git":true}',
+        'CLIX_RESULT={"description":"This is a CLI app","install":false,"git":true}',
       ),
     );
+    expect(result.errors, isEmpty);
+  });
+
+  test(
+    'create uses a custom description without reading it from input',
+    () async {
+      final result = await runClixFixture('create-custom', input: 'n\ny\n');
+      expect(result.exitCode, 0);
+      expect(
+        result.output,
+        contains(
+          'CLIX_RESULT={"description":"Custom description","install":false,"git":true}',
+        ),
+      );
+      expect(result.output, isNot(contains('Short description')));
+      expect(result.errors, isEmpty);
+    },
+  );
+
+  test('create with setup flags succeeds even with closed input', () async {
+    final result = await runClixFixture('create-flags');
+    expect(result.exitCode, 0);
+    expect(
+      result.output,
+      contains(
+        'CLIX_RESULT={"description":"This is a CLI app","install":true,"git":true}',
+      ),
+    );
+    expect(result.output, isNot(contains('Short description')));
     expect(result.errors, isEmpty);
   });
 
