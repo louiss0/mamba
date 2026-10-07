@@ -1,18 +1,28 @@
-## Unreleased
+## 0.17.0
+
+Clix-backed scaffolding components and optional project descriptions. This
+release changes the public terminal toolkit API and component interactions;
+see [MIGRATION.md](MIGRATION.md) for upgrade guidance.
+
+### Breaking
 
 - Replace Terminice with Clix for CLI prompts and generated components, removing
   Terminice's `intl` dependency from Mamba's dependency graph.
 - Replace `mamba create`'s positional description and description prompt with
   an optional `--description` option, defaulting to `This is a CLI app`.
+- Built-in install/Git prompt adapters now return Futures; await direct calls.
+  Their `FutureOr` interfaces still accept synchronous injected implementations.
+
+### Added and fixed
+
 - Use Clix line input for confirmation prompts and numbered, filterable
   selectors and directory browsing. Blank component answers cancel;
   native Clix raw-key menus are not used by these components.
 - Re-export Clix with its text prompt named `ClixInput`, preserving Mamba's
   typed declaration `Input`. Add `ClixSelector`, `ClixDirectoryPicker`, and a
   cleanup-safe `Spinner.whileRunning` extension.
-- Await install/Git prompt results through `FutureOr` interfaces, preserving
-  synchronous injected implementations and existing Enter defaults. Closed
-  setup input fails instead of retrying indefinitely or accepting defaults.
+- Preserve Enter defaults of install yes / Git no. Closed setup input fails
+  instead of retrying indefinitely or accepting defaults.
 - Add generated-component execution tests and real Windows console regressions
   for Backspace, cursor movement, Delete, setup choices, and directory browsing.
 

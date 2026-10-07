@@ -1,6 +1,6 @@
 # Migration
 
-## Unreleased: Clix components
+## 0.17.0: Clix components
 
 Terminice is replaced by Clix. Mamba's argument parser is unchanged.
 
