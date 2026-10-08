@@ -14,7 +14,7 @@ import 'options.dart' as options;
 void main() {
   test('documented enum implementation returns typed members using exact spellings', () {
     final registry = CommandRegistry.create('tool', 'Tool.', options: [options.wireFormat]);
-    final options.WireFormat? value = Parser(registry).parse(['--wire-format=json-lines']).$2.valueOf(options.wireFormat);
+    final options.WireFormat? value = Parser(registry).parse(['--wire-format=json-lines']).$2(options.wireFormat);
     expect(value, options.WireFormat.jsonLines);
     expect(() => Parser(registry).parse(['--wire-format=jsonLines']), throwsA(isA<MambaParseException>()));
   });

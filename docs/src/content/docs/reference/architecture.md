@@ -38,7 +38,7 @@ The execution contract is deliberately narrower than the declaration:
 
 ```dart
 FutureOr<String?> run(
-  ParsedInputs inputs,
+  ValueOf valueOf,
   List<String> args,
 );
 ```
@@ -82,7 +82,7 @@ Parsing occurs in two broad passes:
 The result contains three positional fields and two named control fields:
 
 - the canonical command path;
-- all parsed values in one identity-keyed `ParsedInputs` object;
+- an invocation-bound `ValueOf` function that reads values by retained declaration identity;
 - untouched arguments that appeared after `--`.
 - whether help was requested;
 - whether version output was requested.

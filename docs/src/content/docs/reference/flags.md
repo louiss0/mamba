@@ -42,10 +42,10 @@ The command reads that value through the retained declaration:
 ```dart
 @override
 FutureOr<String?> run(
-  ParsedInputs inputs,
+  ValueOf valueOf,
   List<String> args,
 ) {
-  final forceValue = inputs.valueOf(force);
+  final forceValue = valueOf(force);
   return 'force: $forceValue';
 }
 ```
@@ -103,10 +103,10 @@ The command reads the integer through the retained declaration:
 ```dart
 @override
 FutureOr<String?> run(
-  ParsedInputs inputs,
+  ValueOf valueOf,
   List<String> args,
 ) {
-  final verbosity = inputs.valueOf(verbose);
+  final verbosity = valueOf(verbose);
   return 'verbosity: $verbosity';
 }
 ```

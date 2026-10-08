@@ -1,10 +1,10 @@
 import 'package:mamba/mamba.dart';
 import 'support.dart' show Format;
 {{docs/src/content/docs/reference/arguments.md#1}}
-void requiredTarget(ParsedInputs inputs) {
+void requiredTarget(ValueOf valueOf) {
   {{docs/src/content/docs/reference/arguments.md#2}}
 }
-void optionalTarget(ParsedInputs inputs) {
+void optionalTarget(ValueOf valueOf) {
   {{docs/src/content/docs/reference/arguments.md#3}}
 }
 void choicePositional() {
@@ -13,7 +13,7 @@ void choicePositional() {
 void defaultedChoice() {
   {{docs/src/content/docs/reference/arguments.md#5}}
 }
-void repeatedPositional(ParsedInputs inputs) {
+void repeatedPositional(ValueOf valueOf) {
   {{docs/src/content/docs/reference/arguments.md#6}}
 }
 void repeatedChoice() {

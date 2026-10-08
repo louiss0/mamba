@@ -8,5 +8,5 @@ final class DeployCommand extends Command {
   @override
   String get shortDescription => 'Deploy.';
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
+  String run(ValueOf valueOf, List<String> args) => 'Deployed.';
 }

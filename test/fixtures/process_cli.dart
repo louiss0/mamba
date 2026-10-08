@@ -11,7 +11,7 @@ final class InputCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
@@ -19,10 +19,10 @@ final class InputCommand extends Command with HookRunner {
   }
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => _input ?? 'no input';
+  String run(ValueOf valueOf, List<String> args) => _input ?? 'no input';
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     _input = null;
   }
 }
@@ -35,7 +35,7 @@ final class FailureCommand extends Command {
   String get shortDescription => 'Fail execution.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     throw MambaException('process failed', exitCode: 7);
   }
 }
@@ -48,7 +48,7 @@ final class SilentCommand extends Command {
   String get shortDescription => 'Produce no output.';
 
   @override
-  String? run(ParsedInputs inputs, List<String> args) => null;
+  String? run(ValueOf valueOf, List<String> args) => null;
 }
 
 final class EchoCommand extends Command {
@@ -59,7 +59,7 @@ final class EchoCommand extends Command {
   String get shortDescription => 'Return two lines without a trailing newline.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'line one\nline two';
+  String run(ValueOf valueOf, List<String> args) => 'line one\nline two';
 }
 
 final class ErrorTextCommand extends Command {
@@ -70,7 +70,7 @@ final class ErrorTextCommand extends Command {
   String get shortDescription => 'Fail with error text.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     throw MambaException('error text', exitCode: 9);
   }
 }
@@ -83,7 +83,7 @@ final class UnicodeCommand extends Command {
   String get shortDescription => 'Return non-ASCII text.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'héllo — ünïcode ☃';
+  String run(ValueOf valueOf, List<String> args) => 'héllo — ünïcode ☃';
 }
 
 final class TwiceFailingCommand extends Command with HookRunner {
@@ -95,18 +95,18 @@ final class TwiceFailingCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {}
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     throw MambaException('cleanup failed', exitCode: 5);
   }
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     throw MambaException('run failed', exitCode: 7);
   }
 }

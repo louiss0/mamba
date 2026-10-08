@@ -154,8 +154,8 @@ String _validatedText(String field, String value) {
   return text;
 }
 
-int _taskId(ParsedInputs inputs, NormalPositional input) =>
-    int.parse(inputs.valueOf(input));
+int _taskId(ValueOf valueOf, NormalPositional input) =>
+    int.parse(valueOf(input));
 
 final class CreateTaskCommand extends Command {
   new(this.store) : super(options: [title, description]);
@@ -180,10 +180,10 @@ final class CreateTaskCommand extends Command {
   String get shortDescription => 'Create a task.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     final task = store.add(
-      _validatedText('title', inputs.valueOf(title)),
-      _validatedText('description', inputs.valueOf(description)),
+      _validatedText('title', valueOf(title)),
+      _validatedText('description', valueOf(description)),
     );
     return 'Created task ${task.id}: ${task.title}';
   }
@@ -211,8 +211,8 @@ final class ListTaskCommand extends Command {
       'List tasks, optionally filtered by completion.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final statusValue = inputs.valueOf(status);
+  String run(ValueOf valueOf, List<String> args) {
+    final statusValue = valueOf(status);
     final tasks = store.readAll().where((task) {
       return switch (statusValue) {
         TaskStatus.all => true,
@@ -248,8 +248,8 @@ final class ReadTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Read one task.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final task = store.find(_taskId(inputs, TaskIdCommand.id));
+  String run(ValueOf valueOf, List<String> args) {
+    final task = store.find(_taskId(valueOf, TaskIdCommand.id));
     if (task == null) throw MambaException('Task not found.');
     return '${task.completed ? '[x]' : '[ ]'} ${task.id}: ${task.title}\n${task.description}';
   }
@@ -280,9 +280,9 @@ final class UpdateTaskCommand extends Command {
   String get shortDescription => 'Update a task.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final idValue = _taskId(inputs, id);
-    final changesValues = inputs.valueOf(changes);
+  String run(ValueOf valueOf, List<String> args) {
+    final idValue = _taskId(valueOf, id);
+    final changesValues = valueOf(changes);
     store.update(
       idValue,
       title: _validatedText('title', changesValues['title']!),
@@ -304,8 +304,8 @@ final class DeleteTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Delete a task.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final id = _taskId(inputs, TaskIdCommand.id);
+  String run(ValueOf valueOf, List<String> args) {
+    final id = _taskId(valueOf, TaskIdCommand.id);
     store.delete(id);
     return 'Deleted task $id.';
   }
@@ -335,9 +335,9 @@ final class ExportTasksCommand extends Command {
   String get shortDescription => 'Export every task.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final path = inputs.valueOf(output);
-    final content = switch (inputs.valueOf(format)) {
+  String run(ValueOf valueOf, List<String> args) {
+    final path = valueOf(output);
+    final content = switch (valueOf(format)) {
       TaskExportFormat.json => JsonEncoder.withIndent(
         '  ',
       ).convert(store.readAll().map((task) => task.toJson()).toList()),
@@ -361,8 +361,8 @@ final class CompleteTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Mark a task as completed.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final id = _taskId(inputs, TaskIdCommand.id);
+  String run(ValueOf valueOf, List<String> args) {
+    final id = _taskId(valueOf, TaskIdCommand.id);
     store.setCompleted(id, true);
     return 'Completed task $id.';
   }
@@ -380,8 +380,8 @@ final class ReopenTaskCommand extends TaskIdCommand {
   String get shortDescription => 'Mark a task as pending.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final id = _taskId(inputs, TaskIdCommand.id);
+  String run(ValueOf valueOf, List<String> args) {
+    final id = _taskId(valueOf, TaskIdCommand.id);
     store.setCompleted(id, false);
     return 'Reopened task $id.';
   }

@@ -41,7 +41,7 @@ file name must contain the application name:
 
 `CompletionCommand.shellInput` and `CompletionCommand.pathInput` expose the
 same retained declarations used by the preset. Use them with
-`ParsedInputs.valueOf` when extending or testing the command.
+`valueOf` when extending or testing the command.
 
 ## Replace destination handling
 

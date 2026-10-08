@@ -1,5 +1,23 @@
 # Migration
 
+## Unreleased: direct value readers
+
+Commands and hooks receive an invocation-bound `ValueOf` function instead of a
+`ParsedInputs` object. This is a breaking API change; no compatibility wrapper
+or public presence-query method is retained.
+
+| Before | After | Author action |
+| --- | --- | --- |
+| `run(ParsedInputs inputs, List<String> args)` | `run(ValueOf valueOf, List<String> args)` | Change the first parameter in commands, groups, and every hook to `ValueOf`. |
+| `inputs.valueOf(handle)` | `valueOf(handle)` | Call the reader directly. Required/defaulted types, optional nullability, enum values, and immutable collections are unchanged. |
+| `inputs.contains(handle)` | No presence-query API | Read optional values and check for null. Defaults and group maps remain readable directly. Use declaration-level conflicts for explicit-occurrence constraints; occurrence tracking stays internal. |
+| `Parser(registry).parse(args).$2` returns `ParsedInputs` | The second field is a `ValueOf` function | Call the returned reader with a retained declaration. Tests needing a reader can obtain one from the parser or supply a typed generic function. |
+
+The same reader is passed through an invocation's commands and hooks. A retained
+reader stays bound to its original invocation; it does not depend on global
+state or change when the executor handles another invocation. Reading an
+unregistered declaration still raises `StateError`.
+
 ## 0.17.0: Clix components
 
 Terminice is replaced by Clix. Mamba's argument parser is unchanged.

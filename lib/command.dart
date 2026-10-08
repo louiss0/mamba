@@ -1538,26 +1538,13 @@ final class _DefaultedAccessorChoiceOption<T extends Enum>
   final T defaultValue;
 }
 
-final class ParsedInputs {
-  new(Map<Object, Object?> values, Iterable<Object> known)
-    : _values = Map.unmodifiable(values),
-      _known = Set.unmodifiable(known);
-
-  final Map<Object, Object?> _values;
-  final Set<Object> _known;
-
-  T valueOf<T>(ParsedValue<T> input) {
-    if (!_known.contains(input)) {
-      throw StateError('Unknown parsed input declaration.');
-    }
-    if (!_values.containsKey(input) && null is! T) {
-      throw StateError('Parser omitted a non-null input value.');
-    }
-    return _values[input] as T;
-  }
-
-  bool contains(Object input) => _values.containsKey(input);
-}
+/// Reads the typed value of a retained declaration for one parsed invocation.
+///
+/// Commands and hooks receive this function directly. Optional declarations
+/// return null when omitted; required and defaulted declarations retain their
+/// non-null output types. Reading an unregistered declaration raises StateError.
+/// The reader exposes no parsed-value collection or presence query.
+typedef ValueOf = T Function<T>(ParsedValue<T> input);
 
 abstract class Command {
   final String? longDescription;
@@ -1595,7 +1582,7 @@ abstract class Command {
        conflicts = _copyStringLists(conflicts);
   String get name;
   String get shortDescription;
-  FutureOr<String?> run(ParsedInputs inputs, List<String> args);
+  FutureOr<String?> run(ValueOf valueOf, List<String> args);
 }
 
 /// A resolved help page supplied to a group that has no selected child.
@@ -1650,7 +1637,7 @@ abstract class GroupCommand extends Command {
 
   FutureOr<String?> runChildCommand(
     List<String> path,
-    ParsedInputs inputs,
+    ValueOf valueOf,
     List<String> args,
   ) async {
     if (path.isEmpty) {
@@ -1678,13 +1665,13 @@ abstract class GroupCommand extends Command {
       }
       children = current is GroupCommand ? current.commands : null;
     }
-    return current!.run(inputs, args);
+    return current!.run(valueOf, args);
   }
 
   @override
-  FutureOr<String?> run(ParsedInputs inputs, List<String> args) {
+  FutureOr<String?> run(ValueOf valueOf, List<String> args) {
     final path = defaultSubCommandPath;
-    if (path != null) return runChildCommand(path, inputs, args);
+    if (path != null) return runChildCommand(path, valueOf, args);
 
     // Nothing was selected below this group, so the invocation is a question
     // about the children it owns. Rendering the resolved registry is the
@@ -1695,14 +1682,14 @@ abstract class GroupCommand extends Command {
 
 mixin HookRunner on Command {
   FutureOr<void> preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   );
-  FutureOr<void> postRun(ParsedInputs inputs, MambaReadContext context) {}
+  FutureOr<void> postRun(ValueOf valueOf, MambaReadContext context) {}
 }
 
 mixin PersistentHookRunner on GroupCommand {
-  FutureOr<void> prePersistentRun(ParsedInputs inputs, MambaContext context);
-  FutureOr<void> postPersistentRun(ParsedInputs inputs, MambaContext context) {}
+  FutureOr<void> prePersistentRun(ValueOf valueOf, MambaContext context);
+  FutureOr<void> postPersistentRun(ValueOf valueOf, MambaContext context) {}
 }

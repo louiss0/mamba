@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:mamba/command.dart';
 import 'package:mamba/errors.dart';
 import 'package:mamba/help_formatter.dart';
+import 'package:mamba/parser.dart';
 import 'package:mamba/registry.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
@@ -29,7 +30,7 @@ class TestGroupCommand extends GroupCommand {
       );
 
   FutureOr<String?> runChildAtPath(List<String> commandPath) {
-    return runChildCommand(commandPath, inputsWithoutValues, const []);
+    return runChildCommand(commandPath, valueOfWithoutValues, const []);
   }
 }
 
@@ -52,7 +53,7 @@ final class _VariadicCommand extends Command {
   String get shortDescription => 'A test command.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 class TestChildGroupCommand extends Mock implements GroupCommand {
@@ -65,7 +66,9 @@ class TestChildGroupCommand extends Mock implements GroupCommand {
   new(this.name, this.commands);
 }
 
-final inputsWithoutValues = ParsedInputs({}, []);
+final valueOfWithoutValues = Parser(CommandRegistry.create('tool', 'Tool.'))
+    .parse([])
+    .$2;
 
 String stripAnsi(String value) =>
     value.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
@@ -81,7 +84,7 @@ final class _NamedCommand extends Command {
   final String shortDescription;
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 /// A real command that records having run, for paths that must not be mocks.
@@ -97,7 +100,7 @@ final class _RecordingCommand extends Command {
   String get shortDescription => 'Records having run.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     ran = true;
     return '';
   }
@@ -117,16 +120,14 @@ final class _RecordingHelpFormatter extends HelpFormatter {
   void formatLongDescription(StringBuffer buffer, String longDescription) {}
 }
 
-ParsedInputs createCompletionInputs(ShellCompletion shell, {String? path}) {
-  final values = <InputDefinition, Object?>{
-    CompletionCommand.shellInput: shell,
-  };
-  if (path != null) values[CompletionCommand.pathInput] = path;
-
-  return ParsedInputs(values, [
-    CompletionCommand.shellInput,
-    CompletionCommand.pathInput,
-  ]);
+ValueOf createCompletionInputs(ShellCompletion shell, {String? path}) {
+  final registry = CommandRegistry.create(
+    'tool',
+    'Tool.',
+    mandatoryPositionals: [CompletionCommand.shellInput],
+    discretionaryPositionals: [CompletionCommand.pathInput],
+  );
+  return Parser(registry).parse([shell.name, ?path]).$2;
 }
 
 /// Records where a completion command was told to write and what it generated.
@@ -160,7 +161,7 @@ class TestCompletionCommand extends CompletionCommand {
 }
 
 void main() {
-  registerFallbackValue(inputsWithoutValues);
+  registerFallbackValue(valueOfWithoutValues);
 
   group('CompletionCommand', () {
     group('metadata', () {
@@ -452,7 +453,7 @@ void main() {
         defaultSubCommandPath: ['stash', 'pop'],
       );
 
-      await git.run(inputsWithoutValues, const []);
+      await git.run(valueOfWithoutValues, const []);
 
       verify(() => stashPop.run(any(), any())).called(1);
     });
@@ -473,7 +474,7 @@ void main() {
       );
 
       await expectLater(
-        git.run(inputsWithoutValues, const []),
+        git.run(valueOfWithoutValues, const []),
         throwsA(isA<MambaCommandNotFoundException>()),
       );
     });
@@ -486,7 +487,7 @@ void main() {
         defaultSubCommandPath: ['same'],
       );
 
-      await group.run(inputsWithoutValues, const []);
+      await group.run(valueOfWithoutValues, const []);
 
       expect(same.ran, isTrue);
     });
@@ -518,7 +519,7 @@ void main() {
     });
 
     test('returns no output when no default child is configured', () async {
-      expect(await groupCommand.run(inputsWithoutValues, const []), isNull);
+      expect(await groupCommand.run(valueOfWithoutValues, const []), isNull);
     });
 
     test(
@@ -531,7 +532,7 @@ void main() {
           MambaHelpFormatter(),
           CommandRegistry.create('git', 'Manage changes.', commands: [stash]),
         );
-        final output = await git.run(inputsWithoutValues, const []);
+        final output = await git.run(valueOfWithoutValues, const []);
 
         expect(
           stripAnsi(output!),
@@ -558,7 +559,7 @@ void main() {
         );
 
         git.help = CommandHelp(formatter, registry);
-        await git.run(inputsWithoutValues, const []);
+        await git.run(valueOfWithoutValues, const []);
 
         expect(formatter.formatted, [registry]);
       },
@@ -579,7 +580,7 @@ void main() {
       );
 
       git.help = CommandHelp(formatter, registry);
-      final output = await git.run(inputsWithoutValues, const []);
+      final output = await git.run(valueOfWithoutValues, const []);
 
       expect(output, isEmpty);
       expect(formatter.formatted, isEmpty);
@@ -826,14 +827,14 @@ void main() {
       final optional = StringOption('optional');
       final required = StringOption.required('required');
       final unknown = StringOption('unknown');
-      final inputs = ParsedInputs({optional: 'value'}, [optional, required]);
-      final parsed = inputs;
+      final valueOf = Parser(
+        CommandRegistry.create('tool', 'Tool.', options: [optional, required]),
+      ).parse(['--optional=value', '--help']).$2;
+      final parsed = valueOf;
 
-      expect(parsed.valueOf(optional), 'value');
-      expect(inputs.contains(optional), isTrue);
-      expect(inputs.contains(required), isFalse);
-      expect(() => parsed.valueOf(unknown), throwsStateError);
-      expect(() => parsed.valueOf(required), throwsStateError);
+      expect(parsed(optional), 'value');
+      expect(() => parsed(unknown), throwsStateError);
+      expect(() => parsed(required), throwsStateError);
     });
 
     test('paired groups describe typed map results', () {
@@ -976,9 +977,9 @@ void main() {
           r'''
 import 'package:mamba/mamba.dart';
 
-void invalid(ParsedInputs inputs) {
+void invalid(ValueOf valueOf) {
   final optional = StringOption('name');
-  final String value = inputs.valueOf(optional);
+  final String value = valueOf(optional);
   CommandRegistry.create(
     'tool',
     'Tool.',

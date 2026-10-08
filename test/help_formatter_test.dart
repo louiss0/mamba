@@ -341,7 +341,7 @@ final class _LeafCommand extends Command {
   String get shortDescription => 'A leaf.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 final class _HelpCommand extends Command {
@@ -354,5 +354,5 @@ final class _HelpCommand extends Command {
   final String shortDescription;
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }

@@ -13,7 +13,7 @@ class MambaParseException extends MambaException {
 
 typedef ParsedArguments = (
   List<String> command,
-  ParsedInputs inputs,
+  ValueOf valueOf,
   List<String> args, {
   bool help,
   bool version,
@@ -207,11 +207,28 @@ final class Parser {
     }
     return (
       commandPath,
-      ParsedInputs(values, _knownInputs(registry)),
+      _valueReader(values, _knownInputs(registry)),
       List.unmodifiable(trailing),
       help: help,
       version: version,
     );
+  }
+
+  ValueOf _valueReader(Map<Object, Object?> values, Iterable<Object> known) {
+    final snapshot = Map<Object, Object?>.unmodifiable(values);
+    final handles = Set<Object>.unmodifiable(known);
+
+    T valueOf<T>(ParsedValue<T> input) {
+      if (!handles.contains(input)) {
+        throw StateError('Unknown parsed input declaration.');
+      }
+      if (!snapshot.containsKey(input) && null is! T) {
+        throw StateError('Parser omitted a non-null input value.');
+      }
+      return snapshot[input] as T;
+    }
+
+    return valueOf;
   }
 
   (String, String?) _split(String token) {

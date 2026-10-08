@@ -44,7 +44,7 @@ class TestCommand extends Command {
   });
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 
   @override
   final String name;
@@ -65,7 +65,7 @@ final class InputCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
@@ -73,10 +73,10 @@ final class InputCommand extends Command with HookRunner {
   }
 
   @override
-  String? run(ParsedInputs inputs, List<String> args) => _input?.utf8Text;
+  String? run(ValueOf valueOf, List<String> args) => _input?.utf8Text;
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     _input = null;
   }
 }

@@ -14,15 +14,15 @@ void main() {
   test('README selected formats accept zero or exactly one', () {
     final optional = Parser(CommandRegistry.create('tool', 'Tool.',
       selectedOptions: [optionalFormat]));
-    expect(optional.parse([]).$2.valueOf(optionalFormat), isEmpty);
-    expect(optional.parse(['--json', 'out.json']).$2.valueOf(optionalFormat),
+    expect(optional.parse([]).$2(optionalFormat), isEmpty);
+    expect(optional.parse(['--json', 'out.json']).$2(optionalFormat),
       {'json': 'out.json'});
     expect(() => optional.parse(['--json', 'a', '--text', 'b']),
       throwsA(isA<MambaParseException>()));
     final required = Parser(CommandRegistry.create('tool', 'Tool.',
       selectedOptions: [requiredFormat]));
     expect(() => required.parse([]), throwsA(isA<MambaParseException>()));
-    expect(required.parse(['--text', 'out.txt']).$2.valueOf(requiredFormat),
+    expect(required.parse(['--text', 'out.txt']).$2(requiredFormat),
       {'text': 'out.txt'});
   });
 }

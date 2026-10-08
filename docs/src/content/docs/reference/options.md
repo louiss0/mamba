@@ -22,14 +22,14 @@ Ordinary options are optional by default:
 
 ```dart
 final label = StringOption('label');
-final String? labelValue = inputs.valueOf(label);
+final String? labelValue = valueOf(label);
 ```
 
 Use `.required` when the user must provide the option:
 
 ```dart
 final output = StringOption.required('output');
-final String outputValue = inputs.valueOf(output);
+final String outputValue = valueOf(output);
 ```
 
 Choice options use `.withDefault` when omission supplies a fallback:
@@ -40,7 +40,7 @@ final format = ChoiceOption.withDefault(
   choices: OutputFormat.values,
   defaultValue: OutputFormat.text,
 );
-final OutputFormat formatValue = inputs.valueOf(format);
+final OutputFormat formatValue = valueOf(format);
 ```
 
 The ordinary constructors no longer accept `required` or `defaultValue`
@@ -136,7 +136,7 @@ final host = PairStringOption('host');
 final password = PairStringOption('password');
 final credentials = PairedOptions<String>([host, password]);
 
-final values = inputs.valueOf(credentials);
+final values = valueOf(credentials);
 // --host db.internal --password mamba produces
 // {'host': 'db.internal', 'password': 'mamba'}
 ```
@@ -154,7 +154,7 @@ final json = PairStringOption('json');
 final text = PairStringOption('text');
 final output = SelectedOptions<String>([json, text]);
 
-final values = inputs.valueOf(output);
+final values = valueOf(output);
 // --json tasks.json produces {'json': 'tasks.json'}
 ```
 
@@ -199,13 +199,13 @@ value-producing handle for its complete accessor tree. Nested leaf handles are
 readable directly as well as through the top-level declaration:
 
 ```dart
-final values = inputs.valueOf(server);
+final values = valueOf(server);
 final String? hostValue = values['host'] as String?;
 final OutputFormat formatValue = values['format'] as OutputFormat;
 ```
 
 Nested accessor lists produce nested immutable maps, so an option such as
-`--server.auth.token secret` is available below `inputs.valueOf(server)`.
+`--server.auth.token secret` is available below `valueOf(server)`.
 Every nested accessor container remains readable, even when all its optional
 leaves are absent. Compatible overrides must explicitly preserve every ancestor
 path with the same output type; ancestor handles read the effective local data.
@@ -241,7 +241,7 @@ final class DeployCommand extends Command {
   String get shortDescription => 'Deploy the application.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
+  String run(ValueOf valueOf, List<String> args) => 'Deployed.';
 }
 ```
 
@@ -249,8 +249,9 @@ Conflicts concern explicit CLI occurrences, including explicitly negated flags,
 not defaults or truthiness. References may name applicable global, propagated,
 grouped, and dotted-leaf inputs. Edges inherit only while their original endpoint
 identities remain applicable, including compatible overrides; unrelated same-name
-local inputs do not revive them. `ParsedInputs.contains` still checks stored
-values, not explicit supply. Effective-value rules belong to application code.
+local inputs do not revive them. Explicit-occurrence tracking remains internal.
+`valueOf` reads resolved values; it exposes no presence query. Effective-value
+rules belong to application code.
 The conflict map is not an `Executor` configuration option.
 
 ## Shared metadata

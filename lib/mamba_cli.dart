@@ -431,18 +431,17 @@ final class CreateProjectCommand extends Command {
       'Create a Dart console application using Mamba.';
 
   @override
-  Future<String> run(ParsedInputs inputs, List<String> args) async {
-    final name = inputs.valueOf(packageName);
+  Future<String> run(ValueOf valueOf, List<String> args) async {
+    final name = valueOf(packageName);
 
-    final description = inputs.valueOf(projectDescription);
+    final description = valueOf(projectDescription);
 
     // A flag answers its own step, so the prompt is only reached when the
     // answer is still open.
     final installsDependencies =
-        inputs.valueOf(install) || await _installPrompt.confirmsInstallation();
+        valueOf(install) || await _installPrompt.confirmsInstallation();
     final initializesGitRepository =
-        inputs.valueOf(initializeGit) ||
-        await _gitPrompt.confirmsInitialization();
+        valueOf(initializeGit) || await _gitPrompt.confirmsInitialization();
 
     _projectScaffolder.scaffold(
       name,
@@ -483,8 +482,8 @@ final class ScaffoldBinaryCommand extends Command {
   String get shortDescription => 'Create a Mamba executable.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final name = inputs.valueOf(binaryName);
+  String run(ValueOf valueOf, List<String> args) {
+    final name = valueOf(binaryName);
     final file = File(
       '${_parentDirectory.path}${Platform.pathSeparator}bin'
       '${Platform.pathSeparator}$name.dart',
@@ -539,10 +538,10 @@ final class ScaffoldTestCommand extends Command {
   String get shortDescription => 'Create a test suite for a Mamba command.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final name = inputs.valueOf(commandName);
-    final targetPath = inputs.valueOf(sourcePath);
-    final shouldAppend = inputs.valueOf(append);
+  String run(ValueOf valueOf, List<String> args) {
+    final name = valueOf(commandName);
+    final targetPath = valueOf(sourcePath);
+    final shouldAppend = valueOf(append);
 
     if (targetPath != null && !shouldAppend) {
       throw MambaException('The file argument requires --append.');
@@ -733,12 +732,12 @@ final class ScaffoldCommand extends Command {
   String get shortDescription => 'Create a Mamba command.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final name = inputs.valueOf(commandName);
-    final targetPath = inputs.valueOf(fileName);
-    final isGroup = inputs.valueOf(group);
-    final shouldAppend = inputs.valueOf(append);
-    final shouldCreateTest = inputs.valueOf(test);
+  String run(ValueOf valueOf, List<String> args) {
+    final name = valueOf(commandName);
+    final targetPath = valueOf(fileName);
+    final isGroup = valueOf(group);
+    final shouldAppend = valueOf(append);
+    final shouldCreateTest = valueOf(test);
 
     if (targetPath != null && !shouldAppend) {
       throw MambaException('The file argument requires --append.');
@@ -778,7 +777,7 @@ final class ScaffoldCommand extends Command {
               "  String get shortDescription => 'Describe $name.';\n"
               '\n'
               '  @override\n'
-              '  String run(ParsedInputs inputs, List<String> args) =>\n'
+              '  String run(ValueOf valueOf, List<String> args) =>\n'
               "      'Completed $name.';\n"
               '}\n';
 
@@ -939,8 +938,8 @@ final class _ScaffoldComponentKindCommand extends Command {
   String get shortDescription => kind.shortDescription;
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final name = inputs.valueOf(componentName);
+  String run(ValueOf valueOf, List<String> args) {
+    final name = valueOf(componentName);
     final file = File(
       '${_parentDirectory.path}${Platform.pathSeparator}lib'
       '${Platform.pathSeparator}components${Platform.pathSeparator}'

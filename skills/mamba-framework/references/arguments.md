@@ -25,9 +25,9 @@ final class CopyCommand extends Command {
   String get shortDescription => 'Copy a file.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final sourceValue = inputs.valueOf(source);
-    final destinationValue = inputs.valueOf(destination);
+  String run(ValueOf valueOf, List<String> args) {
+    final sourceValue = valueOf(source);
+    final destinationValue = valueOf(destination);
     return 'Copy $sourceValue to ${destinationValue ?? 'the default path'}';
   }
 }
@@ -36,11 +36,11 @@ final class CopyCommand extends Command {
 `mandatoryPositionals` accepts `MandatoryPositional` declarations.
 `discretionaryPositionals` accepts optional or defaulted
 `DiscretionaryPositional` declarations. Retain each declaration and pass the
-same instance to `ParsedInputs.valueOf`; declarations are identity-based typed
+same instance to `valueOf`; declarations are identity-based typed
 keys.
 
 Register at most one `Variadic` with the `variadic` parameter. Its validated
-strings are passed to `run` through `args`, not through `ParsedInputs`.
+strings are passed to `run` through `args`, not through `valueOf`.
 
 ## Positional API
 
@@ -113,8 +113,8 @@ final class BuildCommand extends Command {
   String get shortDescription => 'Build Dart sources.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      inputs.valueOf(sources).join(',');
+  String run(ValueOf valueOf, List<String> args) =>
+      valueOf(sources).join(',');
 }
 ```
 
@@ -136,7 +136,7 @@ final class ForwardCommand extends Command {
   String get shortDescription => 'Forward trailing arguments.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => args.join(' ');
+  String run(ValueOf valueOf, List<String> args) => args.join(' ');
 }
 ```
 
@@ -154,8 +154,8 @@ ChoiceVariadic<OutputFormat>(
 Without a registered variadic, Mamba passes tokens after `--` to `run`
 unchanged and does not validate them.
 
-## Presence checks
+## Optional value reads
 
-Use `inputs.contains(declaration)` to check whether an optional positional
-produced a value before calling `valueOf`. Defaulted positionals always contain
-their parsed or fallback value. Variadics have no declaration value to query.
+Call `valueOf(declaration)` directly. An omitted optional positional returns
+null; a defaulted positional returns its parsed or fallback value. Variadics
+are read from `args`, not from declaration handles.

@@ -8,22 +8,22 @@ final class SimpleCommitCommand extends Command {
   @override
   String get shortDescription => 'Commit.';
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Committed README.md.';
+  String run(ValueOf valueOf, List<String> args) => 'Committed README.md.';
 }
 final class FailingPushCommand extends Command with HookRunner {
   @override
-  void preRun(ParsedInputs inputs, MambaReadContext context,
+  void preRun(ValueOf valueOf, MambaReadContext context,
       ProcessedStandardInput? input) {}
   @override
   String get name => 'push';
   @override
   String get shortDescription => 'Push.';
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     throw MambaException('fatal: push rejected');
   }
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     throw MambaException('failed to close transport');
   }
 }

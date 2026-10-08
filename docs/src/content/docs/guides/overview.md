@@ -57,10 +57,10 @@ final class AddCommand extends Command {
   String get shortDescription => 'Add paths to the index.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final pathValue = inputs.valueOf(path);
-    final allPaths = inputs.valueOf(all);
-    final messageValue = inputs.valueOf(message);
+  String run(ValueOf valueOf, List<String> args) {
+    final pathValue = valueOf(path);
+    final allPaths = valueOf(all);
+    final messageValue = valueOf(message);
     return 'Adding ${allPaths ? 'all paths' : pathValue}: $messageValue';
   }
 }
@@ -78,17 +78,17 @@ dart run <file> add README.md --message "Document Mamba"
 
 ```dart
 final label = StringOption('label');
-final String? labelValue = inputs.valueOf(label);
+final String? labelValue = valueOf(label);
 
 final output = StringOption.required('output');
-final String outputValue = inputs.valueOf(output);
+final String outputValue = valueOf(output);
 
 final format = ChoiceOption.withDefault(
   'format',
   choices: OutputFormat.values,
   defaultValue: OutputFormat.text,
 );
-final OutputFormat formatValue = inputs.valueOf(format);
+final OutputFormat formatValue = valueOf(format);
 ```
 
 Options are optional by default. Positionals are mandatory by default:
@@ -117,7 +117,7 @@ through the top-level accessor handle; it returns an immutable nested map.
 ## Trailing arguments
 
 Register a `Variadic` to validate values after `--`. Mamba passes those values
-to `run` as `args`; they are deliberately separate from `ParsedInputs`.
+to `run` as `args`; they are deliberately separate from declaration value reads.
 
 ## Testing
 

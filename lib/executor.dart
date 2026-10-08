@@ -305,7 +305,7 @@ final class _Execution {
     // Only a group can be left without anything to run, so only a group is
     // handed the formatter and the registry it resolved to.
     if (command is GroupCommand) command.help = CommandHelp(_help, registry);
-    final inputs = parsed.$2;
+    final valueOf = parsed.$2;
     final readContext = MambaReadContext(_context);
     final errors = <MambaExecutionError>[];
     final persistent = <PersistentHookRunner>[];
@@ -313,7 +313,7 @@ final class _Execution {
     for (final candidate in commandPath) {
       if (candidate is PersistentHookRunner) {
         try {
-          await candidate.prePersistentRun(inputs, _context);
+          await candidate.prePersistentRun(valueOf, _context);
           persistent.add(candidate);
         } on Exception catch (error, trace) {
           errors.add(
@@ -330,7 +330,7 @@ final class _Execution {
     }
     if (errors.isEmpty && command is HookRunner) {
       try {
-        await command.preRun(inputs, readContext, await readStandardInput());
+        await command.preRun(valueOf, readContext, await readStandardInput());
         ordinary = command;
       } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.preRun, error, trace, errorPath));
@@ -339,14 +339,14 @@ final class _Execution {
     String? output;
     if (errors.isEmpty) {
       try {
-        output = await command.run(inputs, parsed.$3);
+        output = await command.run(valueOf, parsed.$3);
       } on Exception catch (error, trace) {
         errors.add(_error(MambaExecutionPhase.run, error, trace, errorPath));
       }
     }
     if (ordinary != null) {
       try {
-        await ordinary.postRun(inputs, readContext);
+        await ordinary.postRun(valueOf, readContext);
       } on Exception catch (error, trace) {
         errors.add(
           _error(MambaExecutionPhase.postRun, error, trace, errorPath),
@@ -355,7 +355,7 @@ final class _Execution {
     }
     for (final hook in persistent.reversed) {
       try {
-        await hook.postPersistentRun(inputs, _context);
+        await hook.postPersistentRun(valueOf, _context);
       } on Exception catch (error, trace) {
         errors.add(
           _error(

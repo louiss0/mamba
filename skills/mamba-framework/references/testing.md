@@ -142,13 +142,13 @@ final class CommitCommand extends Command {
   String get shortDescription => 'Record changes.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     if (!hasStagedChanges) {
       throw MambaException('nothing to commit, working tree clean');
     }
-    final path = inputs.valueOf(_path);
-    final message = inputs.valueOf(_message);
-    final amend = inputs.valueOf(_amend);
+    final path = valueOf(_path);
+    final message = valueOf(_message);
+    final amend = valueOf(_amend);
     final action = amend ? 'Amended' : 'Committed';
     return '$action $path with message: $message';
   }
@@ -291,9 +291,9 @@ final class RemoteAddCommand extends Command {
   String get shortDescription => 'Add a remote.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final name = inputs.valueOf(_name);
-    final url = inputs.valueOf(_url);
+  String run(ValueOf valueOf, List<String> args) {
+    final name = valueOf(_name);
+    final url = valueOf(_url);
     return 'Added remote $name at $url.';
   }
 }
@@ -310,8 +310,8 @@ final class RemoteRemoveCommand extends Command {
   String get shortDescription => 'Remove a remote.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final name = inputs.valueOf(_name);
+  String run(ValueOf valueOf, List<String> args) {
+    final name = valueOf(_name);
     return 'Removed remote $name.';
   }
 }
@@ -450,7 +450,7 @@ final class PushCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
@@ -461,13 +461,13 @@ final class PushCommand extends Command with HookRunner {
   }
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     events.add('push');
     return 'Pushed to origin.';
   }
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     events.add('close transport');
   }
 }

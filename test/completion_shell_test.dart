@@ -273,7 +273,7 @@ foreach (\$case in @(
           );
           for (final candidate in candidates) {
             expect(
-              Parser(registry).parse([candidate]).$2.valueOf(option),
+              Parser(registry).parse([candidate]).$2(option),
               isA<_Literal>(),
             );
           }
@@ -302,7 +302,7 @@ foreach (\$case in @(
       expect(candidates, ['', 'two words', "quote's", r'$(throw "unsafe")']);
       for (final candidate in candidates) {
         expect(
-          Parser(registry).parse(['--format', candidate]).$2.valueOf(option),
+          Parser(registry).parse(['--format', candidate]).$2(option),
           isA<_Literal>(),
         );
       }

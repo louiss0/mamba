@@ -38,15 +38,15 @@ final class CommitCommand extends Command {
   String get shortDescription => 'Record a source change.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final fileValue = inputs.valueOf(file);
-    final amendValue = inputs.valueOf(amend);
+  String run(ValueOf valueOf, List<String> args) {
+    final fileValue = valueOf(file);
+    final amendValue = valueOf(amend);
     return amendValue ? 'Amended with $fileValue' : 'Committed $fileValue';
   }
 }
 ```
 
-`run` receives one identity-keyed `ParsedInputs` object and an immutable list
+`run` receives an invocation-bound `ValueOf` function and an immutable list
 containing validated values after `--`. It can return `String?` or
 `Future<String?>`; a non-null string becomes command output.
 
@@ -66,7 +66,12 @@ The `Command` constructor accepts:
 | `conflicts` | Pairs of named inputs that cannot be used together. |
 
 Retain each declaration as a static or instance field and read it through
-`inputs.valueOf(declaration)`. String lookups are not part of the current API.
+`valueOf(declaration)`. `ValueOf` is the generic function type
+`T Function<T>(ParsedValue<T> input)`: optional declarations return nullable
+values, while required and defaulted declarations keep their non-null types.
+Reading an unregistered handle raises `StateError`. There is no parsed-input
+object or `contains` method; inspect an optional value for null instead.
+String lookups are not part of the current API.
 
 ## Group commands
 
@@ -158,7 +163,7 @@ final class DeployCommand extends Command {
   String get shortDescription => 'Deploy the application.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
+  String run(ValueOf valueOf, List<String> args) => 'Deployed.';
 }
 ```
 

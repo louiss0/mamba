@@ -97,7 +97,7 @@ final class DeployCommand extends Command {
   String get shortDescription => 'Deploy a build.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => inputs.valueOf(target);
+  String run(ValueOf valueOf, List<String> args) => valueOf(target);
 }
 
 /// The root of the fixture: one group of children, and its own flag.
@@ -118,7 +118,7 @@ final class RigCommand extends GroupCommand {
   String get shortDescription => 'Completion fixture.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 final class StatusCommand extends Command {
@@ -142,6 +142,5 @@ final class StatusCommand extends Command {
   String get shortDescription => 'Report status.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      inputs.valueOf(files).join(',');
+  String run(ValueOf valueOf, List<String> args) => valueOf(files).join(',');
 }

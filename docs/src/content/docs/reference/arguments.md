@@ -29,9 +29,9 @@ final class CopyCommand extends Command {
   String get shortDescription => 'Copy a file.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final sourceValue = inputs.valueOf(source);
-    final destinationValue = inputs.valueOf(destination);
+  String run(ValueOf valueOf, List<String> args) {
+    final sourceValue = valueOf(source);
+    final destinationValue = valueOf(destination);
     return 'Copy $sourceValue to ${destinationValue ?? 'the default path'}';
   }
 }
@@ -55,14 +55,14 @@ final target = NormalPositional(
   'target',
   regex: RegExp(r'.+\.txt'),
 );
-final String targetValue = inputs.valueOf(target);
+final String targetValue = valueOf(target);
 ```
 
 A discretionary normal positional produces `String?`:
 
 ```dart
 final target = NormalPositional.optional('target');
-final String? targetValue = inputs.valueOf(target);
+final String? targetValue = valueOf(target);
 ```
 
 ## `ChoicePositional<T>`
@@ -102,7 +102,7 @@ need at least one token and produce non-null lists:
 
 ```dart
 final files = RepeatedStringPositional('files', times: 2);
-final List<String> fileValues = inputs.valueOf(files);
+final List<String> fileValues = valueOf(files);
 ```
 
 Use `.optional` for nullable discretionary lists. Repeated choices also support
@@ -120,7 +120,7 @@ final formats = RepeatedChoicePositional.withDefault(
 
 A `Variadic` validates tokens after the first `--`. Validated values remain
 strings and are passed to `Command.run` as the immutable `args` list; they are
-not stored in `ParsedInputs`.
+not read through `valueOf`.
 
 ### `NormalVariadic`
 

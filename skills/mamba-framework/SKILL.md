@@ -57,7 +57,7 @@ selected command.
 
 Register an input on the executor when every command must be able to read the
 same declaration. Retain the declaration outside the executor call so
-commands can pass that exact instance to `ParsedInputs.valueOf`:
+commands can pass that exact instance to `valueOf`:
 
 ```dart
 final profile = StringOption.withDefault(
@@ -109,9 +109,9 @@ final class Deploy extends Command {
   String get shortDescription => 'Deploy the application.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final environment = inputs.valueOf(_environment);
-    final force = inputs.valueOf(_force);
+  String run(ValueOf valueOf, List<String> args) {
+    final environment = valueOf(_environment);
+    final force = valueOf(_force);
     return 'Deploying to $environment (force: $force).';
   }
 }

@@ -11,7 +11,7 @@ registration lists:
 | `accessors` | dotted option trees |
 
 Retain the option or group declaration and pass the same instance to
-`ParsedInputs.valueOf`; declarations are identity-based typed keys.
+`valueOf`; declarations are identity-based typed keys.
 
 ## Scalar options
 
@@ -71,8 +71,8 @@ final class BuildCommand extends Command {
   String get shortDescription => 'Build an output.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      '${inputs.valueOf(output)}/${inputs.valueOf(retries)}/${inputs.valueOf(format).name}';
+  String run(ValueOf valueOf, List<String> args) =>
+      '${valueOf(output)}/${valueOf(retries)}/${valueOf(format).name}';
 }
 ```
 
@@ -122,8 +122,8 @@ final class ServeCommand extends Command {
   String get shortDescription => 'Serve on selected ports.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      inputs.valueOf(ports).join(',');
+  String run(ValueOf valueOf, List<String> args) =>
+      valueOf(ports).join(',');
 }
 ```
 
@@ -155,8 +155,8 @@ final class LoginCommand extends Command {
   String get shortDescription => 'Log in.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      'Logged in as ${inputs.valueOf(credentials)['username']}';
+  String run(ValueOf valueOf, List<String> args) =>
+      'Logged in as ${valueOf(credentials)['username']}';
 }
 ```
 
@@ -201,8 +201,8 @@ final class ExportCommand extends Command {
   String get shortDescription => 'Export to one destination.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      inputs.valueOf(output).keys.single;
+  String run(ValueOf valueOf, List<String> args) =>
+      valueOf(output).keys.single;
 }
 ```
 
@@ -240,8 +240,8 @@ final class ConnectCommand extends Command {
   String get shortDescription => 'Connect to a server.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      'Connected to ${inputs.valueOf(server)['host']}';
+  String run(ValueOf valueOf, List<String> args) =>
+      'Connected to ${valueOf(server)['host']}';
 }
 ```
 
@@ -272,8 +272,8 @@ preserving parsing.
 Use `Command.conflicts` to reject explicit CLI occurrences before `run`, not
 defaulted values. Explicit negations count even when false. Applicable edges
 inherit by declaration identity through compatible overrides; unavailable local
-endpoints do not resurrect under unrelated matching names. `contains` still
-means stored-value presence.
+endpoints do not resurrect under unrelated matching names. Occurrence tracking
+remains internal; `valueOf` reads resolved values.
 Names may refer to flags, ordinary options, paired or selected members, or
 accessor leaves. Use the full dotted name for an accessor leaf:
 
@@ -288,8 +288,8 @@ new()
     );
 ```
 
-Use `inputs.contains(declaration)` before reading an omitted optional scalar or
-repeatable option. Defaulted options always contain their parsed or fallback
-value. Paired groups, selected groups, and top-level accessors always contain
-a map; an omitted optional group has an empty map, and optional accessor leaves
-are absent from their containing map.
+Call `valueOf(declaration)` directly: omitted optional scalar and repeatable
+options return null. Defaulted options return their parsed or fallback values.
+Paired groups, selected groups, and accessor containers always return a map;
+an omitted optional group has an empty map, and omitted optional accessor leaves
+return null through their handles and are absent from their containing maps.

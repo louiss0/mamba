@@ -6,7 +6,7 @@ class ExampleCommand(final String name) extends Command {
   @override
   String get shortDescription => 'Example command.';
   @override
-  String run(ParsedInputs inputs, List<String> args) => name;
+  String run(ValueOf valueOf, List<String> args) => name;
 }
 final class StatusCommand extends ExampleCommand {
   new() : super('status');
@@ -24,12 +24,12 @@ final class ImportCommand extends Command with HookRunner {
   @override
   String get shortDescription => 'Read standard input.';
   @override
-  void preRun(ParsedInputs inputs, MambaReadContext context,
+  void preRun(ValueOf valueOf, MambaReadContext context,
       ProcessedStandardInput? input) {
     received = input?.utf8Text;
   }
   @override
-  String? run(ParsedInputs inputs, List<String> args) => received;
+  String? run(ValueOf valueOf, List<String> args) => received;
 }
 final class ApplyCommand extends Command with HookRunner {
   String? received;
@@ -38,12 +38,12 @@ final class ApplyCommand extends Command with HookRunner {
   @override
   String get shortDescription => 'Apply input.';
   @override
-  void preRun(ParsedInputs inputs, MambaReadContext context,
+  void preRun(ValueOf valueOf, MambaReadContext context,
       ProcessedStandardInput? input) {
     received = input?.utf8Text;
   }
   @override
-  String? run(ParsedInputs inputs, List<String> args) => received;
+  String? run(ValueOf valueOf, List<String> args) => received;
 }
 enum OutputFormat { text, json }
 enum Format { text, json }

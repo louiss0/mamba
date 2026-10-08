@@ -27,16 +27,16 @@ final class DeployCommand extends Command {
   String get shortDescription => 'Deploy the application.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final forceValue = inputs.valueOf(force);
-    final verbosityValue = inputs.valueOf(verbosity);
+  String run(ValueOf valueOf, List<String> args) {
+    final forceValue = valueOf(force);
+    final verbosityValue = valueOf(verbosity);
     return 'force: $forceValue, verbosity: $verbosityValue';
   }
 }
 ```
 
 Retain each declaration and pass the same instance to
-`ParsedInputs.valueOf`; declarations are identity-based typed keys.
+`valueOf`; declarations are identity-based typed keys.
 
 ## `BooleanFlag`
 
@@ -110,8 +110,7 @@ new()
     );
 ```
 
-`valueOf` always returns the flag's value. Parsed flags always satisfy
-`inputs.contains(flag)` because Mamba materializes `false`, the configured
-boolean default, or `0` after parsing. Inspecting `ParsedInputs` cannot
-distinguish an omitted flag from an explicit spelling that produces the same
-value.
+`valueOf(flag)` always returns the resolved flag value: `false`, the configured
+boolean default, or `0` when omitted. That value does not distinguish omission
+from an explicit spelling producing the same value. Use `Command.conflicts`
+for explicit-occurrence relationships; occurrence tracking remains internal.

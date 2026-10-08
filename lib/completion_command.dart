@@ -45,9 +45,9 @@ class CompletionCommand extends Command {
          aliases: ['cmp', 'cpt'],
        );
   @override
-  String? run(ParsedInputs inputs, List<String> args) {
-    final shell = inputs.valueOf(shellInput);
-    final path = inputs.valueOf(pathInput) ?? '';
+  String? run(ValueOf valueOf, List<String> args) {
+    final shell = valueOf(shellInput);
+    final path = valueOf(pathInput) ?? '';
     final extension = _extensionFor(shell);
     if (path.isNotEmpty && !_isValidPath(path, extension)) {
       throw MambaException(

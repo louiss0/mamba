@@ -84,9 +84,9 @@ final class GenerateCompletionCommand extends CompletionCommand {
   String get shortDescription => 'Generate a shell completion artifact.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final selectedShell = inputs.valueOf(CompletionCommand.shellInput);
-    final path = inputs.valueOf(CompletionCommand.pathInput);
+  String run(ValueOf valueOf, List<String> args) {
+    final selectedShell = valueOf(CompletionCommand.shellInput);
+    final path = valueOf(CompletionCommand.pathInput);
     if (path == null) {
       throw MambaException('A destination path is required.');
     }

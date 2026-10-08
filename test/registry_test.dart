@@ -380,7 +380,7 @@ void main() {
     final registry = CommandRegistry.create('app', 'App.', options: [format]);
     for (final choice in WireFormat.values.take(4)) {
       expect(
-        Parser(registry).parse(['--format=${choice.value}']).$2.valueOf(format),
+        Parser(registry).parse(['--format=${choice.value}']).$2(format),
         same(choice),
       );
     }
@@ -2255,7 +2255,7 @@ void main() {
 
         final commandHelp = Parser(registry).parse(['config', '--help']);
         expect(commandHelp.$1, ['config']);
-        expect(commandHelp.$2.valueOf(verbose), 0);
+        expect(commandHelp.$2(verbose), 0);
         expect(commandHelp.$3, isEmpty);
         expect(commandHelp.help, isTrue);
         expect(Parser(registry).parse(['--', '--help']).$3, ['--help']);
@@ -2263,7 +2263,7 @@ void main() {
         final bundledHelp = Parser(registry)
             .parse(['--verbose', 'config', '-h']);
         expect(bundledHelp.$1, ['config']);
-        expect(bundledHelp.$2.valueOf(verbose), 1);
+        expect(bundledHelp.$2(verbose), 1);
         expect(bundledHelp.$3, isEmpty);
       });
 
@@ -2342,14 +2342,14 @@ void main() {
         ],
       );
 
-      final inputs = Parser(registry)
+      final valueOf = Parser(registry)
           .parse(['config', '--no-color', 'get', '--retries', '2'])
           .$2;
 
-      expect(inputs.valueOf(inheritedFlag), isFalse);
-      expect(inputs.valueOf(localFlag), isFalse);
-      expect(inputs.valueOf(inheritedOption), 2);
-      expect(inputs.valueOf(localOption), isNull);
+      expect(valueOf(inheritedFlag), isFalse);
+      expect(valueOf(localFlag), isFalse);
+      expect(valueOf(inheritedOption), 2);
+      expect(valueOf(localOption), isNull);
     });
 
     test('nearer published inputs override root inputs at descendants', () {
@@ -2369,12 +2369,11 @@ void main() {
         ],
       );
 
-      final inputs = Parser(registry)
+      final valueOf = Parser(registry)
           .parse(['config', 'get', '--profile', 'development'])
           .$2;
-      expect(inputs.valueOf(groupProfile), 'development');
-      expect(inputs.contains(rootProfile), isTrue);
-      expect(inputs.valueOf(rootProfile), 'development');
+      expect(valueOf(groupProfile), 'development');
+      expect(valueOf(rootProfile), 'development');
     });
     test('only group commands register child commands', () {
       final registry = CommandRegistry.create(

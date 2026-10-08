@@ -60,7 +60,7 @@ final class _BuildCommand extends Command {
   String get shortDescription => 'Build the project.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 final class _BuildAllCommand extends Command {
@@ -71,7 +71,7 @@ final class _BuildAllCommand extends Command {
   String get shortDescription => 'Build every package.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 final class _AddCommand extends Command {
@@ -82,7 +82,7 @@ final class _AddCommand extends Command {
   String get shortDescription => 'Add a remote.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => '';
+  String run(ValueOf valueOf, List<String> args) => '';
 }
 
 final class _RemoteGroup extends GroupCommand {
@@ -125,7 +125,7 @@ void main() {
       () => Parser(registry).parse(['--ratio=$maximum']),
       throwsA(isA<MambaParseException>()),
     );
-    expect(Parser(registry).parse(['--ratio=0']).$2.valueOf(option), 0.0);
+    expect(Parser(registry).parse(['--ratio=0']).$2(option), 0.0);
   });
   group('typed parsed inputs', () {
     test('returns values through their declaration identities', () {
@@ -134,7 +134,7 @@ void main() {
       final mode = ChoiceOption<Format>('format', choices: Format.values);
       final formats = RepeatableChoiceOption<Format>('formats', Format.values);
       final source = ChoicePositional<Format>('source', choices: Format.values);
-      final inputs =
+      final valueOf =
           parser(
             options: [name, count, mode, formats],
             mandatory: [source],
@@ -150,20 +150,20 @@ void main() {
             'json',
             '--formats=text',
           ]).$2;
-      expect(inputs.valueOf(name), 'Ada');
-      expect(inputs.valueOf(count), 2);
-      expect(inputs.valueOf(mode), Format.text);
-      expect(inputs.valueOf(formats), [Format.json, Format.text]);
-      expect(inputs.valueOf(source), Format.json);
+      expect(valueOf(name), 'Ada');
+      expect(valueOf(count), 2);
+      expect(valueOf(mode), Format.text);
+      expect(valueOf(formats), [Format.json, Format.text]);
+      expect(valueOf(source), Format.json);
     });
     test('keeps same-typed inputs separate and omitted values null', () {
       final first = StringOption('first');
       final second = StringOption('second');
-      final inputs = parser(options: [first, second])
+      final valueOf = parser(options: [first, second])
           .parse(['--first', 'one'])
           .$2;
-      expect(inputs.valueOf(first), 'one');
-      expect(inputs.valueOf(second), isNull);
+      expect(valueOf(first), 'one');
+      expect(valueOf(second), isNull);
     });
   });
 
@@ -180,27 +180,27 @@ void main() {
     final builtInParser = Parser(registry);
 
     test('returns the help flag through its declaration', () {
-      final inputs = builtInParser.parse(['--help']).$2;
+      final valueOf = builtInParser.parse(['--help']).$2;
 
-      expect(inputs.valueOf(MambaBuiltInFlags.help), isTrue);
+      expect(valueOf(MambaBuiltInFlags.help), isTrue);
     });
 
     test('returns the dry-run flag through its declaration', () {
-      final inputs = builtInParser.parse(['--dry-run']).$2;
+      final valueOf = builtInParser.parse(['--dry-run']).$2;
 
-      expect(inputs.valueOf(MambaBuiltInFlags.dryRun), isTrue);
+      expect(valueOf(MambaBuiltInFlags.dryRun), isTrue);
     });
 
     test('returns the verbose flag through its declaration', () {
-      final inputs = builtInParser.parse(['--verbose', '--verbose']).$2;
+      final valueOf = builtInParser.parse(['--verbose', '--verbose']).$2;
 
-      expect(inputs.valueOf(MambaBuiltInFlags.verbose), 2);
+      expect(valueOf(MambaBuiltInFlags.verbose), 2);
     });
 
     test('returns the version flag through its declaration', () {
-      final inputs = builtInParser.parse(['--version']).$2;
+      final valueOf = builtInParser.parse(['--version']).$2;
 
-      expect(inputs.valueOf(MambaBuiltInFlags.version), isTrue);
+      expect(valueOf(MambaBuiltInFlags.version), isTrue);
     });
   });
 
@@ -459,8 +459,7 @@ void main() {
       expect(
         parser(options: [mode])
             .parse(['--format', 'json', '--format=json'])
-            .$2
-            .valueOf(mode),
+            .$2(mode),
         [Format.json, Format.json],
       );
     });
@@ -513,8 +512,7 @@ void main() {
     expect(
       parser(selectedOptions: [selected])
           .parse(['--format', 'json'])
-          .$2
-          .valueOf(selected),
+          .$2(selected),
       {'format': Format.json},
     );
   });
@@ -526,17 +524,13 @@ void main() {
       final tags = RepeatablePairStringOption('tag');
       final tagGroup = PairedOptions<List<String>>([tags]);
       expect(
-        parser(paired: [formats])
-            .parse(['--format', 'json'])
-            .$2
-            .valueOf(formats),
+        parser(paired: [formats]).parse(['--format', 'json']).$2(formats),
         {'format': Format.json},
       );
       expect(
         parser(paired: [tagGroup])
             .parse(['--tag', 'one', '--tag', 'two'])
-            .$2
-            .valueOf(tagGroup),
+            .$2(tagGroup),
         {
           'tag': ['one', 'two'],
         },
@@ -549,8 +543,7 @@ void main() {
 
       final Map<String, String> values = parser(paired: [credentials])
           .parse([])
-          .$2
-          .valueOf(credentials);
+          .$2(credentials);
 
       expect(values, isEmpty);
     });
@@ -562,8 +555,7 @@ void main() {
 
       final Map<String, String> values = parser(paired: [credentials])
           .parse(['--host', 'db.internal', '--password', 'mamba'])
-          .$2
-          .valueOf(credentials);
+          .$2(credentials);
 
       expect(values, {'host': 'db.internal', 'password': 'mamba'});
     });
@@ -573,13 +565,11 @@ void main() {
       final port = PairIntOption('port');
       final server = PairedOptions<Object>.required([host, port]);
 
-      final inputs = parser(paired: [server])
+      final valueOf = parser(paired: [server])
           .parse(['--host', 'localhost', '--port', '8080'])
           .$2;
 
-      expect(inputs.valueOf(server), {'host': 'localhost', 'port': 8080});
-      expect(inputs.contains(host), isFalse);
-      expect(inputs.contains(port), isFalse);
+      expect(valueOf(server), {'host': 'localhost', 'port': 8080});
     });
   });
 
@@ -590,10 +580,10 @@ void main() {
       choices: Format.values,
       defaultValue: [Format.text],
     );
-    final inputs = parser(discretionary: [destination, formats]).parse([]).$2;
+    final valueOf = parser(discretionary: [destination, formats]).parse([]).$2;
 
-    expect(inputs.valueOf(destination), isNull);
-    expect(inputs.valueOf(formats), [Format.text]);
+    expect(valueOf(destination), isNull);
+    expect(valueOf(formats), [Format.text]);
   });
 
   test('required and defaulted options always produce values', () {
@@ -608,11 +598,11 @@ void main() {
       () => parser(options: [name, format]).parse([]),
       throwsA(isA<MambaParseException>()),
     );
-    final inputs = parser(options: [name, format])
+    final valueOf = parser(options: [name, format])
         .parse(['--name', 'mamba'])
         .$2;
-    expect(inputs.valueOf(name), 'mamba');
-    expect(inputs.valueOf(format), Format.text);
+    expect(valueOf(name), 'mamba');
+    expect(valueOf(format), Format.text);
   });
 
   test(
@@ -624,8 +614,8 @@ void main() {
         throwsA(isA<MambaParseException>()),
       );
 
-      final inputs = parser(options: [formats]).parse(['--format', 'json']).$2;
-      expect(inputs.valueOf(formats), <Format>[Format.json]);
+      final valueOf = parser(options: [formats]).parse(['--format', 'json']).$2;
+      expect(valueOf(formats), <Format>[Format.json]);
     },
   );
 
@@ -638,8 +628,8 @@ void main() {
           .parse(['--no-verbose', '--count', '-vcch']);
 
       expect(result.help, isTrue);
-      expect(result.$2.valueOf(verbose), isTrue);
-      expect(result.$2.valueOf(count), 3);
+      expect(result.$2(verbose), isTrue);
+      expect(result.$2(count), 3);
     });
 
     test(
@@ -652,7 +642,7 @@ void main() {
           throwsA(isA<MambaRegistryError>()),
         );
         final result = parser(flags: [noCache]).parse(['--no-cache']);
-        expect(result.$2.valueOf(noCache), isTrue);
+        expect(result.$2(noCache), isTrue);
       },
     );
 
@@ -662,9 +652,9 @@ void main() {
       final lone = parser(flags: [xray]).parse(['-h']);
       final clustered = parser(flags: [xray]).parse(['-xh']);
 
-      expect(lone.$2.valueOf(MambaBuiltInFlags.help), isTrue);
+      expect(lone.$2(MambaBuiltInFlags.help), isTrue);
       expect(clustered.help, isTrue);
-      expect(clustered.$2.valueOf(MambaBuiltInFlags.help), isTrue);
+      expect(clustered.$2(MambaBuiltInFlags.help), isTrue);
     });
 
     test('rejects unknown and valued long flags', () {
@@ -732,7 +722,7 @@ void main() {
           () => subject.parse(['-n', '-draft']),
           throwsA(isA<MambaParseException>()),
         );
-        expect(subject.parse(['-n=-draft']).$2.valueOf(name), '-draft');
+        expect(subject.parse(['-n=-draft']).$2(name), '-draft');
       },
     );
   });
@@ -783,13 +773,13 @@ void main() {
         );
         final target = NormalPositional.optional('target');
 
-        final inputs = parser(
+        final valueOf = parser(
           mandatory: [formats],
           discretionary: [target],
         ).parse(['json', 'text', 'extra']).$2;
 
-        expect(inputs.valueOf(formats), [Format.json, Format.text]);
-        expect(inputs.valueOf(target), 'extra');
+        expect(valueOf(formats), [Format.json, Format.text]);
+        expect(valueOf(target), 'extra');
       },
     );
 
@@ -820,9 +810,9 @@ void main() {
       final count = IntOption('count');
       final ratio = DoubleOption('ratio');
       final subject = parser(options: [count, ratio]);
-      final inputs = subject.parse(['--count', '-2', '--ratio', '-0.25']).$2;
-      expect(inputs.valueOf(count), -2);
-      expect(inputs.valueOf(ratio), -0.25);
+      final valueOf = subject.parse(['--count', '-2', '--ratio', '-0.25']).$2;
+      expect(valueOf(count), -2);
+      expect(valueOf(ratio), -0.25);
     });
 
     test('rejects malformed integer and double values', () {
@@ -880,10 +870,7 @@ void main() {
           ),
         ),
       );
-      expect(
-        parser(options: [ratio]).parse(['--ratio', '0.5']).$2.valueOf(ratio),
-        0.5,
-      );
+      expect(parser(options: [ratio]).parse(['--ratio', '0.5']).$2(ratio), 0.5);
     });
 
     test('rejects unknown choices', () {
@@ -907,11 +894,11 @@ void main() {
       final json = PairStringOption('json');
       final output = SelectedOptions<String>([json]);
 
-      final inputs = parser(selectedOptions: [output])
+      final valueOf = parser(selectedOptions: [output])
           .parse(['--json', 'tasks.json'])
           .$2;
 
-      expect(inputs.valueOf(output), {'json': 'tasks.json'});
+      expect(valueOf(output), {'json': 'tasks.json'});
     });
 
     group('returns typed maps for each pair option type', () {
@@ -928,9 +915,9 @@ void main() {
 
       for (final testCase in cases) {
         test('returns ${testCase.expected.keys.single}', () {
-          final inputs = subject.parse(testCase.arguments).$2;
+          final valueOf = subject.parse(testCase.arguments).$2;
 
-          expect(inputs.valueOf(selected), testCase.expected);
+          expect(valueOf(selected), testCase.expected);
         });
       }
     });
@@ -943,8 +930,7 @@ void main() {
 
         final Map<String, String> values = parser(selectedOptions: [connection])
             .parse(['--host', 'db.internal', '--database', 'mamba'])
-            .$2
-            .valueOf(connection);
+            .$2(connection);
 
         expect(values, {'host': 'db.internal', 'database': 'mamba'});
       });
@@ -956,8 +942,7 @@ void main() {
 
         final Map<String, int> values = parser(selectedOptions: [connection])
             .parse(['--port', '5432', '--retries', '3'])
-            .$2
-            .valueOf(connection);
+            .$2(connection);
 
         expect(values, {'port': 5432, 'retries': 3});
       });
@@ -969,8 +954,7 @@ void main() {
 
         final Map<String, double> values = parser(selectedOptions: [connection])
             .parse(['--timeout', '1.5', '--ratio', '0.75'])
-            .$2
-            .valueOf(connection);
+            .$2(connection);
 
         expect(values, {'timeout': 1.5, 'ratio': 0.75});
       });
@@ -1010,9 +994,9 @@ void main() {
 
       for (final testCase in cases) {
         test('returns ${testCase.expected.keys.join(', ')}', () {
-          final inputs = subject.parse(testCase.arguments).$2;
+          final valueOf = subject.parse(testCase.arguments).$2;
 
-          expect(inputs.valueOf(connection), testCase.expected);
+          expect(valueOf(connection), testCase.expected);
         });
       }
     });
@@ -1032,7 +1016,7 @@ void main() {
       final output = SelectedOptions<String>([json, text], single: true);
       final subject = parser(selectedOptions: [output]);
 
-      expect(subject.parse(['--json', 'tasks.json']).$2.valueOf(output), {
+      expect(subject.parse(['--json', 'tasks.json']).$2(output), {
         'json': 'tasks.json',
       });
       expect(
@@ -1058,10 +1042,10 @@ void main() {
       });
 
       test('returns one required selected value', () {
-        final inputs = subject.parse(['--attempts', '3']).$2;
+        final valueOf = subject.parse(['--attempts', '3']).$2;
 
-        expect(inputs.valueOf(retry), {'attempts': 3});
-        expect(inputs.valueOf(output), isEmpty);
+        expect(valueOf(retry), {'attempts': 3});
+        expect(valueOf(output), isEmpty);
       });
 
       test('rejects multiple values for a required single selection', () {
@@ -1078,11 +1062,11 @@ void main() {
       final host = AccessorStringOption('host');
       final port = AccessorIntOption('port');
       final server = AccessorListOption('server', [host, port]);
-      final inputs = parser(accessors: [server])
+      final valueOf = parser(accessors: [server])
           .parse(['--server.host', 'localhost', '--server.port=80'])
           .$2;
 
-      expect(inputs.valueOf(server), {'host': 'localhost', 'port': 80});
+      expect(valueOf(server), {'host': 'localhost', 'port': 80});
     });
 
     test('returns nested accessor values in immutable maps', () {
@@ -1092,8 +1076,7 @@ void main() {
 
       final values = parser(accessors: [server])
           .parse(['--server.auth.token', 'secret'])
-          .$2
-          .valueOf(server);
+          .$2(server);
 
       expect(values, {
         'auth': {'token': 'secret'},
@@ -1108,13 +1091,12 @@ void main() {
     test('answers valueOf for a nested leaf as well as its root', () {
       final leaf = AccessorStringOption('dsn');
       final root = AccessorListOption('database', [leaf]);
-      final inputs = parser(accessors: [root])
+      final valueOf = parser(accessors: [root])
           .parse(['--database.dsn', 'pg://x'])
           .$2;
 
-      expect(inputs.valueOf(root), {'dsn': 'pg://x'});
-      expect(inputs.valueOf(leaf), 'pg://x');
-      expect(inputs.contains(leaf), isTrue);
+      expect(valueOf(root), {'dsn': 'pg://x'});
+      expect(valueOf(leaf), 'pg://x');
     });
 
     test('returns defaulted accessor leaves', () {
@@ -1125,9 +1107,9 @@ void main() {
       );
       final output = AccessorListOption('output', [format]);
 
-      final inputs = parser(accessors: [output]).parse([]).$2;
+      final valueOf = parser(accessors: [output]).parse([]).$2;
 
-      expect(inputs.valueOf(output), {'format': Format.text});
+      expect(valueOf(output), {'format': Format.text});
     });
 
     test('requires nested accessor leaves', () {
@@ -1313,9 +1295,9 @@ void main() {
 
       for (final testCase in cases) {
         test(testCase.description, () {
-          final inputs = subject.parse(testCase.arguments).$2;
+          final valueOf = subject.parse(testCase.arguments).$2;
 
-          expect(inputs.valueOf(testCase.accessor), testCase.expected);
+          expect(valueOf(testCase.accessor), testCase.expected);
         });
       }
     });
@@ -1362,7 +1344,7 @@ void main() {
       final ratios = RepeatablePairDoubleOption('ratio');
       final group = PairedOptions<Object>([tags, ports, ratios]);
 
-      final inputs = parser(paired: [group]).parse([
+      final valueOf = parser(paired: [group]).parse([
         '--tag',
         'one',
         '--tag=two',
@@ -1374,7 +1356,7 @@ void main() {
         '--ratio=1',
       ]).$2;
 
-      final result = inputs.valueOf(group);
+      final result = valueOf(group);
       expect(result['tag'], ['one', 'two']);
       expect(result['port'], [1, 2]);
       expect(result['ratio'], [0.5, 1.0]);
@@ -1390,24 +1372,24 @@ void main() {
       );
       final count = NormalPositional('count', regex: RegExp(r'\d+'));
 
-      final inputs = parser(mandatory: [files, count])
+      final valueOf = parser(mandatory: [files, count])
           .parse(['one', 'two', '3'])
           .$2;
 
-      expect(inputs.valueOf(files), ['one', 'two']);
-      expect(inputs.valueOf(count), '3');
+      expect(valueOf(files), ['one', 'two']);
+      expect(valueOf(count), '3');
     });
 
     test('limits repeated positionals when the next input also matches', () {
       final files = RepeatedStringPositional('files', times: 2);
       final destination = NormalPositional('destination');
 
-      final inputs = parser(mandatory: [files, destination])
+      final valueOf = parser(mandatory: [files, destination])
           .parse(['one', 'two', 'three'])
           .$2;
 
-      expect(inputs.valueOf(files), ['one', 'two']);
-      expect(inputs.valueOf(destination), 'three');
+      expect(valueOf(files), ['one', 'two']);
+      expect(valueOf(destination), 'three');
     });
 
     test('names the repeated positional that turned a value away', () {
@@ -1462,10 +1444,7 @@ void main() {
         defaultValue: Format.text,
       );
 
-      expect(
-        parser(discretionary: [format]).parse([]).$2.valueOf(format),
-        Format.text,
-      );
+      expect(parser(discretionary: [format]).parse([]).$2(format), Format.text);
       expect(
         () => parser().parse(['extra']),
         throwsA(

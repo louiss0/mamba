@@ -27,24 +27,24 @@ final class ResultCommand extends Command with HookRunner {
   String get shortDescription => 'Runs.';
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
     events.add('pre');
     if (failPre) throw Exception('pre failed');
-    expect(inputs.valueOf(enabled), isA<bool>());
+    expect(valueOf(enabled), isA<bool>());
   }
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     events.add('run');
     if (failRun) throw MambaException('run failed', exitCode: 7);
     return 'output';
   }
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     events.add('post');
     if (failPost) throw MambaException('post failed', exitCode: 9);
   }
@@ -65,13 +65,13 @@ final class Persistent extends GroupCommand with PersistentHookRunner {
   @override
   String get shortDescription => 'Group.';
   @override
-  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
+  void prePersistentRun(ValueOf valueOf, MambaContext context) {
     events.add('pre-group');
     if (failPre) throw MambaException('persistent pre failed', exitCode: 6);
   }
 
   @override
-  void postPersistentRun(ParsedInputs inputs, MambaContext context) {
+  void postPersistentRun(ValueOf valueOf, MambaContext context) {
     events.add('post-group');
     if (failPost) throw MambaException('persistent failed', exitCode: 8);
   }
@@ -87,7 +87,7 @@ final class ContextReader extends Command with HookRunner {
 
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
@@ -95,12 +95,12 @@ final class ContextReader extends Command with HookRunner {
   }
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     expect(context.get(_contextValue), 'available');
   }
 
   @override
-  String? run(ParsedInputs inputs, List<String> args) => null;
+  String? run(ValueOf valueOf, List<String> args) => null;
 }
 
 final class ContextWriter extends GroupCommand with PersistentHookRunner {
@@ -111,12 +111,12 @@ final class ContextWriter extends GroupCommand with PersistentHookRunner {
   String get shortDescription => 'Writes hook context.';
 
   @override
-  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
+  void prePersistentRun(ValueOf valueOf, MambaContext context) {
     context.set(_contextValue, const MambaContextString('available'));
   }
 
   @override
-  void postPersistentRun(ParsedInputs inputs, MambaContext context) {
+  void postPersistentRun(ValueOf valueOf, MambaContext context) {
     expect(context.get(_contextValue), 'available');
     context.set(_contextValue, const MambaContextString('replaced'));
   }
@@ -131,7 +131,7 @@ final class RetainingContextWriter extends GroupCommand
   String get shortDescription => 'Retains hook context.';
 
   @override
-  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
+  void prePersistentRun(ValueOf valueOf, MambaContext context) {
     if (context.get(_contextValue) == null) {
       context.set(_contextValue, const MambaContextString('available'));
     }
@@ -181,7 +181,7 @@ final class _LeafNamed extends Command {
   String get shortDescription => 'Records that it ran.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     events.add(leafName);
     return leafName;
   }
@@ -202,7 +202,7 @@ final class PathRecordingCommand extends Command {
   String get shortDescription => 'Records its command path.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     path.add(name);
     return name;
   }
@@ -240,13 +240,13 @@ final class DefaultPostHookCommand extends Command with HookRunner {
 
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {}
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'complete';
+  String run(ValueOf valueOf, List<String> args) => 'complete';
 }
 
 final class LabelCommand extends Command {
@@ -257,7 +257,7 @@ final class LabelCommand extends Command {
   @override
   String get shortDescription => 'Reads a label.';
   @override
-  String? run(ParsedInputs inputs, List<String> args) => inputs.valueOf(label);
+  String? run(ValueOf valueOf, List<String> args) => valueOf(label);
 }
 
 final class CountCommand extends Command with HookRunner {
@@ -270,21 +270,21 @@ final class CountCommand extends Command with HookRunner {
   String get shortDescription => 'Counts.';
   @override
   void preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {
-    events.add('pre:${inputs.valueOf(count)}');
+    events.add('pre:${valueOf(count)}');
   }
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    events.add('run:${inputs.valueOf(count)}');
+  String run(ValueOf valueOf, List<String> args) {
+    events.add('run:${valueOf(count)}');
     return 'counted';
   }
 
   @override
-  void postRun(ParsedInputs inputs, MambaReadContext context) {
+  void postRun(ValueOf valueOf, MambaReadContext context) {
     events.add('post');
   }
 }
@@ -302,7 +302,7 @@ final class DefaultCommand extends Command {
   List<String> get aliases => ['d'];
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
+  String run(ValueOf valueOf, List<String> args) {
     events.add('run');
     return 'default output';
   }
@@ -317,7 +317,7 @@ final class InvalidContextWriter extends GroupCommand
   String get shortDescription => 'Writes invalid hook context.';
 
   @override
-  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
+  void prePersistentRun(ValueOf valueOf, MambaContext context) {
     final dynamic rawKey = _contextValue;
     // This test exists to prove a dynamic write is rejected, so the implicit
     // cast is the behaviour under test rather than an oversight.
@@ -338,8 +338,8 @@ final class GlobalAccessorCommand extends Command {
   String get shortDescription => 'Reads global configuration.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final values = inputs.valueOf(configuration);
+  String run(ValueOf valueOf, List<String> args) {
+    final values = valueOf(configuration);
     return values['host'] as String;
   }
 }
@@ -352,8 +352,8 @@ final class DryRunFlagReader extends Command {
   String get shortDescription => 'Read opt-in framework flags.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
-      '${inputs.valueOf(MambaBuiltInFlags.dryRun)}';
+  String run(ValueOf valueOf, List<String> args) =>
+      '${valueOf(MambaBuiltInFlags.dryRun)}';
 }
 
 final class _ControlledCommand extends Command {
@@ -365,7 +365,7 @@ final class _ControlledCommand extends Command {
   @override
   String get shortDescription => 'Controlled execution.';
   @override
-  Future<String> run(ParsedInputs inputs, List<String> args) async {
+  Future<String> run(ValueOf valueOf, List<String> args) async {
     if (first) {
       first = false;
       entered.complete();
@@ -384,14 +384,14 @@ final class _ValueProbe extends Command {
     super.discretionaryPositionals,
     super.accessors,
   });
-  final FutureOr<String?> Function(ParsedInputs, List<String>)? action;
+  final FutureOr<String?> Function(ValueOf, List<String>)? action;
   @override
   String get name => 'run';
   @override
   String get shortDescription => 'Observe public invocation values.';
   @override
-  FutureOr<String?> run(ParsedInputs inputs, List<String> args) =>
-      action?.call(inputs, args);
+  FutureOr<String?> run(ValueOf valueOf, List<String> args) =>
+      action?.call(valueOf, args);
 }
 
 final class _InputScope extends GroupCommand with PersistentHookRunner {
@@ -404,15 +404,15 @@ final class _InputScope extends GroupCommand with PersistentHookRunner {
     this.observe,
     this.observeContext,
   });
-  final void Function(ParsedInputs)? observe;
+  final void Function(ValueOf)? observe;
   final void Function(MambaContext)? observeContext;
   @override
   String get name => 'scope';
   @override
   String get shortDescription => 'Scoped inputs.';
   @override
-  void prePersistentRun(ParsedInputs inputs, MambaContext context) {
-    observe?.call(inputs);
+  void prePersistentRun(ValueOf valueOf, MambaContext context) {
+    observe?.call(valueOf);
     observeContext?.call(context);
   }
 }
@@ -602,10 +602,10 @@ void main() {
       final root = AccessorListOption('config', [nested]);
       final command = _ValueProbe(
         accessors: [root],
-        action: (inputs, _) {
-          expect(inputs.valueOf(oldLeaf), 'new');
-          expect(inputs.valueOf(oldNested), {'token': 'new', 'port': 80});
-          expect(inputs.valueOf(oldRoot), inputs.valueOf(root));
+        action: (valueOf, _) {
+          expect(valueOf(oldLeaf), 'new');
+          expect(valueOf(oldNested), {'token': 'new', 'port': 80});
+          expect(valueOf(oldRoot), valueOf(root));
           return 'compatible';
         },
       );
@@ -656,13 +656,10 @@ void main() {
     );
     final group = _InputScope(
       [
-        _ValueProbe(
-          options: [local],
-          action: (inputs, _) => inputs.valueOf(local),
-        ),
+        _ValueProbe(options: [local], action: (valueOf, _) => valueOf(local)),
       ],
       propagatedOptions: [ancestor],
-      observe: (inputs) => expect(inputs.valueOf(ancestor), 'local'),
+      observe: (valueOf) => expect(valueOf(ancestor), 'local'),
     );
     final executor = Executor('app', 'Application.', '1.0.0', [group]).fake();
     expect(
@@ -684,8 +681,7 @@ void main() {
     final executor = _probeExecutor(
       _ValueProbe(
         mandatoryPositionals: [sources, destination],
-        action: (inputs, _) =>
-            '${inputs.valueOf(sources)}:${inputs.valueOf(destination)}',
+        action: (valueOf, _) => '${valueOf(sources)}:${valueOf(destination)}',
       ),
     );
     final result = await executor.execute(['run', 'a', 'out']);
@@ -693,46 +689,49 @@ void main() {
     expect((result as MambaSuccessResult).output, '[a]:out');
   });
 
-  test('bounded sources reserve a mandatory destination without backtracking', () async {
-    final sources = RepeatedStringPositional(
-      'sources',
-      times: 3,
-      regex: RegExp(r'.*\.txt'),
-    );
-    final destination = NormalPositional('destination');
-    final executor = _probeExecutor(
-      _ValueProbe(
-        mandatoryPositionals: [sources, destination],
-        action: (inputs, _) =>
-            '${inputs.valueOf(sources).join(',')} -> ${inputs.valueOf(destination)}',
-      ),
-    );
-    expect(
-      (await executor.execute([
-        'run',
-        'a.txt',
-        'out/',
-      ]) as MambaSuccessResult).output,
-      'a.txt -> out/',
-    );
-    expect(
-      (await executor.execute([
-        'run',
-        'a.txt',
-        'b.txt',
-        'c.txt',
-        'out/',
-      ]) as MambaSuccessResult).output,
-      'a.txt,b.txt,c.txt -> out/',
-    );
-    for (final argv in [
-      ['run', 'out/'],
-      ['run', 'bad', 'out/'],
-      ['run', 'a.txt', '--', 'out/'],
-    ]) {
-      expect(await executor.execute(argv), isA<MambaFailureResult>());
-    }
-  });
+  test(
+    'bounded sources reserve a mandatory destination without backtracking',
+    () async {
+      final sources = RepeatedStringPositional(
+        'sources',
+        times: 3,
+        regex: RegExp(r'.*\.txt'),
+      );
+      final destination = NormalPositional('destination');
+      final executor = _probeExecutor(
+        _ValueProbe(
+          mandatoryPositionals: [sources, destination],
+          action: (valueOf, _) =>
+              '${valueOf(sources).join(',')} -> ${valueOf(destination)}',
+        ),
+      );
+      expect(
+        (await executor.execute([
+          'run',
+          'a.txt',
+          'out/',
+        ]) as MambaSuccessResult).output,
+        'a.txt -> out/',
+      );
+      expect(
+        (await executor.execute([
+          'run',
+          'a.txt',
+          'b.txt',
+          'c.txt',
+          'out/',
+        ]) as MambaSuccessResult).output,
+        'a.txt,b.txt,c.txt -> out/',
+      );
+      for (final argv in [
+        ['run', 'out/'],
+        ['run', 'bad', 'out/'],
+        ['run', 'a.txt', '--', 'out/'],
+      ]) {
+        expect(await executor.execute(argv), isA<MambaFailureResult>());
+      }
+    },
+  );
 
   test('empty default repeats and nested accessor containers retain non-null values', () async {
     final picks = RepeatedChoicePositional.withDefault(
@@ -748,18 +747,14 @@ void main() {
       _ValueProbe(
         discretionaryPositionals: [picks],
         accessors: [root],
-        action: (inputs, _) {
-          expect(inputs.contains(picks), isTrue);
-          expect(inputs.valueOf(picks), isEmpty);
-          expect(inputs.valueOf(nested), isEmpty);
-          expect(inputs.valueOf(root), {'auth': <String, Object?>{}});
-          expect(inputs.valueOf(leaf), isNull);
+        action: (valueOf, _) {
+          expect(valueOf(picks), isEmpty);
+          expect(valueOf(nested), isEmpty);
+          expect(valueOf(root), {'auth': <String, Object?>{}});
+          expect(valueOf(leaf), isNull);
+          expect(() => valueOf(picks).add(_Pick.one), throwsUnsupportedError);
           expect(
-            () => inputs.valueOf(picks).add(_Pick.one),
-            throwsUnsupportedError,
-          );
-          expect(
-            () => inputs.valueOf(nested)['token'] = 'changed',
+            () => valueOf(nested)['token'] = 'changed',
             throwsUnsupportedError,
           );
           return 'stored';
@@ -778,10 +773,7 @@ void main() {
   test('supplied strings remain one value, including empty content', () async {
     final label = StringOption.required('label');
     final executor = _probeExecutor(
-      _ValueProbe(
-        options: [label],
-        action: (inputs, _) => inputs.valueOf(label),
-      ),
+      _ValueProbe(options: [label], action: (valueOf, _) => valueOf(label)),
     );
     for (final text in ['', 'two words', 'a\nb']) {
       final result = await executor.execute(['run', '--label', text]);
@@ -826,10 +818,7 @@ void main() {
         regex: RegExp(r'[\s\S]*'),
       );
       final executor = _probeExecutor(
-        _ValueProbe(
-          options: [label],
-          action: (inputs, _) => inputs.valueOf(label),
-        ),
+        _ValueProbe(options: [label], action: (valueOf, _) => valueOf(label)),
       );
       expect(
         await executor.execute(['run', '--label', '--help']),

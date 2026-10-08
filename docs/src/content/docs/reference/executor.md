@@ -136,7 +136,7 @@ Every executor includes:
 - `--version` / `-V`
 
 Mamba parses `--verbose`, but application behavior decides what it means. Read
-it with `MambaBuiltInFlags.verbose` through `ParsedInputs.valueOf`. To support
+it with `MambaBuiltInFlags.verbose` through `valueOf`. To support
 `--dry-run`, add `MambaBuiltInFlags.dryRun` to the executor's `flags` list and
 read it through the same API.
 
@@ -172,8 +172,8 @@ final class DeployCommand extends Command {
   String get shortDescription => 'Deploy the application.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final values = inputs.valueOf(configuration);
+  String run(ValueOf valueOf, List<String> args) {
+    final values = valueOf(configuration);
     return 'Deploying to ${values['host']}';
   }
 }

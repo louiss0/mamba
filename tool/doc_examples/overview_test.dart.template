@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 import 'overview.dart' hide main;
 import 'support.dart' show OutputFormat;
 
-void readOptions(ParsedInputs inputs) {
+void readOptions(ValueOf valueOf) {
   {{docs/src/content/docs/guides/overview.md#3}}
 }
 void main() {

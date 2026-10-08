@@ -1,7 +1,7 @@
 # Hook runners
 
 Use hook runners for lifecycle behavior that surrounds command execution.
-Hooks receive the selected invocation's `ParsedInputs`, and may complete
+Hooks receive the selected invocation's `ValueOf` function, and may complete
 synchronously or return a `Future`.
 
 ## Contents
@@ -39,19 +39,19 @@ final class DeployCommand extends Command with HookRunner {
 
   @override
   FutureOr<void> preRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
     ProcessedStandardInput? input,
   ) {}
 
   @override
   FutureOr<void> postRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaReadContext context,
   ) {}
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
+  String run(ValueOf valueOf, List<String> args) => 'Deployed.';
 }
 ```
 
@@ -78,13 +78,13 @@ final class WorkspaceCommand extends GroupCommand
 
   @override
   FutureOr<void> prePersistentRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaContext context,
   ) {}
 
   @override
   FutureOr<void> postPersistentRun(
-    ParsedInputs inputs,
+    ValueOf valueOf,
     MambaContext context,
   ) {}
 }
@@ -108,7 +108,7 @@ For a nested command with both mixins, Mamba executes:
 
 ## Read input and share state
 
-Use `inputs.valueOf` with the same retained declaration instances registered
+Use `valueOf` with the same retained declaration instances registered
 on the command. In `preRun`, inspect `ProcessedStandardInput.bytes`, `text`,
 `utf8Text`, or `json`; the value is `null` when no input is available.
 

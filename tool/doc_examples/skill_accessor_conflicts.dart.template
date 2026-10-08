@@ -8,5 +8,5 @@ final class ConnectCommand extends Command {
   @override
   String get shortDescription => 'Connect.';
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Connected.';
+  String run(ValueOf valueOf, List<String> args) => 'Connected.';
 }

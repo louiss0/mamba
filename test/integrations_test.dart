@@ -378,7 +378,7 @@ void main() {
       if (argument.startsWith("'")) candidates.add(_fishQuoted(argument, 0).$1);
     }
     expect(candidates, {'one\ntwo', '--one\ntwo', 'plain'});
-    expect(Parser(registry).parse(['--format=one\ttwo']).$2.valueOf(option), [
+    expect(Parser(registry).parse(['--format=one\ttwo']).$2(option), [
       FishLiteral.tab,
     ]);
     expect(script, isNot(contains('one\ttwo')));
@@ -823,7 +823,7 @@ void main() {
       expect(RegExp(r'- - "stage"').allMatches(completion), hasLength(1));
       expect(completion, contains('        - []'));
     });
-    test('maps paired, grouped, persistent, and accessor inputs', () {
+    test('maps paired, grouped, persistent, and accessor valueOf', () {
       final completion = CarapaceSpecConverter(_complexRecord()).convert();
 
       expect(completion, contains('persistentflags:'));

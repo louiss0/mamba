@@ -148,7 +148,7 @@ final class HelloCommand extends Command {
   String get shortDescription => 'Say hello.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) =>
+  String run(ValueOf valueOf, List<String> args) =>
       'Hello from Mamba!';
 }
 
@@ -210,10 +210,10 @@ final class AddCommand extends Command {
   String get shortDescription => 'Add a path.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) {
-    final pathValue = inputs.valueOf(path);
-    final allPaths = inputs.valueOf(all);
-    final messageValue = inputs.valueOf(message);
+  String run(ValueOf valueOf, List<String> args) {
+    final pathValue = valueOf(path);
+    final allPaths = valueOf(all);
+    final messageValue = valueOf(message);
     return 'Adding ${allPaths ? 'all paths' : pathValue} with: $messageValue';
   }
 }
@@ -281,7 +281,7 @@ Repeated positionals have a positive finite `times` maximum and reserve one
 token for each following required positional. Validators check the assigned
 layout rather than discovering boundaries. `--` starts a separate immutable raw
 trailing list, optionally validated by `Variadic`; it never supplies ordinary
-positionals. Trailing values are not stored in `ParsedInputs`.
+positionals. Trailing values are not read through `valueOf`.
 
 Choice declarations return typed enum members. Ordinary enums retain member-name
 syntax; enums implementing `MambaEnumValue` supply exact, case-sensitive `String`
@@ -317,14 +317,15 @@ final class DeployCommand extends Command {
   String get shortDescription => 'Deploy the application.';
 
   @override
-  String run(ParsedInputs inputs, List<String> args) => 'Deployed.';
+  String run(ValueOf valueOf, List<String> args) => 'Deployed.';
 }
 ```
 
 Conflicts use explicit occurrences, including false-valued negations, rather
 than defaults. Applicable global and propagated endpoints may be referenced;
 edges inherit by declaration identity through compatible overrides, not just
-matching names. `ParsedInputs.contains` continues to mean stored-value presence.
+matching names. Explicit-occurrence tracking stays internal; `valueOf` reads
+resolved values without exposing a presence query.
 The map belongs to its declaring command; `Executor` does not define conflicts. Registry creation rejects a conflict between a required input
 and another input because the other input could never be supplied. When both
 inputs are required, the error names both inputs and explains that they cannot
