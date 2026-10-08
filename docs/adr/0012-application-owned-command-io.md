@@ -1,3 +1,0 @@
-# Command I/O services and mocks are application-owned
-
-Applications define and inject command I/O services and test them with their own mocks; Mamba does not define those interfaces or make its fake executor discover, intercept, or automatically capture command effects. The fake drives the usual parser, hooks, and command behavior and returns results, while Mamba retains its own production process adapter and returned-text/error delivery. We chose this over framework-owned streaming/capture or framework-defined command I/O interfaces to preserve the distinction between fake executor orchestration and application-effect mocking, refining the initial I/O scope in ADR-0002.

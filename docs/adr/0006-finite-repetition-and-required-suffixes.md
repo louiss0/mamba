@@ -1,3 +1,0 @@
-# Finite repeated positionals reserve required suffixes
-
-Mamba keeps ordinary repeated positionals bounded by a finite `times` maximum, but allocation reserves enough tokens for following required positional operands before collecting the repeated input. We chose this over unbounded ordinary repetition, forbidding repeated-before-required layouts, or preserving validator-delimited collection: `copy a.txt out/` with sources capped at 3 and a required destination yields sources `[a.txt]` and destination `out/`, and content validation cannot reassign rejected tokens. This replaces the repeated-positional boundary rule described alongside ADR-0001 while preserving its registry-owned cardinality principle; unbounded lists still use another argument channel.

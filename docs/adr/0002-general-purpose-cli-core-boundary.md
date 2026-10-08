@@ -1,3 +1,0 @@
-# General-purpose CLI core boundary
-
-Mamba targets administrative command trees, filters, and process wrappers rather than only nested commands returning text. The core owns declarations, parsing, help/completion, dispatch, and its production process adapter; command I/O services and mocks, business services, configuration-file formats, and terminal UI remain application responsibilities. We chose this over a declaration-only or administrative-command-only target, then refined the boundary through ADR-0010 (the existing relationship vocabulary), ADR-0011 (exception-driven nonzero statuses), and ADR-0012 (application-owned command I/O); the broader target does not promise automatic capture or arbitrary declarative application logic.
