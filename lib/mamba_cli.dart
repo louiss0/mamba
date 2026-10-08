@@ -15,6 +15,7 @@ abstract interface class ProjectScaffolder {
     String shortDescription, {
     required bool installDependencies,
     required bool initializeGitRepository,
+    bool installCliMaker = false,
   });
 }
 
@@ -39,6 +40,11 @@ abstract interface class InstallPrompt {
 /// Asks whether a new project should be initialized as a Git repository.
 abstract interface class GitPrompt {
   FutureOr<bool> confirmsInitialization();
+}
+
+/// Asks whether to install the optional CLI-design skill in a new project.
+abstract interface class CliMakerPrompt {
+  FutureOr<bool> confirmsInstallation();
 }
 
 /// The Dart package name a scaffolded project is published under.
@@ -192,6 +198,14 @@ outside `lib/`.
   files.
 ''';
 
+const _cliMakerInstructions = '''
+## CLI design
+
+The optional `mamba-cli-maker` skill helps design command hierarchies, help,
+validation, and automation-friendly workflows. Use it for CLI design decisions;
+the `mamba` skill documents Mamba's declaration and execution APIs.
+''';
+
 final class DirectoryProjectScaffolder implements ProjectScaffolder {
   new(
     this._parentDirectory, {
@@ -210,10 +224,16 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     String shortDescription, {
     required bool installDependencies,
     required bool initializeGitRepository,
+    bool installCliMaker = false,
   }) {
     final target = _createTarget(packageName);
 
-    _createProjectFiles(target, packageName, shortDescription);
+    _createProjectFiles(
+      target,
+      packageName,
+      shortDescription,
+      installCliMaker: installCliMaker,
+    );
 
     if (installDependencies) {
       _installDependencies(target);
@@ -221,7 +241,7 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
 
     // Agent skills are installed for whoever reads the project next, so they
     // follow the project rather than its Dart dependency graph.
-    _installMambaSkills(target);
+    _installMambaSkills(target, installCliMaker: installCliMaker);
 
     if (initializeGitRepository) {
       _initializeGitRepository(target);
@@ -248,8 +268,9 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
   void _createProjectFiles(
     Directory target,
     String packageName,
-    String shortDescription,
-  ) {
+    String shortDescription, {
+    required bool installCliMaker,
+  }) {
     final projectRoot = target.path;
 
     Directory('$projectRoot${Platform.pathSeparator}bin').createSync();
@@ -277,8 +298,9 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
         .writeAsStringSync(_analysisOptions);
     File('$projectRoot${Platform.pathSeparator}.gitignore')
         .writeAsStringSync(_gitignore);
-    File('$projectRoot${Platform.pathSeparator}AGENTS.md')
-        .writeAsStringSync(_agentInstructions);
+    File('$projectRoot${Platform.pathSeparator}AGENTS.md').writeAsStringSync(
+      '$_agentInstructions${installCliMaker ? _cliMakerInstructions : ''}',
+    );
     File('$projectRoot${Platform.pathSeparator}CLAUDE.md')
         .writeAsStringSync(_claudeInstructionsPointer);
   }
@@ -287,22 +309,24 @@ final class DirectoryProjectScaffolder implements ProjectScaffolder {
     _processRunner.run('dart', ['pub', 'get'], projectDirectory.path);
   }
 
-  void _installMambaSkills(Directory projectDirectory) {
-    _installMambaSkillsFor(projectDirectory, 'generic');
-    _installMambaSkillsFor(projectDirectory, 'claude');
-  }
-
-  void _installMambaSkillsFor(Directory projectDirectory, String agent) {
-    _processRunner.run('dart', [
-      'run',
-      'skills@',
-      'get',
-      '--all',
-      '-p',
-      'mamba',
-      '--agent',
-      agent,
-    ], projectDirectory.path);
+  void _installMambaSkills(
+    Directory projectDirectory, {
+    required bool installCliMaker,
+  }) {
+    for (final agent in ['generic', 'claude']) {
+      _processRunner.run('dart', [
+        'run',
+        'skills@',
+        'get',
+        '-p',
+        'mamba',
+        '--skill',
+        'mamba-framework',
+        if (installCliMaker) ...['--skill', 'mamba-cli-maker'],
+        '--agent',
+        agent,
+      ], projectDirectory.path);
+    }
   }
 
   void _initializeGitRepository(Directory projectDirectory) {
@@ -382,21 +406,37 @@ final class ClixGitPrompt({clix.CliIO? io}) implements GitPrompt {
 }
 
 /// Creates a small Dart package using the current typed command API.
+/// A line-based confirmation that defaults to declining optional CLI guidance.
+final class ClixCliMakerPrompt({clix.CliIO? io}) implements CliMakerPrompt {
+  final clix.CliIO _io = io ?? _ClixConsoleIO();
+
+  @override
+  Future<bool> confirmsInstallation() => clix.Confirm(
+    prompt: 'Install the cli-maker design skill?',
+    defaultValue: false,
+  ).interact(_io);
+}
+
 final class CreateProjectCommand extends Command {
   new(
     Directory parentDirectory, {
     ProjectScaffolder? projectScaffolder,
     InstallPrompt? installPrompt,
     GitPrompt? gitPrompt,
+    CliMakerPrompt? cliMakerPrompt,
   }) : _parentDirectory = parentDirectory,
        _projectScaffolder =
            projectScaffolder ?? DirectoryProjectScaffolder(parentDirectory),
        _installPrompt = installPrompt ?? ClixInstallPrompt(),
        _gitPrompt = gitPrompt ?? ClixGitPrompt(),
+       _cliMakerPrompt = cliMakerPrompt ?? ClixCliMakerPrompt(),
        super(
          mandatoryPositionals: [packageName],
          options: [projectDescription],
-         flags: [install, initializeGit],
+         flags: [install, initializeGit, cliMaker, noCliMaker],
+         conflicts: {
+           'cli-maker': ['no-cli-maker'],
+         },
        );
 
   static final packageName = NormalPositional(
@@ -418,10 +458,20 @@ final class CreateProjectCommand extends Command {
     description: 'Initialize a Git repository without prompting.',
   );
 
+  static const cliMaker = BooleanFlag(
+    'cli-maker',
+    description: 'Install the optional CLI-design skill without prompting.',
+  );
+  static const noCliMaker = BooleanFlag(
+    'no-cli-maker',
+    description: 'Skip the optional CLI-design skill without prompting.',
+  );
+
   final Directory _parentDirectory;
   final ProjectScaffolder _projectScaffolder;
   final InstallPrompt _installPrompt;
   final GitPrompt _gitPrompt;
+  final CliMakerPrompt _cliMakerPrompt;
 
   @override
   String get name => 'create';
@@ -442,12 +492,16 @@ final class CreateProjectCommand extends Command {
         valueOf(install) || await _installPrompt.confirmsInstallation();
     final initializesGitRepository =
         valueOf(initializeGit) || await _gitPrompt.confirmsInitialization();
+    final installsCliMaker =
+        valueOf(cliMaker) ||
+        (!valueOf(noCliMaker) && await _cliMakerPrompt.confirmsInstallation());
 
     _projectScaffolder.scaffold(
       name,
       description,
       installDependencies: installsDependencies,
       initializeGitRepository: initializesGitRepository,
+      installCliMaker: installsCliMaker,
     );
 
     final projectPath =

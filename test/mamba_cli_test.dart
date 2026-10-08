@@ -16,6 +16,7 @@ void main() {
         await Executor('tool', 'Tool.', '1.0.0', [
           CreateProjectCommand(
             directory,
+            cliMakerPrompt: FakeCliMakerPrompt(),
             projectScaffolder: projectScaffolder,
             installPrompt: installPrompt,
             gitPrompt: gitPrompt,
@@ -93,12 +94,12 @@ void main() {
         ('dart', 'pub get', projectDirectory.path),
         (
           'dart',
-          'run skills@ get --all -p mamba --agent generic',
+          'run skills@ get -p mamba --skill mamba-framework --agent generic',
           projectDirectory.path,
         ),
         (
           'dart',
-          'run skills@ get --all -p mamba --agent claude',
+          'run skills@ get -p mamba --skill mamba-framework --agent claude',
           projectDirectory.path,
         ),
         ('git', 'init', projectDirectory.path),
@@ -203,6 +204,7 @@ void main() {
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         workspace,
+        cliMakerPrompt: FakeCliMakerPrompt(),
         projectScaffolder: projectScaffolder,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: true),
@@ -220,6 +222,7 @@ void main() {
         await Executor('tool', 'Tool.', '1.0.0', [
           CreateProjectCommand(
             directory,
+            cliMakerPrompt: FakeCliMakerPrompt(),
             projectScaffolder: FakeProjectScaffolder(),
             installPrompt: FakeInstallPrompt(shouldInstall: true),
             gitPrompt: FakeGitPrompt(shouldInitialize: true),
@@ -254,8 +257,8 @@ void main() {
           .map((invocation) => invocation.$2.join(' '))
           .toList(),
       [
-        'run skills@ get --all -p mamba --agent generic',
-        'run skills@ get --all -p mamba --agent claude',
+        'run skills@ get -p mamba --skill mamba-framework --agent generic',
+        'run skills@ get -p mamba --skill mamba-framework --agent claude',
       ],
     );
   });
@@ -289,12 +292,12 @@ void main() {
         ('dart', 'pub get', projectDirectory.path),
         (
           'dart',
-          'run skills@ get --all -p mamba --agent generic',
+          'run skills@ get -p mamba --skill mamba-framework --agent generic',
           projectDirectory.path,
         ),
         (
           'dart',
-          'run skills@ get --all -p mamba --agent claude',
+          'run skills@ get -p mamba --skill mamba-framework --agent claude',
           projectDirectory.path,
         ),
       ],
@@ -334,6 +337,7 @@ void main() {
         await Executor('tool', 'Tool.', '1.0.0', [
           CreateProjectCommand(
             directory,
+            cliMakerPrompt: FakeCliMakerPrompt(),
             projectScaffolder: projectScaffolder,
             installPrompt: installPrompt,
             gitPrompt: gitPrompt,
@@ -365,6 +369,7 @@ void main() {
         await Executor('tool', 'Tool.', '1.0.0', [
           CreateProjectCommand(
             directory,
+            cliMakerPrompt: FakeCliMakerPrompt(),
             projectScaffolder: projectScaffolder,
             installPrompt: FakeInstallPrompt(shouldInstall: false),
             gitPrompt: FakeGitPrompt(shouldInitialize: true),
@@ -389,6 +394,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
         await Executor('tool', 'Tool.', '1.0.0', [
           CreateProjectCommand(
             directory,
+            cliMakerPrompt: FakeCliMakerPrompt(),
             installPrompt: FakeInstallPrompt(shouldInstall: true),
             gitPrompt: FakeGitPrompt(shouldInitialize: false),
           ),
@@ -412,6 +418,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         directory,
+        cliMakerPrompt: FakeCliMakerPrompt(),
         projectScaffolder: projectScaffolder,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: false),
@@ -431,6 +438,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         directory,
+        cliMakerPrompt: FakeCliMakerPrompt(),
         projectScaffolder: projectScaffolder,
         installPrompt: FakeInstallPrompt(shouldInstall: true),
         gitPrompt: FakeGitPrompt(shouldInitialize: false),
@@ -449,6 +457,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
     final result = await Executor('tool', 'Tool.', '1.0.0', [
       CreateProjectCommand(
         tempDirectory(),
+        cliMakerPrompt: FakeCliMakerPrompt(),
         projectScaffolder: projectScaffolder,
       ),
     ]).fake().execute(['create', 'demo', 'Old positional description']);
@@ -466,6 +475,7 @@ Run `dart pub get` in $projectPath to install its dependencies.''');
       [
         CreateProjectCommand(
           tempDirectory(),
+          cliMakerPrompt: FakeCliMakerPrompt(),
           projectScaffolder: projectScaffolder,
         ),
       ],

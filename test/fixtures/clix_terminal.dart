@@ -14,10 +14,12 @@ final class RecordingScaffolder implements ProjectScaffolder {
     String shortDescription, {
     required bool installDependencies,
     required bool initializeGitRepository,
+    bool installCliMaker = false,
   }) => emitResult({
     'description': shortDescription,
     'install': installDependencies,
     'git': initializeGitRepository,
+    'cliMaker': installCliMaker,
   });
 }
 
@@ -37,7 +39,11 @@ Future<void> main(List<String> arguments) async {
               '--description',
               'Custom description',
             ],
-            if (arguments.first == 'create-flags') ...['--install', '--git'],
+            if (arguments.first == 'create-flags') ...[
+              '--install',
+              '--git',
+              '--no-cli-maker',
+            ],
           ]);
       if (result case MambaFailureResult(:final message)) {
         emitResult({'error': message});

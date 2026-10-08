@@ -167,6 +167,7 @@ final class FakeProjectScaffolder implements ProjectScaffolder {
     String shortDescription, {
     required bool installDependencies,
     required bool initializeGitRepository,
+    bool installCliMaker = false,
   }) {
     projects.add((
       packageName: packageName,
@@ -209,5 +210,18 @@ final class FakeGitPrompt implements GitPrompt {
   bool confirmsInitialization() {
     questions++;
     return shouldInitialize;
+  }
+}
+
+final class FakeCliMakerPrompt implements CliMakerPrompt {
+  new({this.shouldInstall = false});
+
+  final bool shouldInstall;
+  var questions = 0;
+
+  @override
+  bool confirmsInstallation() {
+    questions++;
+    return shouldInstall;
   }
 }
