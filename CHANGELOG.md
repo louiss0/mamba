@@ -1,3 +1,20 @@
+## 0.18.0
+
+### Breaking
+
+- Replace the public `ParsedInputs` object with the generic `ValueOf` function
+  passed directly to commands, groups, and hooks. Use `valueOf(handle)` instead
+  of `inputs.valueOf(handle)`; remove the public `contains` API without a
+  compatibility shim.
+- The second field of `ParsedArguments` is now a `ValueOf` function. Readers
+  remain bound to one invocation and preserve typed optional/required/defaulted
+  reads, declaration identity checks, and immutable parsed collections.
+
+### Updated
+
+- Migrate scaffolding, executable fixtures, examples, user documentation, and
+  agent references to direct value readers. See [MIGRATION.md](MIGRATION.md).
+
 ## Unreleased
 
 ### Breaking
